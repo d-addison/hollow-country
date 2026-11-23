@@ -1124,8 +1124,20 @@ nominal/min and proposals only.
 that is already in stock types (`Ammo_545x39`, `Ammo_308Win`, `Ammo_9x19`); the verifier checks each TF magazine
 bullet equals a vanilla loose-ammo bullet that the weapon lists in `chamberableFrom`. PKM, the machine guns,
 anti-materiel and `.338` rifles, TF-only ammunition, launchers, the 9x39 and specops guns, SCAR/SR25/MK47 and the
-near-vanilla AK and M4A1 families, the grenades, other optics and NVGs, armour and camo stay cut; the allowlist
-`excluded` list records each with its reason.
+near-vanilla AK and M4A1 families, the grenades, other optics and NVGs, and every EMR and Syrian camouflage variant
+stay cut; the allowlist `excluded` list records each with its reason.
+
+Owner decision 2026-11-23 reverses the old "armour stays cut" line for a bounded set of wearable gear (kind `gear`,
+no class names here; the allowlist lists them). Admitted: three field jacket and trouser variants (Military, Tier3-4,
+nominal 3/1), two helmets and one vest (rare, Military only, nominal 2/1), four rucksacks and a fanny pack (Military,
+nominal 3/1; their cargo is not boosted again), and two gas masks (Military and Industrial, nominal 4/2). The
+validator refuses any armour slot (headgear, vest) that is not rare, Military-only and at most nominal 2, and refuses
+camouflage and night-vision names. Our compat addon is inheritance-only and cannot cap the nested armour values, so
+the low nominal is the cap; the measured armour is reported to the lead rather than changed. The rows use the CE
+category of their vanilla peers (`clothes`, `containers`) and the gear joins the verified-subset pins and a `tf-gear`
+family budget. One TF vest family has only camouflage variants in the installed copy, so it stays out. The gas masks
+attach the vanilla filter through TF scripts; a one-client equip check is required before publish. Runtime acceptance
+pending.
 
 ### M14 adapter (`weaponDMRAdapter`)
 

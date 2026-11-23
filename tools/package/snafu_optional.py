@@ -43,9 +43,7 @@ WORKSHOP_ID = '2443122116'
 MANAGED = 'hollow-country-snafu'
 ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo', 'CfgVehicles')
 TOP = {'schema', 'name', 'workshop_id', 'status', 'rights', 'entries', 'excluded'}
-TOP_OPTIONAL = {'optics', 'hc61', 'test_abundance_multiplier'}
-# Optics are a later owner decision: the extension point accepts no optic entry yet.
-OPTICS_PLACEHOLDER = {'status': 'deferred-pending-owner-decision', 'entries': []}
+TOP_OPTIONAL = {'hc61', 'test_abundance_multiplier'}
 RIGHTS_REQUIRED = {'license', 'terms_file', 'terms_sha256', 'urls', 'redistribution'}
 RIGHTS_OPTIONAL = {'notes'}
 ENTRY_REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'usage', 'value', 'justification'}
@@ -86,8 +84,6 @@ def validate_allowlist(allowlist):
     if not isinstance(allowlist, dict) or not TOP <= set(allowlist) <= TOP | TOP_OPTIONAL \
             or type(allowlist['schema']) is not int or allowlist['schema'] != 1:
         raise ValueError('unsupported allowlist schema/fields')
-    if 'optics' in allowlist and allowlist['optics'] != OPTICS_PLACEHOLDER:
-        raise ValueError('optics are deferred to a later owner decision; the extension point must stay empty')
     if not isinstance(allowlist['name'], str) or not re.fullmatch(r'[a-z0-9-]{1,64}', allowlist['name']):
         raise ValueError('invalid allowlist name')
     if allowlist['workshop_id'] != WORKSHOP_ID:
@@ -606,7 +602,13 @@ def _evaluate(entry, merged, duplicates, models, vendor, state):
     elif pbo_config.normalize_path(model) not in models:
         reasons.append('model-missing-from-pbos')
     if kind == 'attachment':
-        if entry['slot'] not in (pbo_config.resolve_field(classes, name, 'inventorySlot') or []):
+        item_slots = pbo_config.resolve_field(classes, name, 'inventorySlot')
+        if entry['slot'] == name and classes[name].get('inventorySlot') is None:
+            # Owner-admitted optics declare a scalar custom slot named after the class, a form the config
+            # reader does not capture (a vanilla parent array may resolve instead). The weapon-side slot
+            # list below is still checked per weapon.
+            notes.append('attachment-slot-scalar-unparsed')
+        elif entry['slot'] not in (item_slots or []):
             reasons.append('attachment-slot-mismatch')
         for weapon in entry['fits']:
             if entry['slot'] not in (pbo_config.resolve_field(merged['CfgWeapons'], weapon, 'attachments') or []):

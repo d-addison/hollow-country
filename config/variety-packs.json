@@ -254,7 +254,7 @@
    "name": "Windstride's Clothing Pack",
    "folder": "@WindstridesClothingPack",
    "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
-   "scope": "Civilian clothing and bags; novelty, fetish, branded, licensed-character, pin and tactical items excluded.",
+   "scope": "Civilian clothing and bags plus the owner-admitted Defender vests and leg holster (2026-11-23); novelty, fetish, branded, licensed-character and pin items excluded.",
    "rules": [
     {
      "id": "ws_novelty",
@@ -293,10 +293,42 @@
      "reason": "licensed_cartoon_character"
     },
     {
-     "id": "ws_tactical",
-     "disposition": "excluded",
-     "name": "Defender_Vest_.*|Tactical_Leg_Holster_.*",
-     "reason": "modern_tactical_gear_not_economy_tuned"
+     "id": "ws_tactical_vest",
+     "disposition": "spawn",
+     "name": "Defender_Vest_.*",
+     "peers": [
+      "HighCapacityVest_Black",
+      "PoliceVest"
+     ],
+     "category": "clothes",
+     "usage": [
+      "Military",
+      "Police"
+     ],
+     "value": [
+      "Tier3",
+      "Tier4"
+     ],
+     "decision": "owner_2026_11_23_admit_modern_tactical_gear"
+    },
+    {
+     "id": "ws_tactical_holster",
+     "disposition": "spawn",
+     "name": "Tactical_Leg_Holster_.*",
+     "peers": [
+      "MilitaryBelt"
+     ],
+     "category": "clothes",
+     "usage": [
+      "Military",
+      "Police"
+     ],
+     "value": [
+      "Tier3",
+      "Tier4"
+     ],
+     "extra_divisor": 2,
+     "decision": "owner_2026_11_23_admit_modern_tactical_gear"
     },
     {
      "id": "ws_gasmask",
@@ -407,9 +439,16 @@
     },
     {
      "id": "ams_medchest",
-     "disposition": "excluded",
+     "disposition": "spawn",
      "name": "AMS_MedChest_.*",
-     "reason": "needs_pack_dispatch_category_absent_from_hollow_country_map_groups"
+     "peers": [
+      "CanvasBag_Medical"
+     ],
+     "category": "containers",
+     "usage": [
+      "Medic"
+     ],
+     "decision": "owner_2026_11_23_medchest_vanilla_containers_category"
     },
     {
      "id": "ams_applied",

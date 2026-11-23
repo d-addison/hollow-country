@@ -15451,6 +15451,90 @@
      ]
     },
     {
+     "name": "Defender_Vest_Black",
+     "nominal": 3,
+     "min": 2,
+     "lifetime": 7200,
+     "restock": 0,
+     "quantmin": -1,
+     "quantmax": -1,
+     "cost": 100,
+     "flags": {
+      "count_in_cargo": "0",
+      "count_in_hoarder": "0",
+      "count_in_map": "1",
+      "count_in_player": "0",
+      "crafted": "0",
+      "deloot": "0"
+     },
+     "category": "clothes",
+     "tags": [],
+     "usage": [
+      "Military",
+      "Police"
+     ],
+     "value": [
+      "Tier3",
+      "Tier4"
+     ]
+    },
+    {
+     "name": "Defender_Vest_Classic",
+     "nominal": 3,
+     "min": 2,
+     "lifetime": 7200,
+     "restock": 0,
+     "quantmin": -1,
+     "quantmax": -1,
+     "cost": 100,
+     "flags": {
+      "count_in_cargo": "0",
+      "count_in_hoarder": "0",
+      "count_in_map": "1",
+      "count_in_player": "0",
+      "crafted": "0",
+      "deloot": "0"
+     },
+     "category": "clothes",
+     "tags": [],
+     "usage": [
+      "Military",
+      "Police"
+     ],
+     "value": [
+      "Tier3",
+      "Tier4"
+     ]
+    },
+    {
+     "name": "Defender_Vest_Green",
+     "nominal": 2,
+     "min": 1,
+     "lifetime": 7200,
+     "restock": 0,
+     "quantmin": -1,
+     "quantmax": -1,
+     "cost": 100,
+     "flags": {
+      "count_in_cargo": "0",
+      "count_in_hoarder": "0",
+      "count_in_map": "1",
+      "count_in_player": "0",
+      "crafted": "0",
+      "deloot": "0"
+     },
+     "category": "clothes",
+     "tags": [],
+     "usage": [
+      "Military",
+      "Police"
+     ],
+     "value": [
+      "Tier3",
+      "Tier4"
+     ]
+    },
+    {
      "name": "Fingerless_Gloves",
      "nominal": 6,
      "min": 4,
@@ -17712,6 +17796,34 @@
      ]
     },
     {
+     "name": "Tactical_Leg_Holster_Black",
+     "nominal": 4,
+     "min": 1,
+     "lifetime": 28800,
+     "restock": 1800,
+     "quantmin": -1,
+     "quantmax": -1,
+     "cost": 100,
+     "flags": {
+      "count_in_cargo": "0",
+      "count_in_hoarder": "0",
+      "count_in_map": "1",
+      "count_in_player": "0",
+      "crafted": "0",
+      "deloot": "0"
+     },
+     "category": "clothes",
+     "tags": [],
+     "usage": [
+      "Military",
+      "Police"
+     ],
+     "value": [
+      "Tier3",
+      "Tier4"
+     ]
+    },
+    {
      "name": "Trapper_Hat_Black",
      "nominal": 6,
      "min": 4,
@@ -18311,6 +18423,64 @@
       "Medic"
      ],
      "value": []
+    },
+    {
+     "name": "AMS_MedChest_Green",
+     "nominal": 2,
+     "min": 1,
+     "lifetime": 14400,
+     "restock": 0,
+     "quantmin": -1,
+     "quantmax": -1,
+     "cost": 100,
+     "flags": {
+      "count_in_cargo": "0",
+      "count_in_hoarder": "0",
+      "count_in_map": "1",
+      "count_in_player": "0",
+      "crafted": "0",
+      "deloot": "0"
+     },
+     "category": "containers",
+     "tags": [
+      "shelves"
+     ],
+     "usage": [
+      "Medic"
+     ],
+     "value": [
+      "Tier2",
+      "Tier3"
+     ]
+    },
+    {
+     "name": "AMS_MedChest_Red",
+     "nominal": 2,
+     "min": 1,
+     "lifetime": 14400,
+     "restock": 0,
+     "quantmin": -1,
+     "quantmax": -1,
+     "cost": 100,
+     "flags": {
+      "count_in_cargo": "0",
+      "count_in_hoarder": "0",
+      "count_in_map": "1",
+      "count_in_player": "0",
+      "crafted": "0",
+      "deloot": "0"
+     },
+     "category": "containers",
+     "tags": [
+      "shelves"
+     ],
+     "usage": [
+      "Medic"
+     ],
+     "value": [
+      "Tier2",
+      "Tier3"
+     ]
     },
     {
      "name": "AMS_NBCPouch",

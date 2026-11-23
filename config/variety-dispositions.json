@@ -5507,25 +5507,20 @@
    "id": "1797720064",
    "name": "Windstride's Clothing Pack",
    "folder": "@WindstridesClothingPack",
-   "scope": "Civilian clothing and bags; novelty, fetish, branded, licensed-character, pin and tactical items excluded.",
+   "scope": "Civilian clothing and bags plus the owner-admitted Defender vests and leg holster (2026-11-23); novelty, fetish, branded, licensed-character and pin items excluded.",
    "licence": "No licence file ships in the installed folder; Workshop subscription terms apply. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied.",
    "total": 123,
    "counts": {
-    "spawn": 103,
+    "spawn": 107,
     "crafted": 0,
-    "excluded": 20
+    "excluded": 16
    },
-   "spawn_nominal": 564,
+   "spawn_nominal": 576,
    "reasons": [
     {
      "disposition": "excluded",
      "reason": "novelty_or_fantasy_item",
      "count": 5
-    },
-    {
-     "disposition": "excluded",
-     "reason": "modern_tactical_gear_not_economy_tuned",
-     "count": 4
     },
     {
      "disposition": "excluded",
@@ -6223,6 +6218,27 @@
      "budget": null,
      "classes": 23,
      "assigned": 46
+    },
+    {
+     "rule": "ws_tactical_holster",
+     "peers": [
+      "MilitaryBelt"
+     ],
+     "peer_nominal": 15,
+     "budget": 4,
+     "classes": 1,
+     "assigned": 4
+    },
+    {
+     "rule": "ws_tactical_vest",
+     "peers": [
+      "HighCapacityVest_Black",
+      "PoliceVest"
+     ],
+     "peer_nominal": 16,
+     "budget": 8,
+     "classes": 3,
+     "assigned": 8
     }
    ],
    "classes": [
@@ -6367,23 +6383,29 @@
     {
      "name": "Defender_Vest_Black",
      "root": "CfgVehicles",
-     "disposition": "excluded",
-     "rule": "ws_tactical",
-     "reason": "modern_tactical_gear_not_economy_tuned"
+     "disposition": "spawn",
+     "rule": "ws_tactical_vest",
+     "decision": "owner_2026_11_23_admit_modern_tactical_gear",
+     "peer": "PoliceVest",
+     "nominal": 3
     },
     {
      "name": "Defender_Vest_Classic",
      "root": "CfgVehicles",
-     "disposition": "excluded",
-     "rule": "ws_tactical",
-     "reason": "modern_tactical_gear_not_economy_tuned"
+     "disposition": "spawn",
+     "rule": "ws_tactical_vest",
+     "decision": "owner_2026_11_23_admit_modern_tactical_gear",
+     "peer": "PoliceVest",
+     "nominal": 3
     },
     {
      "name": "Defender_Vest_Green",
      "root": "CfgVehicles",
-     "disposition": "excluded",
-     "rule": "ws_tactical",
-     "reason": "modern_tactical_gear_not_economy_tuned"
+     "disposition": "spawn",
+     "rule": "ws_tactical_vest",
+     "decision": "owner_2026_11_23_admit_modern_tactical_gear",
+     "peer": "PoliceVest",
+     "nominal": 2
     },
     {
      "name": "Eyepatch",
@@ -7202,9 +7224,11 @@
     {
      "name": "Tactical_Leg_Holster_Black",
      "root": "CfgVehicles",
-     "disposition": "excluded",
-     "rule": "ws_tactical",
-     "reason": "modern_tactical_gear_not_economy_tuned"
+     "disposition": "spawn",
+     "rule": "ws_tactical_holster",
+     "decision": "owner_2026_11_23_admit_modern_tactical_gear",
+     "peer": "MilitaryBelt",
+     "nominal": 4
     },
     {
      "name": "Trapper_Hat_Black",
@@ -7307,21 +7331,16 @@
    "licence": "No licence file; credits file names one third-party model source. Used only as an unmodified Workshop dependency: never repacked or patched, nothing copied. Its own economy files are not used (our CE rows are generated).",
    "total": 31,
    "counts": {
-    "spawn": 22,
+    "spawn": 24,
     "crafted": 1,
-    "excluded": 8
+    "excluded": 6
    },
-   "spawn_nominal": 158,
+   "spawn_nominal": 162,
    "reasons": [
     {
      "disposition": "excluded",
      "reason": "owner_subset_dropped_in_issue_232",
      "count": 6
-    },
-    {
-     "disposition": "excluded",
-     "reason": "needs_pack_dispatch_category_absent_from_hollow_country_map_groups",
-     "count": 2
     },
     {
      "disposition": "crafted",
@@ -7403,6 +7422,16 @@
      "budget": 5,
      "classes": 2,
      "assigned": 5
+    },
+    {
+     "rule": "ams_medchest",
+     "peers": [
+      "CanvasBag_Medical"
+     ],
+     "peer_nominal": 8,
+     "budget": 4,
+     "classes": 2,
+     "assigned": 4
     },
     {
      "rule": "ams_water_straw",
@@ -7537,16 +7566,20 @@
     {
      "name": "AMS_MedChest_Green",
      "root": "CfgVehicles",
-     "disposition": "excluded",
+     "disposition": "spawn",
      "rule": "ams_medchest",
-     "reason": "needs_pack_dispatch_category_absent_from_hollow_country_map_groups"
+     "decision": "owner_2026_11_23_medchest_vanilla_containers_category",
+     "peer": "CanvasBag_Medical",
+     "nominal": 2
     },
     {
      "name": "AMS_MedChest_Red",
      "root": "CfgVehicles",
-     "disposition": "excluded",
+     "disposition": "spawn",
      "rule": "ams_medchest",
-     "reason": "needs_pack_dispatch_category_absent_from_hollow_country_map_groups"
+     "decision": "owner_2026_11_23_medchest_vanilla_containers_category",
+     "peer": "CanvasBag_Medical",
+     "nominal": 2
     },
     {
      "name": "AMS_Methadone",

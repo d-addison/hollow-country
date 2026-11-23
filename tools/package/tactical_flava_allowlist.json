@@ -6774,6 +6774,360 @@
    "magazines": [
     "TF_Mag_SWORD_Mk18_10Rnd"
    ]
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Body",
+   "category": "clothes",
+   "class": "TF_6sh122Jacket_Winter"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Legs",
+   "category": "clothes",
+   "class": "TF_6sh122Pants_Winter"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Body",
+   "category": "clothes",
+   "class": "TF_6sh122Jacket_Spring"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Legs",
+   "category": "clothes",
+   "class": "TF_6sh122Pants_Spring"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Body",
+   "category": "clothes",
+   "class": "TF_6sh122Jacket_Autumn"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Legs",
+   "category": "clothes",
+   "class": "TF_6sh122Pants_Autumn"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Headgear",
+   "category": "clothes",
+   "class": "TF_LSHZHelmet_OD"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Headgear",
+   "category": "clothes",
+   "class": "TF_6B47Helmet"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Vest",
+   "category": "clothes",
+   "class": "TF_6B23Vest_GFlora"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Back",
+   "category": "containers",
+   "class": "TF_AVSBag_Coyote"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Back",
+   "category": "containers",
+   "class": "TF_AVSBag_Khaki"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Back",
+   "category": "containers",
+   "class": "TF_MAPBag_Coyote"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Back",
+   "category": "containers",
+   "class": "TF_MAPBag_Khaki"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Hips",
+   "category": "clothes",
+   "class": "TF_FannyPack_Coyote"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military",
+    "Industrial"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Mask",
+   "category": "clothes",
+   "class": "TF_PMK4GasMask"
+  },
+  {
+   "kind": "gear",
+   "role": "gear",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military",
+    "Industrial"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Owner 2026-11-23: admitted gear from the owner-chosen higher-end list; native boot and one-client equip check pending.",
+   "slot": "Mask",
+   "category": "clothes",
+   "class": "TF_PMK4GasMask_OD"
   }
  ],
  "excluded": [
@@ -8037,6 +8391,102 @@
     "unit_rounds": 1,
     "parts": [],
     "class": "TF_SWORD_Mk18_Mjolnir"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6sh122Jacket_Winter"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6sh122Pants_Winter"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6sh122Jacket_Spring"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6sh122Pants_Spring"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6sh122Jacket_Autumn"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6sh122Pants_Autumn"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_LSHZHelmet_OD"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6B47Helmet"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_6B23Vest_GFlora"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_AVSBag_Coyote"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_AVSBag_Khaki"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_MAPBag_Coyote"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_MAPBag_Khaki"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_FannyPack_Coyote"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_PMK4GasMask"
+   },
+   {
+    "family": "tf-gear",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "TF_PMK4GasMask_OD"
    }
   ],
   "family_budgets": [
@@ -8045,6 +8495,12 @@
     "kind": "magazine",
     "nominal": 22528,
     "min": 11284
+   },
+   {
+    "family": "tf-gear",
+    "kind": "magazine",
+    "nominal": 47,
+    "min": 18
    },
    {
     "family": "tf-ammo",
@@ -8262,7 +8718,23 @@
    "TF_SVCh308": "ce5e150ff95b2f795124e4c97d70fcb3df75b6f3c098f073ad0420a5363ec34a",
    "TF_SVCh": "927bd00e24e7f6133f7bc63796b889d8cf6f072e2bb75bec03d337b518c75976",
    "TF_M24": "d54fe529ad3a974d40c2d0fb569fd53295a8a14ca99cef66bfcb7cb89496b013",
-   "TF_SWORD_Mk18_Mjolnir": "7acd96357fa41d15076fc7d285886770329170062e8641bfc3210ff92ac2c35b"
+   "TF_SWORD_Mk18_Mjolnir": "7acd96357fa41d15076fc7d285886770329170062e8641bfc3210ff92ac2c35b",
+   "TF_6sh122Jacket_Winter": "c54d186f2154f53a243d6119010cd5a71fa3449a63893cdb28ff74c0a62012a7",
+   "TF_6sh122Pants_Winter": "8a5380855267846ef712499b8b3cd8aec3bf388e22c8a6e1f8180c27e3f1c6f7",
+   "TF_6sh122Jacket_Spring": "76a6be49fd6f02f66faef2e8f989cde7bddec8a59d4ce6d7e6ce3a711c4dd96e",
+   "TF_6sh122Pants_Spring": "97c3a359a8e2e91875c18952434e4bc910c1f348da7bc04e87aca01c0f0bf820",
+   "TF_6sh122Jacket_Autumn": "aa8ddee05f09de35c10b914f2134cb16f623eb5090b911ad210962ab61043894",
+   "TF_6sh122Pants_Autumn": "1dc9232f82d4f32a92e2288fa3b1a137a9ffdb4cc8ca4793d86634f49d07ff9c",
+   "TF_LSHZHelmet_OD": "70c1cd63e5247ae2859dfbb7fee1baf48da006083c30e1d231894606bc61821d",
+   "TF_6B47Helmet": "fb23297019ac1d5c11eef84abca1243ad2c14d83c6fb5db902dc2d83661029fb",
+   "TF_6B23Vest_GFlora": "192daac5b012d889e62ad8673baa42ec3e9c50973baba977e8ae8b75e908ad55",
+   "TF_AVSBag_Coyote": "c129166a25afaa87d60f7ff2da990bbcc0b0f69bf0dcd19366b53c0463b0d12d",
+   "TF_AVSBag_Khaki": "012b9c8fa922b9a7149096c582bd2fa81a138472b323aeb0e0d981ce39e783c4",
+   "TF_MAPBag_Coyote": "eb5fb6b27700ec7d25622804dc8fc453910216dc6f0a3aa295a52de22fe5e7f9",
+   "TF_MAPBag_Khaki": "4692ec5e172f4fbd0fb64454870cd0874838cc5d4cf170030929307835cbf783",
+   "TF_FannyPack_Coyote": "c2404951b163c4c685072a8d74e428b2b76266823e33c6c30f66a3fb7f056a83",
+   "TF_PMK4GasMask": "4220abbc0f9ec7d7be28bd93854069b50574c5a299fe3bb4191e871cc1cb6ffe",
+   "TF_PMK4GasMask_OD": "276bd7de57c1f35988410b511535c69067c6459d82d72faf077389e1c712be6f"
   },
   "aggregate_weapon_budget": {
    "nominal": 2040,
