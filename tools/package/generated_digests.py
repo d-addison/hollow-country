@@ -240,7 +240,7 @@ def installed_snapshot(contract, values):
     if name in {'new_buildings', 'loot_point_preserve'}:
         # The geometry reader is in-repo (tools/audit/odol56.py); its bytes are the reader identity.
         identities['geometry_reader'] = file_sha(ROOT / 'tools/audit/odol56.py')
-        directory = values['addons']
+        directory = values.get('geometry_addons', values['addons'])
         files = sorted(directory.glob('*.pbo'))
         if not files:
             raise MissingInput('geometry Addons (installed vanilla *.pbo) unavailable')
@@ -361,10 +361,12 @@ def regenerate(contract, values, scratch):
             raise MissingInput('ImageToPAA Windows interop unavailable') from exc
         return {p: (scratch / p).read_bytes() for p in contract.outputs}
     if name == 'new_buildings':
-        data = module.generate(values['addons'], source, scratch / 'geometry', values.get('native_census', []))
+        addons = values.get('geometry_addons', values['addons'])
+        data = module.generate(addons, source, scratch / 'geometry', values.get('native_census', []))
         return {contract.outputs[0]: data}
     if name == 'loot_point_preserve':
         from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
+        addons = values.get('geometry_addons', values['addons'])
         history = []
         for label, revision in LOOT_REVISIONS:
             result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
@@ -378,7 +380,7 @@ def regenerate(contract, values, scratch):
         # Reproduction and validation); the hash-bound loss audit is read from the committed output.
         parts = []
         for index in range(4):
-            doc = module.preserve(*history, values['addons'], source / 'mapgroupproto.xml', (index, 4),
+            doc = module.preserve(*history, addons, source / 'mapgroupproto.xml', (index, 4),
                                   refresh_models=True)
             parts.append(scratch / ('preserve-' + str(index) + '.json'))
             parts[-1].write_bytes(module.encode(doc))
@@ -511,6 +513,8 @@ def main(argv=None):
     parser.add_argument('--waive-unavailable', action='store_true',
                         help='local test builds and the CI profile: report skipped artefacts but exit 0')
     parser.add_argument('--addons', type=Path, default=ADDONS)
+    parser.add_argument('--geometry-addons', type=Path, default=os.environ.get('HC_GENERATED_GEOMETRY_ADDONS') or None,
+                        help='full DayZ client Addons for visual geometry (default: --addons)')
     parser.add_argument('--workshop', type=Path, default=Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100'))
     parser.add_argument('--source', type=Path, default=os.environ.get('HC_GENERATED_SOURCE'))
     parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
@@ -531,7 +535,7 @@ def main(argv=None):
         except ValueError:
             parser.error('HC_GENERATED_NATIVE_CENSUS must be a JSON array of local paths')
     values = {k: v for k, v in vars(args).items() if v is not None and k != 'reader'}
-    for key in ('source', 'image_to_paa', 'snafu_report', 'tactical_flava_report'):
+    for key in ('source', 'geometry_addons', 'image_to_paa', 'snafu_report', 'tactical_flava_report'):
         if values.get(key) is not None:
             values[key] = Path(values[key]).expanduser().resolve()
     values['source'] = values.get('source') or args.addons.parent / 'mpmissions/dayzOffline.chernarusplus'
