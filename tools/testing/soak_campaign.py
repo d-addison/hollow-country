@@ -72,6 +72,10 @@ STOP_WAIT_SECONDS = 240
 UNREADABLE_POLLS = 20
 EDITED_ALLOWED = {('mission', GAMEPLAY)}
 CONNECT_ENABLED = 'Player connect enabled'
+# A script error before connect enabled means the soak can only fail; the shipped gate never compiles the test
+# addon, so its compile errors first show here (2026-11-23 soak 178: Unknown operator '%' in the test addon,
+# then an access violation). Stop at the first one and name it.
+SCRIPT_ERROR = 'SCRIPT    (E)'
 POLL_SECONDS = 30
 SERVER_READY_MINUTES = 20
 JOIN_MINUTES = 10
@@ -706,6 +710,14 @@ def describe_failure(error):
     return text
 
 
+def script_error_text(line):
+    """The message after the SCRIPT (E) marker: a PBO-relative file and line, never a host path."""
+    text = line.split(SCRIPT_ERROR, 1)[1].lstrip(': ').strip()
+    if re.search(r'[A-Za-z]:\\|/home/|/mnt/', text):
+        return '(message withheld: it names a host path)'
+    return text[:240]
+
+
 def tail_lines(path, offset):
     """New complete lines of a growing log since offset; returns (lines, new_offset)."""
     with Path(path).open('rb') as stream:
@@ -778,7 +790,18 @@ class Campaign:
             server_profile = stager.server / PROFILE_COPY
             server_follow = {'path': None, 'offset': 0}
 
+            script_follow = {'path': None, 'offset': 0}
+
             def server_ready():
+                script = self.newest(server_profile, 'script_*.log')
+                if script is not None:
+                    if script_follow['path'] != script:
+                        script_follow.update(path=script, offset=0)
+                    lines, script_follow['offset'] = tail_lines(script, script_follow['offset'])
+                    for line in lines:
+                        if SCRIPT_ERROR in line:
+                            raise Refused('the server logged a script error before connect enabled: '
+                                          + script_error_text(line))
                 path = self.newest(server_profile, 'DayZServer_x64_*.RPT')
                 if path is None:
                     return False

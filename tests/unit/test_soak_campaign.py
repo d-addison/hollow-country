@@ -345,8 +345,8 @@ class StagerTests(Tmp):
 class FakeHost:
     """Simulates the two processes; the fake clock is advanced by the campaign's own sleeps."""
 
-    def __init__(self, stager, clock, server_ready=True, stop_ok=True, driver='done'):
-        self.stager, self.clock = stager, clock
+    def __init__(self, stager, clock, server_ready=True, stop_ok=True, driver='done', script_error=None):
+        self.stager, self.clock, self.script_error = stager, clock, script_error
         self.running = {camp.SERVER_IMAGE: False, camp.CLIENT_IMAGE: False}
         self.calls, self.client_args, self.stopped_at = [], None, {}
         self.server_ready, self.stop_ok, self.driver = server_ready, stop_ok, driver
@@ -360,6 +360,10 @@ class FakeHost:
         folder = Path(self.stager.server) / camp.PROFILE_COPY
         text = 'boot\n' + (camp.CONNECT_ENABLED + '\n' if self.server_ready else '')
         (folder / 'DayZServer_x64_1.RPT').write_text(text)
+        script = '12:20:02.000 SCRIPT       : compiling\n'
+        if self.script_error:
+            script += '12:20:02.441 SCRIPT    (E): ' + self.script_error + '\n'
+        (folder / 'script_1.log').write_text(script)
 
     def launch_client(self, client_root_win, arguments):
         self.calls.append('launch_client')
@@ -451,6 +455,21 @@ class CampaignTests(Tmp):
         self.assertIn('stop ' + camp.SERVER_IMAGE, host.calls)
         self.assertNotIn('launch_client', host.calls)
         self.assertEqual(self.snapshot(), self.original)
+
+    def test_a_script_error_at_boot_refuses_names_it_and_restores(self):
+        error = '@"HollowCountryTest/scripts/4_World/hctestreachfixtures.c,173": Unknown operator \'%\''
+        run, host = self.campaign(script_error=error)
+        with self.assertRaisesRegex(camp.Refused, 'script error before connect enabled: .*hctestreachfixtures.c,173'):
+            run.run()
+        self.assertEqual(self.clock.t, 0)
+        self.assertNotIn('launch_client', host.calls)
+        self.assertIn('stop ' + camp.SERVER_IMAGE, host.calls)
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_a_script_error_naming_a_host_path_is_withheld(self):
+        self.assertIn('withheld', camp.script_error_text('x SCRIPT    (E): cannot open E:\\Server\\profiles\\a.json'))
+        self.assertIn('withheld', camp.script_error_text('x SCRIPT    (E): cannot open /home/someone/a.json'))
+        self.assertEqual(camp.script_error_text('x SCRIPT    (E): @"A/b.c,3": Bad type'), '@"A/b.c,3": Bad type')
 
     def test_an_inert_driver_is_a_failure_and_still_restores(self):
         run, host = self.campaign(driver='inert')
