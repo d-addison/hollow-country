@@ -170,7 +170,8 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     {
         for (int attempt = 0; attempt < 12; attempt++)
         {
-            float radius = minRadius + (maxRadius - minRadius) * (attempt % 4) / 3;
+            int ring = attempt % 4;
+            float radius = minRadius + (maxRadius - minRadius) * ring / 3.0;
             float angle = attempt * 2.399963;
             vector candidate = origin + Vector(Math.Cos(angle) * radius, 0, Math.Sin(angle) * radius);
             candidate[1] = GetGame().SurfaceY(candidate[0], candidate[2]);

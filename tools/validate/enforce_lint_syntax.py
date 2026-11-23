@@ -38,7 +38,7 @@ RULES = {
                '(missing override, parameter/return/static mismatch, or no parent method)',
     'HC-E043': 'method named like an engine name the compiler resolves itself (native compile: statement-form Wait( failed); rename it',
     'HC-E044': 'Enforce keyword used as a name (native compile: Expected name, not a keyword); tokenised, includes foreach slots and enum members',
-    'HC-E045': 'bitwise operator inside a float expression (native compile: Unknown operator); compute the bits in int-only statements first',
+    'HC-E045': 'bitwise or % operator inside a float expression (native compile: Unknown operator); compute it in int-only statements first',
     'HC-E046': 'field read on a typed receiver that has no such field (including parents and modded bodies)',
     'HC-E047': 'initializer must be a literal: non-static const, vector const or a static primitive that reads another class or constant (read as 0 natively, build 169)',
 }
@@ -134,7 +134,8 @@ def rule_keyword_identifiers(project, source):
 
 # ---------------------------------------------------------------- HC-E045
 
-_BITWISE = re.compile(r'<<|>>|(?<![&=!<>])&(?![&=])|(?<![|])\|(?![|=])|\^')
+# % joins them: the 2026-11-23 test boot refused `(maxRadius - minRadius) * (attempt % 4) / 3` (Unknown operator '%').
+_BITWISE = re.compile(r'<<|>>|(?<![&=!<>])&(?![&=])|(?<![|])\|(?![|=])|\^|%(?!=)')
 _FLOAT_LITERAL = re.compile(r'(?<![\w.])(?:\d+\.\d*|\.\d+)(?:[eE][+-]?\d+)?f?(?![\w.])|\bMath\.(?:PI|PI2|PI_HALF|DEG2RAD|RAD2DEG)\b')
 _CONTROL_PREFIX = re.compile(r'^(?:else\b\s*|(?:if|while|for|foreach|switch)\s*\()')
 _ASSIGNMENT = re.compile(r'^(?:(?:const|static|ref|autoptr)\s+)*(?:([A-Za-z_]\w*(?:\s*<.*?>)?)\s+)?'

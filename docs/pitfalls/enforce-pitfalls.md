@@ -48,7 +48,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E042 | method redefines or overrides a parent declaration with a different signature (missing override, parameter/return/static mismatch, or no parent method) |
 | HC-E043 | method named like an engine name the compiler resolves itself (native compile: statement-form Wait( failed); rename it |
 | HC-E044 | Enforce keyword used as a name (native compile: Expected name, not a keyword); tokenised, includes foreach slots and enum members |
-| HC-E045 | bitwise operator inside a float expression (native compile: Unknown operator); compute the bits in int-only statements first |
+| HC-E045 | bitwise or % operator inside a float expression (native compile: Unknown operator); compute it in int-only statements first |
 | HC-E046 | field read on a typed receiver that has no such field (including parents and modded bodies) |
 | HC-E047 | initializer must be a literal: non-static const, vector const or a static primitive that reads another class or constant (read as 0 natively, build 169) |
 | HC-E048 | foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first |
