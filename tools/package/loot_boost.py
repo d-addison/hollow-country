@@ -700,6 +700,8 @@ _HOARDER_ROSTER = {'weapon': 'guns', 'magazine': 'mags', 'ammo': 'ammo'}
 # Every stock weapons-category row must be selected by hoarder_kind or listed in NOT_HOARDED: `loot_boost
 # check --source <stock mission>` (regenerate_all) fails on a row in neither, so a new vanilla variant cannot
 # silently miss the flag.
+# Glock_Tan and Crossbow_Summer have vanilla nominal 0: event/non-CE sources only.
+# Deliberately non-roster (#363), they keep only the hoarder flag, with no added CE budget.
 FIREARM_VARIANTS = frozenset((
     'ak101_black', 'ak101_green', 'ak74_black', 'ak74_green', 'akm_gold', 'aks74u_black', 'aks74u_green',
     'crossbow_summer', 'cz527_black', 'glock_tan', 'derringer_black', 'derringer_pink', 'flaregun', 'm4a1_black', 'm4a1_green', 'mosin9130_desert',

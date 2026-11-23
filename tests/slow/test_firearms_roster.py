@@ -715,20 +715,6 @@ class CommittedRoster(unittest.TestCase):
     def test_schema_and_vocabulary(self):
         firearms.validate_roster(self.data)
 
-    def test_missing_variants_share_the_base_family_and_budget_fields(self):
-        for profile in ('test-abundance', 'scarcity'):
-            roster = firearms.selected_roster(dict(self.data, economy_profile=profile))
-            firearms.validate_roster(dict(self.data, economy_profile=profile))
-            rows = {e['class']: e for e in roster['entries']}
-            for variant, base in (('Glock_Tan', 'Glock19'), ('Crossbow_Summer', 'Crossbow_Autumn')):
-                self.assertEqual(rows[variant], dict(rows[base], **{'class': variant,
-                                                                 'justification': rows[variant]['justification']}))
-                family = rows[variant]['family']
-                budget = next(b for b in roster['family_budgets'] if b['family'] == family)
-                for field in ('nominal', 'min'):
-                    self.assertEqual(budget[field], sum(e['set'][field] for e in rows.values()
-                                                       if e['family'] == family))
-
     def test_counts_are_the_owner_chosen_family_scarcity_scale(self):
         # Historical assertions exercise the retained scarcity selector.
         historical = firearms.selected_roster(dict(self.data, economy_profile='scarcity'))
@@ -739,8 +725,8 @@ class CommittedRoster(unittest.TestCase):
             cap = next(b['nominal'] for b in historical['family_budgets'] if b['family'] == e['family'])
             self.assertLessEqual(e['set']['nominal'], cap, e['class'])
         total = sum(e['set']['nominal'] for e in weapons)
-        self.assertEqual(total, 456)
-        self.assertEqual(sum(e['set']['nominal'] for e in weapons if not e.get('datamined')), 408)
+        self.assertEqual(total, 442)
+        self.assertEqual(sum(e['set']['nominal'] for e in weapons if not e.get('datamined')), 394)
         # Unsplit curated classes keep established shares; skins now divide one family ceiling.
         by_class = {e['class']: e['set'] for e in weapons}
         split_families = {'Mosin9130', 'SKS', 'Winchester70', 'CZ527', 'B95', 'Magnum',
@@ -867,7 +853,7 @@ class CommittedRoster(unittest.TestCase):
     def test_summary_derives_the_native_class_count(self):
         custom = copy.deepcopy(self.data)
         next(e for e in custom['entries'] if e['class'] == 'AK101')['disposition'] = 'curated-family-split'
-        self.assertIn('All 32 are retained explicitly.', firearms.render_family_summary(custom))
+        self.assertIn('All 31 are retained explicitly.', firearms.render_family_summary(custom))
 
     def test_roster_is_small_and_carries_no_vanilla_dump(self):
         self.assertLess(ROSTER_PATH.stat().st_size, 300_000)
