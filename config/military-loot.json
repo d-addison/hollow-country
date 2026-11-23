@@ -55,8 +55,8 @@
     ]
   },
   "route_weapons": {
-    "per_family": 5,
+    "per_family": 3,
     "floor": 3,
-    "shared": true
+    "shared": false
   }
 }

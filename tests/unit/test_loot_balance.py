@@ -1,4 +1,5 @@
 """Loot family detection and the balance rules on plain data; these do not prove engine spawning."""
+import math
 import unittest
 
 from tools.package import loot_balance as bal
@@ -89,6 +90,43 @@ class Balance(unittest.TestCase):
         changed, _ = bal.balance(data)
         self.assertNotIn('Tool', changed)
 
+    def _pass2_data(self):
+        data = rows(Shirt_Blue=('clothes', 60), Shirt_Red=('clothes', 60), Shirt_Green=('clothes', 60))
+        for i in range(30):
+            data['Item%d' % i] = {'category': 'clothes', 'nominal': 20, 'stock': 20, 'locked': False, 'name': 'Item%d' % i}
+        for key in ('Shirt_Blue', 'Shirt_Red', 'Shirt_Green'):
+            data[key]['stock'] = 20
+        return data
+
+    def test_pass_two_returns_the_unspent_nominal_to_every_family_proportionally(self):
+        data = self._pass2_data()
+        changed, report = bal.balance(data)
+        row = report['clothes']
+        self.assertGreater(row['reinvested2'], 0)
+        self.assertEqual(row['reinvested'] + row['reinvested2'] + row['unspent'], row['r3_freed'] + row['r1_freed'])
+        self.assertGreater(sum(changed.get('Item%d' % i, 20) for i in range(30)), 600)
+        # nothing exceeds the R1 cap of the final category total
+        total = sum(changed.get(n, v['nominal']) for n, v in data.items())
+        for i in range(30):
+            self.assertLessEqual(changed.get('Item%d' % i, 20), max(0.03, 2.0 * 20 / 1100) * total + 1)
+
+    def test_pass_two_never_lifts_a_colour_family_past_its_budget(self):
+        data = self._pass2_data()
+        names = ('Shirt_Blue', 'Shirt_Red', 'Shirt_Green')
+        after = bal.balance(data)[0]
+        before = bal.balance(data, pass2_share=0.0)[0]
+        self.assertEqual([after.get(n) for n in names], [before.get(n) for n in names])
+
+    def test_pass_two_share_scales_the_return_and_skip_withholds_a_category(self):
+        data = self._pass2_data()
+        _, full = bal.balance(data)
+        _, half = bal.balance(data, pass2_share=0.5)
+        _, none = bal.balance(data, pass2_skip={'clothes'})
+        self.assertLess(half['clothes']['reinvested2'], full['clothes']['reinvested2'])
+        self.assertGreater(half['clothes']['reinvested2'], 0)
+        self.assertEqual(none['clothes']['reinvested2'], 0)
+        self.assertEqual(none['clothes']['unspent'], none['clothes']['r3_freed'] - none['clothes']['reinvested'])
+
     def test_the_result_is_deterministic(self):
         data = rows(A_Blue=('clothes', 30), A_Red=('clothes', 30), B=('clothes', 2), C=('clothes', 12))
         self.assertEqual(bal.balance(data), bal.balance(data))
@@ -125,7 +163,7 @@ class SupportFloors(unittest.TestCase):
 
 
 class BalanceKnob(unittest.TestCase):
-    GOOD = {'FamilyFactor': 1.5, 'FamilyFloor': 3, 'ShareCap': 0.03, 'StockFactor': 2.0, 'AmmoPerGun': 1.5, 'MagazinePerGun': 1.0}
+    GOOD = {'FamilyFactor': 1.5, 'FamilyFloor': 3, 'ShareCap': 0.03, 'StockFactor': 2.0, 'Pass2Share': 0.5, 'AmmoPerGun': 1.5, 'MagazinePerGun': 1.0}
 
     def test_shipped_value_is_valid(self):
         self.assertEqual(boost._balance(self.GOOD), boost._balance(dict(self.GOOD)))

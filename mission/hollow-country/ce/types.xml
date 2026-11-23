@@ -3617,10 +3617,10 @@
     <value name="Tier4" />
   </type>
   <type name="MP18">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>-1</quantmin>
     <quantmax>-1</quantmax>
     <cost>100</cost>
@@ -3635,10 +3635,10 @@
     <value name="Tier4" />
   </type>
   <type name="Luger">
-    <nominal>5</nominal>
+    <nominal>18</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>12</min>
     <quantmin>-1</quantmin>
     <quantmax>-1</quantmax>
     <cost>100</cost>
@@ -3788,10 +3788,10 @@
     <value name="Tier4" />
   </type>
   <type name="Magnum">
-    <nominal>4</nominal>
+    <nominal>75</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>2</min>
+    <min>60</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3808,10 +3808,10 @@
     <value name="Tier4" />
   </type>
   <type name="AKM">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3823,10 +3823,10 @@
     <value name="Tier3" />
   </type>
   <type name="Colt1911">
-    <nominal>4</nominal>
+    <nominal>78</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>2</min>
+    <min>66</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3843,10 +3843,10 @@
     <value name="Tier4" />
   </type>
   <type name="MakarovIJ70">
-    <nominal>5</nominal>
+    <nominal>210</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>180</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3863,10 +3863,10 @@
     <value name="Tier4" />
   </type>
   <type name="P1">
-    <nominal>5</nominal>
+    <nominal>150</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>138</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3883,10 +3883,10 @@
     <value name="Tier4" />
   </type>
   <type name="Glock19">
-    <nominal>5</nominal>
+    <nominal>120</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>105</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3903,10 +3903,10 @@
     <value name="Tier4" />
   </type>
   <type name="FNX45">
-    <nominal>5</nominal>
+    <nominal>42</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>36</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3923,10 +3923,10 @@
     <value name="Tier4" />
   </type>
   <type name="CZ75">
-    <nominal>5</nominal>
+    <nominal>60</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>54</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3943,10 +3943,10 @@
     <value name="Tier4" />
   </type>
   <type name="Ruger1022">
-    <nominal>5</nominal>
+    <nominal>105</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>75</min>
     <quantmin>100</quantmin>
     <quantmax>100</quantmax>
     <cost>100</cost>
@@ -3963,10 +3963,10 @@
     <value name="Tier4" />
   </type>
   <type name="M16A2">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3978,10 +3978,10 @@
     <value name="Tier3" />
   </type>
   <type name="AK74">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -3993,10 +3993,10 @@
     <value name="Tier3" />
   </type>
   <type name="MP5K">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>28800</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4011,10 +4011,10 @@
     <value name="Tier4" />
   </type>
   <type name="Saiga">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4026,10 +4026,10 @@
     <value name="Tier2" />
   </type>
   <type name="SVD">
-    <nominal>4</nominal>
+    <nominal>2</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>2</min>
+    <min>1</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4815,10 +4815,10 @@
     <value name="Tier4" />
   </type>
   <type name="AK101">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4830,10 +4830,10 @@
     <value name="Tier4" />
   </type>
   <type name="AKS74U">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4845,10 +4845,10 @@
     <value name="Tier4" />
   </type>
   <type name="ASVAL">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4860,7 +4860,7 @@
     <value name="Tier4" />
   </type>
   <type name="Aug">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
     <min>3</min>
@@ -4877,10 +4877,10 @@
     <value name="Tier4" />
   </type>
   <type name="AugShort">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4912,10 +4912,10 @@
     <value name="Tier4" />
   </type>
   <type name="CZ61">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>7200</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -4996,10 +4996,10 @@
     <value name="Tier4" />
   </type>
   <type name="Deagle">
-    <nominal>4</nominal>
+    <nominal>75</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>2</min>
+    <min>69</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5016,10 +5016,10 @@
     <value name="Tier4" />
   </type>
   <type name="Deagle_Gold">
-    <nominal>1</nominal>
+    <nominal>15</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>1</min>
+    <min>6</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5036,10 +5036,10 @@
     <value name="Tier4" />
   </type>
   <type name="Derringer_Grey">
-    <nominal>5</nominal>
+    <nominal>60</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>45</min>
     <quantmin>50</quantmin>
     <quantmax>100</quantmax>
     <cost>100</cost>
@@ -5056,10 +5056,10 @@
     <value name="Tier4" />
   </type>
   <type name="Engraved1911">
-    <nominal>1</nominal>
+    <nominal>15</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>1</min>
+    <min>6</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5076,7 +5076,7 @@
     <value name="Tier4" />
   </type>
   <type name="FAL">
-    <nominal>5</nominal>
+    <nominal>6</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
     <min>3</min>
@@ -5093,10 +5093,10 @@
     <value name="Tier4" />
   </type>
   <type name="FAMAS">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5128,10 +5128,10 @@
     <value name="Tier4" />
   </type>
   <type name="M14">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5143,7 +5143,7 @@
     <value name="Tier3" />
   </type>
   <type name="M4A1">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
     <min>3</min>
@@ -5176,10 +5176,10 @@
     <value name="Tier4" />
   </type>
   <type name="MKII">
-    <nominal>5</nominal>
+    <nominal>90</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>81</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5196,10 +5196,10 @@
     <value name="Tier4" />
   </type>
   <type name="Magnum_Gold">
-    <nominal>1</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>1</min>
+    <min>3</min>
     <quantmin>20</quantmin>
     <quantmax>60</quantmax>
     <cost>100</cost>
@@ -5216,10 +5216,10 @@
     <value name="Tier4" />
   </type>
   <type name="PM73Rak">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>-1</quantmin>
     <quantmax>-1</quantmax>
     <cost>100</cost>
@@ -5234,10 +5234,10 @@
     <value name="Tier4" />
   </type>
   <type name="PP19">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>28800</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5252,10 +5252,10 @@
     <value name="Tier4" />
   </type>
   <type name="R12">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>10</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5288,10 +5288,10 @@
     <value name="Tier4" />
   </type>
   <type name="SV98">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>40</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5303,10 +5303,10 @@
     <value name="Tier3" />
   </type>
   <type name="Scout">
-    <nominal>4</nominal>
+    <nominal>2</nominal>
     <lifetime>14400</lifetime>
     <restock>300</restock>
-    <min>2</min>
+    <min>1</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5333,10 +5333,10 @@
     <value name="Tier3" />
   </type>
   <type name="UMP45">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>28800</lifetime>
     <restock>300</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5351,10 +5351,10 @@
     <value name="Tier4" />
   </type>
   <type name="VSS">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>
@@ -5366,10 +5366,10 @@
     <value name="Tier3" />
   </type>
   <type name="Vikhr">
-    <nominal>5</nominal>
+    <nominal>3</nominal>
     <lifetime>14400</lifetime>
     <restock>1800</restock>
-    <min>3</min>
+    <min>2</min>
     <quantmin>30</quantmin>
     <quantmax>80</quantmax>
     <cost>100</cost>

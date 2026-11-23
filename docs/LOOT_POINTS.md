@@ -1306,7 +1306,7 @@ demand 30,479 to 36,545, deficit 863 to 823, weapons unassigned 50 to 29 (Town s
 after its 1.25 factor, so Farm-only shelf rows stay at 1x. These are offline estimates and prove nothing about
 CE spawning; the evidence after a boot is the census totals and the install line `capacity map {...}`.
 
-## Balance rules R1, R2b, R3, R4 (wh-econ round 5, 2026-11-22)
+## Balance rules R1, R2b, R3, R4 (wh-econ rounds 5-6, 2026-11-23)
 
 Owner answers 2026-11-22 apply to every category the boost scales (weapons, clothes, containers, tools,
 attachments) and to ammo and magazines. They live in `tools/package/loot_balance.py` (plain data in, plain data
@@ -1322,9 +1322,14 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
   variants share it in proportion and each keeps at least 1.
 - R1 `ShareCap` 0.03 and `StockFactor` 2.0: a class or a colour family holds at most `max(3% of its category, 2 x its
   stock share)`.
-- Nominal that R3 and R1 free is re-invested in the same category, in the families below that category's median,
-  bounded by the median, the R3 limit and the share cap. What no family can take is reported as `unspent`; it is
-  not spread over other rows.
+- Nominal that R3 and R1 free is re-invested in the same category. Pass 1 goes to the families below that
+  category's median, bounded by the median, the R3 limit and the share cap. Pass 2 (round 6) gives `Pass2Share` (0.5)
+  of what is still unspent to every family of the category, proportionally to its current total, within the R1 cap
+  (measured on the final category total) and the R3 budget (`ceil(1.5 x largest variant)` as the variants stand),
+  so a colour family that is already at its budget takes nothing and clothes do not come back as one skin. The
+  `weapons` category is skipped (`loot_balance.PASS2_SKIP`: it is the hard-to-place category; its freed nominal stays
+  `unspent`). Returning all of it (`Pass2Share` 1.0) lands at 95.9k, above the owner's 80-90k band, so only half is
+  handed back (85.2k). The describe lines report per category `R3 freed, R1 freed, reinvested, pass 2, unspent`.
 - R2b `FamilyFloor` 3: every family totals at least 3 (the first unlocked variant is raised).
 - R4 `AmmoPerGun` 1.5 and `MagazinePerGun` 1.0: per ammo pool (guns sharing a cartridge, boxes and tracers folded
   into the plain cartridge) and per magazine pool, supply is at least the ratio times the pool's gun nominal; deficits
@@ -1332,14 +1337,18 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
   describe line, never invented. The weapon packs (installed later as their own layers) balance their private ammo
   and magazine rows in `military_loot._balance_packs` with the same function.
 - Route guns (Military or Police usage, `military_loot.route_shares`) are locked: they carry the equal share of
-  `config/military-loot.json` `route_weapons` (`per_family` 5, `floor` 3, `shared` true) and are not moved by R1 or R3.
-  With `shared` false the guns that also spawn in Town/Village keep their authored pools: offline, the weapons-only
-  0.8 headroom deficit is then 5494 (1023 with `shared` true, 2802 before this round), the full-graph deficit 7709
-  (3400 with `shared` true, 6317 before) and the total 77.4k (73.7k). Both are offline bounds, not DayZ behaviour.
+  `config/military-loot.json` `route_weapons` (`per_family` 3, `floor` 3, `shared` false) and are not moved by R1 or
+  R3. With `shared` false (round 6, owner) the guns that also spawn in Town/Village/Hunting keep their authored pools
+  (Makarov 420, Glock 240 and so on) and only the route-only guns take the share. Offline numbers (before = stock
+  pipeline, 92,775; r5 = `shared` true, `per_family` 5; r6 = shipped): total 92.8k / 73.7k / 85.2k; weapons-only
+  0.8 headroom deficit 2,802 / 1,023 / 4,079 (3,141 without R4); full-graph deficit 6,317 / 3,400 / 9,298; usage-visible
+  nominal 60.8k / 52.9k / 57.3k. The 2,802 and 6,317 bounds were not met: with the shared pools untouched about 90% of
+  the Military/Police weapon demand is shared rows, the route-only slice is about 2.3k, and R4 adds about 750 ammo and
+  magazine nominal to shared pistol pools. Both are offline bounds, not DayZ behaviour.
 - Capacity: `MAX_CAPACITY` is 8.0 (was 4.0) and `CapacityMultiplier` now reads Hunting 4.0, Medic 5.0, Military 8.0,
   Police 8.0, Prison 6.0 with the Military group cap 400, so the lootmax of stock containers (mixed ones only;
   weapons-only and explosives-only containers stay at stock) rises toward their points.
-- `LOOT_BOOST_VERSION` is 2 and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
+- `LOOT_BOOST_VERSION` is 3 and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
   overlay from stock bytes.
 - 13 classes that had a positive nominal but no usage never reached a building (BalaclavaMask_Chain, BalaclavaMask_Pig,
   Shemag_Brown, Shemag_Green, Shemag_Red, Shemag_White, Flashlight, Lockpick, SodaCan_Cola, SodaCan_Fronta,

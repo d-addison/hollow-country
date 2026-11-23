@@ -61,7 +61,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 2  # 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
+LOOT_BOOST_VERSION = 3  # 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
@@ -306,7 +306,7 @@ def group_cap_of(group_cap, usages):
 
 
 BALANCE_FIELDS = {'FamilyFactor': (1.0, 4.0), 'FamilyFloor': (1, 10), 'ShareCap': (0.01, 1.0), 'StockFactor': (1.0, 10.0),
-                  'AmmoPerGun': (0.0, 10.0), 'MagazinePerGun': (0.0, 10.0)}
+                  'Pass2Share': (0.0, 1.0), 'AmmoPerGun': (0.0, 10.0), 'MagazinePerGun': (0.0, 10.0)}
 
 
 def _balance(value):
@@ -314,7 +314,8 @@ def _balance(value):
 
     FamilyFactor k of R3 (a colour family totals at most k x its largest variant), FamilyFloor of R2b, ShareCap and
     StockFactor of R1 (a class or family holds at most max(ShareCap of its category, StockFactor x stock share)),
-    AmmoPerGun and MagazinePerGun of R4."""
+    Pass2Share of the nominal still unspent after the first re-investment that the second pass gives back to every
+    family of its category (proportionally to the family total, within R1 and R3), AmmoPerGun and MagazinePerGun of R4."""
     if value is None:
         return None
     if not isinstance(value, dict) or set(value) != set(BALANCE_FIELDS):
@@ -1521,7 +1522,7 @@ def _balance_layers(layers, roster, balance, locked):
     rows = _balance_rows(layers, roster, locked)
     changed, report = loot_balance.balance(
         {low: row for low, row in rows.items()}, k=balance['FamilyFactor'], floor=balance['FamilyFloor'],
-        share=balance['ShareCap'], stock_factor=balance['StockFactor'])
+        share=balance['ShareCap'], stock_factor=balance['StockFactor'], pass2_share=balance['Pass2Share'])
     nominal = {low: changed.get(low, row['nominal']) for low, row in rows.items()}
     catalog = military_loot.catalog()
     packs = military_loot.pack_estimates()
@@ -2008,9 +2009,9 @@ def describe(result):
                      % (knob['FamilyFactor'], knob['FamilyFloor'], knob['ShareCap'], knob['StockFactor'],
                         knob['AmmoPerGun'], knob['MagazinePerGun'], balance['rows_changed'], balance['locked']))
         for category, row in balance['categories'].items():
-            lines.append('    %s %d->%d (R3 freed %d, R1 freed %d, reinvested %d, unspent %d, R2b +%d)'
+            lines.append('    %s %d->%d (R3 freed %d, R1 freed %d, reinvested %d, pass 2 %d, unspent %d, R2b +%d)'
                          % (category, row['before'], row['after'], row['r3_freed'], row['r1_freed'], row['reinvested'],
-                            row['unspent'], row['floored']))
+                            row['reinvested2'], row['unspent'], row['floored']))
         r4 = balance['r4']
         lines.append('    R4 ammo pools %d (+%d), magazine pools %d (+%d), pools without a row %d'
                      % (r4['ammo_pools'], r4['raised_ammo'], r4['magazine_pools'], r4['raised_magazines'],

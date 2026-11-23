@@ -9,7 +9,8 @@ data, never on files, so loot_boost, military_loot and the tests share one engin
   R3   a colour family totals at most ceil(1.5 x its largest variant) (every variant keeps at least 1);
   R4   at least 1.5 ammo and 1.0 magazines per gun, per calibre / magazine pool.
 
-Nominal that R1 and R3 free is re-invested in the same category, in the families below the category median.
+Nominal that R1 and R3 free is re-invested in the same category: pass 1 in the families below the category median,
+pass 2 (a share of what is still unspent, not for PASS2_SKIP categories) in every family, proportionally to its total.
 Offline numbers only: nothing here establishes spawning behaviour in DayZ.
 """
 from functools import lru_cache
@@ -21,6 +22,7 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 TABLE = 'tools/package/loot_families.json'
 R3_CATEGORIES = frozenset({'weapons', 'clothes', 'containers', 'tools', 'attachments'})
+PASS2_SKIP = frozenset({'weapons'})  # hard to place: the nominal R1/R3 free there is not handed back in pass 2
 _WORD = re.compile(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+')
 
 
@@ -109,7 +111,8 @@ def _total(rows, members, current):
     return sum(current[m] for m in members)
 
 
-def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0):
+def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0, pass2_share=1.0,
+            pass2_skip=PASS2_SKIP):
     """Apply R3, R1, the re-investment and R2b to {class: {category, nominal, stock, locked}}.
 
     Locked rows keep their nominal (they count in totals only). Rows with nominal 0 are never touched. Returns
@@ -126,7 +129,7 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
         free = [n for n in names if not rows[n].get('locked')]
         groups = _families(rows, names)
         stock_total = sum(rows[n].get('stock', 0) for n in names) or 1
-        info = {'r3_freed': 0, 'r1_freed': 0, 'reinvested': 0, 'floored': 0, 'unspent': 0}
+        info = {'r3_freed': 0, 'r1_freed': 0, 'reinvested': 0, 'reinvested2': 0, 'floored': 0, 'unspent': 0}
         freed = 0
 
         def shrink(members, target, group):
@@ -209,7 +212,52 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                         current[m] = shares[m]
                     spend += add
         info['reinvested'] = spend
-        info['unspent'] = freed - spend
+        # pass 2: pass2_share of the still-unspent nominal goes to every family of the category, proportionally to its
+        # current total, within the R1 cap and the R3 colour budget (measured on the largest variant as it stands now);
+        # categories in pass2_skip (hard to place) get nothing back and report the nominal as unspent
+        leftover = freed - spend
+        if category in pass2_skip:
+            leftover = 0
+        leftover = min(leftover, int(math.floor(leftover * pass2_share + 1e-9)))
+        spend2 = 0
+        if leftover > 0:
+            total = sum(current[n] for n in names) + leftover
+            limits = {}
+            for key, members in groups.items():
+                unlocked = [m for m in members if not rows[m].get('locked')]
+                if not unlocked:
+                    continue
+                limit = int(math.floor(max(share, stock_factor * sum(rows[m].get('stock', 0) for m in members)
+                                           / stock_total) * total))
+                if len(members) > 1 and category in r3:
+                    limit = min(limit, int(math.ceil(round(k * max(current[m] for m in members), 6))))
+                have = sum(current[m] for m in members)
+                if limit > have:
+                    limits[key] = limit - have
+            gain = dict.fromkeys(limits, 0)
+            while leftover - sum(gain.values()) > 0:
+                open_keys = [key for key in sorted(limits) if gain[key] < limits[key]]
+                if not open_keys:
+                    break
+                pool = leftover - sum(gain.values())
+                weight = {key: sum(current[m] for m in groups[key]) + gain[key] for key in open_keys}
+                weight_sum = sum(weight.values())
+                grant = {key: min(limits[key] - gain[key], int(pool * weight[key] / weight_sum)) for key in open_keys}
+                if not any(grant.values()):
+                    # fewer units than families: hand them out one at a time, largest family first
+                    for key in sorted(open_keys, key=lambda x: (-weight[x], x))[:pool]:
+                        grant[key] = 1
+                for key, add in grant.items():
+                    gain[key] += add
+            for key, add in gain.items():
+                if add:
+                    unlocked = [m for m in groups[key] if not rows[m].get('locked')]
+                    shares = split([(m, current[m]) for m in unlocked], sum(current[m] for m in unlocked) + add)
+                    for m in unlocked:
+                        current[m] = shares[m]
+                    spend2 += add
+        info['reinvested2'] = spend2
+        info['unspent'] = freed - spend - spend2
         # R2b: every family totals at least `floor`
         for key, members in groups.items():
             unlocked = [m for m in members if not rows[m].get('locked')]
