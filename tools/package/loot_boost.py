@@ -24,7 +24,7 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
   ``lootHCFloor``/``lootHCSurface`` containers to buildings whose stock group still matches its pin.
 * Military capacity layer (``MilitaryCapacityMultiplier`` in loot-points/settings.json, default 1.5, range
   1.0-3.0; 1.0 disables it): after the above, groups whose usages include Military, Police or Prison get
-  group and container ``lootmax`` raised by that factor (firearm/explosive containers and floor-policy zeroed
+  group and container ``lootmax`` raised by that factor (any container listing a firearm/explosive category and floor-policy zeroed
   containers keep theirs; every limit stays within its points), and Military/Police/Prison-only non-firearm
   types rows get ``nominal``/``min`` scaled by it on top of ``Multiplier`` so the extra slots can fill.
 
@@ -756,8 +756,8 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
 def scale_military_proto(data, factor, usages, placed=None):
     """Raise group and container lootmax of Military-adjacent groups by factor (returns (bytes, report)).
 
-    Only CE-owned limits move; points, tags, categories and every other byte stay. Firearm and explosive containers
-    keep their limits (the weapon exceptions are owner-reviewed), a container the floor policy zeroed stays zero, a
+    Only CE-owned limits move; points, tags, categories and every other byte stay. Any container listing a firearm or
+    explosive category keeps its limit (the weapon exceptions are owner-reviewed), a container the floor policy zeroed stays zero, a
     container never exceeds its points and a group never exceeds the sum of its containers, so the physical-capacity
     checks of _verify_proto_caps still hold. Re-applying to its own output is not meant to be idempotent: the install
     runs it once per receipted install. placed maps group name -> placed buildings for the weighted report.
@@ -789,7 +789,7 @@ def scale_military_proto(data, factor, usages, placed=None):
             current = int(container.get('lootmax', str(defaults.get('container', 0))))
             cats = {c.get('name').lower() for c in container.findall('category')}
             new = current
-            if current > 0 and cats - KEPT_CATEGORIES and not cm.group(0).endswith('/>'):
+            if current > 0 and cats and not cats & KEPT_CATEGORIES and not cm.group(0).endswith('/>'):
                 new = max(current, min(points, scaled(current, factor)))
             if new != current:
                 start = opening.end() + cm.start()

@@ -176,23 +176,29 @@ class LootBoostSmoke(unittest.TestCase):
         self.assertEqual(defaults, {'group': '12', 'container': '8'})
         house = next(g for g in root.iter('group') if g.get('name') == 'Land_House_Synthetic')
         containers = {c.get('name'): c for c in house.findall('container')}
-        self.assertEqual(containers['lootFloor'].get('lootmax'), '3',
-                         'doubled to 4, then the shipped floor policy moves one displaced tool slot to shelves; '
-                         'still above the stock 2')
-        self.assertEqual(containers['lootweapons'].get('lootmax'), '4',
-                         'a weapons-only container keeps the stock default it inherited, written explicitly')
+        # The fixture's stock containers have one point each. Since the physical-capacity clamp (229cd021) a
+        # container never exceeds its points: lootFloor doubles to 4, is clamped to 1, and the floor policy then
+        # moves that single displaced tool slot to the shelves (lootHCSurface), leaving 0. The weapons-only
+        # container keeps its inherited default (4) unscaled and is only clamped to its one point; the unit test
+        # ProtoCapacity.test_inherited_weapon_limit_and_group_are_bounded covers the unscaled default itself.
+        self.assertEqual(containers['lootFloor'].get('lootmax'), '0')
+        self.assertEqual(containers['lootweapons'].get('lootmax'), '1')
         floor, surface = containers['lootHCFloor'], containers['lootHCSurface']
         self.assertEqual([c.get('name') for c in floor.findall('category')], ['tools', 'containers', 'clothes'])
         self.assertEqual([t.get('name') for t in surface.findall('tag')], ['shelves'])
         self.assertEqual(len(floor.findall('point')), 2)
         self.assertEqual(surface.find('point').get('pos'), '0.500000 -0.200000 2.000000')
         added = int(floor.get('lootmax')) + int(surface.get('lootmax'))
-        self.assertEqual(int(house.get('lootmax')), 3 * 2 + added)
+        capacity = sum(int(c.get('lootmax')) for c in house.findall('container'))
+        self.assertEqual(int(house.get('lootmax')), capacity, 'the group never exceeds its container capacity')
+        self.assertEqual(added, 2)
         police = next(g for g in root.iter('group') if g.get('name') == 'Land_City_PoliceStation_Synthetic')
         pcont = {c.get('name'): c for c in police.findall('container')}
-        self.assertEqual(pcont['lootweapons'].get('lootmax'), '2', 'explicit weapons lootmax unchanged')
+        # stock lootmax 2 on a single point: never above the physical capacity (229cd021), and never raised
+        self.assertEqual(pcont['lootweapons'].get('lootmax'), '1', 'weapons lootmax is only clamped to its point')
         self.assertNotIn('weapons', [c.get('name') for c in pcont['lootHCFloor'].findall('category')])
-        self.assertEqual(int(police.get('lootmax')), 6 * 2 + int(pcont['lootHCFloor'].get('lootmax')))
+        self.assertEqual(int(police.get('lootmax')), sum(int(c.get('lootmax')) for c in police.findall('container')),
+                         'the group (inherited 6, doubled and military-scaled) is bounded by its container capacity')
 
         with self.assertRaises(ValueError):
             self.lb.install(self.mission, multiplier=2.0, points=self.overlay)  # never doubles twice
@@ -278,6 +284,13 @@ class FirearmScarcityStrict(unittest.TestCase):
                               '\t\t\t\t<container name="lootweapons" lootmax="2">\n\t\t\t\t\t\t<category name="tools" />'
                               '\n\t\t\t\t\t\t<category name="weapons" />')
         self.assertNotEqual(proto, PROTO)
+        # Four points so that the stock limit 2 is below capacity: doubling would be visible (4); with one point
+        # the physical-capacity clamp would hide it.
+        marker = '<category name="weapons" />\n\t\t\t\t\t\t<point pos="0.000000 0.000000 0.000000" range="0.5" height="1.4" flags="32" />'
+        self.assertIn(marker, proto)
+        proto = proto.replace(marker, '<category name="weapons" />' + ''.join(
+            f'\n\t\t\t\t\t\t<point pos="{i}.000000 0.000000 0.000000" range="0.5" height="1.4" flags="32" />'
+            for i in range(4)))
         files = mission(self.mission)
         (self.mission / 'mapgroupproto.xml').write_bytes(proto.encode())
         (self.mission / 'db/globals.xml').write_bytes(GLOBALS.replace('value="12"', 'value="80"').encode())

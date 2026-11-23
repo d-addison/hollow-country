@@ -1215,16 +1215,17 @@ means 1.0. The generator is `tools/package/loot_boost.py` (`scale_military_proto
 - groups whose usages include Military, Police or Prison (the usages `config/military-loot.json` already treats
   as the military weapon receivers) get group and container `lootmax` raised by the factor. Hunting groups are
   not changed: they are not in that usage set and their sparsity was not reported.
-- firearm and explosive containers keep their limits (weapon packs stay at 2x), containers the floor policy
+- any container that lists a firearm or explosive category (mixed ones too, as in the base boost) keeps its limit
+  (weapon packs stay at 2x), containers the floor policy
   zeroed stay zero, a container never exceeds its points and a group never exceeds the sum of its containers, so
   the existing capacity checks still hold.
 - non-firearm types rows whose every usage is Military, Police or Prison get `nominal` and `min` multiplied by
   the factor on top of `Multiplier`, with `min <= nominal` kept. Rows shared with civilian usages are untouched.
 
-Stock-mission rehearsal, factor 1.0 against 1.5: 114 groups and 172 containers change; prototype `lootmax`
-1,461 to 2,069; weighted by placed buildings (727) 5,054 to 7,620; 173 rows get scaled nominal/min; effective
-Military slots by tier (clothes) Tier1 657 to 1,068, Tier2 1,167 to 1,681, Tier3 1,495 to 2,180, Tier4 574 to
-839; Military-only non-firearm nominal Tier1 55 to 71, Tier2 383 to 543, Tier3 545 to 786, Tier4 506 to 734.
+Stock-mission rehearsal, factor 1.0 against 1.5: 114 groups and 19 containers change; prototype `lootmax`
+1,461 to 1,966; weighted by placed buildings (727) 5,054 to 7,230; 173 rows get scaled nominal/min; effective
+Military slots by tier (clothes) Tier1 657 to 945, Tier2 1,167 to 1,547, Tier3 1,495 to 1,923, Tier4 574 to
+723; Military-only non-firearm nominal Tier1 55 to 71, Tier2 383 to 543, Tier3 545 to 786, Tier4 506 to 734.
 These are offline estimates and prove nothing about CE spawning; the evidence to check after a boot is the
 census t0/t3 totals and the install line `military capacity x1.5`.
 

@@ -116,6 +116,13 @@ class MilitaryCapacity(unittest.TestCase):
         self.assertEqual((report['placed_lootmax_before'], report['placed_lootmax_after']), (18, 24))
         ProtoCapacity().assert_capacity(output)
 
+    def test_mixed_container_listing_a_weapon_category_keeps_its_limit(self):
+        data = military_proto(containers=[('Mixed', 'tools', 2, 6), ('Shelf', 'food', 2, 6)]).replace(
+            b'<category name="tools"/>', b'<category name="tools"/><category name="weapons"/>')
+        output, _ = boost.scale_military_proto(data, 2.0, self.USAGES)
+        limits = {c.get('name'): int(c.get('lootmax')) for c in ET.fromstring(output).iter('container')}
+        self.assertEqual(limits, {'Mixed': 2, 'Shelf': 4})
+
     def test_group_cannot_exceed_container_capacity(self):
         data = military_proto(group_limit=6, containers=[('Shelf', 'tools', 4, 4), ('Gun', 'weapons', 2, 2)])
         output, _ = boost.scale_military_proto(data, 3.0, self.USAGES)
