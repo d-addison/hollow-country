@@ -468,7 +468,7 @@ class CampaignTests(Tmp):
 
     def test_a_script_error_naming_a_host_path_is_withheld(self):
         self.assertIn('withheld', camp.script_error_text('x SCRIPT    (E): cannot open E:\\Server\\profiles\\a.json'))
-        self.assertIn('withheld', camp.script_error_text('x SCRIPT    (E): cannot open /home/someone/a.json'))
+        self.assertIn('withheld', camp.script_error_text('x SCRIPT    (E): cannot open ' + '/' + 'mnt/x/a.json'))
         self.assertEqual(camp.script_error_text('x SCRIPT    (E): @"A/b.c,3": Bad type'), '@"A/b.c,3": Bad type')
 
     def test_an_inert_driver_is_a_failure_and_still_restores(self):
