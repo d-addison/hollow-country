@@ -1,6 +1,6 @@
-// World epoch for the infected route caches (P2.1). It lives in 3_Game because the hooks below are
-// modded classes of 3_Game originals (3_Game/Entities/Building.c:102-139 door callbacks;
-// HCPathgraphRefresh). HCNavRouteCache and HCHordeFlowCache (4_World) read it. Runtime only.
+// World epoch for the infected route caches (P2.1). It lives in 3_Game so the HCPathgraphRefresh hook below
+// can bump it; the door hooks are in 4_World/Infected/HCNavEpochDoors.c because the engine refuses
+// `modded class Building`. HCNavRouteCache and HCHordeFlowCache (4_World) read it. Runtime only.
 class HCNavEpoch
 {
     protected static int s_Epoch = 1;
@@ -31,34 +31,5 @@ modded class HCPathgraphRefresh
         bool marked = super.Mark(object);
         if (marked) { HCNavEpoch.HCBump(); }
         return marked;
-    }
-}
-
-// Door state changes the DOOR_CLOSED/DOOR_OPENED area of the navmesh, so every cached route is stale.
-// Vanilla subclasses override these callbacks and call super, so the hook sees every door.
-modded class Building
-{
-    override void OnDoorOpenStart(DoorStartParams params)
-    {
-        super.OnDoorOpenStart(params);
-        HCNavEpoch.HCBump();
-    }
-
-    override void OnDoorCloseStart(DoorStartParams params)
-    {
-        super.OnDoorCloseStart(params);
-        HCNavEpoch.HCBump();
-    }
-
-    override void OnDoorLocked(DoorLockParams params)
-    {
-        super.OnDoorLocked(params);
-        HCNavEpoch.HCBump();
-    }
-
-    override void OnDoorUnlocked(DoorLockParams params)
-    {
-        super.OnDoorUnlocked(params);
-        HCNavEpoch.HCBump();
     }
 }
