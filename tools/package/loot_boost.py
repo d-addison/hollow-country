@@ -15,8 +15,8 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
   and optional-pack rows, to route equipment to evidenced shelves and bounded military weapon
   exceptions; bulky Motorbike lootdispatch wheels retain native routes. Unmatched receiver capacity
   is reported in the receipt.
-* Hoarder flag (#347): the rows of the same files that are guns, magazines or ammunition (category weapons or a
-  firearms-roster gun/magazine/ammo class, or an Ammo_/AmmoBox_/Mag_ name; never a roster attachment) get
+* Hoarder flag (#347): the rows of the same files that are guns, magazines or ammunition (a firearms-roster gun,
+  magazine or ammo class, an Ammo_/AmmoBox_/Mag_ name, or a listed firearm variant; no melee, attachment or case) get
   ``count_in_hoarder="1"`` so copies stored in tents, barrels and stashes count against their nominal. No other flag
   or field changes; rollback restores the stock bytes; the receipt records ``hoarder_flag_rows``.
 * ``db/globals.xml``: ``RespawnTypes`` (types refilled per CE respawn cycle) is multiplied so a persistent
@@ -661,7 +661,7 @@ def _verify_types(before, after, expected, hoarder=None):
         raise ValueError('types verification failed: row order changed')
     for a, b in zip(rows_old, rows_new):
         name = a.get('name')
-        raised = hoarder is not None and hoarder_kind(name, _row_categories(a), hoarder.get((name or '').lower())) is not None
+        raised = hoarder is not None and hoarder_kind(name, hoarder.get((name or '').lower())) is not None
         if name in expected:
             nominal, minimum, restock = expected[name]
             if (int(b.findtext('nominal')), int(b.findtext('min'))) != (nominal, minimum):
@@ -691,15 +691,26 @@ HOARDER_KINDS = ('guns', 'mags', 'ammo')
 _HOARDER_ROSTER = {'weapon': 'guns', 'magazine': 'mags', 'ammo': 'ammo'}
 
 
-def _row_categories(node):
-    return [(c.get('name') or '').lower() for c in node.findall('category')]
+# Firearm rows outside the firearms roster: colour or skin variants and sawn-off versions of roster guns, listed by class.
+# Source: the installed vanilla 1.30 CfgWeapons ancestry of every weapons-category stock types row that is not a roster
+# class (tools/setup class index): a class belongs here only when its ancestry reaches Rifle_Base or Pistol_Base.
+# Melee (PoliceBaton, Iceaxe, Jambiya), the crossbow (Archery_Base), optics, suppressors, compensators, stock and
+# handguard variants, hats and gun cases do not, so they are never listed.
+FIREARM_VARIANTS = frozenset((
+    'ak101_black', 'ak101_green', 'ak74_black', 'ak74_green', 'akm_gold', 'aks74u_black', 'aks74u_green',
+    'cz527_black', 'derringer_black', 'derringer_pink', 'flaregun', 'm4a1_black', 'm4a1_green', 'mosin9130_desert',
+    'mosin9130_camo', 'mosin9130_green', 'scarh', 'scarh_black', 'scarl', 'scarl_black', 'sawedoffb95',
+    'sawedofffamas', 'sawedoffizh18', 'sawedoffizh18shotgun', 'sawedoffizh43shotgun', 'sawedoffmagnum',
+    'sawedoffmagnum_gold', 'sawedoffmosin9130', 'sawedoffmosin9130_black', 'sawedoffmosin9130_camo',
+    'sawedoffmosin9130_green', 'sawedoffmosin9130_woodland', 'sawedoffmosin9130_winter', 'sawedoffmosin9130_desert',
+    'scout_livonia'))
 
 
-def hoarder_kind(name, categories, roster_kind=None):
-    """'guns', 'mags', 'ammo' or None: the rows that take count_in_hoarder=1. Ammo and magazine rows are classified by the
-    firearms roster kind or by name (Ammo_, AmmoBox_, Mag_) even when a layer gives them no category; every other row that
-    carries the weapons category is a gun row; roster attachments (optics, suppressors, stocks) are never selected.
-    categories are lowercase category names."""
+def hoarder_kind(name, roster_kind=None):
+    """'guns', 'mags', 'ammo' or None: the rows that take count_in_hoarder=1. A firearms-roster weapon, magazine or ammo
+    class, an Ammo_, AmmoBox_ or Mag_ name, and a FIREARM_VARIANTS class; nothing else, whatever its category (melee,
+    optics, attachments, gun cases and the other weapons-category rows keep the stock flag): the decision is the class,
+    never its category."""
     low = (name or '').lower()
     if roster_kind == 'attachment':
         return None
@@ -709,7 +720,7 @@ def hoarder_kind(name, categories, roster_kind=None):
         return 'ammo'
     if low.startswith('mag_'):
         return 'mags'
-    if 'weapons' in categories:
+    if low in FIREARM_VARIANTS:
         return 'guns'
     return None
 
@@ -730,8 +741,7 @@ def set_hoarder_flags(data, roster):
             raise ValueError('unclosed type row')
         name = _attr(opening.group(0), 'name') or ''
         body = masked[opening.end():close]
-        categories = [c.lower() for c in re.findall(r'<category\s+name="([^"]*)"', body)]
-        kind = hoarder_kind(name, categories, roster.get(name.lower()))
+        kind = hoarder_kind(name, roster.get(name.lower()))
         if kind is None:
             continue
         flags = list(re.finditer(r'<flags\b[^>]*>', body))

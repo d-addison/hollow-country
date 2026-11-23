@@ -128,6 +128,15 @@ class Classification(Fixture):
             self.assertEqual((out['nominal'], out['min'], out['flags']['crafted']), (0, 0, '1'))
             self.assertEqual(out['lifetime'], parsed.crafted_lifetime)
 
+    def test_weapons_category_gun_mag_and_ammo_rows_must_carry_count_in_hoarder(self):
+        stock_row_gun = {'flags': {'count_in_cargo': '0', 'count_in_hoarder': '0'}, 'category': 'weapons'}
+        for name in ('Ammo_Synthetic', 'AmmoBox_Synthetic_20Rnd', 'Mag_Synthetic_10Rnd', 'AK101_Black'):
+            with self.subTest(name), self.assertRaisesRegex(ValueError, 'needs count_in_hoarder=1'):
+                vp.check_hoarder_flag({'name': name, **stock_row_gun})
+            vp.check_hoarder_flag({'name': name, 'category': 'weapons', 'flags': {'count_in_hoarder': '1'}})
+        for name, category in (('PoliceBaton', 'weapons'), ('GunCase_Black', 'weapons'), ('Ammo_Synthetic', 'tools')):
+            vp.check_hoarder_flag({'name': name, 'category': category, 'flags': {'count_in_hoarder': '0'}})
+
     def test_nutrition_outlier_becomes_an_explicit_exclusion_with_a_reason(self):
         self.vanilla[('CfgVehicles', 'PeerCan')]['nutrition'] = {'energy': 100, 'water': 100}
         self.pack_rows[('CfgVehicles', 'NewCan')]['nutrition'] = {

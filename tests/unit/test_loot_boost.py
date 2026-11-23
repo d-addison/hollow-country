@@ -719,9 +719,10 @@ class HoarderFlags(unittest.TestCase):
 
     def data(self):
         return ('<types>' + flag_row('Plain', 'tools') + flag_row('RosterGun', 'weapons') + flag_row('RosterOptic', 'weapons')
-                + flag_row('Variant_Green', 'weapons') + flag_row('Mag_Extra_10Rnd', 'tools') + flag_row('Ammo_Extra', 'weapons')
+                + flag_row('AK101_Black', 'weapons') + flag_row('Mag_Extra_10Rnd', 'tools') + flag_row('Ammo_Extra', 'weapons')
                 + flag_row('AmmoBox_Extra_20Rnd', 'weapons') + flag_row('RosterMag', 'tools') + flag_row('RosterAmmo', 'tools')
-                + flag_row('Done', 'weapons', '1') + '<!-- ' + flag_row('Commented', 'weapons') + ' -->'
+                + flag_row('PoliceBaton', 'weapons') + flag_row('NVGoggles', 'weapons') + flag_row('GunCase_Black', 'weapons')
+                + flag_row('Mosin_Compensator', 'weapons') + flag_row('Crossbow', 'weapons') + flag_row('Done', 'weapons', '1') + '<!-- ' + flag_row('Commented', 'weapons') + ' -->'
                 + '</types>').encode()
 
     def flags(self, output):
@@ -731,8 +732,9 @@ class HoarderFlags(unittest.TestCase):
         output, stats = boost.set_hoarder_flags(self.data(), self.ROSTER)
         self.assertEqual(stats, {'guns': 2, 'mags': 2, 'ammo': 3})
         self.assertEqual(self.flags(output), {
-            'Plain': '0', 'RosterGun': '1', 'RosterOptic': '0', 'Variant_Green': '1', 'Mag_Extra_10Rnd': '1',
-            'Ammo_Extra': '1', 'AmmoBox_Extra_20Rnd': '1', 'RosterMag': '1', 'RosterAmmo': '1', 'Done': '1'})
+            'Plain': '0', 'RosterGun': '1', 'RosterOptic': '0', 'AK101_Black': '1', 'Mag_Extra_10Rnd': '1',
+            'Ammo_Extra': '1', 'AmmoBox_Extra_20Rnd': '1', 'RosterMag': '1', 'RosterAmmo': '1', 'PoliceBaton': '0',
+            'NVGoggles': '0', 'GunCase_Black': '0', 'Mosin_Compensator': '0', 'Crossbow': '0', 'Done': '1'})
         self.assertIn(b'<!--', output)
         self.assertIn(b'count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>'
                       b'<category name="weapons"/></type> -->', output)  # a commented-out row is never edited
@@ -766,7 +768,7 @@ class HoarderFlags(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             mission = stock_mission(tmp)
             types = mission / 'db/types.xml'
-            types.write_text(types.read_text().replace('</types>', flag_row('Shotgun', 'weapons') + flag_row('Mag_Shotgun_8Rnd', 'weapons')
+            types.write_text(types.read_text().replace('</types>', flag_row('SawedoffMagnum', 'weapons') + flag_row('Mag_Shotgun_8Rnd', 'weapons')
                                                        + flag_row('Ammo_Shotgun', 'weapons') + '</types>'))
             stock = mission_bytes(mission)
             result = boost.plan(mission, 2.0, **PLAN, knobs={})
@@ -776,7 +778,7 @@ class HoarderFlags(unittest.TestCase):
             boost.install(mission, 2.0, None, floor_policy=None)
             flags = {t.get('name'): t.find('flags').get('count_in_hoarder') for t in ET.fromstring(types.read_bytes())
                      if t.find('flags') is not None}
-            self.assertEqual(flags, {'Shotgun': '1', 'Mag_Shotgun_8Rnd': '1', 'Ammo_Shotgun': '1'})
+            self.assertEqual(flags, {'SawedoffMagnum': '1', 'Mag_Shotgun_8Rnd': '1', 'Ammo_Shotgun': '1'})
             self.assertEqual(json.loads((mission / boost.MANAGED / 'receipt.json').read_bytes())['counts']['hoarder_flag_rows'], 3)
             boost.rollback(mission)
             self.assertEqual(mission_bytes(mission), stock)

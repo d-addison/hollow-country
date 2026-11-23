@@ -1512,8 +1512,11 @@ cells. Reaching 6.4k Hunting and 450 Prison therefore needs the stock-container 
 
 Owner (2026-11-23): guns stored in tents, barrels and stashes now count against their nominal. The loot boost sets
 `count_in_hoarder="1"` (and nothing else) on every row of the stock and registered types files that is a gun, magazine
-or ammunition (category `weapons`, a firearms-roster weapon, magazine or ammo class, or an `Ammo_`, `AmmoBox_` or `Mag_`
-name; roster attachments such as optics and suppressors keep the stock 0), and the SNAFU and Tactical Flava generators
+or ammunition: a firearms-roster weapon, magazine or ammo class, an `Ammo_`, `AmmoBox_` or `Mag_` name, or one of the
+`FIREARM_VARIANTS` colour and sawn-off classes (vanilla CfgWeapons ancestry reaching `Rifle_Base` or `Pistol_Base`, embedded
+as a constant). The class decides, not the category: melee, night vision, optics, compensators, other attachments, gun
+cases and the crossbow keep the stock 0. On the cached stock file that is 106 guns, 53 magazines and 54 ammo rows. The
+SNAFU and Tactical Flava generators
 emit the same flag on their gun, magazine and ammo rows. For players: while a base holds many of a class, fewer
 new copies respawn on the map, so a stocked base thins the world supply instead of adding to it; nothing already stored
 is removed. Upgrade path: `LOOT_BOOST_VERSION` 5 changes the overlay fingerprint, so the installer rolls the boost back

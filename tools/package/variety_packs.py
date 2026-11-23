@@ -25,7 +25,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from tools.audit import pbo_config as reader
-from tools.package import inventory_sources, variety_optional
+from tools.package import inventory_sources, loot_boost, variety_optional
 
 ROOT = Path(__file__).resolve().parents[2]
 RULES = 'config/variety-packs.json'
@@ -472,6 +472,17 @@ def _common(stock, names, field, template):
     return list(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0])
 
 
+def check_hoarder_flag(row):
+    """Refuse a weapons-category variety row that is a gun, magazine or ammo (loot_boost.hoarder_kind: the roster, Ammo_,
+    AmmoBox_ and Mag_ names, firearm variants) unless it carries count_in_hoarder=1; the loot boost skips this document,
+    so a stored gun would otherwise keep respawning."""
+    if row.get('category') != 'weapons':
+        return
+    kind = loot_boost.hoarder_kind(row['name'], loot_boost._roster_names().get(row['name'].lower()))
+    if kind and row['flags'].get('count_in_hoarder') != '1':
+        raise ValueError('variety row %s is a weapons-category %s row and needs count_in_hoarder=1' % (row['name'], kind))
+
+
 def _type_row(entry, rules, stock, shelf, floor_categories):
     template = stock[entry['peer']] if entry['disposition'] == 'spawn' else None
     row = {'name': entry['name']}
@@ -500,6 +511,7 @@ def _type_row(entry, rules, stock, shelf, floor_categories):
                    flags={'count_in_cargo': '0', 'count_in_hoarder': '0', 'count_in_map': '1',
                           'count_in_player': '0', 'crafted': '1', 'deloot': '0'},
                    category=None, tags=[], usage=[], value=[])
+    check_hoarder_flag(row)
     return row
 
 
