@@ -385,10 +385,20 @@ def stage_release_pbos(tree, package, inputs, addons, scratch):
                 base_extra_pbos=[base / 'hollowcountryanims.pbo'])
 
 
-def require_client_idle(allow_client=False):
+CLIENT_STATE_READS = 3
+
+
+def require_client_idle(allow_client=False, sleep=time.sleep):
     from tools.setup import winproc
     if not allow_client:
+        # A WSL interop hiccup reads as 'unknown' (build 179: one failed tasklist refused the gate while no
+        # DayZ ran). Re-read a few times; a state that stays unknown, or any running read, still refuses.
         state = winproc.process_state('DayZ_x64.exe')
+        for _ in range(CLIENT_STATE_READS - 1):
+            if state != 'unknown':
+                break
+            sleep(2)
+            state = winproc.process_state('DayZ_x64.exe')
         if state != 'gone':
             raise ValueError('compile refused: owner client state=' + state + '; --allow-client required')
 
