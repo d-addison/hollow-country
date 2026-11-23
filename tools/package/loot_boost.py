@@ -15,6 +15,10 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
   and optional-pack rows, to route equipment to evidenced shelves and bounded military weapon
   exceptions; bulky Motorbike lootdispatch wheels retain native routes. Unmatched receiver capacity
   is reported in the receipt.
+* Hoarder flag (#347): the rows of the same files that are guns, magazines or ammunition (a firearms-roster gun,
+  magazine or ammo class, an Ammo_/AmmoBox_/Mag_ name, or a listed firearm variant; no melee, attachment or case) get
+  ``count_in_hoarder="1"`` so copies stored in tents, barrels and stashes count against their nominal. No other flag
+  or field changes; rollback restores the stock bytes; the receipt records ``hoarder_flag_rows``.
 * ``db/globals.xml``: ``RespawnTypes`` (types refilled per CE respawn cycle) is multiplied so a persistent
   storage reaches the larger nominals; every other knob is left alone and reported.
 * ``mapgroupproto.xml``: group/container ``lootmax`` (defaults included) are multiplied, weapons-only
@@ -61,7 +65,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 4  # 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
+LOOT_BOOST_VERSION = 5  # 5: count_in_hoarder=1 on guns, magazines and ammo (#347); 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
@@ -647,13 +651,17 @@ def scale_types(data, multiplier, roster=frozenset(), floor_only=None, military=
     return output, len(expected)
 
 
-def _verify_types(before, after, expected):
+def _verify_types(before, after, expected, hoarder=None):
+    """Refuse any change beyond the expected nominal/min/restock values. hoarder (a roster dict, see hoarder_kind) also
+    allows count_in_hoarder 0 -> 1, and only that flag change, on exactly the rows hoarder_kind selects; it is
+    required there. Without hoarder every flag change is refused."""
     old, new = economy.xml(before, 'types'), economy.xml(after, 'types')
     rows_old, rows_new = old.findall('type'), new.findall('type')
     if [t.get('name') for t in rows_old] != [t.get('name') for t in rows_new]:
         raise ValueError('types verification failed: row order changed')
     for a, b in zip(rows_old, rows_new):
         name = a.get('name')
+        raised = hoarder is not None and hoarder_kind(name, hoarder.get((name or '').lower())) is not None
         if name in expected:
             nominal, minimum, restock = expected[name]
             if (int(b.findtext('nominal')), int(b.findtext('min'))) != (nominal, minimum):
@@ -665,10 +673,89 @@ def _verify_types(before, after, expected):
                 strip += ('restock',)
         else:
             strip = ()
-        shape = lambda t: [(c.tag, sorted(c.attrib.items()), None if c.tag in strip else (c.text or '').strip())
-                           for c in t]
-        if shape(a) != shape(b) or a.attrib != b.attrib:
+        def shape(t, flag=False):
+            rows = []
+            for c in t:
+                attrib = dict(c.attrib)
+                if flag and c.tag == 'flags' and 'count_in_hoarder' in attrib:
+                    attrib['count_in_hoarder'] = '1'
+                rows.append((c.tag, sorted(attrib.items()), None if c.tag in strip else (c.text or '').strip()))
+            return rows
+        if shape(a, raised) != shape(b) or a.attrib != b.attrib:
             raise ValueError(f'types verification failed: {name} changed beyond nominal/min')
+
+
+# Owner 2026-11-23 (#347): a gun, magazine or ammo row counts the copies stored in tents, barrels and stashes against its
+# nominal, so a base that holds many suppresses respawns on a never-wiped server. The one flag change this module makes.
+HOARDER_KINDS = ('guns', 'mags', 'ammo')
+_HOARDER_ROSTER = {'weapon': 'guns', 'magazine': 'mags', 'ammo': 'ammo'}
+
+
+# Firearm rows outside the firearms roster: colour or skin variants and sawn-off versions of roster guns, listed by class.
+# Source: the installed vanilla 1.30 CfgWeapons ancestry of every weapons-category stock types row that is not a roster
+# class (tools/setup class index): a class belongs here only when its ancestry reaches Rifle_Base or Pistol_Base.
+# Melee (PoliceBaton, Iceaxe, Jambiya), the crossbow (Archery_Base), optics, suppressors, compensators, stock and
+# handguard variants, hats and gun cases do not, so they are never listed.
+FIREARM_VARIANTS = frozenset((
+    'ak101_black', 'ak101_green', 'ak74_black', 'ak74_green', 'akm_gold', 'aks74u_black', 'aks74u_green',
+    'cz527_black', 'derringer_black', 'derringer_pink', 'flaregun', 'm4a1_black', 'm4a1_green', 'mosin9130_desert',
+    'mosin9130_camo', 'mosin9130_green', 'scarh', 'scarh_black', 'scarl', 'scarl_black', 'sawedoffb95',
+    'sawedofffamas', 'sawedoffizh18', 'sawedoffizh18shotgun', 'sawedoffizh43shotgun', 'sawedoffmagnum',
+    'sawedoffmagnum_gold', 'sawedoffmosin9130', 'sawedoffmosin9130_black', 'sawedoffmosin9130_camo',
+    'sawedoffmosin9130_green', 'sawedoffmosin9130_woodland', 'sawedoffmosin9130_winter', 'sawedoffmosin9130_desert',
+    'scout_livonia'))
+
+
+def hoarder_kind(name, roster_kind=None):
+    """'guns', 'mags', 'ammo' or None: the rows that take count_in_hoarder=1. A firearms-roster weapon, magazine or ammo
+    class, an Ammo_, AmmoBox_ or Mag_ name, and a FIREARM_VARIANTS class; nothing else, whatever its category (melee,
+    optics, attachments, gun cases and the other weapons-category rows keep the stock flag): the decision is the class,
+    never its category."""
+    low = (name or '').lower()
+    if roster_kind == 'attachment':
+        return None
+    if roster_kind in _HOARDER_ROSTER:
+        return _HOARDER_ROSTER[roster_kind]
+    if low.startswith(('ammo_', 'ammobox_')):
+        return 'ammo'
+    if low.startswith('mag_'):
+        return 'mags'
+    if low in FIREARM_VARIANTS:
+        return 'guns'
+    return None
+
+
+def set_hoarder_flags(data, roster):
+    """data with count_in_hoarder="1" on every row hoarder_kind selects, as the same masked in-place edit as scale_types
+    and nothing else changed (_verify_types allows exactly this flag change). roster is {lowercase class: kind}.
+    Returns (bytes, {'guns': n, 'mags': n, 'ammo': n}) counting the rows whose flag changed."""
+    economy.xml(data, 'types')
+    text = data.decode('utf-8-sig')
+    masked = _mask(text)
+    edits, stats = [], dict.fromkeys(HOARDER_KINDS, 0)
+    for opening in re.finditer(r'<type\b[^>]*>', masked):
+        if opening.group(0).endswith('/>'):
+            continue
+        close = masked.find('</type>', opening.end())
+        if close < 0:
+            raise ValueError('unclosed type row')
+        name = _attr(opening.group(0), 'name') or ''
+        body = masked[opening.end():close]
+        kind = hoarder_kind(name, roster.get(name.lower()))
+        if kind is None:
+            continue
+        flags = list(re.finditer(r'<flags\b[^>]*>', body))
+        if len(flags) != 1:
+            continue
+        found = re.search(r'\bcount_in_hoarder\s*=\s*(["\'])([^"\']*)\1', flags[0].group(0))
+        if found is None or found.group(2) == '1':
+            continue
+        start = opening.end() + flags[0].start() + found.start(2)
+        edits.append((start, opening.end() + flags[0].start() + found.end(2), '1'))
+        stats[kind] += 1
+    output = _encode(_apply(text, edits), data)
+    _verify_types(data, output, {}, roster)
+    return output, stats
 
 
 def types_files(mission, include_optional=False):
@@ -1621,6 +1708,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     roster = _roster_names(root)
     policy, policy_sha = _floor_policy(floor_policy, root)
     outputs, counts, tag_rows, type_layers = [], {'types': {}}, [], []
+    hoarder = dict.fromkeys(HOARDER_KINDS, 0)
     scaled_layers = []
     from tools.package import military_loot
     route_locked = frozenset(n.lower() for n in military_loot.route_shares()) if knobs['balance'] else frozenset()
@@ -1630,8 +1718,13 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         if not name.startswith(OPTIONAL_FOLDER + '/'):
             after, count = scale_types(before, multiplier, roster, policy if _limit_shelves else None, military,
                                        counts.setdefault('type_stats', {}), held, categories, knobs, route_locked)
+            after, flagged = set_hoarder_flags(after, roster)
+            for kind in HOARDER_KINDS:
+                hoarder[kind] += flagged[kind]
         counts['types'][name] = count
         scaled_layers.append((name, before, after))
+    counts['hoarder_flag_rows'] = sum(hoarder.values())
+    counts['hoarder_flags'] = hoarder
     if knobs['balance']:
         scaled_layers, counts['balance'] = _balance_layers(scaled_layers, roster, knobs['balance'], route_locked)
     counts['attachments'], gaps = _attachment_report(mission, scaled_layers, fits)
@@ -2018,6 +2111,10 @@ def describe(result):
         lines.append('    R4 ammo pools %d (+%d), magazine pools %d (+%d), pools without a row %d'
                      % (r4['ammo_pools'], r4['raised_ammo'], r4['magazine_pools'], r4['raised_magazines'],
                         len(r4['no_row'])))
+    flags = counts.get('hoarder_flags')
+    if flags is not None:
+        lines.append('  hoarder flags: rows=%d (guns %d, mags %d, ammo %d)'
+                     % (counts['hoarder_flag_rows'], flags['guns'], flags['mags'], flags['ammo']))
     cover = counts.get('attachments')
     if cover:
         lines.append('  attachment coverage: %d spawnable guns, %d attachments, %d ok, gaps %s, repaired %d, '

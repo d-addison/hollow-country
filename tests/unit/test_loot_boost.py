@@ -708,6 +708,82 @@ class PlanSupply(unittest.TestCase):
 
 
 
+def flag_row(name, category, hoarder='0', extra=''):
+    return (f'<type name="{name}"><nominal>10</nominal><min>6</min><lifetime>100</lifetime>'
+            f'<flags count_in_cargo="0" count_in_hoarder="{hoarder}" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>'
+            f'<category name="{category}"/>{extra}</type>')
+
+
+class HoarderFlags(unittest.TestCase):
+    ROSTER = {'rostergun': 'weapon', 'rostermag': 'magazine', 'rosterammo': 'ammo', 'rosteroptic': 'attachment'}
+
+    def data(self):
+        return ('<types>' + flag_row('Plain', 'tools') + flag_row('RosterGun', 'weapons') + flag_row('RosterOptic', 'weapons')
+                + flag_row('AK101_Black', 'weapons') + flag_row('Mag_Extra_10Rnd', 'tools') + flag_row('Ammo_Extra', 'weapons')
+                + flag_row('AmmoBox_Extra_20Rnd', 'weapons') + flag_row('RosterMag', 'tools') + flag_row('RosterAmmo', 'tools')
+                + flag_row('PoliceBaton', 'weapons') + flag_row('NVGoggles', 'weapons') + flag_row('GunCase_Black', 'weapons')
+                + flag_row('Mosin_Compensator', 'weapons') + flag_row('Crossbow', 'weapons') + flag_row('Done', 'weapons', '1') + '<!-- ' + flag_row('Commented', 'weapons') + ' -->'
+                + '</types>').encode()
+
+    def flags(self, output):
+        return {t.get('name'): t.find('flags').get('count_in_hoarder') for t in ET.fromstring(output)}
+
+    def test_sets_count_in_hoarder_on_guns_mags_and_ammo_only(self):
+        output, stats = boost.set_hoarder_flags(self.data(), self.ROSTER)
+        self.assertEqual(stats, {'guns': 2, 'mags': 2, 'ammo': 3})
+        self.assertEqual(self.flags(output), {
+            'Plain': '0', 'RosterGun': '1', 'RosterOptic': '0', 'AK101_Black': '1', 'Mag_Extra_10Rnd': '1',
+            'Ammo_Extra': '1', 'AmmoBox_Extra_20Rnd': '1', 'RosterMag': '1', 'RosterAmmo': '1', 'PoliceBaton': '0',
+            'NVGoggles': '0', 'GunCase_Black': '0', 'Mosin_Compensator': '0', 'Crossbow': '0', 'Done': '1'})
+        self.assertIn(b'<!--', output)
+        self.assertIn(b'count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>'
+                      b'<category name="weapons"/></type> -->', output)  # a commented-out row is never edited
+        self.assertEqual(len(output) - len(self.data()), 0)  # same-width edit: nothing else moved
+        again, stats = boost.set_hoarder_flags(output, self.ROSTER)
+        self.assertEqual((again, sum(stats.values())), (output, 0))
+
+    def test_verify_allows_exactly_that_flag_change_and_refuses_the_rest(self):
+        before = self.data()
+        after, _ = boost.set_hoarder_flags(before, self.ROSTER)
+        boost._verify_types(before, after, {}, self.ROSTER)
+        with self.assertRaisesRegex(ValueError, 'changed beyond'):
+            boost._verify_types(before, after, {})  # the scaling steps still refuse any flag change
+        wrong_row = after.replace(b'<type name="Plain"><nominal>10</nominal><min>6</min><lifetime>100</lifetime>'
+                                  b'<flags count_in_cargo="0" count_in_hoarder="0"',
+                                  b'<type name="Plain"><nominal>10</nominal><min>6</min><lifetime>100</lifetime>'
+                                  b'<flags count_in_cargo="0" count_in_hoarder="1"')
+        optic = after.replace(b'<type name="RosterOptic"><nominal>10</nominal><min>6</min><lifetime>100</lifetime>'
+                              b'<flags count_in_cargo="0" count_in_hoarder="0"',
+                              b'<type name="RosterOptic"><nominal>10</nominal><min>6</min><lifetime>100</lifetime>'
+                              b'<flags count_in_cargo="0" count_in_hoarder="1"')
+        other_flag = after.replace(b'<type name="RosterGun"><nominal>10</nominal><min>6</min><lifetime>100</lifetime>'
+                                   b'<flags count_in_cargo="0"', b'<type name="RosterGun"><nominal>10</nominal><min>6</min>'
+                                   b'<lifetime>100</lifetime><flags count_in_cargo="1"')
+        for bad in (wrong_row, optic, other_flag, before):
+            self.assertNotEqual(bad, after)
+            with self.subTest(), self.assertRaisesRegex(ValueError, 'changed beyond|verification failed'):
+                boost._verify_types(before, bad, {}, self.ROSTER)
+
+    def test_plan_receipts_the_count_describes_it_and_rollback_restores_stock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = stock_mission(tmp)
+            types = mission / 'db/types.xml'
+            types.write_text(types.read_text().replace('</types>', flag_row('SawedoffMagnum', 'weapons') + flag_row('Mag_Shotgun_8Rnd', 'weapons')
+                                                       + flag_row('Ammo_Shotgun', 'weapons') + '</types>'))
+            stock = mission_bytes(mission)
+            result = boost.plan(mission, 2.0, **PLAN, knobs={})
+            self.assertEqual((result['counts']['hoarder_flag_rows'], result['counts']['hoarder_flags']),
+                             (3, {'guns': 1, 'mags': 1, 'ammo': 1}))
+            self.assertIn('  hoarder flags: rows=3 (guns 1, mags 1, ammo 1)', boost.describe(result))
+            boost.install(mission, 2.0, None, floor_policy=None)
+            flags = {t.get('name'): t.find('flags').get('count_in_hoarder') for t in ET.fromstring(types.read_bytes())
+                     if t.find('flags') is not None}
+            self.assertEqual(flags, {'SawedoffMagnum': '1', 'Mag_Shotgun_8Rnd': '1', 'Ammo_Shotgun': '1'})
+            self.assertEqual(json.loads((mission / boost.MANAGED / 'receipt.json').read_bytes())['counts']['hoarder_flag_rows'], 3)
+            boost.rollback(mission)
+            self.assertEqual(mission_bytes(mission), stock)
+
+
 class BundleRoot(unittest.TestCase):
     """Install-path inputs come from the tree being applied (root), never from this module's own repo tree."""
     BODY = ('{"schema": 1, "kind": "%s", "Multiplier": 3.0, "CapacityMultiplier": {"Town": 1.5}, '

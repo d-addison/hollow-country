@@ -1355,7 +1355,7 @@ out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balan
 - Capacity: `MAX_CAPACITY` is 8.0 (was 4.0) and `CapacityMultiplier` now reads Hunting 4.0, Medic 5.0, Military 8.0,
   Police 8.0, Prison 6.0 with the Military group cap 400, so the lootmax of stock containers (mixed ones only;
   weapons-only and explosives-only containers stay at stock) rises toward their points.
-- `LOOT_BOOST_VERSION` is 4 and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
+- `LOOT_BOOST_VERSION` is 5 (4 until the hoarder flags below) and `loot_families.json` is in the overlay fingerprint, so an upgrade re-derives the
   overlay from stock bytes.
 - 13 classes that had a positive nominal but no usage never reached a building (BalaclavaMask_Chain, BalaclavaMask_Pig,
   Shemag_Brown, Shemag_Green, Shemag_Red, Shemag_White, Flashlight, Lockpick, SodaCan_Cola, SodaCan_Fronta,
@@ -1507,3 +1507,22 @@ cells. Reaching 6.4k Hunting and 450 Prison therefore needs the stock-container 
 `loot_support_audit` checked all 2,271 points (1,301 surface, 970 floor) and refused 0, with no failure counts;
 `loot_reach_audit` checked the 1,301 shelf points and refused 0; `loot_point_preserve --check` reports
 `unreported_losses: 0` (1,292 prior points); the unit tests of `tests.unit.test_interior_points_density` (5) and the hygiene check pass.
+
+## Hoarder flags for guns, magazines and ammo (#347, 2026-11-23)
+
+Owner (2026-11-23): guns stored in tents, barrels and stashes now count against their nominal. The loot boost sets
+`count_in_hoarder="1"` (and nothing else) on every row of the stock and registered types files that is a gun, magazine
+or ammunition: a firearms-roster weapon, magazine or ammo class, an `Ammo_`, `AmmoBox_` or `Mag_` name, or one of the
+`FIREARM_VARIANTS` colour and sawn-off classes (vanilla CfgWeapons ancestry reaching `Rifle_Base` or `Pistol_Base`, embedded
+as a constant). The class decides, not the category: melee, night vision, optics, compensators, other attachments, gun
+cases and the crossbow keep the stock 0. On the cached stock file that is 106 guns, 53 magazines and 54 ammo rows. The
+SNAFU and Tactical Flava generators
+emit the same flag on their gun, magazine and ammo rows. For players: while a base holds many of a class, fewer
+new copies respawn on the map, so a stocked base thins the world supply instead of adding to it; nothing already stored
+is removed. Upgrade path: `LOOT_BOOST_VERSION` 5 changes the overlay fingerprint, so the installer rolls the boost back
+to stock bytes, rolls the weapon layers back first, applies the boost again (receipt `counts.hoarder_flag_rows`, describe
+line `hoarder flags: rows=<n> (guns <g>, mags <m>, ammo <a>)`) and the weapons step reinstalls the pack layers with the
+new flags; no stored data changes, so a never-wiped server upgrades in place. Rollback restores the receipted stock
+bytes, flag included, through the normal `rollback`. `_verify_types` allows exactly this 0 to 1 change on exactly these
+rows and still refuses every other flag change. Offline only: whether the CE respawns less once stored guns count is
+unobserved until a server soak.
