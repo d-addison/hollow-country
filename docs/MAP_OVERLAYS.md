@@ -130,6 +130,26 @@ rendering and static lights, actual CE loot eligibility/positions/quantities,
 restart behavior and performance at the target 3–6-player load. Acceptance remains
 one server plus at most one client; multiplayer behavior is not proven.
 
+## Ground contact (2026-11-22)
+
+`config/map-overlays/ground-contact.json` (kind `hollow-country-overlay-ground-contact`) is a
+repository-side sidecar: for each of the 74 overlay classes it records `contact_low_m` (the lowest
+visible-LOD point relative to the pivot) and `geometry_low_m` (the lowest geometry-LOD point).
+Two classes are listed under `unmeasured` (decals without a readable visual LOD). It is produced by
+`tools.audit.world_mesh_audit --contact-out` from the installed models; no model data is shipped.
+
+`tools.package.map_overlay ground` uses it to check every placement offline: class contact plus the
+authored `dy` must land within 0.15 m of the ground, or the placement is reported `floating` or
+`sunk`. A class with no entry, which is not listed as unmeasured, fails validation. The r1 result was
+3,459 OK, 0 floating, 0 sunk, with the 100 decal placements unmeasured.
+
+At runtime `HCGroundSnap` (3_Game/Core) rests the footprint's lowest ground point (3x3 samples)
+under the visible bottom. Slope beyond the authored allowance refuses the prop. HC loot follows its
+building's shift, and floating HC loot drops onto the surface below. The sidecar is not read at
+runtime. Native evidence still pending: `[HC Ground] placement source=object_spawner layers=7 ...
+legacy=0`, `[HC Ground] source=ce_ours shifted= retried= settled=`, and an in-game look at a tent,
+a camo net and a loot pile.
+
 ## Layers (2026-11-20, r5 placement)
 
 All seven layers in `config/map-overlays/profile.json` ship enabled. The r5

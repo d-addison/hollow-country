@@ -28,7 +28,7 @@ CORPUS = (
     ('d776707b', 'Qualify stimulus enum members'),
     ('d790c437', 'Move taped light hooks off EntityAI to compile World'),
 )
-WB_STATUSES = {'passed', 'compile_failed', 'unverified', 'timeout', 'incomplete_logs',
+WB_STATUSES = {'passed', 'compile_failed', 'wb_only', 'unverified', 'timeout', 'incomplete_logs',
                'tool_failed', 'blocked', 'controller_failed', 'cleanup_unconfirmed', 'unavailable'}
 
 
@@ -115,10 +115,12 @@ def invoke(tool, commit):
             status = report['status']
             if status not in WB_STATUSES:
                 raise ValueError('unknown verdict')
-            expected_code = 0 if status == 'passed' else 1 if status == 'compile_failed' else None
+            expected_code = 0 if status == 'passed' else 1 if status in {'compile_failed', 'wb_only'} else None
             if expected_code is not None and result.returncode != expected_code:
                 raise ValueError('inconsistent verdict')
-            first = location(report.get('errors', []))
+            # A wb_only run has only module-abort lines in errors; its source location is the
+            # Workbench-only diagnostic itself.
+            first = location(report.get('wb_only' if status == 'wb_only' else 'errors', []))
         except (ValueError, KeyError, TypeError, AttributeError):
             receipt = {'status': 'invalid_report', 'reason': 'invalid_or_inconsistent_report', 'first_error': None}
             break
@@ -131,7 +133,7 @@ def invoke(tool, commit):
             receipt['workbench_build'] = build
         if status != 'blocked' or reason != 'Workbench process state: unknown' or attempt == 2:
             break
-        time.sleep(0.5)
+        time.sleep(0.5 * 2 ** attempt)
     if tool == 'wb_compile':
         receipt['state_query_retries'] = attempt
     receipt['output_tail'] = output_tail(''.join(tails))
@@ -142,7 +144,16 @@ def agreement(row, gate):
     parent, fix = row.get('wb_parent', {}), row.get('wb_fix', {})
     if not parent or not fix or (gate and 'native_parent' not in row):
         return 'incomplete'
-    if parent['status'] not in {'passed', 'compile_failed'} or fix['status'] not in {'passed', 'compile_failed'}:
+    decided = {'passed', 'compile_failed'}
+    if 'wb_only' in (parent['status'], fix['status']):
+        # Workbench stopped at a diagnostic the native gate accepts, so the rest of the stack is
+        # unchecked there: neither agreement nor disagreement can be claimed for the row.
+        if {parent['status'], fix['status']} - decided - {'wb_only'}:
+            return 'inconclusive'
+        if gate and row['native_parent']['status'] not in decided:
+            return 'inconclusive'
+        return 'wb_only'
+    if parent['status'] not in decided or fix['status'] not in decided:
         return 'inconclusive'
     if gate and row['native_parent']['status'] not in {'passed', 'compile_failed'}:
         return 'inconclusive'
@@ -175,7 +186,7 @@ def write_reports(out, report):
     for name in ('agreement.json', 'agreement.md'):
         if (out / name).is_symlink():
             raise Refusal('report files must not be symlinks')
-    report['summary'] = {key: 0 for key in ('agree', 'disagree', 'inconclusive', 'incomplete', 'expected_only')}
+    report['summary'] = {key: 0 for key in ('agree', 'disagree', 'inconclusive', 'incomplete', 'expected_only', 'wb_only')}
     for row in report['entries']:
         report['summary'][agreement(row, report['gate'])] += 1
     rows = ['| Fix | Reason | WB parent | First error | WB fix | Native parent | Agreement |',
@@ -237,17 +248,20 @@ def main(argv=None):
                 row[key] = receipt
                 write_reports(out, report)
                 print('wb_calibrate: ' + row['fix'] + ' ' + key + '=' + row[key]['status'], flush=True)
-                if args.stop_on_inconclusive and row[key]['status'] not in {'passed', 'compile_failed'}:
+                if args.stop_on_inconclusive and row[key]['status'] not in {'passed', 'compile_failed', 'wb_only'}:
                     report['status'] = 'incomplete'
                     write_reports(out, report)
                     return 2
         success = all(agreement(row, args.gate) in {'agree', 'expected_only'} for row in report['entries'])
         inconclusive = any(agreement(row, args.gate) in {'inconclusive', 'incomplete'} for row in report['entries'])
-        report['status'] = 'incomplete' if inconclusive else (('agree' if args.gate else 'expected_only') if success else 'disagree')
+        divergent = any(agreement(row, args.gate) in {'disagree'} for row in report['entries'])
+        blind = any(agreement(row, args.gate) == 'wb_only' for row in report['entries'])
+        report['status'] = ('incomplete' if inconclusive else 'disagree' if divergent else 'wb_only' if blind
+                            else ('agree' if args.gate else 'expected_only') if success else 'disagree')
         write_reports(out, report)
         print('wb_calibrate: ' + report['status'] + '; summary=' + json.dumps(report['summary'], sort_keys=True)
               + '; wrote agreement.json and agreement.md')
-        return 2 if inconclusive else 0 if success else 1
+        return 2 if inconclusive or (blind and not divergent) else 0 if success else 1
     except Refusal as error:
         print('wb_calibrate: refused; ' + str(error), file=sys.stderr)
         return 2

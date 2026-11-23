@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import optional_overlays as overlays
@@ -96,6 +97,35 @@ class OptionalOverlaysTests(unittest.TestCase):
         replacement = next(piece for piece in pieces if (piece['dx'], piece['dz']) == (-6, -3))
         self.assertEqual(replacement['class'], 'StaticObj_Misc_Antenna')
         self.assertEqual(replacement['loot'], 'none')
+
+
+class BundleApplyRoot(unittest.TestCase):
+    def test_loot_boost_is_applied_from_the_bundle_being_applied(self):
+        from tools.package import hc_events, loot_boost, travel
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-bundle-') as temporary:
+            bundle, mission = Path(temporary) / 'bundle', Path(temporary) / 'mission'
+            bundle.mkdir()
+            mission.mkdir()
+            steps = []
+            with mock.patch.object(overlays, 'mission_target', side_effect=lambda m: Path(m)), \
+                    mock.patch.object(overlays, 'bundle_candidate', return_value={'diagnostics': []}), \
+                    mock.patch.object(overlays, 'install', return_value=None), \
+                    mock.patch.object(overlays, 'plan', return_value={'diagnostics': []}), \
+                    mock.patch.object(overlays, 'unloaded_default_packs', return_value=[]), \
+                    mock.patch.object(overlays, 'apply_stack', side_effect=lambda m, s: steps.extend(s)), \
+                    mock.patch.object(travel, 'validate'), mock.patch.object(travel, 'install'), \
+                    mock.patch.object(hc_events, 'validate'), mock.patch.object(hc_events, 'install'), \
+                    mock.patch.object(loot_boost, 'default_multiplier', return_value=2.5), \
+                    mock.patch.object(loot_boost, 'shipped_points', return_value=b'points'), \
+                    mock.patch.object(loot_boost, 'install') as install:
+                overlays.bundle_apply(bundle, mission, Path(temporary) / 'workshop', [])
+                for step in steps:
+                    step()
+            roots = [call.kwargs.get('root') for call in install.call_args_list]
+            self.assertEqual(len(roots), 2)  # the scratch rehearsal and the real mission
+            self.assertEqual(roots, [bundle, bundle])
+            for call in install.call_args_list:
+                self.assertEqual(call.args[1:3], (2.5, b'points'))
 
 
 if __name__ == '__main__':

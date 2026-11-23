@@ -81,6 +81,20 @@ WORKBENCH_EXCLUDED = {
     '3114410963': (('dayz_seagull.pbo',), 'Dayz_Seagull: FIX-ME: Unmatched brackets detected (1)'),
 }
 OURS = re.compile(r'(?:^|[/~])(?:HollowCountry|HollowCountryExpansionAI|' + TOOL + r')/', re.I)
+# Diagnostics only Workbench raises as errors for source that the Wine compile gate and the retail
+# server accept (they log the same FIX-ME lines as warnings and compile on). Keyed by the message,
+# never by file: a hit is class `wb_only`, which is not blocking by itself. Workbench then aborts
+# the module (`Can't compile "<Module>" script module!`), so such a run is `wb_only` (the rest of
+# the stack stays unchecked) and never `passed`; every other error in the same output still blocks.
+# Observed 2026-11-22: a `modded class` redefining a vanilla static method (ObjectSpawnerHandler.
+# SpawnObjects, HCGroundObjectSpawner.c:8 before the `override` fix) without `override`. The exact
+# message text was not retained; the pattern is the documented wording and is confirmed by the next
+# calibration run (docs/tools/WORKBENCH_COMPILE.md).
+WB_ONLY = tuple(re.compile(pattern, re.I) for pattern in (
+    r"Overriding function\b.*\bnot marked as ['\"]?override['\"]?",
+))
+# Module-level aftermath of a compile abort; carries no source location of ours.
+MODULE_ABORT = re.compile(r"""Can't compile "?\w+"? script module|Failed to load \w+ script""", re.I)
 # Observed with game data and the full dependency stack mounted (2026-11-21,
 # DayZ Tools 1.30). These come from the stock Workbench runtime, vanilla scripts
 # or the absence of a game world, never from a compiled-script verdict.
@@ -121,11 +135,14 @@ def private(value):
 
 
 def classify(entry, text=None):
-    """ours: our sources; dependency: a mounted mod; known_vanilla: stock noise."""
+    """wb_only: a known Workbench-only diagnostic (message pattern, any file); ours: our sources;
+    dependency: a mounted mod; known_vanilla: stock noise."""
     location = (entry.get('file') or '').replace('\\', '/')
+    text = entry['message'] if text is None else text
+    if any(pattern.search(text) for pattern in WB_ONLY):
+        return 'wb_only'
     if OURS.search(location):
         return 'ours'
-    text = entry['message'] if text is None else text
     if any(pattern.search(text) for pattern in KNOWN_VANILLA[:-1]):
         return 'known_vanilla'
     if location.startswith('scripts/') or KNOWN_VANILLA[-1].search(location):
@@ -162,7 +179,7 @@ def diagnostics(text, pattern=ERROR):
             continue
         seen.add(key)
         entry['class'] = 'probe' if PROBE_MARK.search(masked) else classify(entry, masked)
-        if COMPILE_FAILURE.search(line):
+        if COMPILE_FAILURE.search(line) and entry['class'] != 'wb_only':
             entry['class'] = 'ours' if entry['class'] == 'ours' else 'compile_failure'
         found.append(entry)
     return found
@@ -182,22 +199,29 @@ def verdict(text, returncode, timed_out=False, truncated=False, probes=MODULES):
     modules = {match['name']: int(match['files']) for match in MODULE_LINE.finditer(text)}
     marked = sorted(set(PROBE_MARK.findall(text)))
     blocking = [entry for entry in every if entry['class'] in ('ours', 'compile_failure', 'unclassified')]
-    if blocking:
+    wb_only = [entry for entry in every if entry['class'] == 'wb_only']
+    # Only the module-abort lines Workbench prints after a wb_only diagnostic are tolerated beside it.
+    aftermath = [entry for entry in blocking
+                 if wb_only and entry['class'] == 'compile_failure' and MODULE_ABORT.search(entry['message'])]
+    validated = 'Mission' in modules and sorted(probes) == marked
+    if len(aftermath) < len(blocking):
         status = 'compile_failed'
     elif truncated:
         status = 'incomplete_logs'
-    elif 'Mission' not in modules or sorted(probes) != marked:
+    elif wb_only and (aftermath or not validated):
+        status = 'wb_only'
+    elif not validated:
         status = 'timeout' if timed_out else 'unverified'
     elif returncode not in (0, None):
         status = 'tool_failed'
     else:
         status = 'passed'
     ours_warnings = [entry for entry in warnings if entry['class'] == 'ours']
-    return {'status': status, 'errors': blocking, 'warnings_ours': ours_warnings[:200],
+    return {'status': status, 'errors': blocking, 'wb_only': wb_only[:200], 'warnings_ours': ours_warnings[:200],
             'triage': {'errors': summary(every), 'warnings': summary(warnings)},
             'modules': modules, 'probe_modules': marked, 'tool_exit': returncode,
             'timed_out': timed_out,
-            'native_validation_completed': 'Mission' in modules and sorted(probes) == marked,
+            'native_validation_completed': validated,
             'plugin_returned': RECEIPT in text, 'script_editor_validation': SUCCESS in text,
             'route_qualified': False}
 

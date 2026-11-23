@@ -212,6 +212,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableGroupScaling", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableTapedPackMounts", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableFortify", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("EnableSites", "bool", 1, 0, 1, "HCSettings");
         HCAdd("TickIntervalMs", "int", 1000, 500, 10000, "HCSettings");
         HCAdd("MaxTickWorkItems", "int", 32, 1, 256, "HCSettings");
         HCAdd("MaxActiveHordes", "int", 4, 1, 12, "HCSettings");
@@ -548,6 +549,7 @@ class HCSettings
     bool EnableTapedPackMounts = true;
     // Fortification packs (barricades, shelter kits): bridge is active only while a pack is loaded.
     bool EnableFortify = true;
+    bool EnableSites = true;
     // Optional: JsonFileLoader absent ints are 0; progression resolves 0 to 128.
     int MaxFamiliarityRows = 0;
     int TickIntervalMs = 1000;
@@ -601,6 +603,7 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableGroupScaling")) { settings.EnableGroupScaling = defaults.EnableGroupScaling; }
         if (!HCJsonFields.Has(content, "EnableTapedPackMounts")) { settings.EnableTapedPackMounts = defaults.EnableTapedPackMounts; }
         if (!HCJsonFields.Has(content, "EnableFortify")) { settings.EnableFortify = defaults.EnableFortify; }
+        if (!HCJsonFields.Has(content, "EnableSites")) { settings.EnableSites = defaults.EnableSites; }
         if (!HCJsonFields.Has(content, "FortifyUnclaimedBuild")) { settings.FortifyUnclaimedBuild = defaults.FortifyUnclaimedBuild; }
         if (!HCJsonFields.Has(content, "FortifyBreachSeconds")) { settings.FortifyBreachSeconds = defaults.FortifyBreachSeconds; }
         if (!HCJsonFields.Has(content, "AILimits")) { settings.AILimits = defaults.AILimits; }
@@ -700,6 +703,7 @@ class HCSettings
         if (HCLogNonDefault("EnableGroupScaling", EnableGroupScaling.ToString(), defaults.EnableGroupScaling.ToString())) { changed++; }
         if (HCLogNonDefault("EnableTapedPackMounts", EnableTapedPackMounts.ToString(), defaults.EnableTapedPackMounts.ToString())) { changed++; }
         if (HCLogNonDefault("EnableFortify", EnableFortify.ToString(), defaults.EnableFortify.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableSites", EnableSites.ToString(), defaults.EnableSites.ToString())) { changed++; }
         if (HCLogNonDefault("TickIntervalMs", TickIntervalMs.ToString(), defaults.TickIntervalMs.ToString())) { changed++; }
         if (HCLogNonDefault("MaxTickWorkItems", MaxTickWorkItems.ToString(), defaults.MaxTickWorkItems.ToString())) { changed++; }
         if (HCLogNonDefault("MaxActiveHordes", MaxActiveHordes.ToString(), defaults.MaxActiveHordes.ToString())) { changed++; }

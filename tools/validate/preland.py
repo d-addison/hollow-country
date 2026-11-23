@@ -213,6 +213,41 @@ def anim_lint_step(args, paths):
     return ('anim_lint', 'pass', 'changed files'), False, False
 
 
+def site_rules_step(args, paths):
+    """site_rules for composed sites: ((name, status, scope) or None, failed).
+
+    Gating (full tree, or --changed touching config/sites/ or a composed-*.json layer): any failing rule fails.
+    Otherwise it prints the report-current summary, which never gates (today's layers fail by design).
+    It runs in-process and adds a table row only when changed paths gate it or it fails, so the
+    per-check list and row count of the other steps stay as they are.
+    """
+    import contextlib
+    import io
+    from tools.validate import site_rules
+    on_paths = paths is not None and any(
+        path.startswith('config/sites/') or re.match(r'config/map-overlays/layers/composed-[^/]*\.json$', path)
+        for path in paths)
+    gated = paths is None or on_paths
+    print('preland: running site_rules (%s)' % ('gate' if gated else 'report only, never gates'), flush=True)
+    captured = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(captured):
+            code = site_rules.main([] if gated else ['--report-current', '--summary'])
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        code = 1
+        captured.write('site_rules: could not run\n')
+    for line in captured.getvalue().splitlines():
+        safe = filtered(line)
+        if safe:
+            print(safe)
+    failed = gated and code != 0
+    if failed:
+        return ('site_rules', 'FAIL (%d)' % code, 'composed sites'), True
+    if on_paths:
+        return ('site_rules', 'pass', 'composed sites'), False
+    return None, False
+
+
 def changed_unit_tests(paths):
     """(row name, status, failed) for the unit-test modules mapped to the changed Python files."""
     python = [path for path in paths if path.endswith('.py')]
@@ -386,6 +421,10 @@ def execute(args, paths, scratch):
         rows.append(animation[0])
         failed |= animation[1]
         incomplete |= animation[2]
+    site_row = site_rules_step(args, paths)
+    if site_row[0] is not None:
+        rows.append(site_row[0])
+    failed |= site_row[1]
     if paths is not None:
         changed_tests = changed_unit_tests(paths)
         rows.append(changed_tests[:2] + ('changed files',))

@@ -3,37 +3,44 @@
 // elevated spot (HCNavHavenCensus.OnGiveUp, subscribed here; no Reach or Navigation file changes), the
 // spot is sieged instead:
 //   1. Open.   One row per target player (at most MaxSieges), holding up to 6 infected that gave up.
-//   2. Gather. After GatherSeconds, with the player still up and within 25 m, the siege starts. The anchor
+//   2. Settle. After GatherSeconds, with the player still up and within 25 m, the siege starts. The anchor
 //              is the navmesh point under the player's feet, or the bottom of the nearest ladder of the
-//              building under the player (ladder_guard). Members whose native group has a pack behaviour
-//              get one SetWaypoints([anchor]); a lone infected is never steered (no position writes, no
-//              group moves: the 11-21 crash lesson in HCNativeInfectedPack.Release).
+//              building under the player (ladder_guard); it only centres the reinforcement ring. No
+//              waypoint is ever written: no native pack group is steered to the anchor, so infected that
+//              gave up come back only through real perception and noise (no position writes, no group
+//              moves: the 11-21 crash lesson in HCNativeInfectedPack.Release).
 //   3. Noise.  Every NoiseSeconds one real native noise at a member's OWN position (HCSearchNoise.EmitAt),
 //              at most one per tick server-wide. The engine propagates it; nothing is pulled.
 //   4. Reinforce. At most one batch (<=2 bodies) per siege, spawned through HCHordeReinforce.HCCreate at a
-//              ring 320..360 m from the anchor (HCHidden: out of sight of every player). A per-player
-//              window (ReinforcePerPlayerWindow bodies per 10 minutes) caps what one player can draw. A
-//              body is kept only when its own native group can take the anchor waypoint; otherwise it is
-//              deleted at once (refused=no_group), so no unsteered body is left wandering.
+//              ring 320..360 m from the anchor (HCHidden: out of sight of every player). Reinforcements
+//              are NEVER steered: no waypoint is written to any group of a body this module created (a
+//              new body may have joined a wild group of agents we did not create). They only come
+//              through real perception, e.g. the noise of step 3. A per-player window
+//              (ReinforcePerPlayerWindow bodies per 10 minutes, keyed by the persistent player id kept
+//              server-side, never logged) caps what one player can draw; when every window slot is in use
+//              the batch is refused (reason=window_full) instead of recycling another player's slot.
 //   5. End.    The player comes down (dy under the reach band), walks 25 m from the spot the siege opened
 //              at, or 180 s pass (an end with no live member, a dead or gone target counts as left). Nothing
-//              is restored by hand: members stay in their native group, and the navigation module's
-//              normal route re-plans on its own.
+//              is restored by hand: this module wrote no waypoint to any group, so no group is left on a
+//              last waypoint and there is nothing to park; members stay in their native group.
+// An infected sits in at most one siege row. A siege with no usable anchor (no navmesh point and no ladder)
+// is refused: it is not counted as started and nothing is noised or reinforced.
 // Knowledge: the infected only know what the give-up event told them (the player and where they stood).
 // Doors, positions and inventories are never touched. Runtime only, never persisted: no stored format.
 // Lines (formats are fixed):
 //   [HC Nav] siege start anchor=<mesh|ladder|none> members=<m> n=<count>
 //   [HC Nav] siege end reason=<down|left|timeout> n=<count of ends for the reason> members= secs= noise= reinforced=
+//   [HC Nav] siege refused reason=<no_anchor|window_full|no_identity> n=<count for the reason>
 //   [HC Use] module=InfectedSiege feature=siege_started|siege_noise|ladder_guard|reinforce count=<n>
-// siege_started is registered at start; the other three register on their first real event, so a feature a
-// scenario cannot exercise is not listed as a registered counter at zero.
+// siege_started is registered at start and counted only for a usable anchor (mesh or ladder); the other
+// three register on their first real event, so a feature a scenario cannot exercise is not listed as a
+// registered counter at zero.
 // Bounds: <=8 sieges, <=6 members each, 4 evaluations per tick in a 2 ms HCWorkBudget slice (one navmesh
 // sample, one ray and <=8 ladder reads each), <=1 noise per tick, reinforce under HCHordeReinforce caps
 // (2 creates per tick, 256 leases) and the per-player window.
 // Native evidence, installed scripts-1.30.164289: 3_Game/Entities/Building.c:23-25 GetLaddersCount,
 // GetLadderPosTop, GetLadderPosBottom (coordinate space unobserved: |bottom - building| > 50 m is read as
 // model-space and converted with Object.c:873 ModelToWorld, still far is ignored); 3_Game/AI/AIAgent.c:7
-// GetGroup; AIGroup.c:14 GetBehaviour; AIGroupBehaviour.c:7 WaypointParams, :27 SetWaypoints;
 // AIWorld.c:122 SampleNavmeshPosition; Global/DayZPhysics.c:199 RaycastRV; constants.c:35 ObjIntersectGeom;
 // Entities/DayZAnimal.c:193 GetAIAgent; Object.c:215 IsPendingDeletion, :287 GetPosition, :467 GetType,
 // :517 IsAlive; EntityAI.c:879 GetHierarchyRoot; EnMath.c Sin/Cos/RandomFloat/Sqrt;
@@ -52,7 +59,6 @@ class HCInfectedSiegeRow
 {
     PlayerBase Target;
     ref array<DayZInfected> Members = new array<DayZInfected>;
-    ref array<AIGroup> Waypointed = new array<AIGroup>;
     vector Origin;
     vector Anchor;
     string AnchorKind = "none";
@@ -64,7 +70,6 @@ class HCInfectedSiegeRow
     bool ReinforceDone;
     int ReinforceLeft;
     int ReinforceTries;
-    int GatherCursor;
     int Noises;
     int Reinforced;
     ref HCSiegeReinforcePack Pack;
@@ -87,7 +92,8 @@ class HCInfectedSiegeModule : HCModule
     protected ref array<ref HCInfectedSiegeRow> m_Rows = new array<ref HCInfectedSiegeRow>;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
     protected ref set<Object> m_Hits = new set<Object>;
-    protected ref array<PlayerBase> m_WindowPlayer = new array<PlayerBase>;
+    protected ref array<string> m_WindowPlayer = new array<string>;
+    protected ref map<string, int> m_Refused = new map<string, int>;
     protected ref array<float> m_WindowStart = new array<float>;
     protected ref array<int> m_WindowUsed = new array<int>;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -178,6 +184,10 @@ class HCInfectedSiegeModule : HCModule
         float dy = player.GetPosition()[1] - infected.GetPosition()[1];
         if (!HCInfectedSiegePolicy.HCHaven(dy, band)) { return; }
         if (HCInfectedSiegePolicy.HCHorizontal(infected.GetPosition(), player.GetPosition()) > HCInfectedSiegePolicy.LEAVE_METRES) { return; }
+        for (int taken = 0; taken < m_Rows.Count(); taken++)
+        {
+            if (m_Rows[taken].Members.Find(infected) >= 0) { return; }
+        }
         HCInfectedSiegeRow row = HCRowOf(player);
         if (!row)
         {
@@ -190,7 +200,6 @@ class HCInfectedSiegeModule : HCModule
             m_Rows.Insert(row);
         }
         if (row.Members.Count() >= HCInfectedSiegePolicy.MAX_MEMBERS) { return; }
-        if (row.Members.Find(infected) >= 0) { return; }
         row.Members.Insert(infected);
     }
 
@@ -241,10 +250,9 @@ class HCInfectedSiegeModule : HCModule
         }
         if (!row.Active)
         {
-            if (now - row.Opened >= m_Limits.GatherSeconds) { HCActivate(row, now); }
+            if (now - row.Opened >= m_Limits.GatherSeconds) { return HCActivate(row, now); }
             return true;
         }
-        HCGather(row);
         HCNoise(row, now);
         HCReinforce(row, now);
         return true;
@@ -259,9 +267,10 @@ class HCInfectedSiegeModule : HCModule
         }
     }
 
-    // ---- Activate and gather --------------------------------------------------------------------------
+    // ---- Activate --------------------------------------------------------------------------
 
-    protected void HCActivate(HCInfectedSiegeRow row, float now)
+    // False when the siege was refused and its row removed (the caller's cursor then points at the next row).
+    protected bool HCActivate(HCInfectedSiegeRow row, float now)
     {
         PlayerBase player = row.Target;
         vector feet = player.GetPosition();
@@ -280,12 +289,21 @@ class HCInfectedSiegeModule : HCModule
             row.Anchor = bottom;
             row.AnchorKind = "ladder";
         }
+        if (row.AnchorKind == "none")
+        {
+            HCRefuse("no_anchor");
+            int refusedAt = m_Rows.Find(row);
+            if (refusedAt >= 0) { m_Rows.Remove(refusedAt); }
+            return false;
+        }
         HCModuleReadiness.HCUseGuarded(GetName(), "siege_started", row);
+        if (row.AnchorKind == "ladder") { HCModuleReadiness.HCUseGuarded(GetName(), "ladder_guard", row); }
         m_Started++;
         if (HCInfectedSiegePolicy.HCPrintStart(m_Started))
         {
             Print("[HC Nav] siege start anchor=" + row.AnchorKind + " members=" + row.Members.Count().ToString() + " n=" + m_Started.ToString() + " runtime=PENDING");
         }
+        return true;
     }
 
     // The bottom (world space) of the ladder of the building under the player whose top is nearest to the
@@ -335,28 +353,6 @@ class HCInfectedSiegeModule : HCModule
         return found;
     }
 
-    // One member per call (round-robin): a member whose native group has a pack behaviour is sent to the
-    // anchor once per group. A lone infected has no such group and is left to its native chase (no
-    // steering, no group moves).
-    protected void HCGather(HCInfectedSiegeRow row)
-    {
-        if (row.AnchorKind == "none") { return; }
-        if (row.GatherCursor >= row.Members.Count()) { row.GatherCursor = 0; }
-        DayZInfected member = row.Members[row.GatherCursor];
-        row.GatherCursor++;
-        AIAgent agent = member.GetAIAgent();
-        if (!agent) { return; }
-        AIGroup group = agent.GetGroup();
-        if (!group || row.Waypointed.Find(group) >= 0) { return; }
-        row.Waypointed.Insert(group);
-        BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(group.GetBehaviour());
-        if (!behaviour) { return; }
-        ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-        route.Insert(new BehaviourGroupInfectedPackWaypointParams(row.Anchor, HCInfectedSiegePolicy.GATHER_RADIUS_METRES));
-        behaviour.SetWaypoints(route, 0, true, false);
-        if (row.AnchorKind == "ladder") { HCModuleReadiness.HCUseGuarded(GetName(), "ladder_guard", member); }
-    }
-
     // ---- Noise ---------------------------------------------------------------------------------------
 
     protected void HCNoise(HCInfectedSiegeRow row, float now)
@@ -377,7 +373,20 @@ class HCInfectedSiegeModule : HCModule
     {
         if (row.ReinforceDone || now < row.NextReinforce) { return; }
         PlayerBase player = row.Target;
-        int slot = HCWindowSlot(player, now);
+        string playerId = HCPlayerId(player);
+        if (playerId == "")
+        {
+            row.ReinforceDone = true;
+            HCRefuse("no_identity");
+            return;
+        }
+        int slot = HCWindowSlot(playerId, now);
+        if (slot < 0)
+        {
+            row.ReinforceDone = true;
+            HCRefuse("window_full");
+            return;
+        }
         if (row.ReinforceLeft == 0 && row.ReinforceTries == 0)
         {
             row.ReinforceLeft = HCInfectedSiegePolicy.HCBatch(m_Limits.ReinforcePerPlayerWindow, m_WindowUsed[slot]);
@@ -401,11 +410,7 @@ class HCInfectedSiegeModule : HCModule
         }
         ZombieBase body = HCHordeReinforce.HCCreate(template.GetType(), entry, row.Pack);
         if (!body) { return; }
-        if (!HCSteer(body, row.Anchor))
-        {
-            GetGame().ObjectDelete(body);
-            return;
-        }
+        // Unsteered by design: no waypoint is written to the new body's group (it may be a wild group).
         row.ReinforceLeft--;
         row.Reinforced++;
         m_WindowUsed.Set(slot, m_WindowUsed[slot] + 1);
@@ -433,52 +438,56 @@ class HCInfectedSiegeModule : HCModule
         return true;
     }
 
-    // The new body is sent to the anchor only through the waypoint of its own pack-behaviour group.
-    protected bool HCSteer(ZombieBase body, vector anchor)
+    // The persistent id of the player, used only as a server-side key (never logged). Empty without one.
+    protected string HCPlayerId(PlayerBase player)
     {
-        AIAgent agent = body.GetAIAgent();
-        if (!agent) { return false; }
-        AIGroup group = agent.GetGroup();
-        if (!group) { return false; }
-        BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(group.GetBehaviour());
-        if (!behaviour) { return false; }
-        ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
-        route.Insert(new BehaviourGroupInfectedPackWaypointParams(anchor, HCInfectedSiegePolicy.GATHER_RADIUS_METRES));
-        behaviour.SetWaypoints(route, 0, true, false);
-        return true;
+        if (!player || !player.GetIdentity()) { return ""; }
+        return player.GetIdentity().GetId();
     }
 
-    // The player's reinforcement window slot (created on demand; the oldest slot is reused when full).
-    protected int HCWindowSlot(PlayerBase player, float now)
+    // The player's reinforcement window slot, created on demand. A slot whose window has run out is reclaimed;
+    // with every slot in a live window the answer is -1 (refused), never another player's slot.
+    protected int HCWindowSlot(string playerId, float now)
     {
+        int expired = -1;
         for (int index = 0; index < m_WindowPlayer.Count(); index++)
         {
-            if (m_WindowPlayer[index] == player)
+            bool over = HCInfectedSiegePolicy.HCWindowExpired(now, m_WindowStart[index]);
+            if (m_WindowPlayer[index] == playerId)
             {
-                if (HCInfectedSiegePolicy.HCWindowExpired(now, m_WindowStart[index]))
+                if (over)
                 {
                     m_WindowStart.Set(index, now);
                     m_WindowUsed.Set(index, 0);
                 }
                 return index;
             }
+            if (over && expired < 0) { expired = index; }
         }
         if (m_WindowPlayer.Count() < HCInfectedSiegePolicy.WINDOW_SLOTS)
         {
-            m_WindowPlayer.Insert(player);
+            m_WindowPlayer.Insert(playerId);
             m_WindowStart.Insert(now);
             m_WindowUsed.Insert(0);
             return m_WindowPlayer.Count() - 1;
         }
-        int oldest = 0;
-        for (int scan = 1; scan < m_WindowPlayer.Count(); scan++)
+        if (expired < 0) { return -1; }
+        m_WindowPlayer.Set(expired, playerId);
+        m_WindowStart.Set(expired, now);
+        m_WindowUsed.Set(expired, 0);
+        return expired;
+    }
+
+    // A refusal with a reason code; one count per reason, the line is bounded like the start line.
+    protected void HCRefuse(string reason)
+    {
+        int count = 1;
+        if (m_Refused.Contains(reason)) { count = m_Refused.Get(reason) + 1; }
+        m_Refused.Set(reason, count);
+        if (HCInfectedSiegePolicy.HCPrintStart(count))
         {
-            if (m_WindowStart[scan] < m_WindowStart[oldest]) { oldest = scan; }
+            Print("[HC Nav] siege refused reason=" + reason + " n=" + count.ToString() + " runtime=PENDING");
         }
-        m_WindowPlayer.Set(oldest, player);
-        m_WindowStart.Set(oldest, now);
-        m_WindowUsed.Set(oldest, 0);
-        return oldest;
     }
 
     // ---- End -----------------------------------------------------------------------------------------

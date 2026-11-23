@@ -1,0 +1,3237 @@
+{
+  "calibrated": {},
+  "calibration_pending": [
+    "Land_Medical_Tent_Big",
+    "Land_Medical_Tent_Shower",
+    "Land_Mil_Fortified_Nest_Small",
+    "Land_Mil_GuardShed",
+    "Land_Mil_GuardTower",
+    "Land_Mil_Radar_Mobile1",
+    "Land_Mil_Tent_Big1_1",
+    "Land_Mil_Tent_Big1_2",
+    "Land_Mil_Tent_Big1_3",
+    "Land_Mil_Tent_Big1_4",
+    "Land_Mil_Tent_Big1_5",
+    "Land_Mil_Tent_Big2_1",
+    "Land_Mil_Tent_Big2_2",
+    "Land_Mil_Tent_Big2_3",
+    "Land_Mil_Tent_Big2_4",
+    "Land_Mil_Tent_Big2_5",
+    "Land_Mil_Tent_Big3",
+    "Land_Mil_Tent_Big4",
+    "Land_Wreck_Caravan_MGreen",
+    "Land_Wreck_Ikarus",
+    "Land_Wreck_Lada_Green",
+    "Land_Wreck_Uaz",
+    "Land_Wreck_offroad02_aban2",
+    "Land_Wreck_sed01_aban1_police",
+    "Land_Wreck_sed01_aban2_police",
+    "StaticObj_Airfield_Light_Reflector",
+    "StaticObj_Container_1C",
+    "StaticObj_Container_1D",
+    "StaticObj_Furniture_foldingbed_open",
+    "StaticObj_Furniture_hospital_transport_bed",
+    "StaticObj_Furniture_radio_b",
+    "StaticObj_Mil_Artilery_Nest",
+    "StaticObj_Mil_Artilery_Rampart",
+    "StaticObj_Mil_CamoNet_Side_east",
+    "StaticObj_Mil_CamoNet_Side_nato",
+    "StaticObj_Misc_BagFence_Round",
+    "StaticObj_Misc_Chair_Camp1",
+    "StaticObj_Misc_Chair_Camp2",
+    "StaticObj_Misc_RoadBarrier",
+    "StaticObj_Wreck_BMP2",
+    "StaticObj_Wreck_Digger",
+    "StaticObj_Wreck_MTVR_Cargo",
+    "StaticObj_Wreck_Mi8_Crashed",
+    "StaticObj_Wreck_PowGen",
+    "StaticObj_Wreck_Stryker",
+    "StaticObj_Wreck_Trailer_Cistern",
+    "StaticObj_Wreck_Ural"
+  ],
+  "classes": {
+    "Land_Container_1Mo": {
+      "aspect": 2.522,
+      "asymmetry": {
+        "mx": 0.007,
+        "mz": 0.009,
+        "r180": 0.011
+      },
+      "bounds": {
+        "footprint_m": [
+          2.482,
+          6.26
+        ],
+        "max_m": [
+          1.22,
+          2.589,
+          3.031
+        ],
+        "min_m": [
+          -1.262,
+          -0.034,
+          -3.229
+        ],
+        "size_m": [
+          2.482,
+          2.623,
+          6.26
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.021,
+        -0.099
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "two_fold_doors"
+    },
+    "Land_Container_1Moh": {
+      "aspect": 2.494,
+      "asymmetry": {
+        "mx": 0.007,
+        "mz": 0.003,
+        "r180": 0.007
+      },
+      "bounds": {
+        "footprint_m": [
+          2.482,
+          6.189
+        ],
+        "max_m": [
+          1.22,
+          2.589,
+          2.992
+        ],
+        "min_m": [
+          -1.262,
+          -0.034,
+          -3.197
+        ],
+        "size_m": [
+          2.482,
+          2.623,
+          6.189
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.021,
+        -0.103
+      ],
+      "front_source": "odol_memory",
+      "front_yaw_deg": 180.0,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Medical_Tent_Big": {
+      "aspect": 1.295,
+      "asymmetry": {
+        "mx": 0.078,
+        "mz": 0.094,
+        "r180": 0.093
+      },
+      "bounds": {
+        "footprint_m": [
+          10.456,
+          8.076
+        ],
+        "max_m": [
+          5.255,
+          3.848,
+          3.907
+        ],
+        "min_m": [
+          -5.2,
+          -0.832,
+          -4.169
+        ],
+        "size_m": [
+          10.456,
+          4.68,
+          8.076
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.027,
+        -0.131
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Medical_Tent_Shower": {
+      "aspect": 1.638,
+      "asymmetry": {
+        "mx": 0.026,
+        "mz": 0.095,
+        "r180": 0.095
+      },
+      "bounds": {
+        "footprint_m": [
+          8.56,
+          5.227
+        ],
+        "max_m": [
+          7.305,
+          3.186,
+          2.613
+        ],
+        "min_m": [
+          -1.255,
+          -0.04,
+          -2.613
+        ],
+        "size_m": [
+          8.56,
+          3.226,
+          5.227
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        3.025,
+        0.0
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_Fortified_Nest_Small": {
+      "aspect": 1.037,
+      "asymmetry": {
+        "mx": 0.007,
+        "mz": 0.074,
+        "r180": 0.074
+      },
+      "bounds": {
+        "footprint_m": [
+          4.108,
+          3.963
+        ],
+        "max_m": [
+          2.617,
+          2.005,
+          2.355
+        ],
+        "min_m": [
+          -1.492,
+          -0.293,
+          -1.608
+        ],
+        "size_m": [
+          4.108,
+          2.298,
+          3.963
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.562,
+        0.373
+      ],
+      "front_candidates_deg": [
+        0.0,
+        90.0,
+        180.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": null,
+      "symmetric": false
+    },
+    "Land_Mil_GuardShed": {
+      "aspect": 1.394,
+      "asymmetry": {
+        "mx": 0.018,
+        "mz": 0.019,
+        "r180": 0.018
+      },
+      "bounds": {
+        "footprint_m": [
+          2.863,
+          2.054
+        ],
+        "max_m": [
+          1.432,
+          2.703,
+          1.027
+        ],
+        "min_m": [
+          -1.432,
+          -1.329,
+          -1.027
+        ],
+        "size_m": [
+          2.863,
+          4.032,
+          2.054
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_GuardTower": {
+      "aspect": 2.368,
+      "asymmetry": {
+        "mx": 0.018,
+        "mz": 0.15,
+        "r180": 0.148
+      },
+      "bounds": {
+        "footprint_m": [
+          5.327,
+          12.613
+        ],
+        "max_m": [
+          1.304,
+          13.054,
+          9.917
+        ],
+        "min_m": [
+          -4.024,
+          -0.465,
+          -2.696
+        ],
+        "size_m": [
+          5.327,
+          13.518,
+          12.613
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -1.36,
+        3.611
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Radar_Mobile1": {
+      "aspect": 1.317,
+      "asymmetry": {
+        "mx": 0.249,
+        "mz": 0.16,
+        "r180": 0.16
+      },
+      "bounds": {
+        "footprint_m": [
+          13.968,
+          18.395
+        ],
+        "max_m": [
+          6.284,
+          14.203,
+          12.648
+        ],
+        "min_m": [
+          -7.685,
+          -0.614,
+          -5.747
+        ],
+        "size_m": [
+          13.968,
+          14.817,
+          18.395
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.7,
+        3.45
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big1_1": {
+      "aspect": 1.246,
+      "asymmetry": {
+        "mx": 0.132,
+        "mz": 0.108,
+        "r180": 0.111
+      },
+      "bounds": {
+        "footprint_m": [
+          6.181,
+          7.704
+        ],
+        "max_m": [
+          3.09,
+          3.204,
+          3.854
+        ],
+        "min_m": [
+          -3.09,
+          -0.049,
+          -3.85
+        ],
+        "size_m": [
+          6.181,
+          3.253,
+          7.704
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.002
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big1_2": {
+      "aspect": 1.246,
+      "asymmetry": {
+        "mx": 0.087,
+        "mz": 0.116,
+        "r180": 0.123
+      },
+      "bounds": {
+        "footprint_m": [
+          6.181,
+          7.704
+        ],
+        "max_m": [
+          3.09,
+          3.204,
+          3.854
+        ],
+        "min_m": [
+          -3.09,
+          -0.049,
+          -3.85
+        ],
+        "size_m": [
+          6.181,
+          3.253,
+          7.704
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.002
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big1_3": {
+      "aspect": 1.246,
+      "asymmetry": {
+        "mx": 0.13,
+        "mz": 0.15,
+        "r180": 0.127
+      },
+      "bounds": {
+        "footprint_m": [
+          6.181,
+          7.704
+        ],
+        "max_m": [
+          3.09,
+          3.204,
+          3.854
+        ],
+        "min_m": [
+          -3.09,
+          -0.049,
+          -3.85
+        ],
+        "size_m": [
+          6.181,
+          3.253,
+          7.704
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.002
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big1_4": {
+      "aspect": 1.246,
+      "asymmetry": {
+        "mx": 0.126,
+        "mz": 0.141,
+        "r180": 0.117
+      },
+      "bounds": {
+        "footprint_m": [
+          6.181,
+          7.704
+        ],
+        "max_m": [
+          3.09,
+          3.204,
+          3.854
+        ],
+        "min_m": [
+          -3.09,
+          -0.049,
+          -3.85
+        ],
+        "size_m": [
+          6.181,
+          3.253,
+          7.704
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.002
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big1_5": {
+      "aspect": 1.246,
+      "asymmetry": {
+        "mx": 0.149,
+        "mz": 0.138,
+        "r180": 0.179
+      },
+      "bounds": {
+        "footprint_m": [
+          6.181,
+          7.704
+        ],
+        "max_m": [
+          3.09,
+          3.204,
+          3.854
+        ],
+        "min_m": [
+          -3.09,
+          -0.049,
+          -3.85
+        ],
+        "size_m": [
+          6.181,
+          3.253,
+          7.704
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.002
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big2_1": {
+      "aspect": 1.708,
+      "asymmetry": {
+        "mx": 0.098,
+        "mz": 0.12,
+        "r180": 0.116
+      },
+      "bounds": {
+        "footprint_m": [
+          10.27,
+          6.012
+        ],
+        "max_m": [
+          5.137,
+          4.244,
+          3.005
+        ],
+        "min_m": [
+          -5.133,
+          -0.25,
+          -3.007
+        ],
+        "size_m": [
+          10.27,
+          4.494,
+          6.012
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.002,
+        -0.001
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big2_2": {
+      "aspect": 1.708,
+      "asymmetry": {
+        "mx": 0.175,
+        "mz": 0.163,
+        "r180": 0.15
+      },
+      "bounds": {
+        "footprint_m": [
+          10.27,
+          6.012
+        ],
+        "max_m": [
+          5.137,
+          4.244,
+          3.005
+        ],
+        "min_m": [
+          -5.133,
+          -0.25,
+          -3.007
+        ],
+        "size_m": [
+          10.27,
+          4.494,
+          6.012
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.002,
+        -0.001
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big2_3": {
+      "aspect": 1.708,
+      "asymmetry": {
+        "mx": 0.091,
+        "mz": 0.091,
+        "r180": 0.094
+      },
+      "bounds": {
+        "footprint_m": [
+          10.27,
+          6.012
+        ],
+        "max_m": [
+          5.137,
+          4.244,
+          3.005
+        ],
+        "min_m": [
+          -5.133,
+          -0.25,
+          -3.007
+        ],
+        "size_m": [
+          10.27,
+          4.494,
+          6.012
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.002,
+        -0.001
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big2_4": {
+      "aspect": 1.708,
+      "asymmetry": {
+        "mx": 0.1,
+        "mz": 0.074,
+        "r180": 0.112
+      },
+      "bounds": {
+        "footprint_m": [
+          10.27,
+          6.012
+        ],
+        "max_m": [
+          5.137,
+          4.244,
+          3.005
+        ],
+        "min_m": [
+          -5.133,
+          -0.25,
+          -3.007
+        ],
+        "size_m": [
+          10.27,
+          4.494,
+          6.012
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.002,
+        -0.001
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big2_5": {
+      "aspect": 1.708,
+      "asymmetry": {
+        "mx": 0.102,
+        "mz": 0.102,
+        "r180": 0.093
+      },
+      "bounds": {
+        "footprint_m": [
+          10.27,
+          6.012
+        ],
+        "max_m": [
+          5.137,
+          4.244,
+          3.005
+        ],
+        "min_m": [
+          -5.133,
+          -0.25,
+          -3.007
+        ],
+        "size_m": [
+          10.27,
+          4.494,
+          6.012
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.002,
+        -0.001
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big3": {
+      "aspect": 1.367,
+      "asymmetry": {
+        "mx": 0.153,
+        "mz": 0.153,
+        "r180": 0.136
+      },
+      "bounds": {
+        "footprint_m": [
+          13.192,
+          18.03
+        ],
+        "max_m": [
+          4.499,
+          3.157,
+          7.372
+        ],
+        "min_m": [
+          -8.693,
+          -0.936,
+          -10.659
+        ],
+        "size_m": [
+          13.192,
+          4.092,
+          18.03
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -2.097,
+        -1.644
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Mil_Tent_Big4": {
+      "aspect": 1.467,
+      "asymmetry": {
+        "mx": 0.112,
+        "mz": 0.145,
+        "r180": 0.172
+      },
+      "bounds": {
+        "footprint_m": [
+          10.312,
+          15.127
+        ],
+        "max_m": [
+          3.832,
+          3.405,
+          11.869
+        ],
+        "min_m": [
+          -6.48,
+          -1.262,
+          -3.258
+        ],
+        "size_m": [
+          10.312,
+          4.667,
+          15.127
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -1.324,
+        4.306
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Roadblock_Table": {
+      "aspect": 2.46,
+      "asymmetry": {
+        "mx": 0.016,
+        "mz": 0.014,
+        "r180": 0.007
+      },
+      "bounds": {
+        "footprint_m": [
+          2.022,
+          0.822
+        ],
+        "max_m": [
+          1.011,
+          0.813,
+          0.411
+        ],
+        "min_m": [
+          -1.011,
+          0.0,
+          -0.411
+        ],
+        "size_m": [
+          2.022,
+          0.813,
+          0.822
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "Land_Roadblock_WoodenCrate": {
+      "aspect": 1.75,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.8,
+          1.4
+        ],
+        "max_m": [
+          0.4,
+          0.6,
+          0.7
+        ],
+        "min_m": [
+          -0.4,
+          -0.05,
+          -0.7
+        ],
+        "size_m": [
+          0.8,
+          0.65,
+          1.4
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "Land_Wreck_Caravan_MGreen": {
+      "aspect": 3.691,
+      "asymmetry": {
+        "mx": 0.005,
+        "mz": 0.081,
+        "r180": 0.083
+      },
+      "bounds": {
+        "footprint_m": [
+          2.576,
+          9.507
+        ],
+        "max_m": [
+          1.271,
+          3.528,
+          4.691
+        ],
+        "min_m": [
+          -1.305,
+          -0.156,
+          -4.817
+        ],
+        "size_m": [
+          2.576,
+          3.684,
+          9.507
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.017,
+        -0.063
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "memory_end_door_deg": 180.0,
+      "symmetric": false
+    },
+    "Land_Wreck_Ikarus": {
+      "aspect": 3.333,
+      "asymmetry": {
+        "mx": 0.082,
+        "mz": 0.067,
+        "r180": 0.078
+      },
+      "bounds": {
+        "footprint_m": [
+          3.274,
+          10.911
+        ],
+        "max_m": [
+          -0.26,
+          3.059,
+          7.19
+        ],
+        "min_m": [
+          -3.534,
+          -0.039,
+          -3.722
+        ],
+        "size_m": [
+          3.274,
+          3.098,
+          10.911
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -1.897,
+        1.734
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Wreck_Lada_Green": {
+      "aspect": 2.446,
+      "asymmetry": {
+        "mx": 0.079,
+        "mz": 0.198,
+        "r180": 0.196
+      },
+      "bounds": {
+        "footprint_m": [
+          1.682,
+          4.115
+        ],
+        "max_m": [
+          0.836,
+          1.3,
+          1.889
+        ],
+        "min_m": [
+          -0.846,
+          0.004,
+          -2.226
+        ],
+        "size_m": [
+          1.682,
+          1.296,
+          4.115
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.005,
+        -0.168
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "memory_end_door_deg": 0.0,
+      "symmetric": false
+    },
+    "Land_Wreck_Uaz": {
+      "aspect": 1.563,
+      "asymmetry": {
+        "mx": 0.131,
+        "mz": 0.111,
+        "r180": 0.168
+      },
+      "bounds": {
+        "footprint_m": [
+          2.375,
+          3.712
+        ],
+        "max_m": [
+          0.875,
+          1.715,
+          1.765
+        ],
+        "min_m": [
+          -1.5,
+          -0.025,
+          -1.947
+        ],
+        "size_m": [
+          2.375,
+          1.74,
+          3.712
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.312,
+        -0.091
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "Land_Wreck_offroad02_aban2": {
+      "aspect": 2.009,
+      "asymmetry": {
+        "mx": 0.06,
+        "mz": 0.079,
+        "r180": 0.085
+      },
+      "bounds": {
+        "footprint_m": [
+          2.458,
+          4.937
+        ],
+        "max_m": [
+          1.12,
+          1.905,
+          2.678
+        ],
+        "min_m": [
+          -1.338,
+          -0.045,
+          -2.258
+        ],
+        "size_m": [
+          2.458,
+          1.95,
+          4.937
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.109,
+        0.21
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "memory_end_door_deg": 0.0,
+      "symmetric": false
+    },
+    "Land_Wreck_sed01_aban1_police": {
+      "aspect": 2.582,
+      "asymmetry": {
+        "mx": 0.108,
+        "mz": 0.082,
+        "r180": 0.086
+      },
+      "bounds": {
+        "footprint_m": [
+          1.907,
+          4.923
+        ],
+        "max_m": [
+          0.968,
+          1.538,
+          2.475
+        ],
+        "min_m": [
+          -0.939,
+          -0.058,
+          -2.448
+        ],
+        "size_m": [
+          1.907,
+          1.596,
+          4.923
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.015,
+        0.014
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "memory_end_door_deg": 0.0,
+      "symmetric": false
+    },
+    "Land_Wreck_sed01_aban2_police": {
+      "aspect": 2.574,
+      "asymmetry": {
+        "mx": 0.104,
+        "mz": 0.101,
+        "r180": 0.102
+      },
+      "bounds": {
+        "footprint_m": [
+          1.881,
+          4.841
+        ],
+        "max_m": [
+          0.936,
+          1.518,
+          2.434
+        ],
+        "min_m": [
+          -0.945,
+          0.014,
+          -2.406
+        ],
+        "size_m": [
+          1.881,
+          1.504,
+          4.841
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.004,
+        0.014
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "memory_end_door_deg": 180.0,
+      "symmetric": false
+    },
+    "StaticObj_Airfield_Light_Edge": {
+      "aspect": 1.153,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.249,
+          0.216
+        ],
+        "max_m": [
+          0.124,
+          0.236,
+          0.108
+        ],
+        "min_m": [
+          -0.124,
+          -0.147,
+          -0.108
+        ],
+        "size_m": [
+          0.249,
+          0.383,
+          0.216
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "small"
+    },
+    "StaticObj_Airfield_Light_Reflector": {
+      "aspect": 4.558,
+      "asymmetry": {
+        "mx": 0.058,
+        "mz": 0.0,
+        "r180": 0.058
+      },
+      "bounds": {
+        "footprint_m": [
+          0.548,
+          2.498
+        ],
+        "max_m": [
+          0.274,
+          0.802,
+          1.249
+        ],
+        "min_m": [
+          -0.274,
+          0.001,
+          -1.249
+        ],
+        "size_m": [
+          0.548,
+          0.801,
+          2.498
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Container_1C": {
+      "aspect": 2.503,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          2.482,
+          6.213
+        ],
+        "max_m": [
+          1.249,
+          2.598,
+          2.99
+        ],
+        "min_m": [
+          -1.232,
+          -0.066,
+          -3.223
+        ],
+        "size_m": [
+          2.482,
+          2.664,
+          6.213
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.009,
+        -0.116
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Container_1D": {
+      "aspect": 2.503,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          2.482,
+          6.213
+        ],
+        "max_m": [
+          1.249,
+          2.598,
+          2.99
+        ],
+        "min_m": [
+          -1.232,
+          -0.066,
+          -3.223
+        ],
+        "size_m": [
+          2.482,
+          2.664,
+          6.213
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.009,
+        -0.116
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Dead_MassGrave_8m": {
+      "aspect": 2.744,
+      "asymmetry": {
+        "mx": 0.04,
+        "mz": 0.035,
+        "r180": 0.032
+      },
+      "bounds": {
+        "footprint_m": [
+          11.326,
+          4.127
+        ],
+        "max_m": [
+          6.089,
+          0.635,
+          2.066
+        ],
+        "min_m": [
+          -5.237,
+          -0.316,
+          -2.061
+        ],
+        "size_m": [
+          11.326,
+          0.952,
+          4.127
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.426,
+        0.002
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Decon_HazmatBag_01_F": {
+      "aspect": 1.079,
+      "asymmetry": {
+        "mx": 0.055,
+        "mz": 0.036,
+        "r180": 0.055
+      },
+      "bounds": {
+        "footprint_m": [
+          0.534,
+          0.576
+        ],
+        "max_m": [
+          0.242,
+          0.761,
+          0.256
+        ],
+        "min_m": [
+          -0.291,
+          -0.002,
+          -0.32
+        ],
+        "size_m": [
+          0.534,
+          0.764,
+          0.576
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.024,
+        -0.032
+      ],
+      "long_axis": null,
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Furniture_MedicalGarbage_Bandage": {
+      "aspect": 1.02,
+      "asymmetry": {
+        "mx": 0.172,
+        "mz": 0.144,
+        "r180": 0.181
+      },
+      "bounds": {
+        "footprint_m": [
+          0.154,
+          0.151
+        ],
+        "max_m": [
+          0.077,
+          0.022,
+          0.063
+        ],
+        "min_m": [
+          -0.077,
+          0.001,
+          -0.088
+        ],
+        "size_m": [
+          0.154,
+          0.021,
+          0.151
+        ],
+        "source": "visual_lod"
+      },
+      "center_xz_m": [
+        0.0,
+        -0.012
+      ],
+      "long_axis": null,
+      "symmetric": true,
+      "symmetry": "small"
+    },
+    "StaticObj_Furniture_box_c": {
+      "aspect": 1.836,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.887,
+          0.483
+        ],
+        "max_m": [
+          0.444,
+          0.303,
+          0.242
+        ],
+        "min_m": [
+          -0.444,
+          -0.303,
+          -0.242
+        ],
+        "size_m": [
+          0.887,
+          0.606,
+          0.483
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Furniture_canister_DZ": {
+      "aspect": 1.0,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.42,
+          0.42
+        ],
+        "max_m": [
+          0.21,
+          0.654,
+          0.211
+        ],
+        "min_m": [
+          -0.21,
+          -0.004,
+          -0.209
+        ],
+        "size_m": [
+          0.42,
+          0.658,
+          0.42
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.001
+      ],
+      "long_axis": null,
+      "symmetric": true,
+      "symmetry": "small"
+    },
+    "StaticObj_Furniture_fireplace_grill": {
+      "aspect": 1.803,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.732,
+          0.406
+        ],
+        "max_m": [
+          0.366,
+          0.008,
+          0.203
+        ],
+        "min_m": [
+          -0.366,
+          -0.009,
+          -0.203
+        ],
+        "size_m": [
+          0.732,
+          0.016,
+          0.406
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Furniture_foldingbed_open": {
+      "aspect": 2.662,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.77,
+          2.05
+        ],
+        "max_m": [
+          0.384,
+          0.384,
+          1.029
+        ],
+        "min_m": [
+          -0.386,
+          0.0,
+          -1.021
+        ],
+        "size_m": [
+          0.77,
+          0.384,
+          2.05
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.001,
+        0.004
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Furniture_hospital_transport_bed": {
+      "aspect": 3.16,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.033,
+        "r180": 0.033
+      },
+      "bounds": {
+        "footprint_m": [
+          0.714,
+          2.256
+        ],
+        "max_m": [
+          0.357,
+          0.951,
+          1.142
+        ],
+        "min_m": [
+          -0.357,
+          0.0,
+          -1.114
+        ],
+        "size_m": [
+          0.714,
+          0.951,
+          2.256
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.014
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Furniture_medical_table": {
+      "aspect": 1.981,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          1.058,
+          0.534
+        ],
+        "max_m": [
+          0.508,
+          1.017,
+          0.244
+        ],
+        "min_m": [
+          -0.549,
+          0.0,
+          -0.29
+        ],
+        "size_m": [
+          1.058,
+          1.017,
+          0.534
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.021,
+        -0.023
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Furniture_metalcrate": {
+      "aspect": 1.443,
+      "asymmetry": {
+        "mx": 0.001,
+        "mz": 0.001,
+        "r180": 0.001
+      },
+      "bounds": {
+        "footprint_m": [
+          0.524,
+          0.756
+        ],
+        "max_m": [
+          0.262,
+          0.571,
+          0.377
+        ],
+        "min_m": [
+          -0.262,
+          0.124,
+          -0.379
+        ],
+        "size_m": [
+          0.524,
+          0.447,
+          0.756
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        -0.001
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Furniture_radio_b": {
+      "aspect": 3.959,
+      "asymmetry": {
+        "mx": 0.003,
+        "mz": 0.0,
+        "r180": 0.003
+      },
+      "bounds": {
+        "footprint_m": [
+          0.289,
+          0.073
+        ],
+        "max_m": [
+          0.145,
+          0.207,
+          0.037
+        ],
+        "min_m": [
+          -0.144,
+          0.0,
+          -0.037
+        ],
+        "size_m": [
+          0.289,
+          0.207,
+          0.073
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.001,
+        0.0
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Garbage_GroundSq_3m": {
+      "aspect": 1.0,
+      "bounds": {
+        "footprint_m": [
+          3.0,
+          3.0
+        ],
+        "max_m": [
+          1.5,
+          0.0,
+          1.5
+        ],
+        "min_m": [
+          -1.5,
+          0.0,
+          -1.5
+        ],
+        "size_m": [
+          3.0,
+          0.0,
+          3.0
+        ],
+        "source": "reserve_unmeasured"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": null,
+      "symmetric": true,
+      "symmetry": "reserve_square"
+    },
+    "StaticObj_Garbage_Pile1": {
+      "aspect": 1.26,
+      "asymmetry": {
+        "mx": 0.145,
+        "mz": 0.117,
+        "r180": 0.087
+      },
+      "bounds": {
+        "footprint_m": [
+          3.4,
+          2.698
+        ],
+        "max_m": [
+          1.615,
+          1.142,
+          1.435
+        ],
+        "min_m": [
+          -1.785,
+          -0.239,
+          -1.263
+        ],
+        "size_m": [
+          3.4,
+          1.381,
+          2.698
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.085,
+        0.086
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Mil_Artilery_Nest": {
+      "aspect": 1.601,
+      "asymmetry": {
+        "mx": 0.057,
+        "mz": 0.312,
+        "r180": 0.317
+      },
+      "bounds": {
+        "footprint_m": [
+          12.256,
+          7.656
+        ],
+        "max_m": [
+          6.144,
+          1.474,
+          0.037
+        ],
+        "min_m": [
+          -6.112,
+          -1.272,
+          -7.619
+        ],
+        "size_m": [
+          12.256,
+          2.747,
+          7.656
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.016,
+        -3.791
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Mil_Artilery_Rampart": {
+      "aspect": 1.861,
+      "asymmetry": {
+        "mx": 0.063,
+        "mz": 0.308,
+        "r180": 0.308
+      },
+      "bounds": {
+        "footprint_m": [
+          11.374,
+          6.113
+        ],
+        "max_m": [
+          5.687,
+          1.437,
+          1.076
+        ],
+        "min_m": [
+          -5.687,
+          -0.962,
+          -5.037
+        ],
+        "size_m": [
+          11.374,
+          2.399,
+          6.113
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        -1.98
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Mil_CamoNet_Side_east": {
+      "aspect": 1.928,
+      "asymmetry": {
+        "mx": 0.113,
+        "mz": 0.105,
+        "r180": 0.088
+      },
+      "bounds": {
+        "footprint_m": [
+          14.523,
+          7.532
+        ],
+        "max_m": [
+          7.317,
+          3.998,
+          3.159
+        ],
+        "min_m": [
+          -7.206,
+          -1.485,
+          -4.374
+        ],
+        "size_m": [
+          14.523,
+          5.483,
+          7.532
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.055,
+        -0.607
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Mil_CamoNet_Side_nato": {
+      "aspect": 1.928,
+      "asymmetry": {
+        "mx": 0.113,
+        "mz": 0.105,
+        "r180": 0.088
+      },
+      "bounds": {
+        "footprint_m": [
+          14.523,
+          7.532
+        ],
+        "max_m": [
+          7.317,
+          3.998,
+          3.159
+        ],
+        "min_m": [
+          -7.206,
+          -1.485,
+          -4.374
+        ],
+        "size_m": [
+          14.523,
+          5.483,
+          7.532
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.055,
+        -0.607
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Mil_HBarrier_4m": {
+      "aspect": 1.831,
+      "asymmetry": {
+        "mx": 0.008,
+        "mz": 0.014,
+        "r180": 0.016
+      },
+      "bounds": {
+        "footprint_m": [
+          4.712,
+          2.574
+        ],
+        "max_m": [
+          3.513,
+          1.366,
+          1.323
+        ],
+        "min_m": [
+          -1.199,
+          -0.261,
+          -1.251
+        ],
+        "size_m": [
+          4.712,
+          1.627,
+          2.574
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        1.157,
+        0.036
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Mil_HBarrier_6m": {
+      "aspect": 2.45,
+      "asymmetry": {
+        "mx": 0.004,
+        "mz": 0.014,
+        "r180": 0.014
+      },
+      "bounds": {
+        "footprint_m": [
+          6.489,
+          2.649
+        ],
+        "max_m": [
+          5.45,
+          1.382,
+          1.373
+        ],
+        "min_m": [
+          -1.039,
+          -0.276,
+          -1.277
+        ],
+        "size_m": [
+          6.489,
+          1.658,
+          2.649
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        2.206,
+        0.048
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Misc_Antenna": {
+      "aspect": 11.854,
+      "asymmetry": {
+        "mx": 0.043,
+        "mz": 0.022,
+        "r180": 0.043
+      },
+      "bounds": {
+        "footprint_m": [
+          5.583,
+          0.471
+        ],
+        "max_m": [
+          2.789,
+          8.132,
+          0.235
+        ],
+        "min_m": [
+          -2.793,
+          -1.0,
+          -0.235
+        ],
+        "size_m": [
+          5.583,
+          9.132,
+          0.471
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.002,
+        0.0
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Misc_BagFence_3m": {
+      "aspect": 5.567,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          2.995,
+          0.538
+        ],
+        "max_m": [
+          1.502,
+          0.873,
+          0.287
+        ],
+        "min_m": [
+          -1.493,
+          -0.185,
+          -0.251
+        ],
+        "size_m": [
+          2.995,
+          1.058,
+          0.538
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.004,
+        0.018
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Misc_BagFence_Round": {
+      "aspect": 2.455,
+      "asymmetry": {
+        "mx": 0.14,
+        "mz": 0.304,
+        "r180": 0.307
+      },
+      "bounds": {
+        "footprint_m": [
+          5.874,
+          2.393
+        ],
+        "max_m": [
+          2.935,
+          0.873,
+          0.167
+        ],
+        "min_m": [
+          -2.939,
+          -0.292,
+          -2.226
+        ],
+        "size_m": [
+          5.874,
+          1.165,
+          2.393
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.002,
+        -1.03
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Misc_Chair_Camp1": {
+      "aspect": 1.025,
+      "asymmetry": {
+        "mx": 0.043,
+        "mz": 0.138,
+        "r180": 0.144
+      },
+      "bounds": {
+        "footprint_m": [
+          0.558,
+          0.572
+        ],
+        "max_m": [
+          0.272,
+          0.969,
+          0.289
+        ],
+        "min_m": [
+          -0.286,
+          -0.004,
+          -0.283
+        ],
+        "size_m": [
+          0.558,
+          0.973,
+          0.572
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.007,
+        0.003
+      ],
+      "front_candidates_deg": [
+        0.0,
+        90.0,
+        180.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": null,
+      "symmetric": false
+    },
+    "StaticObj_Misc_Chair_Camp2": {
+      "aspect": 1.025,
+      "asymmetry": {
+        "mx": 0.043,
+        "mz": 0.138,
+        "r180": 0.144
+      },
+      "bounds": {
+        "footprint_m": [
+          0.558,
+          0.572
+        ],
+        "max_m": [
+          0.272,
+          0.969,
+          0.289
+        ],
+        "min_m": [
+          -0.286,
+          -0.004,
+          -0.283
+        ],
+        "size_m": [
+          0.558,
+          0.973,
+          0.572
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.007,
+        0.003
+      ],
+      "front_candidates_deg": [
+        0.0,
+        90.0,
+        180.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": null,
+      "symmetric": false
+    },
+    "StaticObj_Misc_Flagpole": {
+      "aspect": 1.014,
+      "asymmetry": {
+        "mx": 0.364,
+        "mz": 0.029,
+        "r180": 0.365
+      },
+      "bounds": {
+        "footprint_m": [
+          0.448,
+          0.442
+        ],
+        "max_m": [
+          0.327,
+          7.029,
+          0.219
+        ],
+        "min_m": [
+          -0.121,
+          -0.024,
+          -0.223
+        ],
+        "size_m": [
+          0.448,
+          7.053,
+          0.442
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.103,
+        -0.002
+      ],
+      "long_axis": null,
+      "symmetric": true,
+      "symmetry": "small"
+    },
+    "StaticObj_Misc_Hedgehog_Concrete": {
+      "aspect": 1.055,
+      "asymmetry": {
+        "mx": 0.229,
+        "mz": 0.186,
+        "r180": 0.187
+      },
+      "bounds": {
+        "footprint_m": [
+          1.947,
+          1.846
+        ],
+        "max_m": [
+          1.099,
+          1.18,
+          0.886
+        ],
+        "min_m": [
+          -0.849,
+          -0.159,
+          -0.96
+        ],
+        "size_m": [
+          1.947,
+          1.339,
+          1.846
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.125,
+        -0.037
+      ],
+      "long_axis": null,
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Misc_Hedgehog_Iron": {
+      "aspect": 1.165,
+      "asymmetry": {
+        "mx": 0.086,
+        "mz": 0.323,
+        "r180": 0.368
+      },
+      "bounds": {
+        "footprint_m": [
+          1.472,
+          1.263
+        ],
+        "max_m": [
+          0.718,
+          1.421,
+          0.636
+        ],
+        "min_m": [
+          -0.755,
+          -0.05,
+          -0.627
+        ],
+        "size_m": [
+          1.472,
+          1.471,
+          1.263
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.019,
+        0.005
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Misc_Pallets1": {
+      "aspect": 1.272,
+      "asymmetry": {
+        "mx": 0.174,
+        "mz": 0.189,
+        "r180": 0.147
+      },
+      "bounds": {
+        "footprint_m": [
+          1.401,
+          1.782
+        ],
+        "max_m": [
+          0.947,
+          0.688,
+          1.899
+        ],
+        "min_m": [
+          -0.454,
+          -0.003,
+          0.117
+        ],
+        "size_m": [
+          1.401,
+          0.691,
+          1.782
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.246,
+        1.008
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Misc_Pallets2": {
+      "aspect": 1.169,
+      "asymmetry": {
+        "mx": 0.181,
+        "mz": 0.184,
+        "r180": 0.138
+      },
+      "bounds": {
+        "footprint_m": [
+          1.4,
+          1.636
+        ],
+        "max_m": [
+          0.947,
+          0.864,
+          1.749
+        ],
+        "min_m": [
+          -0.453,
+          -0.025,
+          0.113
+        ],
+        "size_m": [
+          1.4,
+          0.889,
+          1.636
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.247,
+        0.931
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Misc_Razorwire": {
+      "aspect": 4.067,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          8.459,
+          2.08
+        ],
+        "max_m": [
+          5.96,
+          1.814,
+          0.972
+        ],
+        "min_m": [
+          -2.499,
+          -0.043,
+          -1.107
+        ],
+        "size_m": [
+          8.459,
+          1.858,
+          2.08
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        1.73,
+        -0.068
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Misc_RoadBarrier": {
+      "aspect": 14.52,
+      "asymmetry": {
+        "mx": 0.042,
+        "mz": 0.172,
+        "r180": 0.174
+      },
+      "bounds": {
+        "footprint_m": [
+          0.542,
+          7.87
+        ],
+        "max_m": [
+          0.438,
+          1.741,
+          6.824
+        ],
+        "min_m": [
+          -0.105,
+          -0.587,
+          -1.047
+        ],
+        "size_m": [
+          0.542,
+          2.329,
+          7.87
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.167,
+        2.889
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Misc_Table_Camp": {
+      "aspect": 2.46,
+      "asymmetry": {
+        "mx": 0.016,
+        "mz": 0.014,
+        "r180": 0.007
+      },
+      "bounds": {
+        "footprint_m": [
+          2.022,
+          0.822
+        ],
+        "max_m": [
+          1.011,
+          0.813,
+          0.411
+        ],
+        "min_m": [
+          -1.011,
+          0.0,
+          -0.411
+        ],
+        "size_m": [
+          2.022,
+          0.813,
+          0.822
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.0,
+        0.0
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Misc_Table_Camp_Small": {
+      "aspect": 1.603,
+      "asymmetry": {
+        "mx": 0.01,
+        "mz": 0.013,
+        "r180": 0.009
+      },
+      "bounds": {
+        "footprint_m": [
+          1.013,
+          0.632
+        ],
+        "max_m": [
+          0.49,
+          0.805,
+          0.261
+        ],
+        "min_m": [
+          -0.523,
+          -0.001,
+          -0.371
+        ],
+        "size_m": [
+          1.013,
+          0.806,
+          0.632
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.017,
+        -0.055
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Misc_WoodPile1": {
+      "aspect": 3.49,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.128,
+        "r180": 0.128
+      },
+      "bounds": {
+        "footprint_m": [
+          0.394,
+          1.375
+        ],
+        "max_m": [
+          0.197,
+          0.339,
+          0.757
+        ],
+        "min_m": [
+          -0.198,
+          0.0,
+          -0.618
+        ],
+        "size_m": [
+          0.394,
+          0.339,
+          1.375
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.001,
+        0.07
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "front_agnostic"
+    },
+    "StaticObj_Roadblock_Bags_Long": {
+      "aspect": 5.136,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.0,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.645,
+          3.313
+        ],
+        "max_m": [
+          0.315,
+          1.806,
+          1.662
+        ],
+        "min_m": [
+          -0.329,
+          -0.5,
+          -1.65
+        ],
+        "size_m": [
+          0.645,
+          2.306,
+          3.313
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.007,
+        0.006
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Roadblock_CncBlocks_Long": {
+      "aspect": 6.504,
+      "asymmetry": {
+        "mx": 0.009,
+        "mz": 0.009,
+        "r180": 0.0
+      },
+      "bounds": {
+        "footprint_m": [
+          0.932,
+          6.062
+        ],
+        "max_m": [
+          0.452,
+          1.322,
+          2.76
+        ],
+        "min_m": [
+          -0.48,
+          -0.002,
+          -3.303
+        ],
+        "size_m": [
+          0.932,
+          1.323,
+          6.062
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.014,
+        -0.272
+      ],
+      "long_axis": "z",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Tank_Small_Rusty": {
+      "aspect": 2.244,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.005,
+        "r180": 0.005
+      },
+      "bounds": {
+        "footprint_m": [
+          6.421,
+          2.862
+        ],
+        "max_m": [
+          3.233,
+          2.674,
+          1.423
+        ],
+        "min_m": [
+          -3.188,
+          -0.076,
+          -1.439
+        ],
+        "size_m": [
+          6.421,
+          2.751,
+          2.862
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.022,
+        -0.008
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Tank_Small_White": {
+      "aspect": 2.244,
+      "asymmetry": {
+        "mx": 0.0,
+        "mz": 0.005,
+        "r180": 0.005
+      },
+      "bounds": {
+        "footprint_m": [
+          6.421,
+          2.862
+        ],
+        "max_m": [
+          3.233,
+          2.674,
+          1.423
+        ],
+        "min_m": [
+          -3.188,
+          -0.076,
+          -1.439
+        ],
+        "size_m": [
+          6.421,
+          2.751,
+          2.862
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.022,
+        -0.008
+      ],
+      "long_axis": "x",
+      "symmetric": true,
+      "symmetry": "two_fold"
+    },
+    "StaticObj_Wreck_BMP2": {
+      "aspect": 1.731,
+      "asymmetry": {
+        "mx": 0.124,
+        "mz": 0.119,
+        "r180": 0.126
+      },
+      "bounds": {
+        "footprint_m": [
+          3.931,
+          6.805
+        ],
+        "max_m": [
+          1.493,
+          2.168,
+          3.459
+        ],
+        "min_m": [
+          -2.437,
+          -0.503,
+          -3.346
+        ],
+        "size_m": [
+          3.931,
+          2.67,
+          6.805
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.472,
+        0.056
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Wreck_Digger": {
+      "aspect": 3.149,
+      "asymmetry": {
+        "mx": 0.127,
+        "mz": 0.151,
+        "r180": 0.146
+      },
+      "bounds": {
+        "footprint_m": [
+          3.532,
+          11.124
+        ],
+        "max_m": [
+          1.657,
+          6.362,
+          7.362
+        ],
+        "min_m": [
+          -1.875,
+          -0.065,
+          -3.762
+        ],
+        "size_m": [
+          3.532,
+          6.426,
+          11.124
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -0.109,
+        1.8
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Wreck_MTVR_Cargo": {
+      "aspect": 2.695,
+      "asymmetry": {
+        "mx": 0.047,
+        "mz": 0.054,
+        "r180": 0.057
+      },
+      "bounds": {
+        "footprint_m": [
+          3.074,
+          8.283
+        ],
+        "max_m": [
+          1.738,
+          3.52,
+          4.394
+        ],
+        "min_m": [
+          -1.336,
+          -0.034,
+          -3.889
+        ],
+        "size_m": [
+          3.074,
+          3.554,
+          8.283
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.201,
+        0.253
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "memory_end_door_deg": 0.0,
+      "symmetric": false
+    },
+    "StaticObj_Wreck_Mi8_Crashed": {
+      "aspect": 1.754,
+      "asymmetry": {
+        "mx": 0.169,
+        "mz": 0.126,
+        "r180": 0.134
+      },
+      "bounds": {
+        "footprint_m": [
+          12.576,
+          22.062
+        ],
+        "max_m": [
+          4.343,
+          4.903,
+          14.713
+        ],
+        "min_m": [
+          -8.233,
+          -1.094,
+          -7.349
+        ],
+        "size_m": [
+          12.576,
+          5.996,
+          22.062
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        -1.945,
+        3.682
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Wreck_PowGen": {
+      "aspect": 1.517,
+      "asymmetry": {
+        "mx": 0.187,
+        "mz": 0.186,
+        "r180": 0.128
+      },
+      "bounds": {
+        "footprint_m": [
+          4.224,
+          6.407
+        ],
+        "max_m": [
+          2.166,
+          2.879,
+          3.002
+        ],
+        "min_m": [
+          -2.058,
+          -0.89,
+          -3.405
+        ],
+        "size_m": [
+          4.224,
+          3.769,
+          6.407
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.054,
+        -0.202
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Wreck_Stryker": {
+      "aspect": 2.009,
+      "asymmetry": {
+        "mx": 0.045,
+        "mz": 0.112,
+        "r180": 0.109
+      },
+      "bounds": {
+        "footprint_m": [
+          3.918,
+          7.871
+        ],
+        "max_m": [
+          2.102,
+          3.264,
+          4.134
+        ],
+        "min_m": [
+          -1.815,
+          -0.071,
+          -3.738
+        ],
+        "size_m": [
+          3.918,
+          3.335,
+          7.871
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.143,
+        0.198
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    },
+    "StaticObj_Wreck_Trailer_Cistern": {
+      "aspect": 2.061,
+      "asymmetry": {
+        "mx": 0.189,
+        "mz": 0.1,
+        "r180": 0.182
+      },
+      "bounds": {
+        "footprint_m": [
+          5.65,
+          2.742
+        ],
+        "max_m": [
+          3.569,
+          2.769,
+          1.419
+        ],
+        "min_m": [
+          -2.08,
+          -0.009,
+          -1.323
+        ],
+        "size_m": [
+          5.65,
+          2.777,
+          2.742
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.744,
+        0.048
+      ],
+      "front_candidates_deg": [
+        90.0,
+        270.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "x",
+      "symmetric": false
+    },
+    "StaticObj_Wreck_Ural": {
+      "aspect": 2.013,
+      "asymmetry": {
+        "mx": 0.075,
+        "mz": 0.085,
+        "r180": 0.092
+      },
+      "bounds": {
+        "footprint_m": [
+          3.645,
+          7.337
+        ],
+        "max_m": [
+          1.837,
+          2.725,
+          3.637
+        ],
+        "min_m": [
+          -1.809,
+          -0.293,
+          -3.701
+        ],
+        "size_m": [
+          3.645,
+          3.018,
+          7.337
+        ],
+        "source": "geometry"
+      },
+      "center_xz_m": [
+        0.014,
+        -0.032
+      ],
+      "front_candidates_deg": [
+        0.0,
+        180.0
+      ],
+      "front_source": "calibration_pending",
+      "front_yaw_deg": null,
+      "long_axis": "z",
+      "symmetric": false
+    }
+  },
+  "conventions": {
+    "frame": "model frame, metres: x right, y up, z forward, origin = placement origin",
+    "front_yaw_deg": "atan2(x, z) of the front vector in the model frame, clockwise from +z, [0, 360)",
+    "null_front": "front_source calibration_pending means front_yaw_deg is null; refuse, never guess",
+    "yaw_rule": "object yaw = target bearing - front_yaw_deg"
+  },
+  "kind": "hollow-country-class-geometry",
+  "thresholds": {
+    "door_end_fraction": 0.6,
+    "near_square_aspect": 1.1,
+    "small_footprint_m": 0.5,
+    "symmetry_tolerance": 0.05
+  },
+  "unmeasured": [
+    "StaticObj_Garbage_GroundSq_3m"
+  ],
+  "version": 1
+}

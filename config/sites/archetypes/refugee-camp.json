@@ -1,0 +1,27 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "refugee-camp",
+  "version": 1,
+  "title": "Refugee camp",
+  "story": "A bus brought people this far and the camp grew around a lane running in from the road: tent rows on both sides, a fire with seats in the middle, a registration desk at the mouth and a shower tent at the downhill end.",
+  "frame": {"kind": "approach", "forward": "from_road_into_camp"},
+  "location": {"settlement_edge_m": [200, 600], "road_access_m_max": 40, "prefer_water_m": 300, "slope_pct_max": 4, "not_in": ["military", "town_core"]},
+  "lane": "none",
+  "allowed_roles": ["tent", "medical", "furnishing", "scene dressing"],
+  "loot_theme": "civilian",
+  "zones": [{"id": "lane", "of": "fire", "shape": "strip", "r_m": 40, "width_m": 8, "dir": "-forward"}],
+  "story_items": {"note": {"key": "refugee-registry", "on": "desk"}, "ai": {"role": "traveller", "guard_posts": ["desk"]}},
+  "density": {"max_per_map": 4, "min_same_m": 3000, "min_any_m": 300},
+  "parts": [
+    {"id": "bus", "class": "Land_Wreck_Ikarus", "op": "offroad", "anchor": true, "loot": "proto", "side": "left", "s": 0, "offset_m": 7, "align": "road"},
+    {"id": "tentl", "class": ["Land_Mil_Tent_Big2_1", "Land_Mil_Tent_Big2_3", "Land_Mil_Tent_Big2_4"], "op": "row", "side": "left", "s": 14, "offset_m": 11, "count": 3, "spacing_m": 17, "run": "forward", "faces": "axis"},
+    {"id": "tentr", "class": ["Land_Mil_Tent_Big2_2", "Land_Mil_Tent_Big2_5", "Land_Mil_Tent_Big2_3"], "op": "row", "side": "right", "s": 14, "offset_m": 11, "count": 3, "spacing_m": 17, "run": "forward", "faces": "axis"},
+    {"id": "desk", "class": "StaticObj_Misc_Table_Camp", "op": "offroad", "side": "right", "s": 6, "offset_m": 3, "faces": "-forward", "guard_post": true},
+    {"id": "chair", "class": "StaticObj_Misc_Chair_Camp1", "op": "facing", "of": "desk", "dist_m": 0.9, "from": "back"},
+    {"id": "fire", "class": "StaticObj_Furniture_fireplace_grill", "op": "offroad", "side": "center", "s": 36, "offset_m": 0},
+    {"id": "seats", "class": "StaticObj_Misc_Chair_Camp2", "op": "ring", "of": "fire", "r_m": 2.5, "count": 5, "arc_deg": 300, "centre_on": "forward", "faces": "of"},
+    {"id": "wood", "class": "StaticObj_Misc_WoodPile1", "op": "behind", "of": "fire", "dist_m": 4},
+    {"id": "latrine", "class": "Land_Medical_Tent_Shower", "op": "offroad", "loot": "proto", "side": "center", "s": 70, "offset_m": 0, "faces": "-forward"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c", "StaticObj_Misc_Pallets2"], "op": "scatter", "zone": "lane", "count": [3, 4], "min_gap_m": 2}
+  ]
+}

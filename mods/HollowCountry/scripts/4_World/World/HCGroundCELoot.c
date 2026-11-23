@@ -36,6 +36,15 @@ class HCGroundCELoot
     protected static int s_Processed;
     protected static int s_Ineligible;
     protected static int s_Peak;
+    static const int HELD_CAP = 1024;
+    static const float HELD_TIMEOUT_S = 900;
+    protected static ref array<ItemBase> s_Held = new array<ItemBase>;
+    protected static ref array<float> s_HeldAt = new array<float>;
+    protected static int s_SiteOverflow;
+    protected static int s_SiteTimeout;
+    protected static bool s_HeldScheduled;
+    protected static int s_SiteDropped;
+    protected static int s_SiteHeldTotal;
     protected static int s_Shifted;
     protected static int s_Settled;
     protected static int s_Retried;
@@ -156,6 +165,91 @@ class HCGroundCELoot
         else { s_RetryFailed++; }
     }
 
+    // W6 site guard: fresh CE loot inside a loot box of a refused or retired site is removed (it never held a
+    // player item: Eligible() excludes anything with a parent), and loot inside a box of a site that is still
+    // undecided waits in a bounded held queue. Everything else is corrected as before.
+    // Pre-guard rule: loot enqueued before the guard has built its box grid (HCSiteGuard.HCLootVerdict answers KEEP
+    // until then) is corrected as ordinary loot. Holding it would stall the whole CE boot burst behind the guard;
+    // retired boxes are covered by the orphan sweep instead, and loot left in a refused box stays ordinary loot.
+    // Held items leave the queue three ways: a decision (keep or drop), the hold timeout, or the cap. A timed-out
+    // or over-cap item is only settled onto the surface below (the orphan-sweep action: drop-only, no shift into a
+    // footprint, never deleted), so a site that never decides cannot trap loot and the queue cannot grow.
+    static void SiteRoute(ItemBase item)
+    {
+        int verdict = HCSiteGuard.HCLootVerdict(item);
+        if (verdict == HCSiteGuard.LOOT_DROP)
+        {
+            s_SiteDropped++;
+            item.DeleteSafe();
+            return;
+        }
+        if (verdict == HCSiteGuard.LOOT_HOLD)
+        {
+            if (s_Held.Count() < HELD_CAP)
+            {
+                s_Held.Insert(item);
+                s_HeldAt.Insert(GetGame().GetTickTime());
+                s_SiteHeldTotal++;
+                ScheduleHeld();
+                return;
+            }
+            s_SiteOverflow++;
+            HCGroundSnap.Settle(item, 12, 0.08);
+            return;
+        }
+        Correct(item, KIND_CE);
+    }
+
+    protected static void ScheduleHeld()
+    {
+        if (s_HeldScheduled || s_Held.Count() < 1) { return; }
+        s_HeldScheduled = true;
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.DrainHeld, 1000, false);
+    }
+
+    // At most four held items per second, front to back; an item whose site is still undecided rotates to the back
+    // until its hold times out.
+    static void DrainHeld()
+    {
+        s_HeldScheduled = false;
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        float now = GetGame().GetTickTime();
+        int examine = Math.Min(4, s_Held.Count());
+        for (int step = 0; step < examine; step++)
+        {
+            ItemBase held = s_Held[0];
+            float heldAt = s_HeldAt[0];
+            s_Held.RemoveOrdered(0);
+            s_HeldAt.RemoveOrdered(0);
+            if (!Eligible(held))
+            {
+                s_Ineligible++;
+                continue;
+            }
+            int verdict = HCSiteGuard.HCLootVerdict(held);
+            if (verdict == HCSiteGuard.LOOT_HOLD)
+            {
+                if (now - heldAt >= HELD_TIMEOUT_S)
+                {
+                    s_SiteTimeout++;
+                    HCGroundSnap.Settle(held, 12, 0.08);
+                }
+                else
+                {
+                    s_Held.Insert(held);
+                    s_HeldAt.Insert(heldAt);
+                }
+            }
+            else if (verdict == HCSiteGuard.LOOT_DROP)
+            {
+                s_SiteDropped++;
+                held.DeleteSafe();
+            }
+            else { Correct(held, KIND_CE); }
+        }
+        ScheduleHeld();
+    }
+
     static void Drain()
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
@@ -175,8 +269,9 @@ class HCGroundCELoot
                 chunk.Next = null;
                 if (!s_Head) { s_Tail = null; }
             }
-            if (Eligible(item)) { Correct(item, kind); }
-            else { s_Ineligible++; }
+            if (!Eligible(item)) { s_Ineligible++; continue; }
+            if (kind == KIND_CE) { SiteRoute(item); }
+            else { Correct(item, kind); }
         }
         bool pending = s_Count > 0;
         if (pending) { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Drain, 50, false); }
@@ -194,6 +289,8 @@ class HCGroundCELoot
         line += " overflow=0 enqueued=" + s_Enqueued.ToString();
         line += " processed=" + s_Processed.ToString() + " pending=" + s_Count.ToString();
         line += " peak=" + s_Peak.ToString() + " ineligible=" + s_Ineligible.ToString();
+        line += " site_dropped=" + s_SiteDropped.ToString() + " site_held=" + s_Held.Count().ToString();
+        line += " site_overflow=" + s_SiteOverflow.ToString() + " site_timeout=" + s_SiteTimeout.ToString();
         // Each of the three lines has an independent change/heartbeat receipt.
         float receiptNow = GetGame().GetTickTime();
         if (line != s_LastReceipt || receiptNow < s_LastReceiptAt || receiptNow - s_LastReceiptAt >= 1800)
@@ -262,6 +359,8 @@ modded class ItemBase
     override void AfterStoreLoad()
     {
         super.AfterStoreLoad();
+        // Tents and storage restored from storage tell the site guard the storage load is still running.
+        if (m_HCBasesRegistered) { HCSiteBaseRegistry.Touch(); }
         HCGroundCELoot.EnqueueRestored(this);
     }
 }

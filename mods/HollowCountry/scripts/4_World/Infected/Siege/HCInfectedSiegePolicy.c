@@ -1,6 +1,6 @@
 // Siege policy (wh-nav-c, 2026-11-22): pure decisions for the infected siege of an elevated haven.
 // The engine gives infected no ladder and no climb, so a player on a roof, container or tower is
-// sieged instead of faked-at: the infected that gave up gather where the player stands, make real
+// sieged instead of faked-at: the infected that gave up make real
 // noise at their own position, and a bounded number of hidden reinforcements are sent. Nothing here
 // reads the engine; HCInfectedSiege.c owns every engine call.
 // Native evidence, installed scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
@@ -69,7 +69,6 @@ class HCInfectedSiegePolicy
     static const float TIMEOUT_SECONDS = 180;
     static const int MAX_MEMBERS = 6;
     static const float ANCHOR_SAMPLE_METRES = 6;
-    static const float GATHER_RADIUS_METRES = 6;
     // A ladder counts when its top is this close to where the player stands.
     static const float LADDER_TOP_METRES = 12;
     static const int LADDER_SCAN = 8;

@@ -681,7 +681,10 @@ def bundle_apply(bundle, mission, workshop, loaded):
     if (Path(mission) / loot_boost.MANAGED).exists():
         raise ValueError('loot boost already installed; bundle-rollback before installing again')
     # Loot boost uses the friend's bytes; encounters own the final CE geometry layer.
-    multiplier, points = loot_boost.default_multiplier(Path(bundle)), loot_boost.shipped_points(Path(bundle))
+    # Every loot boost input (settings, capacity, category and supply knobs, floor policy, new buildings, roster,
+    # military rules) comes from the bundle being applied, never from the tree this tool runs in.
+    root = Path(bundle)
+    multiplier, points = loot_boost.default_multiplier(root), loot_boost.shipped_points(root)
     with tempfile.TemporaryDirectory(prefix='hc-bundle-preflight-') as directory:
         scratch = Path(directory) / 'mission'
         shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
@@ -693,13 +696,13 @@ def bundle_apply(bundle, mission, workshop, loaded):
         if unloaded:
             raise ValueError('bundle requires all default optional overlays to be loaded: ' + ', '.join(unloaded))
         install(optional, scratch)
-        loot_boost.install(scratch, multiplier, points)
+        loot_boost.install(scratch, multiplier, points, root=root)
         hc_events.install(Path(bundle) / 'mission/hollow-country', scratch)
     apply_stack(mission, [
         lambda: install(candidate, mission, managed_name=BUNDLE_MANAGED),
         lambda: travel.install(source, mission),
         lambda: install(plan(workshop, mission, loaded, source / 'optional/overlay-policy.json'), mission),
-        lambda: loot_boost.install(mission, multiplier, points),
+        lambda: loot_boost.install(mission, multiplier, points, root=root),
         lambda: hc_events.install(Path(bundle) / 'mission/hollow-country', mission)])
 
 

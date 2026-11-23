@@ -19,7 +19,7 @@ python3 -B -m tools.release.wb_compile --commit HEAD --keep-scratch
 python3 -B -m unittest tests.unit.test_wb_compile
 ```
 
-Exit 0 = `passed`; 1 = `compile_failed`, `unverified`, `timeout`,
+Exit 0 = `passed`; 1 = `compile_failed`, `wb_only`, `unverified`, `timeout`,
 `incomplete_logs` or `tool_failed`; 2 = blocked (Workbench already running),
 `controller_failed` or `cleanup_unconfirmed` (scratch kept; do not delete it
 until the owned Workbench has exited).
@@ -89,9 +89,39 @@ across `script_*` and `error_*` count once. `--keep-scratch` keeps the folder.
 Classes: `ours` (HollowCountry, HollowCountryExpansionAI or the tool mod path),
 `known_vanilla` (`KNOWN_VANILLA` patterns or a `scripts/N_*` vanilla location),
 `dependency` (any other mounted mod location), `probe` (our markers),
-`compile_failure` (`Can't compile`, `Failed to load ... script`) and
-`unclassified`. Blocking: `ours`, `compile_failure` and `unclassified` errors.
-A bare engine `Assertion failed` header is read together with its `Reason:` line.
+`compile_failure` (`Can't compile`, `Failed to load ... script`),
+`wb_only` (below) and `unclassified`. Blocking: `ours`, `compile_failure` and
+`unclassified` errors. A bare engine `Assertion failed` header is read together
+with its `Reason:` line.
+
+### `wb_only`: Workbench-only diagnostics
+
+`WB_ONLY` in `tools/release/wb_compile.py` lists message patterns for
+diagnostics that Workbench raises as errors but the Wine compile gate and the
+retail server accept (they log the same FIX-ME lines as warnings and compile on).
+A match is keyed by the message only, never by file, and wins over the `ours`
+location. Current pattern: `Overriding function ... but not marked as 'override'`.
+
+Workbench then aborts the module (`Can't compile "<Module>" script module!`), so
+the rest of the stack is unchecked. The verdict is therefore `wb_only`, never
+`passed` and never `compile_failed` for that cause alone:
+
+- `status: wb_only` only when every blocking error is a module-abort line
+  (`Can't compile "X" script module`, `Failed to load X script`) beside a
+  `wb_only` entry. The entries are listed under `wb_only` with their location.
+- Any other error in the same output (ours, unclassified, `Script validation
+  failed`, a cascade such as `Bad type`) keeps `compile_failed`. Nothing is
+  suppressed.
+- A `wb_only` line in a run that still reached Mission with every probe marker
+  and no other error is `passed`; the entry is still listed.
+
+Observed 2026-11-22 in the calibration corpus: a historical parent where the
+`modded class ObjectSpawnerHandler` redefined the vanilla static
+`SpawnObjects()` without `override` was reported at
+`HCGroundObjectSpawner.c:8`. DayZDiag refuses the same source
+(commit `a74d2879`); the Wine gate and retail compile it. The raw Workbench line
+was not kept, so the pattern uses the documented wording. The next calibration
+run confirms it: see below.
 
 ## Triage (clean tree, 2026-11-21)
 
@@ -109,11 +139,11 @@ heatHazeNoise), 16 imageset `Unknown object type`, 20 `skeletons.anim.xml`,
 offline shader cache, DayZSetting.xml and "Config file deleted" are seen only in
 the Workbench console. They are listed in `KNOWN_VANILLA` in case they reach a log.
 
-Class (a) fixed: `mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:8`
-and `:30`. The `modded class ObjectSpawnerHandler` redefined the vanilla
-static `SpawnObjects()` and `SpawnObject(ITEM_SpawnerObject)` without `override`. Workbench reported "Overriding function
-... but not marked as 'override'" and could not compile Game. Both are now
-marked `override static`.
+Class (a) fixed (2026-11-21): `HCGroundObjectSpawner.c`. The `modded class
+ObjectSpawnerHandler` redefined the vanilla static `SpawnObjects()` and
+`SpawnObject(ITEM_SpawnerObject)` without `override`; Workbench could not compile
+Game. Both are marked `override static` (commit `91a364d1`). Historical commits
+before it still trigger the Workbench-only diagnostic, which is now `wb_only`.
 
 ## Dependency exclusions (Workbench only)
 
@@ -221,23 +251,18 @@ expected-only rows. Any inconclusive/incomplete evidence yields exit 2 even
 when other rows disagree.
 
 An exact prelaunch `blocked` / `Workbench process state: unknown` result retries
-the driver at most twice with a 0.5-second backoff (three state queries total).
-The driver returns this result before staging or launching Workbench. Running
-processes and all post-launch outcomes are never retried. Each WB receipt
-records `state_query_retries`; exhausted unknown queries remain inconclusive.
+the driver at most twice with exponential backoff (0.5 s, then 1 s; three state
+queries total). The driver returns this result before staging or launching
+Workbench. Running processes and all post-launch outcomes are never retried. Each
+WB receipt records `state_query_retries`; exhausted unknown queries remain
+inconclusive.
 
-Static override investigation (source evidence only): installed 1.30
-`3_Game/ObjectSpawner.c` declares `ObjectSpawnerHandler.SpawnObjects()` and
-`SpawnObject(ITEM_SpawnerObject)` static. Historical HC declarations were
-`static void`; current HC declarations use `override static`. The earlier triage
-quotes “Overriding function ... but not marked as 'override'”, but the historical
-calibration's raw diagnostic was not retained. A source location alone cannot
-prove this precise diagnostic or distinguish accompanying real failures. No
-known-divergence classifier is installed: those rows remain compile failures
-or inconclusive under the existing rules. Lead follow-up: retain the new tails
-on the historical parent/fix runs and correlate exact diagnostics with both
-source declarations before defining a narrow divergence rule. Never call such
-a divergence passed or suppress other errors in the same output.
+A `wb_only` WB side (see Logs) is neither agreement nor disagreement: the row
+counts under `wb_only` in the summary, its first error is the Workbench-only
+location, and the native parent verdict is still recorded. The run exits 2
+(status `wb_only`) unless a row disagrees (exit 1) or has inconclusive evidence
+(exit 2, `incomplete`). `--stop-on-inconclusive` does not stop on `wb_only`.
+Never read a `wb_only` row as WB agreement.
 
 Calibration review notes (each checked against the code and its test):
 
@@ -245,13 +270,32 @@ Calibration review notes (each checked against the code and its test):
 | --- | --- | --- |
 | Tail per row side | implemented: bounded, redacted `<fix>-<side>.log` referenced from each side | `test_persists_redacted_bounded_tail_and_reference`, `test_output_tail_redacts_json_escaped_windows_folder_and_identity_fields` |
 | Continue after an inconclusive row | implemented: default continues, `--stop-on-inconclusive` stops | `test_inconclusive_continues_all_sides_and_rows`, `test_explicit_stop_on_inconclusive` |
-| Retry the Workbench state query | implemented: prelaunch `unknown` only, two retries, never after launch | `test_unknown_prelaunch_state_retries_but_running_does_not` |
+| Retry the Workbench state query | implemented: prelaunch `unknown` only, two retries with exponential backoff, never after launch | `test_unknown_prelaunch_state_retries_but_running_does_not` |
+| WB-only diagnostic | implemented: `wb_only` class and status, keyed by message | `test_wb_only_override_diagnostic_is_not_a_failure_but_never_a_pass`, `test_wb_only_never_hides_another_error_or_missing_evidence`, `test_wb_only_row_is_neither_agreement_nor_disagreement` |
 | `wiring_audit --ratchet` and CfgAmmo | fixed: CfgAmmo is a configured root and a missing root only retains the baseline entries that depend on it, so `--ratchet` no longer refuses; with the installed index it reports `Ratchet missing roots: none` | `tests.unit.test_wiring_audit` (`test_ratchet_prunes_independent_entries_with_missing_roots`) |
 
 The table below is filled only from lead runs of the full corpus with `--gate`;
 a row without a native result stays blank rather than being inferred.
 
 Calibration status: 0/13
+
+Current state (2026-11-22): the orchestration is complete and unit-tested with fakes; no lead
+run of the full corpus has been recorded, so no row is agreed. The first lead run must also
+confirm the `wb_only` pattern: the rows whose parent still carries the non-`override`
+`ObjectSpawnerHandler` redefinitions (before commit `a74d2879`) should report
+`wb_parent=wb_only` with first error `HCGroundObjectSpawner.c:8`. If such a row reports
+`compile_failed` instead, read its `<fix>-wb_parent.log`, take the exact Workbench line and
+correct `WB_ONLY` in `tools/release/wb_compile.py` (add a test with that line).
+
+Lead command for the next run (owner not playing; one instance per host; allow about an hour):
+
+```sh
+agent-run --memory 12G -- python3 -B -m tools.release.wb_calibrate --gate --out /tmp/hc-wb-calibration-$(date +%Y%m%d)
+```
+
+Then fill the table below from `agreement.md`, set the status line above to
+`<agree>/13`, and keep the logs (`<fix>-wb_parent.log`, `<fix>-wb_fix.log`,
+`<fix>-native_parent.log`, each at most 200 lines, redacted).
 
 The line above is read by `tools/release/test_queue.py` (agreed rows / corpus rows). Update it
 only from a lead run; the second number must equal the number of rows in the `CORPUS` of

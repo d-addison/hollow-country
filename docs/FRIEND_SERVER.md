@@ -323,8 +323,8 @@ the routes of the weapons they feed or fit. Native patches, testbeds and unresol
 or duplicate definitions stay in each allowlist's `excluded` list. Individual
 config subset pins remain authoritative for the expanded pack roster.
 
-Each allowlist has one `test_abundance_multiplier` knob, now **`2.0`** under the
-owner's 2026-11-21 #314 decision (previously 3.0); `--nominal-scale 1` selects the
+Each allowlist has one `test_abundance_multiplier` knob, now **`3.0`** under the
+owner's 2026-11-22 decision (2.0 under the 2026-11-21 #314 decision); `--nominal-scale 1` selects the
 pack baseline. Military allocation can further lower a row to its shared budget.
 Generation also accepts `--nominal-scale X` (0.25–4.0), overriding that knob, and
 repeatable `--tier-scale common|uncommon|rare=X`. Effective scales remain in

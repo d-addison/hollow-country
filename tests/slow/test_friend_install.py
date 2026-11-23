@@ -3066,6 +3066,91 @@ def live_snapshot_of(rows):
             if rel != fi.BACKUP_DIR and not rel.startswith(fi.BACKUP_DIR + '/')}
 
 
+class LootInputFingerprintTests(InstallerCase):
+    """The overlay fingerprint covers every input of the boosted bytes, so a release that changes only a loot knob
+    (or the loot_boost logic version) is replaced through the verified rollback, never reported as already applied."""
+    SETTINGS = 'mission/hollow-country/loot-points/settings.json'
+
+    def bundle_with(self, name, settings, extra=()):
+        bundle = make_bundle(self.tmp / name)
+        put(bundle, self.SETTINGS, settings)
+        for rel, data in extra:
+            put(bundle, rel, data)
+        write_manifest(bundle)
+        return bundle
+
+    def ctx(self, bundle):
+        return mock.Mock(manifest=json.loads((bundle / 'bundle-manifest.json').read_text()))
+
+    def test_fingerprint_is_deterministic_and_changes_only_with_boost_inputs(self):
+        one = self.bundle_with('a', '{"Multiplier": 2.0}')
+        base = fi.overlay_fingerprint(self.ctx(one))
+        manifest = json.loads((one / 'bundle-manifest.json').read_text())
+        manifest['files'].reverse()
+        self.assertEqual(fi.overlay_fingerprint(mock.Mock(manifest=manifest)), base)  # order never matters
+        self.assertEqual(fi.overlay_fingerprint(self.ctx(one)), base)
+        put(one, 'README.txt', 'other text')  # not an input of the boosted bytes
+        write_manifest(one)
+        self.assertEqual(fi.overlay_fingerprint(self.ctx(one)), base)
+        for rel in (self.SETTINGS, 'mission/hollow-country/loot-points/families.json',
+                    'mission/hollow-country/loot-points/additions.json', 'mission/hollow-country/ce/types.xml',
+                    'tools/package/firearms_roster.json', 'config/military-loot.json'):
+            put(one, rel, '{"changed": "%s"}' % rel)
+            write_manifest(one)
+            changed = fi.overlay_fingerprint(self.ctx(one))
+            self.assertNotEqual(changed, base, rel)
+            base = changed
+        with mock.patch.object(fi.loot_boost, 'LOOT_BOOST_VERSION', fi.loot_boost.LOOT_BOOST_VERSION + 1):
+            self.assertNotEqual(fi.overlay_fingerprint(self.ctx(one)), base)
+
+    def test_a_knob_only_change_is_replaced_through_the_rollback_not_reported_as_applied(self):
+        first = self.bundle_with('v1', '{"Multiplier": 2.0}')
+        self.assertEqual(self.apply(bundle=first)[0], 0)
+        stamp = self.receipt_overlay()
+        self.overlay_calls.clear()
+        self.assertEqual(self.apply(bundle=first)[0], 0)  # unchanged twice is a no-op
+        self.assertEqual(self.overlay_calls, [])
+        second = self.bundle_with('v2', '{"Multiplier": 2.0, "LootDamageMax": 0.6}')
+        code, out, err = self.apply(bundle=second)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual([c[0] for c in self.overlay_calls], ['bundle-rollback', 'bundle-plan', 'bundle-apply'])
+        self.assertNotEqual(self.receipt_overlay(), stamp)
+        self.overlay_calls.clear()
+        self.assertEqual(self.apply(bundle=second)[0], 0)
+        self.assertEqual(self.overlay_calls, [])
+
+    def test_a_logic_version_bump_alone_reapplies(self):
+        bundle = self.bundle_with('v1', '{"Multiplier": 2.0}')
+        self.assertEqual(self.apply(bundle=bundle)[0], 0)
+        self.overlay_calls.clear()
+        with mock.patch.object(fi.loot_boost, 'LOOT_BOOST_VERSION', fi.loot_boost.LOOT_BOOST_VERSION + 1):
+            code, out, err = self.apply(bundle=bundle)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual([c[0] for c in self.overlay_calls], ['bundle-rollback', 'bundle-plan', 'bundle-apply'])
+
+    def test_an_old_format_fingerprint_mismatches_once_and_reapplies(self):
+        bundle = self.bundle_with('v1', '{"Multiplier": 2.0}')
+        self.assertEqual(self.apply(bundle=bundle)[0], 0)
+        rows = [(r['path'], r['sha256']) for r in json.loads((bundle / 'bundle-manifest.json').read_text())['files']
+                if r['path'].startswith('mission-overlay/') or r['path'] in
+                ('mission-patches.json', 'mission/hollow-country/infected/variants.json')]
+        path = self.server / fi.RECEIPT
+        receipt = json.loads(path.read_text())
+        receipt['overlay'] = hashlib.sha256(json.dumps(sorted(rows)).encode()).hexdigest()  # the earlier formula
+        path.write_text(json.dumps(receipt))
+        self.overlay_calls.clear()
+        code, out, err = self.apply(bundle=bundle)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual([c[0] for c in self.overlay_calls], ['bundle-rollback', 'bundle-plan', 'bundle-apply'])
+        self.assertEqual(self.receipt_overlay(), fi.overlay_fingerprint(self.ctx(bundle)))
+        self.overlay_calls.clear()
+        self.assertEqual(self.apply(bundle=bundle)[0], 0)
+        self.assertEqual(self.overlay_calls, [])  # one mismatch only
+
+    def receipt_overlay(self):
+        return json.loads((self.server / fi.RECEIPT).read_text())['overlay']
+
+
 class RoundFourTests(InstallerCase):
     """Opus round-3 review fixes (launcher merge ownership, path-form entries, comments, receipts) on synthetic trees."""
     inject_after = RunRollbackTests.inject_after

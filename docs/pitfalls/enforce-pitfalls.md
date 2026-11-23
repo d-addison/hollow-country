@@ -26,7 +26,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E015 | unsupported map key or set element type (use int/string/typename/class types) |
 | HC-E018 | variable name shadows a type visible in this script module |
 | HC-E019 | member declared only by a later file in the same modded-class chain |
-| HC-E020 | string assignment with too many + operands (native compile: Formula too complex); build it with += |
+| HC-E020 | string concatenation with too many + operands into a typed string (assignment, string parameter or return; Print is exempt) (native compile: Formula too complex); build it in steps with += |
 | HC-E021 | line starts with a binary operator continuing the previous line (native compile: Unknown type / Syntax error) |
 | HC-E023 | else is not adjacent to an if body; move the intervening statement outside the if/else chain |
 | HC-E024 | typename cannot return null; declare an empty typename and return it |
@@ -53,6 +53,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E047 | initializer must be a literal: non-static const, vector const or a static primitive that reads another class or constant (read as 0 natively, build 169) |
 | HC-E048 | foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first |
 | HC-E049 | modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead |
+| HC-E050 | bare name resolves to no local, parameter, member of the class or its ancestors, global, class, enum or constant (native compile: Can't find variable; a renamed or removed field read by a subclass) |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |
