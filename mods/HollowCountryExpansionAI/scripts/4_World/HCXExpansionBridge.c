@@ -124,6 +124,11 @@ class HCXExpansionBridge
         HCCountCall("HOLD_CAP");
     }
 
+    static void HCCountHoldAbsoluteCap()
+    {
+        HCCountCall("HOLD_ABSOLUTE_CAP");
+    }
+
     static void HCHandleMade() { s_HCHandlesLive++; }
     static void HCHandleDropped() { if (s_HCHandlesLive > 0) { s_HCHandlesLive--; } }
 
@@ -1086,7 +1091,7 @@ class HCXExpansionBridge
     }
 
     // Final reads: the Despawn and stop persistence path. They resolve in any lifecycle state
-    // (READY, NOT_READY, SHUTTING_DOWN) so a stopping patrol still reads its real group and
+    // (READY, NOT_READY, SHUTTING_DOWN) of the current epoch so a stopping patrol still reads its real group and
     // never persists a defaulted "cleared" site. They are never gated and never counted; a
     // retired hold, an older epoch or a group the provider no longer lists still reads as gone.
     protected static eAIGroup HCHoldGroupFinal(HCXAIGroupHold hold)
@@ -1095,25 +1100,43 @@ class HCXExpansionBridge
         return hold.HCResolveAny();
     }
 
-    // Cleanup-class route undo (raid cancel): resolves like a Final read, so restoring the
-    // original route is never skipped by the lifecycle gate. Not for new work.
-    static void HCHoldClearWaypointsCleanup(HCXAIGroupHold hold)
+    // Cleanup-class route undo (raid cancel): resolves like a Final read, so the lifecycle gate
+    // (NOT_READY, SHUTTING_DOWN) never skips restoring the original route. The epoch is still
+    // checked (HCResolveAny): a cancel after the epoch bump cannot restore, and logs that once.
+    // Not for new work.
+    protected static bool s_HCCleanupStaleLogged;
+    protected static eAIGroup HCHoldGroupCleanup(HCXAIGroupHold hold, string call)
     {
         eAIGroup group = HCHoldGroupFinal(hold);
+        if (!group && hold && hold.HCEpochStale())
+        {
+            HCCountCall(call + ":EPOCH_STALE");
+            if (!s_HCCleanupStaleLogged)
+            {
+                s_HCCleanupStaleLogged = true;
+                Print("[HCX Bridge] route restore skipped call=" + call + " reason=EPOCH_STALE");
+            }
+        }
+        return group;
+    }
+
+    static void HCHoldClearWaypointsCleanup(HCXAIGroupHold hold)
+    {
+        eAIGroup group = HCHoldGroupCleanup(hold, "HoldClearWaypointsCleanup");
         if (!group) { return; }
         group.ClearWaypoints();
     }
 
     static void HCHoldAddWaypointCleanup(HCXAIGroupHold hold, vector pos)
     {
-        eAIGroup group = HCHoldGroupFinal(hold);
+        eAIGroup group = HCHoldGroupCleanup(hold, "HoldAddWaypointCleanup");
         if (!group) { return; }
         group.AddWaypoint(pos);
     }
 
     static void HCHoldSetWaypointBehaviourCleanup(HCXAIGroupHold hold, eAIWaypointBehavior bhv)
     {
-        eAIGroup group = HCHoldGroupFinal(hold);
+        eAIGroup group = HCHoldGroupCleanup(hold, "HoldSetWaypointBehaviourCleanup");
         if (!group) { return; }
         group.SetWaypointBehaviour(bhv);
     }
@@ -1255,7 +1278,12 @@ class HCXAIGroupHold
         if (Id > 0 && HCXExpansionBridge.HCGroupById(Id) != Group) { return null; }
         return Group;
     }
-    // Same checks without the lifecycle gate: only the HCHold*Final persistence reads use it.
+    bool HCEpochStale()
+    {
+        return Epoch != HCXExpansionBridge.HCEpoch();
+    }
+    // Same checks without the lifecycle gate (the epoch is still enforced): only the HCHold*Final
+    // persistence reads and the HCHold*Cleanup route undo use it.
     eAIGroup HCResolveAny()
     {
         if (Retired || !Group || Epoch != HCXExpansionBridge.HCEpoch()) { return null; }
@@ -1390,11 +1418,20 @@ class HCXAIGroupHolds
         // Retired holds at the high-water mark: a live slot group always gets its hold (a null
         // here would skip the combat-despawn veto and persist a false "cleared" site). Make room
         // by evicting the oldest hold that PruneStep would already release; if none is ready the
-        // list overshoots until one settles.
+        // list overshoots (up to the absolute ceiling below) until one settles.
         if (Count() >= HC_HIGH_COUNT)
         {
             HCXExpansionBridge.HCCountHoldCap();
             EvictOldestReleasable();
+        }
+        // Absolute ceiling: past twice the high-water mark with nothing releasable, refuse the
+        // new handle (counted, one rate-limited log line). Callers treat a null hold as "group
+        // not read" (Despawn skips RecordCleared, no false cleared site).
+        if (Count() >= HC_HIGH_COUNT * 2)
+        {
+            HCXExpansionBridge.HCCountHoldAbsoluteCap();
+            HCXExpansionBridge.HCRefuse("HCXAIGroupHolds.Follow", "HOLD_ABSOLUTE_CAP count=" + Count().ToString());
+            return null;
         }
         HCXAIGroupHold next = new HCXAIGroupHold(group);
         next.TrackGroup();
