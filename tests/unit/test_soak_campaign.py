@@ -567,6 +567,61 @@ class CampaignTests(Tmp):
             self.assertNotIn(banned, script)
 
 
+    def launch_host(self, replies, states):
+        """replies: per run() call, 'lost' or a returncode; states: per state() poll, cycled from the last."""
+        from tools.setup import winproc
+
+        class Win:
+            InteropError = winproc.InteropError
+            scripts = []
+
+            def run(self, kind, args, **kw):
+                self.scripts.append(args[0])
+                reply = replies.pop(0)
+                if reply == 'lost':
+                    raise winproc.InteropError('lost')
+                return mock.Mock(returncode=reply, stdout='HC launch acknowledged\n')
+
+            def process_state(self, image):
+                return states.pop(0) if len(states) > 1 else states[0]
+
+        host = camp.WindowsHost.__new__(camp.WindowsHost)
+        host.winproc = Win()
+        now = [0.0]
+        host.clock = lambda: now[0]
+        host.sleep = lambda seconds: now.__setitem__(0, now[0] + seconds)
+        return host
+
+    def test_a_lost_launch_reply_retries_only_after_the_client_reads_gone(self):
+        host = self.launch_host(['lost', 0], ['gone'])
+        host.launch_client('G:\\DayZ', ['0', '-mod=G:\\a b;G:\\c'])
+        self.assertEqual(2, len(host.winproc.scripts))
+        self.assertNotIn('"', host.winproc.scripts[0])
+
+    def test_a_lost_launch_reply_with_the_client_running_does_not_launch_twice(self):
+        host = self.launch_host(['lost', 0], ['gone', 'running'])
+        host.launch_client('G:\\DayZ', ['0'])
+        self.assertEqual(1, len(host.winproc.scripts))
+
+    def test_an_unknown_process_state_after_a_lost_reply_refuses(self):
+        host = self.launch_host(['lost', 0], ['unknown'])
+        with self.assertRaisesRegex(camp.Refused, 'cannot tell whether the client started'):
+            host.launch_client('G:\\DayZ', ['0'])
+        self.assertEqual(1, len(host.winproc.scripts))
+
+    def test_every_reply_lost_and_nothing_running_refuses(self):
+        host = self.launch_host(['lost'] * camp.LAUNCH_ATTEMPTS, ['gone'])
+        with self.assertRaisesRegex(camp.Refused, 'server start failed'):
+            host.launch_server('E:\\srv')
+        self.assertEqual(camp.LAUNCH_ATTEMPTS, len(host.winproc.scripts))
+
+    def test_a_failed_launch_refuses_without_retry(self):
+        host = self.launch_host([1, 0], ['gone'])
+        with self.assertRaisesRegex(camp.Refused, 'client start failed'):
+            host.launch_client('G:\\DayZ', ['0'])
+        self.assertEqual(1, len(host.winproc.scripts))
+
+
 class ReportTests(Tmp):
     def test_rows_separate_active_zero_owner_and_friend(self):
         legacy = {'features': [

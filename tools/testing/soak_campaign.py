@@ -46,6 +46,7 @@ SOURCE_IGNORED_MODULES = frozenset({'unnamed'})
 TEST_MOD = '@HollowCountryTest'
 SERVER_IMAGE = 'DayZServer_x64.exe'
 CLIENT_IMAGE = 'DayZ_x64.exe'
+LAUNCHER_IMAGE = 'DayZ_BE.exe'
 SERVER_ROOT_DEFAULT = 'E:\\HollowCountryLocal\\friend-local-1'
 OWN_MODS = ('@HollowCountry', '@HollowCountryExpansionAI', TEST_MOD)
 INSTANCE_ID = '99'
@@ -69,6 +70,10 @@ CREATED_ALLOWED = {('server', PROFILE_COPY), ('server', TEST_MOD), ('server', CF
 STRAY_STORAGE = 'storage_0'
 # A graceful stop saves the world first: the build 178 test server needed about 80 s after CloseMainWindow.
 STOP_WAIT_SECONDS = 240
+LAUNCH_ATTEMPTS = 3
+LAUNCH_TIMEOUT_SECONDS = 60
+LAUNCH_SETTLE_SECONDS = 30
+LAUNCH_POLL_SECONDS = 5
 # Consecutive unreadable polls of a live log (Windows may hold it briefly) before the run gives up.
 UNREADABLE_POLLS = 20
 EDITED_ALLOWED = {('mission', GAMEPLAY)}
@@ -477,6 +482,8 @@ class WindowsHost:
     def __init__(self):
         from tools.setup import winproc
         self.winproc = winproc
+        self.sleep = time.sleep
+        self.clock = time.monotonic
 
     def state(self, image):
         return self.winproc.process_state(image)
@@ -499,15 +506,43 @@ class WindowsHost:
         script = ("$ErrorActionPreference='Stop'; Start-Process -FilePath " + ps_quote(server_root_win + '\\' + BAT_COPY)
                   + ' -WorkingDirectory ' + ps_quote(server_root_win)
                   + " -ArgumentList '/min' -WindowStyle Hidden; Write-Output 'HC launch acknowledged'")
-        if self.winproc.run('powershell', [script], attempts=1).returncode:
-            raise Refused('server start failed')
+        self.launch(script, (SERVER_IMAGE,), 'server')
 
     def launch_client(self, client_root_win, arguments):
         script = ("$ErrorActionPreference='Stop'; Start-Process -FilePath " + ps_quote(client_root_win + '\\DayZ_BE.exe')
                   + ' -WorkingDirectory ' + ps_quote(client_root_win)
-                  + ' -ArgumentList ' + ','.join(ps_arg(a) for a in arguments) + '; Write-Output \'HC launch acknowledged\'')
-        if self.winproc.run('powershell', [script], attempts=1).returncode:
-            raise Refused('client start failed')
+                  + ' -ArgumentList ' + ','.join(ps_arg(a) for a in arguments) + "; Write-Output 'HC launch acknowledged'")
+        self.launch(script, (LAUNCHER_IMAGE, CLIENT_IMAGE), 'client')
+
+    def launch(self, script, images, what):
+        """Start once. A lost interop reply (soak 178 attempt 4: the server was up, the client launch got no answer)
+        may hide a start that happened, so a retry only follows a check that none of the images is running."""
+        for attempt in range(LAUNCH_ATTEMPTS):
+            if attempt and self.started(images, what):
+                return
+            try:
+                result = self.winproc.run('powershell', [ps_encoded(script)], attempts=1, timeout=LAUNCH_TIMEOUT_SECONDS)
+            except self.winproc.InteropError:
+                continue
+            if result.returncode or 'HC launch acknowledged' not in result.stdout:
+                raise Refused('%s start failed' % what)
+            return
+        if not self.started(images, what):
+            raise Refused('%s start failed: Windows interop gave no answer %d times' % (what, LAUNCH_ATTEMPTS))
+
+    def started(self, images, what):
+        """True once any image runs; False only when every image reads gone for the whole settle window."""
+        deadline = self.clock() + LAUNCH_SETTLE_SECONDS
+        while True:
+            states = [self.state(image) for image in images]
+            if 'running' in states:
+                return True
+            if self.clock() >= deadline:
+                if all(state == 'gone' for state in states):
+                    return False
+                raise Refused('cannot tell whether the %s started (process state unknown); '
+                              'check it by hand, then run restore' % what)
+            self.sleep(LAUNCH_POLL_SECONDS)
 
 
 def default_win(path):
