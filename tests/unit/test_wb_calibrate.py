@@ -121,6 +121,25 @@ class VerdictTests(unittest.TestCase):
             calib.invoke('wb_compile', 'fixture')
         run.assert_called_once()
 
+    def test_wb_only_report_keeps_its_location_and_exit_code(self):
+        data = {'status': 'wb_only', 'errors': [{'file': None, 'line': None}],
+                'wb_only': [{'file': 'HollowCountry/scripts/3_Game/Core/a.c', 'line': 8}]}
+        result = self.invoke('wb_compile', json.dumps(data), 1)
+        self.assertEqual(result['status'], 'wb_only')
+        self.assertEqual(result['first_error'], {'file': 'HollowCountry/scripts/3_Game/Core/a.c', 'line': 8})
+        self.assertEqual(self.invoke('wb_compile', json.dumps(data), 0)['status'], 'invalid_report')
+
+    def test_wb_only_row_is_neither_agreement_nor_disagreement(self):
+        row = {'wb_parent': receipt('wb_only'), 'wb_fix': receipt('passed')}
+        self.assertEqual(calib.agreement(row, False), 'wb_only')
+        self.assertEqual(calib.agreement(row, True), 'incomplete')
+        row['native_parent'] = receipt('compile_failed')
+        self.assertEqual(calib.agreement(row, True), 'wb_only')
+        row['native_parent'] = receipt('unverified')
+        self.assertEqual(calib.agreement(row, True), 'inconclusive')
+        self.assertEqual(calib.agreement({'wb_parent': receipt('wb_only'), 'wb_fix': receipt('unverified')}, False),
+                         'inconclusive')
+
     def test_agreement_requires_real_native_evidence(self):
         row = {'wb_parent': receipt('compile_failed'), 'wb_fix': receipt('passed')}
         self.assertEqual(calib.agreement(row, False), 'expected_only')
@@ -201,11 +220,28 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(self.read_report()['status'], 'disagree')
 
     def test_explicit_stop_on_inconclusive(self):
-        for status in calib.WB_STATUSES - {'passed', 'compile_failed'}:
+        for status in calib.WB_STATUSES - {'passed', 'compile_failed', 'wb_only'}:
             with self.subTest(status=status), patch.object(calib, 'invoke', return_value=receipt(status)) as invoke:
                 self.assertEqual(calib.main(['--gate', '--stop-on-inconclusive', '--out', str(self.out)]), 2)
                 invoke.assert_called_once()
                 self.assertEqual(self.read_report()['status'], 'incomplete')
+
+    def test_wb_only_rows_continue_and_do_not_claim_agreement(self):
+        with patch.object(calib, 'invoke', side_effect=lambda tool, commit:
+                          receipt('wb_only' if commit.endswith('^') else 'passed')) as invoke:
+            self.assertEqual(calib.main(['--stop-on-inconclusive', '--out', str(self.out)]), 2)
+        self.assertEqual(invoke.call_count, len(calib.CORPUS) * 2)
+        report = self.read_report()
+        self.assertEqual(report['status'], 'wb_only')
+        self.assertEqual(report['summary']['wb_only'], len(calib.CORPUS))
+        self.assertEqual(report['summary']['agree'] + report['summary']['expected_only'], 0)
+
+    def test_disagreement_outranks_wb_only_rows(self):
+        def fake(tool, commit):
+            return receipt('wb_only' if commit.endswith('^') and not commit.startswith(self.rows[0]['fix']) else 'passed')
+        with patch.object(calib, 'invoke', side_effect=fake):
+            self.assertEqual(calib.main(['--out', str(self.out)]), 1)
+        self.assertEqual(self.read_report()['status'], 'disagree')
 
     def test_inconclusive_continues_all_sides_and_rows(self):
         with patch.object(calib, 'invoke', return_value=receipt('unverified')) as invoke:

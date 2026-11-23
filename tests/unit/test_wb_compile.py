@@ -57,6 +57,43 @@ class DiagnosticsTests(unittest.TestCase):
         failed = wb.verdict(text + '\nSCRIPT (E): Can\'t compile "Game" script module!', 0)
         self.assertEqual(failed['errors'][0]['class'], 'compile_failure')
 
+    OVERRIDE = ('SCRIPT (E): @"HollowCountry/scripts/3_Game/Core/Fixture.c,8": FIX-ME: Overriding function '
+                "'SpawnObjects' but not marked as 'override'")
+    ABORT = 'SCRIPT (E): Can\'t compile "Game" script module!'
+
+    def test_wb_only_override_diagnostic_is_not_a_failure_but_never_a_pass(self):
+        report = wb.verdict(self.OVERRIDE + '\n' + self.ABORT + '\nModule: Game; loaded 9x files', 0)
+        self.assertEqual(report['status'], 'wb_only')
+        self.assertEqual([entry['class'] for entry in report['wb_only']], ['wb_only'])
+        self.assertEqual(report['wb_only'][0]['line'], 8)
+        self.assertEqual(report['triage']['errors'], {'wb_only': 1, 'compile_failure': 1})
+        self.assertEqual([entry['class'] for entry in report['errors']], ['compile_failure'])
+        self.assertFalse(report['native_validation_completed'])
+        self.assertFalse(report['route_qualified'])
+        # The pattern, not the file, decides: a dependency or vanilla location is classified the same.
+        other = wb.diagnostics(self.OVERRIDE.replace('HollowCountry/scripts/3_Game/Core/Fixture.c',
+                                                      'scripts/3_Game/other.c'))
+        self.assertEqual(other[0]['class'], 'wb_only')
+        # A timeout while Workbench waited behind the diagnostic stays wb_only.
+        self.assertEqual(wb.verdict(self.OVERRIDE, None, True)['status'], 'wb_only')
+
+    def test_wb_only_never_hides_another_error_or_missing_evidence(self):
+        base = self.OVERRIDE + '\n' + self.ABORT + '\n'
+        for extra in ('SCRIPT (E): Unknown type \'X\' @"HollowCountry/scripts/4_World/a.c,3"',
+                      'SCRIPT (E): unexplained', 'Script validation failed.',
+                      'SCRIPT (E): Bad type \'JsonFileLoader\' @"HollowCountry/scripts/3_Game/a.c,5"'):
+            with self.subTest(extra=extra):
+                self.assertEqual(wb.verdict(base + extra, 0)['status'], 'compile_failed')
+        self.assertEqual(wb.verdict(base, 0, truncated=True)['status'], 'incomplete_logs')
+        # A wb_only line next to a complete validated stack does not turn a pass into a failure.
+        self.assertEqual(wb.verdict(self.OVERRIDE + '\n' + evidence(), 0)['status'], 'passed')
+        # Without the diagnostic the module-abort line is an ordinary compile failure.
+        self.assertEqual(wb.verdict(self.ABORT, 0)['status'], 'compile_failed')
+        # Near misses do not match.
+        for near in ("Overriding function 'A' of base", "function not marked as 'override'"):
+            self.assertEqual(wb.diagnostics('SCRIPT (E): ' + near + ' @"HollowCountry/scripts/a.c,2"')[0]['class'],
+                             'ours')
+
     def test_known_vanilla_noise_is_counted_not_blocking(self):
         noise = ['SCRIPT (E): Missing script declaration for method \'Fixture\'',
                  'SCRIPT (E): scripts/1_Core/fixture.c(3): Method not linked',
