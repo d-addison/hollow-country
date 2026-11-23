@@ -399,7 +399,10 @@ class HCWorldStore
             if (primaryText != intent)
             {
                 if (FileExist(m_Backup) && !DeleteFile(m_Backup)) { return false; }
-                if (!CopyFile(m_Path, m_Backup) || Read(m_Backup) != primaryText) { return false; }
+                if (!CopyFile(m_Path, m_Backup)) { return false; }
+                string copiedBackup;
+                if (!ReadChecked(m_Backup, copiedBackup)) { m_ReadUnavailable = true; return false; }
+                if (copiedBackup != primaryText) { return false; }
                 if (!DeleteFile(m_Path) || !CopyFile(m_Temp, m_Path)) { return false; }
             }
         }
@@ -415,7 +418,9 @@ class HCWorldStore
             if (FileExist(m_Path) && !DeleteFile(m_Path)) { return false; }
             if (!CopyFile(m_Temp, m_Path)) { return false; }
         }
-        if (Read(m_Path) != intent || !DeleteFile(m_Temp)) { return false; }
+        string promotedText;
+        if (!ReadChecked(m_Path, promotedText)) { m_ReadUnavailable = true; return false; }
+        if (promotedText != intent || !DeleteFile(m_Temp)) { return false; }
         Print("[HollowCountry] V2 world interrupted save recovered action=promoted_intent");
         return true;
     }
@@ -626,7 +631,7 @@ class HCWorldIntentRecovery
         if (!s_RotationFailures.Contains(source) && s_RotationFailures.Count() < 64)
         {
             s_RotationFailures.Set(source, true);
-            Print("[HC World] staged_rejection path=" + FileName(source) + " reason=" + reason + " action=retain_source_retry_next_boot");
+            Print("[HC World] staged_rejection file=" + FileName(source) + " reason=" + reason + " action=retain_source_retry_next_boot");
         }
         return false;
     }
@@ -657,7 +662,7 @@ class HCWorldIntentRecovery
         }
         if (existingCopy)
         {
-            Print("[HC World] staged_rejection path=" + FileName(source) + " reason=existing_raw_copy action=retire_source");
+            Print("[HC World] staged_rejection file=" + FileName(source) + " reason=existing_raw_copy action=retire_source");
             if (!DeleteFile(source)) { return RotationFailed(source, "delete_failed"); }
             return true;
         }
@@ -693,13 +698,13 @@ class HCWorldIntentRecovery
             if (rotationUnverified && !s_RotationWarnings.Contains(source) && s_RotationWarnings.Count() < 64)
             {
                 s_RotationWarnings.Set(source, true);
-                Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_copy_unverified_non_authoritative");
+                Print("[HC World] staged_rejection file=" + FileName(source) + " reason=rotation_copy_unverified_non_authoritative");
             }
             string budgetKey = source + ".budget";
             if (rotationBudgetOut && !s_RotationWarnings.Contains(budgetKey) && s_RotationWarnings.Count() < 64)
             {
                 s_RotationWarnings.Set(budgetKey, true);
-                Print("[HC World] staged_rejection path=" + FileName(source) + " reason=rotation_compare_budget_exhausted action=continue_non_authoritative");
+                Print("[HC World] staged_rejection file=" + FileName(source) + " reason=rotation_compare_budget_exhausted action=continue_non_authoritative");
             }
             rejected = source + ".rejected.7";
         }
@@ -721,7 +726,7 @@ class HCWorldIntentRecovery
         }
         string reason = "verified_copy";
         if (!equal) { reason = "copy_unverified_non_authoritative"; }
-        Print("[HC World] staged_rejection path=" + FileName(source) + " reason=" + reason + " action=retire_source");
+        Print("[HC World] staged_rejection file=" + FileName(source) + " reason=" + reason + " action=retire_source");
         if (!DeleteFile(source)) { return RotationFailed(source, "delete_failed"); }
         return true;
     }
@@ -760,7 +765,7 @@ class HCWorldIntentRecovery
         if (intent == "")
         {
             if (primary == "" || !Reject(path + ".tmp", limit)) { return false; }
-            Print("[HC World] staged_recovery action=discard_unverifiable_or_stale path=" + path);
+            Print("[HC World] staged_recovery action=discard_unverifiable_or_stale file=" + FileName(path));
             return true;
         }
         if (!forward) { return false; }
@@ -790,7 +795,7 @@ class HCWorldIntentRecovery
         bool retireBackup = !keepBackup && FileExist(path + ".bak");
         if (retireBackup && !DeleteFile(path + ".bak")) { return false; }
         if (!DeleteFile(path + ".tmp")) { return false; }
-        Print("[HC World] staged_recovery action=promote_verified path=" + path);
+        Print("[HC World] staged_recovery action=promote_verified file=" + FileName(path));
         return true;
     }
 }
@@ -810,13 +815,14 @@ class HCWorldLeaseCeiling
     protected static bool s_IntentReadFailurePrinted;
     protected static bool s_PrimaryReadFailurePrinted;
     protected static bool s_BackupReadFailurePrinted;
+    protected static bool s_BackupRetireFailurePrinted;
     protected string m_LoadFailure;
 
     string LoadFailure() { return m_LoadFailure; }
     protected bool RecoveryIOFailed()
     {
         m_LoadFailure = "custody_lease_ceiling_recovery_io_failed";
-        Print("[HC World] custody_lease_ceiling_recovery_io_failed path=ai-custody.lease-ceiling action=retain_retry");
+        Print("[HC World] custody_lease_ceiling_recovery_io_failed file=ai-custody.lease-ceiling action=retain_retry");
         return false;
     }
 
@@ -920,7 +926,7 @@ class HCWorldLeaseCeiling
                     if (!s_BackupReadFailurePrinted)
                     {
                         s_BackupReadFailurePrinted = true;
-                        Print("[HC World] custody_lease_ceiling_backup_unreadable path=ai-custody.lease-ceiling.bak action=retain_retry");
+                        Print("[HC World] custody_lease_ceiling_backup_unreadable file=ai-custody.lease-ceiling.bak action=retain_retry");
                     }
                     return false;
                 }
@@ -991,7 +997,22 @@ class HCWorldLeaseCeiling
             else
             {
                 HCSaveJob.HCOperation = "custody_lease_ceiling_backup_retire";
-                if (!DeleteFile(PATH + ".bak")) { return HCSaveJob.STEP_FAILED; }
+                if (!DeleteFile(PATH + ".bak"))
+                {
+                    // Post-commit housekeeping: the new ceiling verified, the leftover
+                    // lower-bound backup is retried at the next ceiling commit or boot.
+                    // m_BackupLowerBound stays set; m_CleanupReady is cleared so a
+                    // required ceiling raise is never skipped.
+                    if (!s_BackupRetireFailurePrinted)
+                    {
+                        s_BackupRetireFailurePrinted = true;
+                        Print("[HC World] custody_lease_ceiling_backup_retire_failed file=ai-custody.lease-ceiling.bak action=retain_retry_next_commit");
+                    }
+                    HCModuleReadiness.HCUse("Materializer", "custody_lease_ceiling_backup_retire_failed");
+                    m_CleanupBackupPresent = false;
+                    m_CleanupReady = false;
+                    return HCSaveJob.STEP_DONE;
+                }
             }
             m_CleanupBackupPresent = false;
             m_CleanupReady = false;
