@@ -54,8 +54,17 @@ RIGHTS_FIXED = {'license': 'none-recorded', 'redistribution': 'none', 'dependenc
                 'review': 'pending'}
 ENTRY_REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'usage', 'value', 'justification'}
 EXTRA = {'weapon': {'vanilla_ammo', 'magazines', 'optic_requires'}, 'magazine': set(), 'ammo': set(),
-         'optic': {'slot', 'fits'}, 'attachment': {'slot', 'fits'}}
-ROLES = {'weapon': {'modern', 'civilian', 'police'}, 'magazine': {'support'}, 'ammo': {'support'}, 'optic': {'modern'}, 'attachment': {'support'}}
+         'optic': {'slot', 'fits'}, 'attachment': {'slot', 'fits'}, 'gear': {'slot', 'category'}}
+ROLES = {'weapon': {'modern', 'civilian', 'police'}, 'magazine': {'support'}, 'ammo': {'support'}, 'optic': {'modern'},
+         'attachment': {'support'}, 'gear': {'gear'}}
+# Owner 2026-11-23: wearable gear and packs from the pack are admitted with the CE category of their vanilla
+# peers. Armour slots stay rare and Military-only; camouflage the owner kept out (EMR, Syrian) and night vision
+# can never be listed.
+GEAR_SLOTS = {'Body', 'Legs', 'Headgear', 'Vest', 'Back', 'Hips', 'Mask'}
+GEAR_CATEGORIES = {'clothes', 'containers'}
+ARMOUR_SLOTS = {'Headgear', 'Vest'}
+ARMOUR_MAX_NOMINAL = 2
+GEAR_REFUSED = re.compile(r'(?i)emr|syrian|nvg|night')
 TIERS = {'common', 'uncommon', 'rare'}
 SET_FIELDS = ('nominal', 'min', 'lifetime', 'restock')
 MODERN_USAGE = {'Military', 'Police'}
@@ -72,6 +81,8 @@ PENDING = ['normal PBO/server load with TF installed on server and clients, sign
            'M14 adapter and Elcan optic fitting (TF_M14_STD needs weaponDMRAdapter before any optic)',
            'CE spawn/error trials and 3-6-player budget measurement',
            'rights review of the missing licence file before any hosted server depends on TF',
+           'one-client equip/wear check of each gear class (jackets, pants, helmets, vests, rucksacks, fanny pack) and, '
+           'for the PMK-4 gas masks, attaching the vanilla filter in the mask slot',
            'destination install/rollback on the real mission copy']
 
 
@@ -154,6 +165,9 @@ def validate_allowlist(allowlist):
             raise ValueError(f'invalid slot: {name}')
         if kind in {'optic', 'attachment'} and not e['fits']:
             raise ValueError(f'fits required: {name}')
+        if kind == 'gear':
+            if e['slot'] not in GEAR_SLOTS or e['category'] not in GEAR_CATEGORIES or GEAR_REFUSED.search(name):
+                raise ValueError(f'invalid or refused gear entry: {name}')
     _validate_usage_rules(rows)
     snafu_optional._family_policy(allowlist)
     excluded = allowlist['excluded']
@@ -175,6 +189,11 @@ def _validate_usage_rules(rows):
     attachments = {n: e for n, e in rows.items() if e['kind'] == 'attachment'}
     for name, e in rows.items():
         usage = set(e['usage'])
+        if e['kind'] == 'gear':
+            if e['slot'] in ARMOUR_SLOTS and (usage != {'Military'} or e['tier'] != 'rare'
+                                              or e['set']['nominal'] > ARMOUR_MAX_NOMINAL):
+                raise ValueError(f'armour gear must be rare, Military-only and at most {ARMOUR_MAX_NOMINAL}: {name}')
+            continue
         if e['kind'] in {'weapon', 'optic'} and e['role'] == 'modern':
             if 'Military' not in usage or not usage <= MODERN_USAGE:
                 raise ValueError(f'modern pick must be Military (and Police only): {name}')
@@ -382,6 +401,12 @@ def _evaluate(entry, merged, duplicates, models, vanilla, state):
             attach, appended = _array(merged['CfgWeapons'], w, 'attachments')
             _need(attach, appended, entry['slot'], ('attachments', f'weapon-lacks-slot:{w}:{entry["slot"]}'),
                   reasons)
+    elif kind == 'gear':
+        slots, _app = _array(classes, name, 'inventorySlot')
+        if slots is None:
+            reasons.append('inventory-slot-unresolved')
+        elif entry['slot'] not in slots:
+            reasons.append(f'slot-mismatch:{entry["slot"]}')
     else:
         mags, mags_app = _array(classes, name, 'magazines')
         chamber, chamber_app = _array(classes, name, 'chamberableFrom')
@@ -447,7 +472,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS, evidence
         models |= vanilla.get('models', set())
         vanilla_report = {'checked': True, 'problems': list(vanilla.get('problems', [])),
                           'magazines': len(vanilla['CfgMagazines']), 'ammo': len(vanilla['CfgAmmo'])}
-    order = {'ammo': 0, 'magazine': 0, 'optic': 1, 'attachment': 1, 'weapon': 2}
+    order = {'ammo': 0, 'magazine': 0, 'optic': 1, 'attachment': 1, 'gear': 1, 'weapon': 2}
     state, classes = {}, {}
     for entry in sorted(allowlist['entries'], key=lambda e: order[e['kind']]):
         row = _evaluate(entry, merged, duplicates, models, vanilla, state)
@@ -511,7 +536,7 @@ def _new_type(entry):
     ET.SubElement(item, 'cost').text = '100'
     ET.SubElement(item, 'flags', {'count_in_cargo': '0', 'count_in_hoarder': '0', 'count_in_map': '1',
                                   'count_in_player': '0', 'crafted': '0', 'deloot': '0'})
-    ET.SubElement(item, 'category', {'name': 'weapons'})
+    ET.SubElement(item, 'category', {'name': entry.get('category', 'weapons')})
     for u in entry['usage']:
         ET.SubElement(item, 'usage', {'name': u})
     for v in entry['value']:
@@ -561,7 +586,7 @@ def generate(source, allowlist, report, nominal_scale=snafu_optional.DEFAULT_SCA
         economy._validate_budget(item)
         out.append(item)
         row = {k: entry[k] for k in ('class', 'kind', 'role', 'tier', 'set', 'usage', 'value', 'justification')}
-        row.update({k: entry[k] for k in ('vanilla_ammo', 'magazines', 'optic_requires', 'slot', 'fits')
+        row.update({k: entry[k] for k in ('vanilla_ammo', 'magazines', 'optic_requires', 'slot', 'fits', 'category')
                     if k in entry})
         row['verification'] = report['classes'][name]['status']
         rows.append(row)

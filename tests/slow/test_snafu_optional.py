@@ -688,16 +688,20 @@ class CommittedAllowlist(unittest.TestCase):
         for group in self.data['excluded']:
             self.assertFalse(set(group.get('classes', [])) & selected, group['group'])
 
-    def test_optics_are_a_documented_empty_extension_point(self):
-        self.assertEqual(self.data['optics']['entries'], [])
-        self.assertEqual(self.data['optics']['status'], 'deferred-pending-owner-decision')
-        self.assertFalse([e for e in self.data['entries'] if e['kind'] == 'optic'])
-        for bad in ({'status': 'accepted', 'entries': []},
-                    {'status': 'deferred-pending-owner-decision', 'entries': [{'class': 'SNAFU_Scope'}]},
-                    {'status': 'deferred-pending-owner-decision', 'entries': [], 'extra': 1}):
-            with self.subTest(bad), self.assertRaises(ValueError):
+    def test_owner_admitted_optics_are_ordinary_attachment_entries(self):
+        by_class = {e['class']: e for e in self.data['entries']}
+        self.assertNotIn('optics', self.data)
+        for name in ('GCGN_M84_Optic', 'SNAFU_M14Optic'):
+            with self.subTest(name):
+                entry = by_class[name]
+                self.assertEqual(entry['kind'], 'attachment')
+                self.assertEqual(entry['slot'], name)
+                self.assertEqual(entry['usage'], ['Military', 'Hunting'])
+                self.assertIn(self.data['hc61']['class_pins'][name][:1], '0123456789abcdef')
+        for key in ('optics',):
+            with self.subTest(key), self.assertRaises(ValueError):
                 mutated = copy.deepcopy(self.data)
-                mutated['optics'] = bad
+                mutated[key] = {'status': 'deferred-pending-owner-decision', 'entries': []}
                 snafu_optional.validate_allowlist(mutated)
 
     def test_no_overlap_with_the_vanilla_roster(self):

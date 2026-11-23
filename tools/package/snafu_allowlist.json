@@ -19268,6 +19268,57 @@
    ],
    "snafu_ammo": [],
    "magazines": []
+  },
+  {
+   "kind": "attachment",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 3,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military",
+    "Hunting"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Owner 2026-11-23: optic admitted with the compat size shrink; modest nominal, runtime acceptance pending.",
+   "class": "GCGN_M84_Optic",
+   "slot": "GCGN_M84_Optic",
+   "fits": [
+    "GCGN_M1Garand"
+   ]
+  },
+  {
+   "kind": "attachment",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 3,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military",
+    "Hunting"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Owner 2026-11-23: optic admitted with the compat size shrink; modest nominal, runtime acceptance pending.",
+   "class": "SNAFU_M14Optic",
+   "slot": "SNAFU_M14Optic",
+   "fits": [
+    "SNAFU_M14",
+    "SN_AKM"
+   ]
   }
  ],
  "excluded": [
@@ -19288,10 +19339,6 @@
    "reason": "Owner 2026-11-22: Expansion AI weapon-event crash with the M249 is unreproduced; removed from CE loot (types, spawnabletypes) until a sanitised crash capture exists. Nominal not redistributed; other LMGs stay. Re-admit by restoring the rows."
   }
  ],
- "optics": {
-  "status": "deferred-pending-owner-decision",
-  "entries": []
- },
  "hc61": {
   "schema": 1,
   "members": [
@@ -22264,6 +22311,18 @@
     "unit_rounds": 1,
     "parts": [],
     "class": "SNAFU_M48"
+   },
+   {
+    "family": "snafu-magazine",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "GCGN_M84_Optic"
+   },
+   {
+    "family": "snafu-magazine",
+    "unit_rounds": 1,
+    "parts": [],
+    "class": "SNAFU_M14Optic"
    }
   ],
   "family_budgets": [
@@ -22782,7 +22841,9 @@
    "SNAFU_SKS": "26562fc5881f2b8825245c932d417ea473c4bd544b20921528250bfddc9c5c92",
    "SNAFU_Trenchgun": "9686b197895643cf86dcc56e19a1ff4be57360501a1a4c126cb8ba13aceda589",
    "SNAFU_FRF2": "09ae464c9c4828b14563496e5d6b6af9902173dc8141d562c93642c92f73f180",
-   "SNAFU_M48": "56bb79b66590401fe8adfacb7f1adae3879c92649338f6277198e9cf62a46e81"
+   "SNAFU_M48": "56bb79b66590401fe8adfacb7f1adae3879c92649338f6277198e9cf62a46e81",
+   "GCGN_M84_Optic": "86cf06ab9d2cbda7127500a08dc0e8e2734ffa151a01c48be61795d7eaf0b1b9",
+   "SNAFU_M14Optic": "bf75c8155bb9deb38f582a67e3acdb5c577ca72993e1e0b09827f62d09dee8bf"
   },
   "aggregate_weapon_budget": {
    "nominal": 2040,

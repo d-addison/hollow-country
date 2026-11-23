@@ -37,7 +37,7 @@ ROOTS = ('CfgVehicles', 'CfgWeapons', 'CfgMagazines')
 FIELDS = {'scope', 'itemSize', 'inventorySlot', 'itemInfo', 'weight', 'displayName', 'varQuantityInit'}
 ARRAYS = {'itemSize', 'inventorySlot', 'itemInfo'}
 MATCH_KEYS = {'name', 'ancestor', 'slot', 'root', 'parent'}
-RULE_KEYS = MATCH_KEYS | {'id', 'disposition', 'reason', 'peers', 'peer_slot', 'usage', 'category', 'value', 'size_check', 'extra_divisor', 'evidence'}
+RULE_KEYS = MATCH_KEYS | {'id', 'disposition', 'reason', 'peers', 'peer_slot', 'usage', 'category', 'value', 'size_check', 'extra_divisor', 'evidence', 'decision'}
 DISPOSITIONS = ('spawn', 'crafted', 'excluded')
 SETTINGS_KEYS = {'id', 'root', 'target', 'tokens', 'reason', 'json'}
 SETTINGS_ROOTS = variety_optional.SETTINGS_ROOTS
@@ -208,6 +208,9 @@ class Rules:
                     raise ValueError('spawn rule must not carry an exclusion reason: ' + rule['id'])
                 if (rule['disposition'] == 'crafted') != (rule.get('evidence') in EVIDENCE):
                     raise ValueError('crafted rules (and only those) need evidence script or derived: ' + rule['id'])
+                if 'decision' in rule and (not isinstance(rule['decision'], str)
+                                           or not re.fullmatch(r'owner_[0-9]{4}_[0-9]{2}_[0-9]{2}_[a-z0-9_]{1,80}', rule['decision'])):
+                    raise ValueError('decision must record an owner decision as owner_YYYY_MM_DD_topic: ' + rule['id'])
                 if rule.get('extra_divisor', 1) < 1:
                     raise ValueError('extra_divisor must be at least 1: ' + rule['id'])
                 if not set(rule) & MATCH_KEYS:
@@ -374,6 +377,8 @@ def classify_pack(pack, rules, index, pack_rows, stock, floor, tokens):
             unclassified.append(key[1])
             continue
         entry = {'name': key[1], 'root': key[0], 'disposition': rule['disposition'], 'rule': rule['id']}
+        if rule.get('decision'):
+            entry['decision'] = rule['decision']
         if rule.get('evidence') == 'script' and key[1] not in tokens:
             unproducible.append(key[1])
         if rule['disposition'] != 'spawn':

@@ -157,6 +157,14 @@ class RuleValidation(unittest.TestCase):
         self.bad(lambda p: spawn(p).update(reason='because'))
         self.bad(lambda p: other(p).pop('reason'))
 
+    def test_spawn_rule_decision_records_an_owner_decision_and_is_validated(self):
+        spawn = lambda p: next(r for r in p['rules'] if r['disposition'] == 'spawn')
+        self.bad(lambda p: spawn(p).update(decision='because'))
+        self.bad(lambda p: spawn(p).update(decision='owner_2026_11_23_'))
+        decided = [r for p in RULES['packs'] for r in p['rules'] if 'decision' in r]
+        self.assertTrue(decided)
+        self.assertTrue(all(r['disposition'] == 'spawn' for r in decided))
+
     def test_crafted_rule_needs_evidence_and_others_must_not_have_it(self):
         crafted = next(r for p in RULES['packs'] for r in p['rules'] if r['disposition'] == 'crafted')
         pack_index = next(i for i, p in enumerate(RULES['packs']) if crafted in p['rules'])

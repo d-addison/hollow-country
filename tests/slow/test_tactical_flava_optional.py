@@ -549,7 +549,7 @@ def mission(root):
     synthetic_mission(root)
     (root / 'cfglimitsdefinition.xml').write_text(
         '<lists><usageflags><usage name="Town"/><usage name="Village"/><usage name="Military"/>'
-        '<usage name="Hunting"/><usage name="Police"/><usage name="Farm"/><usage name="Prison"/></usageflags><valueflags>'
+        '<usage name="Hunting"/><usage name="Police"/><usage name="Farm"/><usage name="Prison"/><usage name="Industrial"/></usageflags><valueflags>'
         '<value name="Tier1"/><value name="Tier2"/><value name="Tier3"/><value name="Tier4"/></valueflags></lists>')
     types = (root / 'db/types.xml').read_text()
     extra = ''.join(stock_entry(n, 50, 30, 14400, 0, ['Military'], ['Tier3']) for n in ('Ammo_545x39', 'Ammo_308Win'))
@@ -1172,6 +1172,39 @@ class CommittedAllowlist(unittest.TestCase):
         roster = json.loads((REPO / 'tools/package/firearms_roster.json').read_text()) \
             if (REPO / 'tools/package/firearms_roster.json').exists() else {'entries': []}
         self.assertFalse({e['class'] for e in roster['entries']} & set(self.rows))
+
+
+    def test_owner_admitted_gear_stays_inside_the_owner_limits(self):
+        gear = {n: e for n, e in self.rows.items() if e['kind'] == 'gear'}
+        self.assertEqual(len(gear), 16)
+        for name, e in gear.items():
+            with self.subTest(name):
+                self.assertNotRegex(name.lower(), 'emr|syrian|nvg|night')
+                if e['slot'] in ('Headgear', 'Vest'):
+                    self.assertEqual(e['usage'], ['Military'])
+                    self.assertEqual(e['tier'], 'rare')
+                    self.assertLessEqual(e['set']['nominal'], 2)
+        self.assertEqual({e['usage'][0] for n, e in gear.items() if 'PMK4' in n}, {'Military'})
+        for name in ('TF_PMK4GasMask', 'TF_PMK4GasMask_OD'):
+            self.assertEqual(gear[name]['usage'], ['Military', 'Industrial'])
+
+    def test_gear_validation_refuses_camouflage_and_loose_armour(self):
+        def renamed(data, row):
+            old, row['class'] = row['class'], row['class'] + '_EMR'
+            for m in data['hc61']['members']:
+                if m['class'] == old:
+                    m['class'] = row['class']
+            data['hc61']['class_pins'][row['class']] = data['hc61']['class_pins'].pop(old)
+
+        for label, mutate in (('camouflage name', renamed),
+                              ('armour usage', lambda d, e: e.update(usage=['Military', 'Police'])),
+                              ('armour nominal', lambda d, e: e['set'].update(nominal=3)),
+                              ('armour tier', lambda d, e: e.update(tier='uncommon'))):
+            with self.subTest(label):
+                data = copy.deepcopy(self.data)
+                mutate(data, next(e for e in data['entries'] if e['class'] == 'TF_6B47Helmet'))
+                with self.assertRaises(ValueError):
+                    tfo.validate_allowlist(data)
 
 
 class FirearmsDocument(unittest.TestCase):
