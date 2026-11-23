@@ -707,5 +707,63 @@ class PlanSupply(unittest.TestCase):
                 self.assertIn(needle, text)
 
 
+
+class BundleRoot(unittest.TestCase):
+    """Install-path inputs come from the tree being applied (root), never from this module's own repo tree."""
+    BODY = ('{"schema": 1, "kind": "%s", "Multiplier": 3.0, "CapacityMultiplier": {"Town": 1.5}, '
+            '"UsageMultiplier": {"Town": 2.5}, "GroupLootmaxCap": {"Town": 123}, "LootDamageMax": 0.5}'
+            % boost.SETTINGS_KIND)
+
+    def bundle(self, tmp, settings=BODY, roster=True):
+        root = Path(tmp) / 'bundle'
+        target = root / boost.SETTINGS
+        target.parent.mkdir(parents=True)
+        target.write_text(settings)
+        if roster:
+            for rel in ('tools/package/firearms_roster.json', 'config/military-loot.json'):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_bytes((boost.REPO_ROOT / rel).read_bytes())
+        return root
+
+    def test_every_knob_comes_from_the_root_and_not_from_the_repo_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.bundle(tmp)
+            mission = stock_mission(Path(tmp) / 'm')
+            self.assertNotEqual(boost.default_knobs()['group_cap'], boost.default_knobs(root)['group_cap'])
+            receipt = boost.install(mission, None, None, floor_policy=None, root=root)
+            self.assertEqual(receipt['multiplier'], 3.0)  # the root's, not the repo's 2.0
+            self.assertEqual(receipt['capacity_multiplier'], {'Town': 1.5})
+            self.assertEqual(receipt['knobs']['usage'], {'Town': 2.5})
+            self.assertEqual(receipt['knobs']['group_cap'], {'Town': 123})
+            self.assertEqual(receipt['knobs']['loot_damage_max'], 0.5)
+            self.assertEqual(receipt['category_multiplier'], {})  # the repo has category targets; the root has none
+            boost.rollback(mission)
+
+    def test_a_root_without_its_inputs_is_refused_and_never_falls_back_to_the_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = stock_mission(Path(tmp) / 'm')
+            stock = mission_bytes(mission)
+            with self.assertRaises(OSError):
+                boost.install(mission, 2.0, None, floor_policy=None, root=Path(tmp) / 'empty')
+            root = self.bundle(Path(tmp) / 'r', roster=False)
+            with self.assertRaises(ValueError):
+                boost.install(mission, 2.0, None, floor_policy=None, root=root)
+            self.assertEqual(mission_bytes(mission), stock)
+            self.assertFalse((mission / boost.MANAGED).exists())
+
+    def test_floor_policy_and_new_buildings_are_read_from_the_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self.bundle(tmp)
+            mission = stock_mission(Path(tmp) / 'm')
+            repo_policy = boost._floor_policy(boost.SHIPPED)
+            self.assertIsNotNone(repo_policy[0])
+            self.assertEqual(boost._floor_policy(boost.SHIPPED, root), (None, None))  # the root carries no policy
+            with mock.patch('tools.package.loot_floor_policy.shipped_policy', return_value=None) as shipped:
+                boost._floor_policy(boost.SHIPPED, root)
+            shipped.assert_called_once_with(root)
+            self.assertEqual(boost._new_buildings(b'<prototype/>', b'<map/>', boost.SHIPPED, root)[2]['applied'], False)
+            boost.plan(mission, root=root, points=None)
+
+
 if __name__ == '__main__':
     unittest.main()

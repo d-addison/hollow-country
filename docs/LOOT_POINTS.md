@@ -1257,7 +1257,9 @@ five more knobs, all read by `loot_boost.default_knobs` and recorded in the rece
   rows already carry. Factor source: the authored `mission/hollow-country/ce/types.xml` (generated from
   `tools/package/firearms_roster.json`, with `config/military-loot.json` behind the Military pools) holds the 3x
   native travel layer; travel installs it before the boost, so `loot_boost` multiplies those bytes and the committed
-  file stays untouched. Weapon-pack rows (optional packs) are not scaled here and stay 2x. The Military tier factor
+  file stays untouched. Weapon-pack rows (optional packs) are not scaled here; their own knob is `test_abundance_multiplier` in
+  `snafu_allowlist.json` and `tactical_flava_allowlist.json`, **3.0** since the owner's 2026-11-22 decision (it was 2.0), the same 3x as the
+  vanilla roster weapons. The Military tier factor
   applies to roster rows too.
 - `LootDamageMax` (0.0 to 1.0) lowers the `LootDamageMax` global to that ceiling and never raises a stock value;
   the receipt records `LootDamageMax=old->new` in `counts.globals`.

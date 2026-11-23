@@ -1830,11 +1830,22 @@ def install_dependencies(ctx, a):
             ctx.say('  ' + line.strip())
 
 
+# Everything that decides the mission bytes the bundle apply writes: the overlay, the patches, the infected variants,
+# the authored CE layer the loot boost scales (ce/), the loot-points data and settings (settings.json, families,
+# additions, floor policy, new buildings), the firearms roster and the military rules the boost reads. A release that
+# changes only one of these must not look "already applied": the fingerprint changes, the earlier overlay is rolled
+# back (receipt-verified) and the stack is applied again from stock bytes.
+OVERLAY_INPUT_PREFIXES = ('mission-overlay/', 'mission/hollow-country/loot-points/', 'mission/hollow-country/ce/')
+OVERLAY_INPUT_FILES = ('mission-patches.json', 'mission/hollow-country/infected/variants.json',
+                       'tools/package/firearms_roster.json', 'config/military-loot.json')
+
+
 def overlay_fingerprint(ctx):
     rows = [(r['path'], r['sha256']) for r in ctx.manifest['files']
-            if r['path'].startswith('mission-overlay/') or r['path'] in
-            ('mission-patches.json', 'mission/hollow-country/infected/variants.json')]
-    return sha256_bytes(json.dumps(sorted(rows)).encode())
+            if r['path'].startswith(OVERLAY_INPUT_PREFIXES) or r['path'] in OVERLAY_INPUT_FILES]
+    # LOOT_BOOST_VERSION covers logic changes that alter the boosted bytes for unchanged inputs
+    return sha256_bytes(json.dumps({'files': sorted(rows), 'loot_boost': loot_boost.LOOT_BOOST_VERSION},
+                                   sort_keys=True).encode())
 
 
 def overlay_pack_dir(ctx):
