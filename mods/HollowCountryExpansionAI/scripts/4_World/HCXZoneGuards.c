@@ -245,7 +245,7 @@ class HCXZoneGuards : HCModule
         if (!m_Started || m_Refusal != "" || !zone.Initialised) { return false; }
         if (zone.Row.State == "held")
         {
-            return !zone.Row.Wiped && zone.Site && !zone.Site.Failed && zone.Site.Patrol && !zone.Site.Patrol.m_HCFinished && zone.Site.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(zone.Site.Patrol.m_Group) > 0;
+            return !zone.Row.Wiped && zone.Site && !zone.Site.Failed && zone.Site.Patrol && !zone.Site.Patrol.m_HCFinished && HCXExpansionBridge.HCHoldCount(zone.Site.Patrol.HCGroupHold()) > 0;
         }
         if (zone.Row.State == "overrun")
         {
@@ -322,7 +322,7 @@ class HCXZoneGuards : HCModule
         if (!group || m_Refusal != "") { return; }
         foreach (HCXZoneGuardsRuntime zone : m_Zones)
         {
-            if (!zone.Site || !zone.Site.Patrol || zone.Site.Patrol.m_Group != group || zone.Row.State != "held") { continue; }
+            if (!zone.Site || !zone.Site.Patrol || !HCXExpansionBridge.HCHoldSame(zone.Site.Patrol.HCGroupHold(), group) || zone.Row.State != "held") { continue; }
             int alive;
             for (int i = 0; i < HCXExpansionBridge.HCGroupCount(group) && i < 6; i++)
             {
@@ -415,7 +415,7 @@ class HCXZoneGuards : HCModule
     }
     protected bool Quiet(HCXZoneGuardsRuntime zone)
     {
-        if (zone.Site && zone.Site.Patrol && (zone.Site.Patrol.m_HCPendingMembers > 0 || zone.Site.Patrol.m_Group)) { return false; }
+        if (zone.Site && zone.Site.Patrol && (zone.Site.Patrol.m_HCPendingMembers > 0 || zone.Site.Patrol.HCHasGroup())) { return false; }
         foreach (ZombieBase body : zone.Bodies)
         {
             if (body && body.IsAlive()) { return false; }

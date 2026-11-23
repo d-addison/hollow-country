@@ -36,7 +36,8 @@ class HCXConvoyRun
     string mHCNote;
     // #334: the run reaches its group only through this bridge handle, for the run's life.
     protected ref HCXAIGroupHold m_HCHold;
-    eAIBase mHCLeader;
+    // The leader is an engine entity the provider deletes: held as a handle, resolved per use.
+    protected ref HCXAIAgentHold m_HCLeaderHold;
     CarScript mHCCar;
     HCConvoyPolicy mHCPolicy;
     eAIWaypointBehavior mHCBehaviour;
@@ -67,9 +68,10 @@ class HCXConvoyRun
         m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, group);
         if (!m_HCHold) { return false; }
         mHCPolicy = policy;
-        mHCLeader = eAIBase.Cast(HCXExpansionBridge.HCGroupGetFormationLeader(group));
-        if (!mHCLeader) { return false; }
-        if (!HCXExpansionBridge.HCBaseIsAlive(mHCLeader)) { return false; }
+        eAIBase leader = eAIBase.Cast(HCXExpansionBridge.HCGroupGetFormationLeader(group));
+        if (!leader) { return false; }
+        if (!HCXExpansionBridge.HCBaseIsAlive(leader)) { return false; }
+        m_HCLeaderHold = HCXExpansionBridge.HCAgentHold(leader);
         array<vector> route = HCXExpansionBridge.HCGroupGetWaypoints(group);
         if (!route || route.Count() < 1) { return false; }
         foreach (vector point : route) { mHCWalk.Insert(point); }
@@ -107,10 +109,16 @@ class HCXConvoyRun
         Print("[HC Convoy] " + reason + " road_branch=walking_caravan runtime=PENDING");
     }
 
+    eAIBase HCLeader()
+    {
+        return HCXExpansionBridge.HCAgent(m_HCLeaderHold);
+    }
+
     bool HCAlive()
     {
-        if (!mHCLeader) { return false; }
-        return HCXExpansionBridge.HCBaseIsAlive(mHCLeader);
+        eAIBase leader = this.HCLeader();
+        if (!leader) { return false; }
+        return HCXExpansionBridge.HCBaseIsAlive(leader);
     }
 
     // Phases in which this run may write car inputs.
@@ -126,7 +134,7 @@ class HCXConvoyRun
     {
         Human driver = mHCCar.CrewMember(0);
         if (!driver) { return false; }
-        return driver != mHCLeader;
+        return driver != this.HCLeader();
     }
 
     // Release the car without a brake, handbrake or engine write; only our own
@@ -261,14 +269,15 @@ class HCXConvoyRun
 
     void HCSeek(int now)
     {
+        eAIBase convoyLeader = this.HCLeader();
         if (!HCAlive()) { HCWalk("CONVOY_PARTY_LOST"); return; }
         if (mHCScans > 0 && now - mHCScanAt < mHCPolicy.SeekSeconds * 1000) { return; }
         if (mHCScans >= mHCPolicy.MaxSeekScans) { HCWalk("CONVOY_NO_QUALIFIED_WORLD_VEHICLE"); return; }
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_CONVOY_RUN, 8)) { return; }
         mHCScanAt = now;
         mHCScans++;
-        if (HCXConvoyRoute.HCFlat(HCXExpansionBridge.HCBaseGetPosition(mHCLeader), HCDestination()) < mHCPolicy.MinDriveMeters) { HCWalk("CONVOY_DESTINATION_NEAR"); return; }
-        CarScript car = HCPick(HCXExpansionBridge.HCBaseGetPosition(mHCLeader));
+        if (HCXConvoyRoute.HCFlat(HCXExpansionBridge.HCBaseGetPosition(convoyLeader), HCDestination()) < mHCPolicy.MinDriveMeters) { HCWalk("CONVOY_DESTINATION_NEAR"); return; }
+        CarScript car = HCPick(HCXExpansionBridge.HCBaseGetPosition(convoyLeader));
         if (!car) { return; }
         if (!mHCRoute.HCPlan(car.GetPosition(), HCDestination(), mHCPolicy)) { HCWalk(mHCRoute.mHCReason); return; }
         mHCCar = car;
@@ -283,6 +292,7 @@ class HCXConvoyRun
 
     void HCApproach(int now)
     {
+        eAIBase convoyLeader = this.HCLeader();
         if (!HCAlive()) { HCWalk("CONVOY_PARTY_LOST"); return; }
         if (!mHCCar) { HCWalk("CONVOY_VEHICLE_LOST"); return; }
         string problem = HCProblem(mHCCar);
@@ -290,13 +300,13 @@ class HCXConvoyRun
         mHCRoute.HCStep();
         if (mHCRoute.mHCPhase == "failed") { HCWalk(mHCRoute.mHCReason); return; }
         if (now - mHCPhaseAt > mHCPolicy.ApproachSeconds * 1000) { HCWalk("CONVOY_APPROACH_TIMEOUT"); return; }
-        if (HCXConvoyRoute.HCFlat(HCXExpansionBridge.HCBaseGetPosition(mHCLeader), mHCDoor) > mHCPolicy.BoardMeters) { return; }
+        if (HCXConvoyRoute.HCFlat(HCXExpansionBridge.HCBaseGetPosition(convoyLeader), mHCDoor) > mHCPolicy.BoardMeters) { return; }
         if (mHCRoute.mHCPhase != "ready") { return; }
         if (HCXExpansionBridge.HCHoldGetFormationState(m_HCHold) != eAIGroupFormationState.IN) { HCWalk("CONVOY_FORMATION_NOT_IN"); return; }
-        if (!HCXExpansionBridge.HCBaseExpansion_IsAnimationIdle(mHCLeader)) { return; }
+        if (!HCXExpansionBridge.HCBaseExpansion_IsAnimationIdle(convoyLeader)) { return; }
         // The leader stands at the door; the installed command handler plays
         // the native get-in. Followers board through Expansion's own FSM.
-        HCXExpansionBridge.HCBaseNotify_Transport(mHCLeader, mHCCar, 0);
+        HCXExpansionBridge.HCBaseNotify_Transport(convoyLeader, mHCCar, 0);
         HCPhase("board", now);
     }
 
@@ -305,7 +315,7 @@ class HCXConvoyRun
         if (!HCAlive() || !mHCCar) { HCStop("CONVOY_BOARD_LOST", now); return; }
         if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { HCStop("CONVOY_CONTACT", now); return; }
         if (now - mHCPhaseAt > mHCPolicy.BoardSeconds * 1000) { HCStop("CONVOY_BOARD_TIMEOUT", now); return; }
-        if (mHCCar.CrewMember(0) != mHCLeader) { return; }
+        if (mHCCar.CrewMember(0) != this.HCLeader()) { return; }
         if (HCAboard() < HCMembers()) { return; }
         mHCIndex = 0;
         mHCProgressAt = now;
@@ -334,7 +344,7 @@ class HCXConvoyRun
         if (!mHCCar) { return "CONVOY_VEHICLE_LOST"; }
         if (mHCCar.IsDamageDestroyed()) { return "CONVOY_VEHICLE_DESTROYED"; }
         if (!HCAlive()) { return "CONVOY_DRIVER_LOST"; }
-        if (mHCCar.CrewMember(0) != mHCLeader) { return "CONVOY_DRIVER_LOST"; }
+        if (mHCCar.CrewMember(0) != this.HCLeader()) { return "CONVOY_DRIVER_LOST"; }
         if (mHCCar.IsFlipped()) { return "CONVOY_VEHICLE_FLIPPED"; }
         if (!mHCCar.EngineIsOn() && !mHCCar.CheckOperationalState()) { return "CONVOY_VEHICLE_NOT_OPERATIONAL"; }
         if (HCXExpansionBridge.HCHoldIsInCombat(m_HCHold)) { return "CONVOY_CONTACT"; }

@@ -548,7 +548,7 @@ class HCXAISiteStorage : HCXAISiteBase
         foreach (HCXAISiteState killedState : m_States)
         {
             if (killedState.Transient || !killedState.Patrol) { continue; }
-            if (killedState.Patrol.m_Group == killedGroup)
+            if (HCXExpansionBridge.HCHoldSame(killedState.Patrol.HCGroupHold(), killedGroup))
             {
                 this.RecordCleared(killedState.Patrol, true);
                 return;
@@ -570,7 +570,7 @@ class HCXAISiteStorage : HCXAISiteBase
             return;
         }
         clearedRow.ClearedAt = clearedAt;
-        clearedRow.PartialRaid = death && patrol.m_Group && HCXExpansionBridge.HCGroupCount(patrol.m_Group) > 1;
+        clearedRow.PartialRaid = death && HCXExpansionBridge.HCHoldCountFinal(patrol.HCGroupHold()) > 1;
         this.SaveOwned();
         Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " cleared-at=" + clearedRow.ClearedAt.ToString() + " saved=" + m_OwnedSaved.ToString());
     }
@@ -813,10 +813,10 @@ class HCXAISiteStorage : HCXAISiteBase
         foreach (HCXAIOwnedRow resetRow : m_Owned.Rows) { resetRow.Members = 0; }
         foreach (HCXAISiteState state : m_States)
         {
-            if (state.Transient || !state.Patrol || !state.Patrol.m_Group) { continue; }
+            if (state.Transient || !state.Patrol || !HCXExpansionBridge.HCHoldAliveFinal(state.Patrol.HCGroupHold())) { continue; }
             HCXAIOwnedRow ownedRow = this.OwnershipRow(state.Site.Id);
             if (!ownedRow) { m_OwnedSaved = false; return false; }
-            ownedRow.Members = HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group);
+            ownedRow.Members = HCXExpansionBridge.HCHoldCountFinal(state.Patrol.HCGroupHold());
         }
         return true;
     }

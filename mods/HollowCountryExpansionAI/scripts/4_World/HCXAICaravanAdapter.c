@@ -1006,7 +1006,7 @@ class HCXJourneyReplans
         // planner's existing per-work-unit HCTakeFor and HCWorkBudget deadline.
         if (!HCServer.HCTickWork().HCTakeAISlice(HCUnitBudget.HC_AI_CARAVAN, HCUnitBudget.HC_WORK_ROADS, 2)) { return; }
         HCXAISiteState state = turn.State;
-        if (!state.Transient || !state.Materialized || state.Completed || !state.Patrol || !HCXExpansionBridge.HCHoldSame(turn.Hold, state.Patrol.m_Group) || state.HCJourneyRecovery != turn.Recovery || !state.HCJourneyWalking || turn.Recovery.GivenUp)
+        if (!state.Transient || !state.Materialized || state.Completed || !state.Patrol || !HCXExpansionBridge.HCHoldSameHold(turn.Hold, state.Patrol.HCGroupHold()) || state.HCJourneyRecovery != turn.Recovery || !state.HCJourneyWalking || turn.Recovery.GivenUp)
         {
             state.HCResetJourney();
             return;
@@ -1045,7 +1045,7 @@ modded class HCXAISiteDirector
     {
         foreach (HCXAISiteState released : m_States)
         {
-            if (released && released.Patrol && HCXExpansionBridge.HCHoldSame(party, released.Patrol.m_Group)) { released.HCResetJourney(); }
+            if (released && released.Patrol && HCXExpansionBridge.HCHoldSameHold(party, released.Patrol.HCGroupHold())) { released.HCResetJourney(); }
         }
     }
 
@@ -1112,12 +1112,12 @@ modded class HCXAISiteDirector
         HCXAISiteState state = m_States[m_HCJourneyCursor];
         m_HCJourneyCursor++;
         if (!state) { return; }
-        if (!state.Transient || !state.Materialized || state.Completed || !state.Patrol || !state.Patrol.m_Group) { state.HCResetJourney(); return; }
+        if (!state.Transient || !state.Materialized || state.Completed || !state.Patrol || !HCXExpansionBridge.HCHoldAlive(state.Patrol.HCGroupHold())) { state.HCResetJourney(); return; }
         HCAIPartyIdentity identity = HCWorldMaterializer.HCIdentity(state.ProposalId);
         HCWorldModule world = HCWorldModule.Get();
         vector destination;
         if (!identity || !world || !world.HCJourneyTarget(identity.HCPartyId(), destination)) { state.HCResetJourney(); return; }
-        eAIGroup party = state.Patrol.m_Group;
+        eAIGroup party = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
         if (HCXExpansionBridge.HCGroupCount(party) < 1 || state.Patrol.m_HCPendingMembers > 0) { state.HCResetJourney(); return; }
         HCXAIAdapter adapter = HCXAIService.Adapter();
         if (HCW38SituationRuntime.HCUsed(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId)) { state.HCResetJourney(); return; }

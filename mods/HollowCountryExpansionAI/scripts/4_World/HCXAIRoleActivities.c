@@ -527,9 +527,9 @@ class HCXAIRoleActivities : HCModule
         }
         if (activity == "encounter")
         {
-            if (!partner || !partner.Site || !partner.Patrol || !partner.Patrol.m_Group) { return "ENCOUNTER_PARTNER_ABSENT"; }
+            if (!partner || !partner.Site || !partner.Patrol || !HCXExpansionBridge.HCHoldAlive(partner.Patrol.HCGroupHold())) { return "ENCOUNTER_PARTNER_ABSENT"; }
             string leftFaction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group)));
-            string rightFaction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(partner.Patrol.m_Group)));
+            string rightFaction = HCXFactions.HCWorldId(HCXFactions.Id(HCXExpansionBridge.HCHoldGetFaction(partner.Patrol.HCGroupHold())));
             if (state.HCW70Place == "")
             {
                 HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
@@ -610,7 +610,7 @@ class HCXAIRoleActivities : HCModule
             if (!state) { continue; }
             int now = HCWorldClock.UTC();
             if (!state.Site || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive) { continue; }
-            eAIGroup group = state.Patrol.m_Group;
+            eAIGroup group = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
             if (!group || HCXExpansionBridge.HCGroupCount(group) < 1 || this.HCHasGroupLease(group)) { continue; }
             if (HCXExpansionBridge.HCGroupIsInCombat(group)) { state.HCW70DangerUntil = now + m_Config.DangerMemorySeconds; }
             // Never steal a reserved route/cargo controller. Native combat

@@ -39,7 +39,11 @@ class HCXAIBaseRaid : HCBaseRaidPort
     protected ref HCScavengeState m_Receipt;
     protected ref HCXAIBaseRaidInventory m_Inventory;
     protected HCXAISiteState m_Site;
-    protected eAIBase m_Actor;
+    protected ref HCXAIAgentHold m_ActorHold;
+    protected eAIBase HCActor()
+    {
+        return HCXExpansionBridge.HCAgent(m_ActorHold);
+    }
     protected Object m_Seen;
     protected Building m_Building;
     // Metres (squared) within which a raider can work on a barricade it can see.
@@ -101,26 +105,28 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     override bool HCCustodyAllowed(PlayerBase actor, EntityAI source)
     {
-        if (!m_Reserved || actor != m_Actor || source != m_Source || !m_Camp || !HCLiveParty()) { return false; }
+        if (!m_Reserved || actor != this.HCActor() || source != m_Source || !m_Camp || !HCLiveParty()) { return false; }
         if (vector.DistanceSq(source.GetPosition(), m_Camp.Position) > m_Config.SourceRangeMeters * m_Config.SourceRangeMeters) { return false; }
         return HCPerceive(source, source.GetPosition());
     }
 
     bool HCLiveParty()
     {
-        if (!m_Site || !HCW38SituationRuntime.HCCandidate(m_Site) || !m_Actor) { return false; }
-        if (!HCXExpansionBridge.HCBaseIsAlive(m_Actor) || HCXExpansionBridge.HCBaseIsPendingDeletion(m_Actor) || HCXExpansionBridge.HCBaseIsUnconscious(m_Actor)) { return false; }
-        return HCXExpansionBridge.HCDayZPlayerImplementGetGroup(m_Actor) == m_Site.Patrol.m_Group;
+        eAIBase raider = this.HCActor();
+        if (!m_Site || !HCW38SituationRuntime.HCCandidate(m_Site) || !raider) { return false; }
+        if (!HCXExpansionBridge.HCBaseIsAlive(raider) || HCXExpansionBridge.HCBaseIsPendingDeletion(raider) || HCXExpansionBridge.HCBaseIsUnconscious(raider)) { return false; }
+        return HCXExpansionBridge.HCHoldSame(m_Site.Patrol.HCGroupHold(), HCXExpansionBridge.HCDayZPlayerImplementGetGroup(raider));
     }
 
     bool HCVisible(Object target, vector point)
     {
+        eAIBase raidActor = this.HCActor();
         m_RayBarricade = null;
         vector contact;
         vector normal;
         int component;
         set<Object> hits = new set<Object>;
-        bool blocked = DayZPhysics.RaycastRV(HCXExpansionBridge.HCBaseGetPosition(m_Actor) + Vector(0, 1.6, 0), point, contact, normal, component, hits, null, m_Actor);
+        bool blocked = DayZPhysics.RaycastRV(HCXExpansionBridge.HCBaseGetPosition(raidActor) + Vector(0, 1.6, 0), point, contact, normal, component, hits, null, raidActor);
         if (!blocked) { m_Component = -1; return true; }
         if (hits.Find(target) < 0)
         {
@@ -169,13 +175,14 @@ class HCXAIBaseRaid : HCBaseRaidPort
     // reach or sight) starts the clock again, so there is no stored-up burst either.
     protected void HCBreachBarricade(int now)
     {
+        eAIBase raidActor = this.HCActor();
         if (!m_Barricade || !HCBreachAllowed() || !HCLiveParty() || m_Barricade.IsPendingDeletion())
         {
             m_Barricade = null;
             m_BreachAt = 0;
             return;
         }
-        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(m_Actor), m_Barricade.GetPosition()) > BREACH_REACH_SQ || !HCPerceive(m_Barricade, m_Point)) { return; }
+        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(raidActor), m_Barricade.GetPosition()) > BREACH_REACH_SQ || !HCPerceive(m_Barricade, m_Point)) { return; }
         int last = m_BreachAt;
         m_BreachAt = now;
         if (last < 1 || now <= last || now - last > HCFortifyBridge.MAX_STEP_SECONDS) { return; }
@@ -184,9 +191,10 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     bool HCPerceive(Object target, vector point)
     {
+        eAIBase raidActor = this.HCActor();
         m_RayBarricade = null;
-        if (!m_Actor || !target || !m_Config) { return false; }
-        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(m_Actor), point) > m_Config.NoticeRangeMeters * m_Config.NoticeRangeMeters) { return false; }
+        if (!raidActor || !target || !m_Config) { return false; }
+        if (vector.DistanceSq(HCXExpansionBridge.HCBaseGetPosition(raidActor), point) > m_Config.NoticeRangeMeters * m_Config.NoticeRangeMeters) { return false; }
         return HCVisible(target, point);
     }
 
@@ -197,6 +205,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     void HCSense()
     {
+        eAIBase raidActor = this.HCActor();
         m_Seen = null;
         m_Source = null;
         m_Building = null;
@@ -211,13 +220,13 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_PartyCursor++;
         if (!HCW38SituationRuntime.HCCandidate(m_Site) || !HCPartyAllowed()) { return; }
         if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId) || HCBaseRaid.HCOwns(m_Site.ProposalId)) { return; }
-        eAIGroup party = m_Site.Patrol.m_Group;
+        eAIGroup party = HCXExpansionBridge.HCHoldResolve(m_Site.Patrol.HCGroupHold());
         if (HCXExpansionBridge.HCGroupIsInCombat(party) || HCXExpansionBridge.HCGroupCount(party) > HCWorldMaterializer.MAX_PLAYERS) { return; }
-        m_Actor = eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(party, 0));
+        m_ActorHold = HCXExpansionBridge.HCAgentHold(eAIBase.Cast(HCXExpansionBridge.HCGroupGetMember(party, 0)));
         if (!HCLiveParty()) { return; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> cargos = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(HCXExpansionBridge.HCBaseGetPosition(m_Actor), m_Config.NoticeRangeMeters, nearby, cargos);
+        GetGame().GetObjectsAtPosition3D(HCXExpansionBridge.HCBaseGetPosition(raidActor), m_Config.NoticeRangeMeters, nearby, cargos);
         // [HC TickCost] window 12 of 096: charge returned objects only when the bounded query ran.
         HCServer.HCTickWork().HCCharge(Math.Min(nearby.Count(), m_Config.MaxObjects));
         if (nearby.Count() == 0 || nearby.Count() > m_Config.MaxObjects || cargos.Count() > m_Config.MaxObjects) { return; }
@@ -295,7 +304,8 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_Reason = "BASE_RAID_PARTY_UNAVAILABLE";
         if (!HCReady() || m_Reserved || !HCLiveParty() || !m_Seen) { return false; }
         if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId) || HCBaseRaid.HCOwns(m_Site.ProposalId)) { return false; }
-        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(m_Actor);
+        eAIBase raidActor = this.HCActor();
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(raidActor);
         array<vector> route = HCXExpansionBridge.HCGroupGetWaypoints(group);
         if (!route || route.Count() == 0 || route.Count() > m_Config.MaxRouteNodes || HCXExpansionBridge.HCGroupIsInCombat(group)) { return false; }
         m_Owner = owner;
@@ -317,8 +327,9 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     bool HCWalkTo(vector goal)
     {
+        eAIBase raidActor = this.HCActor();
         if (!HCLiveParty()) { return false; }
-        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(m_Actor);
+        eAIGroup group = HCXExpansionBridge.HCDayZPlayerImplementGetGroup(raidActor);
         array<vector> previous = HCXExpansionBridge.HCGroupGetWaypoints(group);
         if (!m_HCHold)
         {
@@ -347,7 +358,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
     // completion directly. Otherwise native path-driven forced entry remains.
     bool HCUnlockAllowed(eAIBase actor)
     {
-        if (!m_Reserved || actor != m_Actor || !m_Camp || !m_Building) { return false; }
+        if (!m_Reserved || actor != this.HCActor() || !m_Camp || !m_Building) { return false; }
         int now = HCWorldClock.UTC();
         if (now < m_Due || now >= m_Ends || !HCLiveParty()) { return false; }
         return HCBaseRaid.HCUnattended(m_Owner, m_Camp, m_Building.GetDoorSoundPos(m_Door));
@@ -355,27 +366,31 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     void HCTryLockpick()
     {
+        eAIBase raidActor = this.HCActor();
         if (!m_Building || m_Component < 0 || m_Building.GetDoorIndex(m_Component) != m_Door) { return; }
         if (!HCBuildingClaim.HCDoor(m_Building, m_Door) || !m_Building.IsDoorLocked(m_Door)) { return; }
-        if (!HCXExpansionBridge.HCBaseGetActionManager(m_Actor) || HCXExpansionBridge.HCBaseGetActionManager(m_Actor).GetRunningAction()) { return; }
-        ItemBase tool = HCXExpansionBridge.HCBaseGetItemInHands(m_Actor);
+        if (!HCXExpansionBridge.HCBaseGetActionManager(raidActor) || HCXExpansionBridge.HCBaseGetActionManager(raidActor).GetRunningAction()) { return; }
+        ItemBase tool = HCXExpansionBridge.HCBaseGetItemInHands(raidActor);
         if (!tool) { return; }
-        ActionBase unlock = HCXExpansionBridge.HCBaseGetActionManager(m_Actor).GetAction(ActionUnlockDoors);
+        ActionBase unlock = HCXExpansionBridge.HCBaseGetActionManager(raidActor).GetAction(ActionUnlockDoors);
         if (!unlock) { HCBaseRaid.HCRefuse("BASE_RAID_NATIVE_UNLOCK_ACTION_UNAVAILABLE"); return; }
         ActionTarget doorTarget = new ActionTarget(m_Building, null, m_Component, m_Point, -1);
-        if (!unlock.Can(m_Actor, doorTarget, tool)) { return; }
-        m_Actor.HCBaseRaidUnlock = true;
-        HCXExpansionBridge.HCBaseStartAction(m_Actor, ActionUnlockDoors, doorTarget, tool);
+        if (!unlock.Can(raidActor, doorTarget, tool)) { return; }
+        eAIBase unlocker = raidActor;
+        if (!unlocker) { return; }
+        unlocker.HCBaseRaidUnlock = true;
+        HCXExpansionBridge.HCBaseStartAction(unlocker, ActionUnlockDoors, doorTarget, tool);
     }
 
     // After reaching the remembered door, discover loot only by fresh local
     // geometry. No remote cache, claim-list target or through-wall inventory.
     void HCFindLoot()
     {
+        eAIBase raidActor = this.HCActor();
         if (m_Source) { return; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> localCargo = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(HCXExpansionBridge.HCBaseGetPosition(m_Actor), m_Config.SourceRangeMeters, nearby, localCargo);
+        GetGame().GetObjectsAtPosition3D(HCXExpansionBridge.HCBaseGetPosition(raidActor), m_Config.SourceRangeMeters, nearby, localCargo);
         // [HC TickCost] window 12 of 096: charge returned objects only when the bounded query ran.
         HCServer.HCTickWork().HCCharge(Math.Min(nearby.Count(), m_Config.MaxObjects));
         if (nearby.Count() == 0 || nearby.Count() > m_Config.MaxObjects || localCargo.Count() > m_Config.MaxObjects) { return; }
@@ -393,6 +408,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
     // intent BEFORE native callbacks. Failure/ambiguity never replays or deletes.
     void HCTakeLoot()
     {
+        eAIBase raidActor = this.HCActor();
         if (!m_Source) { return; }
         if (!HCLockTable.CampUnlocked(m_Source))
         {
@@ -400,7 +416,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
             return;
         }
         m_Inventory = new HCXAIBaseRaidInventory;
-        m_Inventory.Actor = m_Actor;
+        m_Inventory.Actor = raidActor;
         m_Inventory.Source = m_Source;
         // One-way custody: Home is an accessibility guard on the same source;
         // no return/deposit handler is called. Loot stays in raider inventory.
@@ -429,7 +445,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_Receipt.LeaseId = m_Site.ProposalId;
         m_Receipt.SourceId = HCSearchSupplyRegistry.PersistentId(m_Source);
         m_Receipt.HomeId = m_Receipt.SourceId;
-        m_Receipt.ActorId = HCSearchSupplyRegistry.PersistentId(m_Actor);
+        m_Receipt.ActorId = HCSearchSupplyRegistry.PersistentId(raidActor);
         m_Receipt.ItemId = HCSearchSupplyRegistry.PersistentId(m_Inventory.Item);
         if (m_Receipt.ActorId == "" || m_Receipt.SourceId == "" || m_Receipt.ItemId == "")
         {
@@ -452,6 +468,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
 
     void HCStep(int now)
     {
+        eAIBase raidActor = this.HCActor();
         if (!HCReady() || !HCBaseRaid.HCEnabled() || !HCCampProbes.HCEnabled() || m_Busy) { return; }
         // Lead integration: add HC_WORK_BASE_RAID=12, raise CONSUMERS to 13.
         // This independent bounded loop must retain its own starvation slot.
@@ -461,7 +478,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
         if (!HCLiveParty() || now < m_Camp.LastProbe || now >= m_Ends) { HCCancel(); return; }
         if (m_Due < 1 || now < m_Due) { return; }
         if (!HCBaseRaid.HCUnattended(m_Owner, m_Camp, m_Point)) { HCCancel(); return; }
-        if (HCXExpansionBridge.HCGroupIsInCombat(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(m_Actor))) { HCCancel(); return; }
+        if (HCXExpansionBridge.HCGroupIsInCombat(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(raidActor))) { HCCancel(); return; }
         if (!m_Walking && !HCWalkTo(m_Point)) { HCCancel(); return; }
         if (m_Building)
         {
@@ -503,7 +520,7 @@ class HCXAIBaseRaid : HCBaseRaidPort
         m_RayBarricade = null;
         m_BreachAt = 0;
         m_Site = null;
-        m_Actor = null;
+        m_ActorHold = null;
     }
 }
 
@@ -572,6 +589,7 @@ class HCAdminVisitorParty : HCXAIBaseRaid
 
     void HCVisitStep(int now)
     {
+        eAIBase raidActor = this.HCActor();
         if (!HCReady() || !HCCampProbes.HCVisitorsEnabled() || !HCCampProbes.HCEnabled() || !HCBaseRaid.HCEnabled()) { return; }
         // [HC TickCost] window 12 of 096: admit this pass once; helpers charge work actually done.
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_ADMIN_VISITOR, 1)) { return; }
@@ -586,7 +604,7 @@ class HCAdminVisitorParty : HCXAIBaseRaid
         }
         if (HCW38SituationRuntime.HCUsed(m_Site.ProposalId)) { HCCancel(); return; }
         if (!HCBaseRaid.HCUnattended(m_Owner, m_Camp, m_Point)) { HCCancel(); return; }
-        if (HCXExpansionBridge.HCGroupIsInCombat(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(m_Actor))) { HCCancel(); return; }
+        if (HCXExpansionBridge.HCGroupIsInCombat(HCXExpansionBridge.HCDayZPlayerImplementGetGroup(raidActor))) { HCCancel(); return; }
         // Normal finite native route, no teleport, item transfer or forced entry.
         if (!m_Walking && !HCWalkTo(m_Point)) { HCCancel(); return; }
     }

@@ -320,12 +320,12 @@ class HCXAISiteBase : Managed
             if (transientState.Materialized)
             {
                 if (!transientState.Patrol) { this.FinishTransient(transientState, true, 0); continue; }
-                if (!transientState.Patrol.m_Group)
+                if (!HCXExpansionBridge.HCHoldAlive(transientState.Patrol.HCGroupHold()))
                 {
                     HCXExpansionBridge.HCSitePatrolDespawn(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
                 }
-                else if (HCXExpansionBridge.HCGroupCount(transientState.Patrol.m_Group) == 0)
+                else if (HCXExpansionBridge.HCHoldCount(transientState.Patrol.HCGroupHold()) == 0)
                 {
                     HCXExpansionBridge.HCSitePatrolWasGroupDestroyed(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
@@ -767,9 +767,9 @@ class HCXAISiteBase : Managed
         foreach (HCXAISiteState counted : m_States)
         {
             this.HCRecordRouteState(counted);
-            if (!counted.Patrol || !counted.Patrol.m_Group || HCXExpansionBridge.HCGroupCount(counted.Patrol.m_Group) == 0) { continue; }
+            if (!counted.Patrol || HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold()) == 0) { continue; }
             sites++;
-            actors = actors + HCXExpansionBridge.HCGroupCount(counted.Patrol.m_Group);
+            actors = actors + HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold());
         }
         int pending = m_Policy.Sites.Count() - m_QualifiedCount - m_RefusedCount;
         string summary = "[HC Expansion AI] sites summary: qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " pending=" + pending.ToString();

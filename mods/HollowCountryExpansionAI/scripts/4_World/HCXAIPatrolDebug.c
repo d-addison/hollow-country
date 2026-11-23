@@ -21,7 +21,7 @@ class HCXAIPatrolDebug : HCDebugContributor
             if (visited >= 66 || memberSlots >= 64 || routes >= 2) { break; }
             visited++;
             if (!state || !state.Qualified || !state.Patrol) { continue; }
-            eAIGroup group = state.Patrol.m_Group;
+            eAIGroup group = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
             if (!group || HCXExpansionBridge.HCGroupCount(group) == 0) { continue; }
             string faction = HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group));
             if (faction == "") { faction = state.Site.Faction; }

@@ -12,7 +12,7 @@ class HCXTradeInventoryFrame
 }
 class HCXTradeInventoryScan
 {
-    eAIBase Actor;
+    ref HCXAIAgentHold ActorHold;
     string Wanted;
     string Lease;
     ItemBase Found;
@@ -22,7 +22,7 @@ class HCXTradeInventoryScan
 
     void HCStart(eAIBase actor, string wanted)
     {
-        Actor = actor; Wanted = wanted;
+        ActorHold = HCXExpansionBridge.HCAgentHold(actor); Wanted = wanted;
         HCXTradeInventoryFrame root = new HCXTradeInventoryFrame;
         root.NodeEntity = actor;
         Frames.Insert(root);
@@ -37,13 +37,22 @@ class HCXTradeInventoryScan
     void HCRetire()
     {
         Complete = true;
-        Actor = null; Found = null;
+        ActorHold = null; Found = null;
         Frames.Clear();
+    }
+    eAIBase HCActor()
+    {
+        return HCXExpansionBridge.HCAgent(ActorHold);
+    }
+    bool HCIsActor(eAIBase agent)
+    {
+        return HCXExpansionBridge.HCAgentSame(ActorHold, agent);
     }
     ItemBase HCStep(int limit)
     {
-        if (!Actor || !HCXExpansionBridge.HCBaseIsAlive(Actor)) { HCRetire(); return null; }
-        if (Found && Found.GetHierarchyRootPlayer() == Actor && !Found.IsRuined()) { return Found; }
+        eAIBase actor = this.HCActor();
+        if (!actor || !HCXExpansionBridge.HCBaseIsAlive(actor)) { HCRetire(); return null; }
+        if (Found && Found.GetHierarchyRootPlayer() == actor && !Found.IsRuined()) { return Found; }
         Found = null;
         if (Complete) { return null; }
         while (Frames.Count() > 0 && Visited < limit)
@@ -57,7 +66,7 @@ class HCXTradeInventoryScan
                 frame.Checked = true;
                 Visited++;
                 ItemBase candidate = ItemBase.Cast(entity);
-                if (candidate && candidate.GetType() == Wanted && !candidate.IsRuined() && candidate.GetHierarchyRootPlayer() == Actor) { Found = candidate; return Found; }
+                if (candidate && candidate.GetType() == Wanted && !candidate.IsRuined() && candidate.GetHierarchyRootPlayer() == actor) { Found = candidate; return Found; }
                 continue;
             }
             EntityAI child;
@@ -132,7 +141,7 @@ class HCXAITradeAdapter : HCTradeInventory
         {
             if (!state || !state.Transient || state.ProposalId != lease) { continue; }
             if (!state.Qualified || state.Failed || !state.Patrol || !state.Patrol.m_HCLive) { continue; }
-            return state.Patrol.m_Group;
+            return HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
         }
         return null;
     }
@@ -145,7 +154,7 @@ class HCXAITradeAdapter : HCTradeInventory
         array<ref HCXTradeInventoryScan> scans = m_Scans;
         foreach (HCXTradeInventoryScan scan : scans)
         {
-            if (scan.Actor == actor && scan.Wanted == itemClass) { return scan.HCStep(Recipe.InventoryScanLimit); }
+            if (scan.HCIsActor(actor) && scan.Wanted == itemClass) { return scan.HCStep(Recipe.InventoryScanLimit); }
         }
         if (m_Scans.Count() >= HCAILimits.SIZE_CEILING * 2) { return null; }
         HCXTradeInventoryScan created = new HCXTradeInventoryScan;
@@ -162,9 +171,10 @@ class HCXAITradeAdapter : HCTradeInventory
         array<ref HCXTradeInventoryScan> scans = m_Scans;
         foreach (HCXTradeInventoryScan scan : scans)
         {
-            if (!scan.Actor || !HCXExpansionBridge.HCBaseIsAlive(scan.Actor)) { scan.HCRetire(); continue; }
+            eAIBase scanActor = scan.HCActor();
+            if (!scanActor || !HCXExpansionBridge.HCBaseIsAlive(scanActor)) { scan.HCRetire(); continue; }
             eAIGroup group = HCLeaseGroup(scan.Lease);
-            if (!group || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(scan.Actor) != group) { scan.HCRetire(); }
+            if (!group || HCXExpansionBridge.HCDayZPlayerImplementGetGroup(scanActor) != group) { scan.HCRetire(); }
         }
     }
     void HCResetScans()
@@ -386,7 +396,7 @@ class HCXAITradeProducer
                 if (!work.HCContinue()) { reason = "fixture-budget"; return false; }
                 HCXAISiteState state = states[index];
                 if (!state || !state.Transient || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive) { continue; }
-                eAIGroup group = state.Patrol.m_Group;
+                eAIGroup group = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
                 if (!group || HCXExpansionBridge.HCGroupCount(group) < owner.m_Recipe.MinimumCampMembers) { continue; }
                 HCAICampRoutineView home = camps.HCRoutineView(HCWorldMaterializer.HCIdentity(state.ProposalId));
                 if (!home || !home.Home || home.Home.Id == "" || home.Supply <= owner.m_Recipe.MinimumCampReserve) { continue; }

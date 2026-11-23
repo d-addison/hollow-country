@@ -17,7 +17,11 @@ modded class HCAdminWorldSources
                 vector position;
                 bool located = false;
                 if (run.mHCCar) { position = run.mHCCar.GetPosition(); located = true; }
-                else if (run.mHCLeader) { position = HCXExpansionBridge.HCBaseGetPosition(run.mHCLeader); located = true; }
+                else
+                {
+                    eAIBase convoyLeader = run.HCLeader();
+                    if (convoyLeader) { position = HCXExpansionBridge.HCBaseGetPosition(convoyLeader); located = true; }
+                }
                 if (located) { capture.Put("convoys", position, "Convoy", "phase=" + run.mHCPhase + "; reason=" + run.mHCReason); }
             }
         }
