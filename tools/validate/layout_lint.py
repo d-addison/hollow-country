@@ -273,7 +273,7 @@ def lint_textures(root, texture_names=None, procedural_allowlist=(), imagesets=N
     findings, warnings = [], []
     files = {p for p in (root / 'mods').rglob('*') if p.suffix in ('.layout', '.imageset', '.c')}
     files.update((root / 'mods').rglob('config.cpp'))
-    local_prefixes = {texture_index.canonical(texture_index.addon_prefix(p)) for p in
+    local_prefixes = {texture_index.canonical(texture_index.lint_prefix(p)) for p in
                       (root / 'mods').iterdir() if p.is_dir()} if (root / 'mods').is_dir() else set()
     for path in sorted(files):
         text = path.read_text(encoding='utf-8-sig')

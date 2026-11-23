@@ -22,6 +22,10 @@ Comments under `mods/` that cite a build or issue and say what failed. Open the 
 
 - HC-17/#304. One bounded fortification candidate per existing adapter tick. Reservations are durable BEFORE world creation. Native CE owns the resulting world objects; reservations are never recycled after raids, decay or crashes.
 
+### `mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c`
+
+- Qualify on the navmesh the patrols walk: Expansion's patrol filter includes UNREACHABLE and DISABLED polygons, so excluding them here refused routes the AI can walk (#355, road patrols "leg 0: path chain stalled"). The outdoor-retry filter below still excludes both.
+
 ### `mods/HollowCountryExpansionAI/scripts/4_World/HCXConvoyRuntime.c`
 
 - #210 road branch: an HC-38 raid/column party already walking its situation route may borrow ONE qualified world car (never created, moved, repaired or refuelled here), drive bounded road waypoints, stop on contact/stall/timeout

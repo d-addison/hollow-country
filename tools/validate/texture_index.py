@@ -16,7 +16,7 @@ import sys
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from tools.package.pbo import VERS, WORDS, addon_prefix, original_addon_name
+from tools.package.pbo import TEST_PREFIX, VERS, WORDS, addon_prefix, original_addon_name
 
 DEFAULT_CACHE = Path.home() / '.cache/hollow-country/texture-index.json'
 DEFAULT_ADDONS = Path('/mnt/g/SteamLibrary/steamapps/common/DayZ/Addons')
@@ -132,13 +132,25 @@ def pbo_imagesets(path):
     return result
 
 
+def lint_prefix(addon):
+    """addon_prefix, plus the dev-only test addon under its own prefix.
+
+    The test addon is never shipped, so its prefix stays out of pbo.PREFIXES (every pack and sign refuses
+    it); its layouts and scripts are still linted, and their texture names resolve under that prefix."""
+    marker = Path(addon) / '$PBOPREFIX$'
+    if (Path(addon).name == TEST_PREFIX and marker.is_file() and not marker.is_symlink()
+            and marker.stat().st_size <= 256 and marker.read_text().strip() == TEST_PREFIX):
+        return TEST_PREFIX
+    return addon_prefix(addon)
+
+
 def local_files(root):
     """Map authored virtual names to packer eligibility using its actual prefix policy."""
     result = {}
     for addon in sorted((Path(root) / 'mods').iterdir()) if (Path(root) / 'mods').is_dir() else ():
         if not addon.is_dir():
             continue
-        prefix = addon_prefix(addon)
+        prefix = lint_prefix(addon)
         for path in sorted(addon.rglob('*')):
             if path.is_file() and not path.is_symlink() and path.name != '$PBOPREFIX$':
                 relative = path.relative_to(addon).as_posix()
