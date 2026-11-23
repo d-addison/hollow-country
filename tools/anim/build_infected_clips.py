@@ -291,11 +291,11 @@ def prone_sleep_pose(stand, breath=0.0):
     # its hand on the ground in front of the chest.
     two_bone(p, 'LeftArm', 'LeftForeArm', 'LeftHand', at(-0.14, 0.72, 0.20), way(0.1, 0.0, 1.0))
     two_bone(p, 'RightArm', 'RightForeArm', 'RightHand', at(-0.12, 0.60, 0.38), way(0.5, -0.3, 0.6))
-    return p
+    return _lying_extremities(p, foot_forward=None)
 
 
 def lie_rise_pose(stand, breath=0.0, face_down=False):
-    """Loose body on its back (or front): arms beside the body, knees a little bent, head turned.
+    """Slack corpse on its back, or face-down with elbows beside the head.
 
     Authored in body axes like ``prone_sleep_pose``. Variant is authored here, never sampled from a clip.
     """
@@ -312,11 +312,212 @@ def lie_rise_pose(stand, breath=0.0, face_down=False):
             two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', at(sx * 0.17, -0.81, 0.06),
                      way(sx * 0.2, 0.0, 1.0))
         else:           # knees a little up and out
-            two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', at(sx * 0.20, -0.74, ground * 0.06),
+            foot = at(sx * (0.22 if side == 'Left' else 0.27),
+                      -0.81 if side == 'Left' else -0.78, ground * 0.08)
+            two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', foot,
                      way(sx * 0.4, 0.0, 1.0))
-        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', at(sx * 0.33, 0.02, ground * 0.06),
-                 way(sx * 0.6, 0.0, -1.0))
+        hand = at(sx * (0.30 if face_down else 0.38),
+                  0.63 if face_down else 0.02, ground * 0.10)
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', hand,
+                 way(sx * 1.0, 0.0, -0.25 if face_down else -1.0))
+    return _lying_extremities(p, foot_forward=None)
+
+
+def _lying_extremities(p, foot_forward=Z):
+    """Keep toes and slack fingertips above the dirt without altering limb hinge frames."""
+    for side in ('Left', 'Right'):
+        for bone, child, level in ((side + 'Foot', side + 'ToeBase', 0.02),
+                                    (side + 'Hand', side + 'HandMiddle2', 0.025)):
+            origin, end = p.pos(bone), p.pos(child)
+            delta = rig.vsub(end, origin)
+            length = rig.vlen(delta)
+            target_y = level if bone.endswith('Foot') else max(level, end[1])
+            dy = max(-length * .98, min(length * .98, target_y - origin[1]))
+            horizontal = rig.vnorm((delta[0], 0.0, delta[2]))
+            if bone.endswith('Foot') and foot_forward is not None:
+                horizontal = foot_forward
+            span = math.sqrt(max(0.0, length * length - dy * dy))
+            p.aim(bone, child, (horizontal[0] * span, dy, horizontal[2] * span))
     return p
+
+
+def _lying_stage(stand, pitch, height, z, hands, feet, roll=0.0):
+    """Independent lying-worker support pose; all targets are authored world positions."""
+    p = stand.copy()
+    p.rotate_world('Pelvis', rig.qmul(rig.qaxis(Z, roll), rig.qaxis(X, pitch)))
+    seat_on_hips(p, (0.0, height, z))
+    if pitch > 55:
+        body_turn(p, stand, 'Spine2', X, 84 - pitch)
+    body_turn(p, stand, 'Neck', X, 9)
+    for index, (side, sx) in enumerate((('Left', -1.0), ('Right', 1.0))):
+        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', feet[index],
+                 (sx * 0.1, -1.0 if pitch > 55 else 0.3, 1.0))
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', hands[index],
+                 (sx, 0.1, -0.3))
+    _lying_extremities(p)
+    for side in ('Left', 'Right'):
+        if p.pos(side + 'Hand')[1] <= .03:
+            # A supporting palm must not swivel while its wrist is locked.
+            p.aim(side + 'Hand', side + 'HandMiddle2', Z)
+    return p
+
+
+def _lying_idle(stand, kind, seconds=4):
+    count = seconds * FPS
+    fn = prone_sleep_pose if kind == 'sleep' else lie_rise_pose
+    poses = []
+    for f in range(count):
+        phase = 2 * math.pi * f / count
+        breath = 0.65 * math.sin(phase) + 0.25 * math.sin(2 * phase) + 0.10 * math.sin(3 * phase)
+        p = fn(stand, breath) if kind == 'sleep' else fn(stand, breath, kind == 'front')
+        # A small, uneven hand spasm, with periods dividing the four-second loop.
+        twitch = math.sin(3 * phase) ** 9 + 0.35 * math.sin(2 * phase) ** 7
+        body_turn(p, stand, 'RightHand', X, 1.8 * twitch)
+        body_turn(p, stand, 'Head', Y, 0.35 * math.sin(2 * phase))
+        poses.append(_lying_extremities(p, foot_forward=None))
+    return poses + [poses[0].copy()]
+
+
+def _lying_getup(stand, kind, seconds, rest):
+    idle = (prone_sleep_pose(stand) if kind == 'sleep' else
+            lie_rise_pose(stand, face_down=kind == 'front'))
+    wake = idle.copy()
+    body_turn(wake, stand, 'Neck', X, -8 if kind != 'back' else 10)
+    body_turn(wake, stand, 'Head', Y, -6)
+    hands = ((-0.28, 0.025, 0.55), (0.30, 0.025, 0.49))
+    feet = ((-0.16, 0.10, -0.46), (0.17, 0.10, -0.48))
+    if kind != 'back':
+        for index, side in enumerate(('Left',) if kind == 'sleep' else ('Left', 'Right')):
+            upper, lower, end = side + 'Arm', side + 'ForeArm', side + 'Hand'
+            pole = rig.vsub(wake.pos(lower), wake.pos(upper))
+            _lying_solve(wake, upper, lower, end, hands[index], pole, stand, rest)
+            wake.aim(end, side + 'HandMiddle2', Z)
+    push = _lying_stage(stand, 77, 0.417, -0.13, hands, feet)
+    tuck = _lying_stage(stand, 66, 0.417, -0.13, hands, feet)
+    knee = _lying_stage(stand, 70, 0.417, -0.10,
+                        ((-0.22, 0.30, 0.28), (0.30, 0.025, 0.49)),
+                        ((-0.15, 0.10, 0.13), (0.17, 0.10, -0.48)), -4)
+    squat = _lying_stage(stand, 38, 0.58, -0.08,
+                         ((-0.26, 0.55, 0.18), (0.29, 0.45, 0.18)),
+                         (stand.pos('LeftFoot'), stand.pos('RightFoot')))
+    lurch = _lying_stage(stand, 11, 0.90, -0.015,
+                         ((-0.32, 0.83, 0.12), (0.29, 0.79, 0.08)),
+                         (stand.pos('LeftFoot'), stand.pos('RightFoot')), -2)
+    body_turn(lurch, stand, 'Head', Y, 5)
+    keys = [idle, wake, push, tuck, knee, squat, lurch, stand]
+    if kind == 'back':
+        sit = _lying_stage(stand, -24, 0.18, -0.06,
+                           ((-0.33, 0.09, 0.02), (0.40, 0.04, 0.06)),
+                           ((-0.21, 0.10, 0.64), (0.22, 0.10, 0.68)), -9)
+        keys[2] = sit
+        keys[3] = _lying_stage(stand, 70, 0.417, -0.10,
+                               ((-0.24, 0.29, 0.30), (0.30, 0.025, 0.49)),
+                               ((-0.18, 0.10, 0.33), (0.17, 0.10, -0.48)), -4)
+    knots = ((0, .07, .28, .44, .60, .77, .92, 1) if kind == 'sleep' else
+             (0, .07, .25, .45, .61, .77, .92, 1) if kind == 'back' else
+             (0, .09, .28, .44, .60, .77, .92, 1))
+    return _lying_motion(keys, seconds, knots, stand, rest, kind)
+
+
+def _lying_solve(p, upper, lower, end, target, pole, stand, rest, clearance=0.025):
+    """Find a nearby elbow/knee arc with comfortable twist and ground clearance.
+
+    Endpoint stays fixed: only the bend plane changes. This is build-time IK, not
+    a relaxation of the independent quantized-frame anatomy gate.
+    """
+    axis = rig.vnorm(rig.vsub(target, p.pos(upper)))
+    best, best_score = None, float('inf')
+    angles = [0] + [a for d in range(15, 181, 15) for a in (-d, d)]
+    for angle in angles:
+        q = p.copy()
+        two_bone(q, upper, lower, end, target, rig.qrot(rig.qaxis(axis, angle), pole))
+        penalty = 0.0
+        for bone, comfortable in ((upper, 65 if upper.endswith('Arm') else 32), (lower, 27)):
+            d = rig.qmul(rig.qinv(rest.local[bone][1]), q.local[bone][1])
+            if d[3] < 0:
+                d = tuple(-v for v in d)
+            twist = abs(math.degrees(2 * math.atan2(d[0], d[3])))
+            penalty += max(0.0, twist - comfortable) ** 2
+            if twist > (75 if bone == upper and upper.endswith('Arm') else 42 if bone == upper else 32):
+                penalty += 10000000
+        if upper.endswith('Arm'):
+            direction = rig.qrot(rig.qinv(_anat(q, stand, 'Spine3')),
+                                 rig.vnorm(rig.vsub(q.pos(lower), q.pos(upper))))
+            penalty += max(0.0, -0.35 - direction[2]) ** 2 * 10000
+        penalty += max(0.0, clearance - q.pos(lower)[1]) ** 2 * 100000
+        score = penalty * 1000 + angle * angle
+        if angle == 0 and penalty == 0:
+            best = q
+            break
+        if score < best_score:
+            best, best_score = q, score
+        if angle == 180 and best_score >= 10000000000:
+            # Nearly folded thighs can have a narrow valid bend plane.
+            angles.extend(a for a in range(-179, 180) if a % 15)
+    p.local, p._world = best.local, None
+
+
+def _lying_transfer(a, b, end, u):
+    """Short shuffles need less lift than the long leg sweep under a lying body."""
+    distance = rig.vlen(rig.vsub(a.pos(end), b.pos(end)))
+    if distance <= .035:
+        return (0.0, 0.0, 0.0)
+    foot = end.endswith('Foot')
+    height = min(.16, .06 + .18 * distance) if foot else .10
+    lift = height * math.sin(math.pi * u) ** .75
+    outward = ((-1 if end.startswith('Left') else 1) * .24 * math.sin(math.pi * u) ** 2
+               if foot and abs(a.pos(end)[2] - b.pos(end)[2]) > .4 else 0.0)
+    return (outward, lift, 0.0)
+
+
+def _lying_motion(keys, seconds, knots, stand, rest, kind):
+    """Ease torso stages, solving limb endpoints in world space rather than dragging contacts."""
+    poses = []
+    count = round(seconds * FPS)
+    for f in range(count + 1):
+        t = f / count
+        i = next((i for i in range(len(knots) - 1) if t <= knots[i + 1]), len(knots) - 2)
+        u = _smooth((t - knots[i]) / (knots[i + 1] - knots[i]))
+        a, b = keys[i:i + 2]
+        p = blend(a, b, u)
+        p.hinges = a.hinges
+        if (i == 1 and kind != 'back') or (i == 2 and kind == 'back'):
+            lift = .12 * math.sin(math.pi * u) ** .75
+            for side in ('Left', 'Right'):
+                end, upper, lower = side + 'Hand', side + 'Arm', side + 'ForeArm'
+                target = a.pos(end)
+                if target[1] <= .03 and rig.vlen(rig.vsub(target, b.pos(end))) < .001:
+                    shoulder = p.pos(upper)
+                    reach = (rig.vlen(rig.vsub(p.pos(lower), shoulder)) +
+                             rig.vlen(rig.vsub(p.pos(end), p.pos(lower))) - .002)
+                    dx, dz = shoulder[0] - target[0], shoulder[2] - target[2]
+                    vertical = math.sqrt(max(0.0, reach * reach - dx * dx - dz * dz))
+                    lift = min(lift, max(0.0, vertical - (shoulder[1] - target[1])))
+            p.set_root_pos('Pelvis', rig.vadd(p.pos('Pelvis'), (0.0, lift, 0.0)))
+        # Neck and free arms trail the trunk by a fraction of the current stage.
+        lag = _smooth(max(0.0, min(1.0, (t - knots[i]) / (knots[i + 1] - knots[i]) - .12)) / .88)
+        trailing = blend(a, b, lag)
+        for bone in ('Neck', 'Head'):
+            p.local[bone] = trailing.local[bone]
+        p._world = None
+        for upper, lower, end in LIMBS:
+            arm_lag = (end.endswith('Hand') and a.pos(end)[1] > .06 and b.pos(end)[1] > .06)
+            target = rig.vlerp(a.pos(end), b.pos(end), lag if arm_lag else u)
+            moving = rig.vlen(rig.vsub(a.pos(end), b.pos(end))) > .035
+            target = rig.vadd(target, _lying_transfer(a, b, end, u))
+            pole = rig.vsub(p.pos(lower), p.pos(upper))
+            clearance = 0.10 if moving and end.endswith('Foot') else 0.023
+            _lying_solve(p, upper, lower, end, target, pole, stand, rest, clearance)
+        _lying_extremities(p)
+        # Preserve contact orientation even while an endpoint is held (including wake).
+        for side in ('Left', 'Right'):
+            for end, tip in ((side + 'Foot', side + 'ToeBase'), (side + 'Hand', side + 'HandMiddle2')):
+                goal = rig.vadd(rig.vlerp(a.pos(tip), b.pos(tip), u),
+                                _lying_transfer(a, b, end, u))
+                p.aim(end, tip, rig.vsub(goal, p.pos(end)))
+        poses.append(p)
+    poses[0], poses[-1] = keys[0].copy(), keys[-1].copy()
+    return poses
 
 
 def kneel_pose(stand, dip=0.0, all_fours=False):
@@ -459,17 +660,13 @@ def build_all(parents, rest, bones):
     return {
         'hc_sit_wall_idle': to_anim(bones, build_sit_wall_idle(stand)),
         'hc_sit_wall_getup': to_anim(bones, build_sit_wall_getup(stand)),
-        'hc_prone_sleep_idle': to_anim(bones, authored_idle(stand, prone_sleep_pose, 4.0)),
-        'hc_prone_sleep_getup': to_anim(bones, authored_getup(
-            [sleep, fours, crouch, stand], 2.6, (0, 0.35, 0.65, 1))),
-        'hc_lie_rise_idle': to_anim(bones, authored_idle(stand, lie_rise_pose, 4.0)),
-        'hc_lie_rise_getup': to_anim(bones, authored_getup(
-            [lying, sit_wall_pose(stand), crouch, stand], 2.8, (0, 0.40, 0.72, 1))),
-        # Alternate face-down pair is authored and packaged for inspection; default pose 3 is supine.
-        'hc_lie_face_down_idle': to_anim(bones, authored_idle(
-            stand, lambda p, b: lie_rise_pose(p, b, face_down=True), 4.0)),
-        'hc_lie_face_down_getup': to_anim(bones, authored_getup(
-            [lie_rise_pose(stand, face_down=True), fours, crouch, stand], 2.8, (0, 0.38, 0.72, 1))),
+        'hc_prone_sleep_idle': to_anim(bones, _lying_idle(stand, 'sleep')),
+        'hc_prone_sleep_getup': to_anim(bones, _lying_getup(stand, 'sleep', 2.6, rig.rest_pose(parents, rest, bones))),
+        'hc_lie_rise_idle': to_anim(bones, _lying_idle(stand, 'back')),
+        'hc_lie_rise_getup': to_anim(bones, _lying_getup(stand, 'back', 2.8, rig.rest_pose(parents, rest, bones))),
+        # Alternate face-down pair remains inspection-only; command 3 stays supine.
+        'hc_lie_face_down_idle': to_anim(bones, _lying_idle(stand, 'front')),
+        'hc_lie_face_down_getup': to_anim(bones, _lying_getup(stand, 'front', 2.8, rig.rest_pose(parents, rest, bones))),
         'hc_feed_kneel_idle': to_anim(bones, authored_idle(stand, kneel_pose, 1.2)),
         'hc_feed_kneel_getup': to_anim(bones, authored_getup(
             [feed, crouch, stand], 2.0, (0, 0.45, 1))),

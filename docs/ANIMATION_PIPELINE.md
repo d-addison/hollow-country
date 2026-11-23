@@ -40,11 +40,17 @@ lying clips read anatomically right in our FK, and write/read changes local rota
 frame as written: head yaw/pitch/roll to Spine3 within 80/60/45, elbow and knee bend axis within
 60/30 degrees of the hinge once bent 20, upper arm not behind the torso plane (forward >= -0.5 in the
 chest frame), and bone twists within Arm 80, ForeArm 35, UpLeg 45, Leg 35
-(`tests/unit/test_anim_anatomy.py`, skipped without the installed game). Pose 2 is a left-side
-sleeper: knees drawn up, lower arm forward with the hand under the cheek, upper arm draped
-forward, head facing the chest's way. Preview JSON carries `Skull` and `Face` head points so both
-preview renderers show where the head faces. All of this is offline FK; the in-game look of poses
-1-4 is **PENDING** the lead's client check.
+(`tests/unit/test_anim_anatomy.py`, skipped without the installed game). The lying clips now use
+independent support poses: the left-side sleeper curls its knees with its lower hand under the
+cheek, wakes head-first, uncurls toward its palms, tucks a knee and rises through an uneven squat;
+the supine corpse has slack, asymmetrically splayed limbs and jerks into a sit before bracing to one
+side and rising from a knee; the face-down alternate keeps its arms by its head before pushing up,
+drawing its knees under and rising. Four-second lying loops combine shallow breathing harmonics
+and a small hand twitch, with identical first/last frames. World-space limb targets hold support
+contacts, lift transferred extremities, and keep both feet planted through a trailing-head lurch
+and settle. Get-up durations and exact idle/stand endpoints are unchanged. Preview JSON carries
+`Skull` and `Face` points to show head direction. These are offline FK art passes; the in-game look,
+skinning, graph blends and terrain contact remain **PENDING** the lead's one-client check.
 
 Every idle has a closed sinusoidal cycle including matching first/last frames. Every get-up starts
 on its idle's neutral frame and ends exactly on our `stand_pose` before the graph blends to vanilla.
