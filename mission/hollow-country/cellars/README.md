@@ -171,36 +171,7 @@ recovery, overlay removal and byte-exact rollback. No production enablement unti
 DayZDiag, normal PBO/server and the single-client in-game checks pass. The other 26 remain native
 survey/access tasks; absence of a probe result is pending coverage, not exclusion.
 
-## TDD receipt and remaining integration
-
-Round 2 focused command (run RED, then GREEN):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_v2_optional_overlays -v
-```
-
-Actual RED: `Ran 4 tests`, `FAILED (failures=2)`:
-`AssertionError: 0 != 1 : cellar startup must publish one measured-count receipt`;
-legacy smoke printed `authored TriggerDefaults required; no guessed distances`
-and failed with `AssertionError: 2 != 0`.
-Actual GREEN: same command, `Ran 4 tests`, `OK`.
-A further focused RED (`test_hc_cellars -v` with the same environment) recorded
-`AssertionError: False is not true : sampler must not duplicate the module startup receipt`;
-the combined focused command then returned `Ran 4 tests`, `OK` again.
-
-Final guard commands:
-
-```sh
-rg -l -i cellar tests/unit
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_cellars test_enforce_lint test_v2_optional_overlays test_package test_script_syntax test_enforce_locals test_script_identifiers test_enforce_formula_complexity test_hygiene -v
-python3 -B -m tools.validate.enforce_lint --no-native
-```
-
-The search returned test_hc_cellars, test_enforce_lint and
-test_v2_optional_overlays. Actual GREEN: `Ran 120 tests`, `OK (skipped=1)`;
-the existing Windows PowerShell execution check belongs to Windows CI.
-Actual lint GREEN: `enforce_lint: pass findings=124 new=0 stale=0 native=no`.
-No lint baseline additions or removals were necessary.
+## Remaining integration
 
 The existing single HC-31 behavioral test now also executes authored startup,
 counting, cached HC-1 status, off/stop handling, repeat-start suppression,

@@ -33,7 +33,7 @@ one directory tree. Lists are disjoint from every other worker in the wave (`bri
 A change outside this list means stop and report; do not widen the list in the worker.
 
 - `path/to/File.c`
-- `tests/unit/test_example.py`
+- `path/to/test_example.py`
 
 ## Invariants
 

@@ -140,7 +140,7 @@ After the later layout/script integration, run the required gates:
 
 ```sh
 python3 -B -m tools.validate.enforce_lint --native-scripts ~/.cache/hollow-country/native-scripts/scripts-1.30.164289
-tools/release/compile_gate.sh
+agent-run --memory 12G -- python3 -B -m tools.release.compile_gate --tree .
 ```
 
 Use the lead's normal release bundle/boot workflow from that clean commit. On

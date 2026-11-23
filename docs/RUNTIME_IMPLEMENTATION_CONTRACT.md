@@ -14,7 +14,9 @@ elsewhere.
 
 Installed source snapshot (local, never commit): use an external directory
 containing the scripts extracted from the installed DayZ 1.30.164289 build.
-Supply its actual path to tools through their `--scripts-root` option.
+Supply its actual path to the validators (`enforce_lint`, `native_symbols`, `preland`) through
+`--native-scripts` (default: the local script cache) and to the probe tools that take it
+through `--scripts-root`.
 Server scripts.pbo SHA-256:
 `09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a`.
 All 3076 entries use stored/uncompressed method 0. Official BankRev was tried
@@ -28,14 +30,23 @@ class HCModule
 {
     string GetName();
     bool IsEnabled(HCSettings settings);
+    int StartupPhase();                    // default HC_PHASE_FEATURE; ties keep registration order
+    bool RequiresSharedSaves();
+    void RegisterUses();                   // owned HCRegisterUse calls ([HC Use] counters)
     void OnStart(HCSettings settings);
+    void OnAllModulesStarted();            // after every OnStart returned; peer binding only
     void OnTick(float deltaTime);
     void OnStop();
+    void PerfSampleCosts(HCPerfSampler sampler, int slot, float ticksPerMs);  // cached maxima only
+    string PerfExtraSummary();
+    HCOperationalStatus HCGetOperationalStatus();  // null = unknown; feeds [HC Ready]
 }
 class HCModuleRegistry
 {
     void RegisterModules();
-    void Register(HCModule module);
+    void Register(HCModule module);        // refuses duplicates by GetName() and beyond HC_MAX_MODULES
+    void HCSortStartup();                  // stable sort by StartupPhase()
+    array<ref HCModule> GetModules();
 }
 ```
 

@@ -329,9 +329,6 @@ Requested `docs/SPECIFICATION.md` and
 `docs/specs/001-survival-overhaul/spec.md` are absent from this worker checkout;
 no spec/plan/task files are available here to update. The W6 source work is
 tracked above. For the W5 tooling below, supplied task and
-`RUNTIME_IMPLEMENTATION_CONTRACT.md` define scope. Plan: inspect native producers →
-RED one synthetic CLI smoke → three read-only tools → GREEN → affected existing
-suites → lead's native compile/session. The sole added smoke extends
-`tests/unit/test_perf_capture.py`, covering redaction, calibrated timing,
-reduction/solo hold and conflicting loot routes. The W5 reporting tools themselves require no runtime hook; W6 admin source
+`RUNTIME_IMPLEMENTATION_CONTRACT.md` define scope. Plan: inspect native producers, build three read-only tools, then the lead's native compile/session.
+The W5 reporting tools themselves require no runtime hook; W6 admin source
 requires the single module registration described above.

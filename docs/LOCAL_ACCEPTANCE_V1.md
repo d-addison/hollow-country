@@ -547,11 +547,7 @@ The sizing proposal never raises loot and holds when player load, calibration,
 population or log completeness is insufficient. The #78 / EXP-P2 scenario is a
 procedure only; it has not been run.
 
-One explicit synthetic smoke extends `tests/unit/test_perf_capture.py`. Actual
-RED command: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_perf_capture.W5ToolsSmoke -v`.
-Failure: `AssertionError: 0 != 1 : /usr/bin/python3: No module named tools.testing.log_metrics`;
-`Ran 1 test` / `FAILED (failures=1)`. The same command after implementation:
-`Ran 1 test` / `OK`. This establishes Python CLI behavior only. The lead still
+Offline use establishes Python CLI behavior only. The lead still
 owns native Windows compile, joined-client evidence, target-load measurement and
 production decisions; nothing observed in DayZ yet.
 
@@ -593,32 +589,6 @@ ActionReachMeters) takes its named default and emits one
 `[HC Plan] HC-17 policy <key> absent; default <n>` line. Nonzero invalid values
 still refuse. Mailbox is off; wall/flag tier requirements are retired.
 
-All fixtures in `tests/unit/test_hc_claim_round2.py` are explicitly synthetic.
-The restricted translators execute authored handlers; they cannot prove DayZ
-compilation, persistence, geometry or message delivery. Every HCCampModule
-translator found in this checkout (the new round-2 harness) supplies an explicit
-synthetic HCBuildingClaim collaborator. No existing harness referenced that file.
-
-Exact RED command, before source changes:
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round2 -v`.
-Actual result: `Ran 8 tests` / `FAILED (failures=8)`.
-The same command after implementation: `Ran 8 tests` / `OK` (each row below `ok`).
-
-| Task / test suffix | Actual RED line | GREEN |
-| --- | --- | --- |
-| boot_grace_prevents_downtime_expiry_without_renewing_visits | `AssertionError: True is not false` | `ok` |
-| camp_lifecycle_drives_claims_before_gate_and_flushes_before_stop | `AssertionError: Lists differ: ['start'] != []` | `ok` |
-| legacy_store_load_migrates_only_empty_claims_and_preserves_camps | `AssertionError: namespace(ClaimsVersion=0, Claims=None, Camps=[namespace(Id='synthetic-original-fire', Tier=2, Members=['native-ref'])]) is not None` | `ok` |
-| native_commit_refusals_are_observable_without_condition_logs | `AssertionError: [] is not true : denied native recipe must log a reason` | `ok` |
-| native_construction_recipes_unregistered_on_every_peer | `AssertionError: Lists differ: ['native', 'CraftFenceKit', 'CraftWatchtowerKit', [38 chars]Kit'] != ['native']` | `ok` |
-| owned_statements_respect_native_plus_limit | `AssertionError: Lists differ: [] != [('Camps/HCBuildingClaim.c', 14, 'return G[306 chars]s)')]` | `ok` |
-| partial_config_defaults_once_and_nonzero_invalid_refuses | `AssertionError: False is not true` | `ok` |
-| release_gates_actual_building_and_reports_server_refusal | `AssertionError: [] is not true` | `ok` |
-
-Baseline lint RED: `python3 -B -m tools.validate.enforce_lint --no-native`:
-`enforce_lint: FAIL findings=133 new=7 stale=0 native=no`.
-GREEN with the same command:
-`enforce_lint: pass findings=126 new=0 stale=0 native=no`.
 No baseline entries were added. Commit handlers emit named reasons or native
 MessageStatus; action conditions remain quiet per-frame previews. Release is
 gated on the server's actual group/building claim and rechecked at completion;
@@ -650,18 +620,6 @@ traceable through the named refusal
 `[HC Plan] HC-17 state=refused reason=door_restart_and_heavy_infected_unobserved count=2 runtime=PENDING`.
 No new heavy-infected controller or native lock setter was added. Target-load
 budgets remain provisional until measured with 3–6 players.
-
-Affected-reader verification (focused modules only, no full discovery):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
-# Ran 85 tests / OK
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
-# Ran 285 tests / OK
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_v1_native_noise_vision tests.unit.test_build_identity tests.unit.test_v1_combined_rpc tests.unit.test_enforce_source_parity tests.unit.test_gameplay_delta tests.unit.test_native_wiring_batch_a tests.unit.test_acceptance_optins tests.unit.test_hc_operational_status -v
-# Ran 218 tests / OK
-```
-
 
 ## HC-17 / #151 round 3 review fixes (2026-11-18)
 
@@ -704,24 +662,6 @@ another group.`, `Group access changed.`, `Claim persistence fault.`, or
 `Claim service unavailable.` Additional short target/reach/cap refusals remain
 specific. No custom RPC or client-owned claim state was added.
 
-Exact RED command (before source edits), and GREEN command (after edits):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round3 -v
-```
-
-Initial result: `Ran 5 tests in 4.755s` / `FAILED (failures=5)`.
-Final focused GREEN: `Ran 5 tests in 4.297s` / `OK`.
-Actual stable RED excerpts and final GREEN test results:
-
-| Review item / test suffix | Actual RED excerpt | GREEN |
-| --- | --- | --- |
-| P1 / online_absence_survives_four_hour_restarts_for_31_days | `claim must expire after 30 online days across four-hour restarts` (AssertionError, nonempty Claims) | `ok` |
-| P1 / visit_reset_downtime_hitch_legacy_and_bounds | `AssertionError: 5 != 0 : online step must persist absence credit` | `ok` |
-| P2 / camp_fault_status_and_restart_clears_stale_claim_service | `is not 'claim-status' : camp failure must override claim status` (AssertionError) | `ok` |
-| P2 / refusal_reason_reaches_server_player_message | `AssertionError: 'Building already claimed by another group.' != False` | `ok` |
-| P3 / visit_default_is_native_literal_constant | `AssertionError: unexpectedly None : native visit-radius constant must be a float literal` | `ok` |
-
 The explicit synthetic fixtures execute authored handlers: 31 online days with
 four-hour process reloads, visit resets, 40-day downtime, long hitch/UTC jump,
 stalled-walk cap, per-row multi-claim credit, legacy missing-field defaults,
@@ -752,27 +692,6 @@ persistence-fault/service-off text, native lockpick/raid and unchanged stash
 identities after restart/release/expiry. Existing heavy-infected and door-restart
 experiments remain unimplemented/unobserved as recorded above. Keep external
 source/PBO/config hashes and receipts; no log line alone accepts runtime behavior.
-
-Focused affected-reader validation:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_claim_round3 tests.unit.test_hc_claim_round2 tests.unit.test_hc_building_claim tests.unit.test_crafting_contract tests.unit.test_crafting_families tests.unit.test_v2_camps tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
-# Ran 90 tests / OK
-python3 -B -m tools.validate.enforce_lint --no-native
-# enforce_lint: pass findings=126 new=0 stale=0 native=no
-```
-
-The installed lint CLI rejects a trailing `new=0` argument (`unrecognized
-arguments: new=0`); the supported command above reports the required zero new
-findings without changing the baseline.
-
-Acceptance-document reader checks (all focused; no full discovery):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers tests.unit.test_infected_lod tests.unit.test_local_test_session tests.unit.test_event_sites tests.unit.test_taped_light_v1_evidence -v
-# Ran 285 tests / OK
-```
-
 
 ## Current additional operator markers
 

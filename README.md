@@ -199,7 +199,7 @@ The shared operator input is [mission settings](mission/hollow-country/operator/
 
 ### Feature switches
 
-All switches in this table default to `true`. Set a switch to `false` to turn off its named area. Diagnostics, client presentation and installed overlays have separate controls.
+All switches in this table default to `true`. The only other `Enable*` key, `EnableSmokeFixtures`, defaults to `false` and is lead-only R3 smoke tooling. Set a switch to `false` to turn off its named area. Diagnostics, client presentation and installed overlays have separate controls.
 
 | Key | Default | Effect |
 | :--- | :--- | :--- |
@@ -229,6 +229,8 @@ All switches in this table default to `true`. Set a switch to `false` to turn of
 | `EnableProgression` | `true` | Per-character-life forage familiarity. |
 | `EnableGroupScaling` | `true` | Infected group-size scaling; variety module can run for this alone. |
 | `EnableTapedPackMounts` | `true` | Pack light admission; a missing key also enables mounts. Individual pairs can opt out. |
+| `EnableMelee` | `true` | Melee against infected: head and leg bonuses, poise and arm-hit weakening. |
+| `EnableFortify` | `true` | Fortification pack integration; the module also stays off while no fortification pack is present. |
 
 ### Shared work, density and format
 

@@ -218,29 +218,22 @@ Enforce field name; this makes no new atomicity claim.
 
 ## Validation record and native checks still due
 
-Exactly one new behavioral smoke lives in `tests/unit/test_webmap.py`, using
+Exactly one new behavioral smoke lives in `tests/slow/test_webmap.py`, using
 synthetic profile/image bytes and an in-memory HTTP connection (no sockets).
 
-RED command: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_webmap -v`
+RED command: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_webmap -v`
 
 Actual RED line: `ModuleNotFoundError: No module named 'tools.webmap'`
 and `FAILED (errors=1)`.
 
 GREEN command: the same command. Actual GREEN line:
-`test_local_readonly_map_rereads_bounded_complete_snapshots (tests.unit.test_webmap.WebmapSmoke.test_local_readonly_map_rereads_bounded_complete_snapshots) ... ok`
+`test_local_readonly_map_rereads_bounded_complete_snapshots (tests.slow.test_webmap.WebmapSmoke.test_local_readonly_map_rereads_bounded_complete_snapshots) ... ok`
 and `Ran 1 test` / `OK`.
 
-Required checks: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_identifiers tests.unit.test_enforce_locals tests.unit.test_script_syntax tests.unit.test_webmap -q`
+Required checks: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_script_identifiers tests.unit.test_enforce_locals tests.slow.test_script_syntax tests.slow.test_webmap -q`
 returned `Ran 16 tests in 4.861s` / `OK` after the final UTF8-safe text change.
 
-Existing modules that read the changed source directly or scan/package the
-addon: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_build_identity tests.unit.test_acceptance_markers tests.unit.test_native_wiring_batch_a tests.unit.test_gameplay_delta tests.unit.test_search_preview_sites tests.unit.test_v1_combined_rpc tests.unit.test_snafu_optional tests.unit.test_tactical_flava_optional tests.unit.test_workshop_sync tests.unit.test_package -q`
-returned `Ran 363 tests in 39.102s` /
-`OK (skipped=1, expected failures=1)`. The skip is the Windows-only PowerShell
-helper test, not run here; the existing expected failure is the groups null
-context case. No existing pin was updated. No full discover, Git, network,
-DayZ, Wine or PowerShell run was performed. Inline JavaScript passed
-`node --check`; the CLI's `--help` completed. No interactive browser result is
+Inline JavaScript passed `node --check`; the CLI's `--help` completed. No interactive browser result is
 claimed.
 
 The lead must compile the landed settings field and source on Windows, start

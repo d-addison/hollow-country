@@ -181,33 +181,11 @@ season clock or pause the admitted HC-6 clock to hide that mismatch.
 
 ## Validation and remaining native acceptance
 
-One focused behavioral test executes the authored helper via the existing
-restricted translator with explicit synthetic HC-6 and server ports. It checks
-all phases, missing/inactive admission, exact refusal reasons and client no-op.
-It cannot establish terrain feasibility, licensing, Enforce compilation or game
-behavior. No test was added for the feasibility report itself.
-
-Actual RED and GREEN command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_winter_terrain -v
-```
-
-RED: `AssertionError: False is not true : missing authored HC-50 fail-closed
-admission receipt`; `Ran 1 test`, `FAILED (failures=1)`. After the smallest
-Enforce implementation: `Ran 1 test`, `OK`.
-
-Required focused regression command, actually run:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_winter_terrain tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_enforce_formula_complexity tests.unit.test_hygiene -v
-```
-
-GREEN: `Ran 57 tests in 14.320s`, `OK`. Standard-library JSON validation also
-checked each option's attribution/licence source, exact version, coverage,
-restart policy and unknowns, explicit nulls for unidentified dependencies, and
-consistency with HC-60's refusal. These checks validate the authored record;
-they do not resolve its missing evidence.
+Offline checks cannot establish terrain feasibility, licensing, Enforce compilation or game behavior.
+Standard-library JSON validation checks each option's attribution/licence source, exact version,
+coverage, restart policy and unknowns, explicit nulls for unidentified dependencies, and consistency
+with HC-60's refusal. These checks validate the authored record; they do not resolve its missing
+evidence.
 
 The lead must compile/boot the exact integrated source in DayZDiag, then test a
 normal signed PBO server. Grep `[HC Plan] HC-50`, verify one startup receipt,

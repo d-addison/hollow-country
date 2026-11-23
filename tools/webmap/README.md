@@ -142,34 +142,25 @@ the existing verified intent/backup/copy/readback protocol; preserve `.tmp` and
 documents, oversized files, inconsistent counts and invalid coordinates.
 
 Trace: #168 request 5 -> bounded server observation job / shared budgets /
-sibling export / filtered layer -> `tests/unit/test_admin_lootmap.py`. The test
-executes authored handlers with explicit synthetic native/file/identity/HTTP
-ports. Initial RED (before implementation):
-`AssertionError: Missing authored method HCAdminWire.HCIsLootMap in HCAdminWire.c`.
-Focused GREEN command:
-`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_admin_lootmap -v`
-(`Ran 1 test; OK`). These are offline source checks only. Exact-source DayZDiag,
+sibling export / filtered layer. Offline source checks only. Exact-source DayZDiag,
 normal signed PBO/server, single-client privacy/replication and cost observations
 remain pending; no engine experiment is accepted by this receipt.
 
 Layer legend (w27): the page lists each layer's meaning and, for bounded layers
 (for example `camps`), the optional snapshot `layerStats` row as
 `N of M shown` with a truncated note. `layerStats` is validated when present and
-optional, so older snapshots still load. Offline check only:
-`tests/unit/test_debug_map_layers.py`; nothing observed in DayZ yet.
+optional, so older snapshots still load. Nothing observed in DayZ yet.
 
 w28 (#193): the legend also describes `lead-ledger` (unexpired ledger rows at place
 level, no group ids) and `scenes` (lease anchors, not an entity-presence claim) with
 their `layerStats` rows. The in-game admin wire carries the same per-layer
-`sent/total` in its Notice. Offline check only: `tests/unit/test_debug_map_layers.py`;
-nothing observed in DayZ yet.
+`sent/total` in its Notice. Nothing observed in DayZ yet.
 
 w29 (#194): the legend also describes `pickers`, `group-pins` (kind, position and
 expiry only; no player ids or names) and `materializer-proposals` (active leases,
 not the eligible `materializer_candidates` rows). A `layerStats` row may carry an
 optional `unplaced` count (rows with no drawable position, kept out of `total`);
-it is validated when present and shown in the legend. Offline check only:
-`tests/unit/test_debug_map_layers.py`; nothing observed in DayZ yet.
+it is validated when present and shown in the legend. Nothing observed in DayZ yet.
 
 
 ## RPT refusals beside world state

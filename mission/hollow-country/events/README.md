@@ -98,10 +98,7 @@ and the optional existing event UI require single-client checking.
 The single offline smoke retains expiry/cancellation and door keepout coverage,
 checks each new kit against the verified class/model records, refuses a
 synthetic door underneath every new prop, and exercises the reused-site guard
-with a closing lease. The existing translator is unchanged. Follow-up RED:
-`AssertionError: unexpectedly None : Missing new scene kit: supply-drop-opened`,
-`FAILED (failures=1)`; GREEN: `Ran 1 test ... OK` using
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_v2_scenes -v`.
+with a closing lease. The existing translator is unchanged.
 Native compile, DayZDiag, normal PBO/server behavior, single-client visibility,
 collision, doors/routes, restart persistence and target-load budgets remain
 pending. Nothing in the offline tests establishes observed DayZ behavior.

@@ -790,7 +790,7 @@ One explicitly synthetic behavioral test exercises both authored generators, cap
 carrier admission, the HC-9 boost exclusion and the datamined off path:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_firearm_families -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_hc_firearm_families -v
 ```
 
 Actual RED: `AssertionError: {...32 classes...} is not false : positive off-roster firearms bypass scarcity`.
@@ -804,7 +804,7 @@ reconciliation remains HC-11's scope. No native experiment is accepted by these 
 Round-2 test-first command (before implementation):
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_firearms_roster -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.slow.test_firearms_roster -v
 ```
 
 Actual RED: `Ran 42 tests` / `FAILED (failures=96, errors=5)` (native-budget mismatches include
@@ -1083,7 +1083,7 @@ managed `hollow-country/ce/types.xml`, beside any profile `add_usage` rows.
 Item: Tactical Flava (TF), Steam Workshop 2646817942, installed read-only on the operator machine and read
 from there. We never repack, copy, bundle or re-host any TF file; the repository holds only TF class names and
 our own economy numbers. Code: `tools/package/tactical_flava_optional.py`; data:
-`tools/package/tactical_flava_allowlist.json`; tests: `tests/unit/test_tactical_flava_optional.py`. Config is
+`tools/package/tactical_flava_allowlist.json`; tests: `tests/slow/test_tactical_flava_optional.py`. Config is
 read with the extended `tools/audit/pbo_config.py` (rapified `config.bin` plus the plain-text `config.cpp` that
 the `weapon_a` addon ships).
 

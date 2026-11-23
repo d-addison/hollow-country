@@ -540,40 +540,13 @@ Plan/tasks (source complete, runtime pending):
   loaded stores durably before admission and make room for new accounts.
   Forage resets `m_Deferred` on Stop and every Start, including disabled Start.
 
-Actual RED, `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_forage_round2 -v`:
-
-- `AssertionError: 1 != 0 : eligible default candidate must materialize`
-- `AssertionError: '' != 'BoletusMushroom'`
-- `legacy rows must be archived before conversion` (archive missing)
-- `AssertionError: 3 != 4 : pickup must not synchronously save`
-- `AssertionError: 2 != 128` and `Unknown field MaxFamiliarityRows`
-- `AssertionError: 0 != 40 : Stop must reset deferred receipts`
-
-P1 GREEN with `tests.unit.test_hc_forage tests.unit.test_v2_world` appended:
-`Ran 6 tests`; `OK`. P2/P3 GREEN, same focused command: `Ran 7 tests`; `OK`.
-The identity-restart single-method RED was
-`AssertionError: 2 != 1 : a later Start gets one fresh bounded diagnostic`;
-after the reset fix, the full focused module GREEN was `Ran 8 tests`; `OK`.
-The seasonal expectations in test_v2_world and admin forage behavior are unchanged.
-
 Pending: DayZDiag compilation/boot, normal PBO/server tests, single-client placement,
 visibility/pop-in and replication, native generator coexistence, persistence-ID
 allocation/reconnect/restart/death, pickup/crash/restart and archive recovery,
 plus single-client performance observations; target-load budgets remain provisional. No production qualification is asserted.
 
-Final GREEN, exact requested selection:
+Changed Enforce files have at most 8 plus operators per statement. No game execution was run.
 
-```sh
-mods=$(rg -l -e 'HCForage|forage|progression' tests/unit | sed 's#tests/unit/##;s#\.py##;s#^#tests.unit.#' | tr '\n' ' '); PYTHONDONTWRITEBYTECODE=1 python3 -m unittest $mods tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene
-```
-
-Result: `Ran 252 tests in 17.592s`; `OK`.
-`python3 -B -m tools.validate.enforce_lint --no-native`:
-`enforce_lint: pass findings=133 new=0 stale=0 native=no`.
-Additional settings/survival regressions: `python3 -B -m unittest tests.unit.test_runtime_settings tests.unit.test_survival_ideas -v`
-→ `Ran 12 tests`; `OK`. `git diff --check` passed. Changed Enforce files have
-at most 8 plus operators per statement. No commit/push or game execution was run;
-Banso's writer owns the eventual local commit.
 [Operator keys](../mission/hollow-country/ai/README.md) and
 [cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
 save compatibility, invalid-key fallback logs, deterministic world-seed sizing
@@ -615,40 +588,8 @@ keeps all eligible templates up to 512; metadata paging replaces the obsolete
 single-index byte budget. Diagnostics parse each root strictly once and log
 only the root, page zero (when present) and first leaf per lifecycle.
 
-Actual RED → GREEN records (all fixtures synthetic; stdlib only):
-
-| Behavior / focused test | Actual RED | GREEN |
-| --- | --- | --- |
-| `test_hc_template_pack.TemplatePackTests.test_complete_bounded_pack_refuses_damage_and_migrates_without_gameplay_changes` | `AssertionError: False is not true` after removing injected strict tables | `ok` using real strict source |
-| `test_interior_templates.ClassRowTests.test_paged_index_keeps_every_template_up_to_512` | `AssertionError: 512 != 97` | `ok`: 512 kept, one excess template refused |
-| `test_hc_template_pack.TemplatePackTests.test_610_leaves_plus_16_pages_count_once_and_leaf_611_refuses` | `AssertionError: '' is not true : 609` | `ok`: 610 admitted, 611 refused through job and reader |
-| `test_hc_template_pack.TemplatePackTests.test_receipt_order_bounded_read_logs_and_single_strict_dispatch` | `['pack-index'] != ['index', 'pack-index']` | `ok`: one strict parse, three read logs and ordered receipt |
-| `test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_reader_stages_both_schemas_without_reloading_and_resets_on_stop` | `True is not false : startup must retain a job and yield before leaves` | `ok`: exact matching reader data, one read per file, budget deferral and restart |
-| `test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_reader_propagates_job_refusal_and_clears_partial_admission` | `AssertionError: False is not true` (missing pack refusal diagnostic) | `ok`: exact job reason retained, partial rows cleared, no retry |
-| `test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_module_tick_finishes_admission_and_stop_cancels_pending_load` | `1 not greater than 1 : module tick must advance pending pack even without a legacy owner`; further two-page RED: `2 != 7 : HCStep=1 must yield to the next module tick` | `ok`: actual lifecycle bodies progress, yield, finish once and stop |
-
-Exact focused RED/GREEN invocation: prefix each test above with
-`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest ` and
-suffix ` -v`. Cap/diagnostic REDs ran together as
-`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_template_pack -v`.
-The initial strict RED used
-`PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_template_pack test_interior_templates.TemplateBuildTests.test_paged_index_keeps_every_template_up_to_512 -v`:
-it recorded the behavioral strict failure plus an unrelated selection error
-(`TemplateBuildTests` was corrected to `ClassRowTests` before the builder RED).
-The two reader REDs ran together by their complete test names. The existing
-`test_hc_unit_budget.SourceContractTests.test_interior_load_time_is_logged_in_raw_ticks_once`
-also caught the changed retained timer variable; its raw-tick contract is preserved.
-
-Final verification command (all named-file readers found by `rg`, plus required checks):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_template_pack test_interior_templates test_interior_templates_runtime test_local_test_session test_tilt_rule test_house_search_flow test_hc_unit_budget test_infected_production_rooms test_interiors_profile test_server_report test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_friend_bundle -v
-python3 -B -m tools.validate.enforce_lint --no-native
-```
-
-Final result: **`Ran 655 tests in 104.951s` / `OK`**. Enforce lint:
-**`pass findings=126 new=0 stale=0 native=no`**. `git diff --check` passed.
-Git metadata was not written; the writer commit message is supplied separately.
+Offline fixtures are synthetic and stdlib only. The raw-tick contract of the interior load timer
+(`load_ticks`) is preserved.
 
 Native API declarations were inspected in the pinned 1.30.164289 snapshot:
 `EnSystem.c:106,417,425,443` (timer/read/close), `EnString.c:240` (dispatch probe),

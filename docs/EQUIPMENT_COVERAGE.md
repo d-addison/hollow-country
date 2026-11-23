@@ -84,11 +84,9 @@ remain repo-only, using the staged economy workflow below. Regenerate an older
 staged delta to include these floor flags. `--no-datamined` removes the additions.
 Stock files are never rewritten, and rollback restores the mission byte-exactly.
 
-`tests/unit/test_loot_w46.py::FloorAdmissionIntegration` runs the integrated
-generator over an explicit synthetic stock mission. It checks all 59 rows,
-exact flag changes, finite budgets, opt-out, installation and byte-exact rollback.
-It no longer rewrites an obsolete copy of generator source. These tests establish
-package behavior only; ordinary CE acquisition remains runtime=PENDING.
+`tests/slow/test_datamined_items.py::UsefulSupply` runs the integrated generator over an explicit
+synthetic stock mission. It checks the admitted floor overrides, opt-out, installation and byte-exact
+rollback. These tests establish package behavior only; ordinary CE acquisition remains runtime=PENDING.
 
 Native follow-up: compile with DayZDiag, boot the normal PBO/server, then use one
 client at a configured original and refresh-pilot cabinet. Confirm that only
@@ -350,47 +348,12 @@ a native class export nor a debug-spawned item establishes ordinary acquisition.
 The full candidate review, target-load budget and production promotion remain
 pending. Distances added by HC-22: **none**.
 
-## Historical HC-22 offline RED / GREEN record
-
-The following records describe earlier refusal policy; current W46 behavior and
-counts are documented above and tested against the integrated generator.
-
-Round 1 added no persistent test module under its original content-only brief. The
-existing in-memory generator/parser fixtures and a focused executable assertion
-were used. This exact command failed before implementation with
-`AssertionError: HC-22 missing bandana floor admissions` (exit 1), and passed
-after implementation with `HC-22 supply admission GREEN` (exit 0):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -c 'import json; from pathlib import Path; from tools.package import economy as e; f=e.generate(Path("/mnt/d/HollowCountryLocal/backups-v1/dayzOffline.chernarusplus.stock"),json.loads(Path("mission/hollow-country/economy-profiles/contextual-pilot.json").read_bytes())); names={n.get("name") for n in e.xml(f["ce/types.xml"],"types")}; assert {"Bandana_Blue","Bandana_Pink","Bandana_Yellow"} <= names, "HC-22 missing bandana floor admissions"; assert not {"DrysackBag_Green","LeatherJacket_Natural","TortillaBag_Desert"} & names, "HC-22 unqualified floor flags"; print("HC-22 supply admission GREEN")'
-```
-
-Focused regression command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_datamined_items test_economy_contract test_loot_routes test_firearms_roster test_hc_firearm_families test_local_test_session -v
-```
-
-Result: **329 tests, OK**. Installed-config checks are static evidence; the
-remaining fixtures are explicitly synthetic. A separate in-memory check reused
-`test_datamined_items.stock_mission` to confirm counts `(55,38,17,0,0)`, byte-exact
-install/rollback, disabled admission and rejection of rehashed new-bandana
-nominal/quantity/cost drift before writes. Result: GREEN.
-
-Required source checks:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_script_syntax test_enforce_locals test_script_identifiers test_hygiene -v
-```
-
-Result: **53 tests, OK**. These checks do not establish DayZ behavior.
-
 ## Round 2 behavioral coverage and packaging review
 
 Review trace: HC-22 / P2-1, P3-1, P3-2 and P3-4.
 
 - [x] P2-1: persistent stdlib behavioral coverage in
-  `tests/unit/test_datamined_items.py::UsefulSupply`, using the explicitly
+  `tests/slow/test_datamined_items.py::UsefulSupply`, using the explicitly
   synthetic `stock_mission` fixture. Covers all three bandanas, all 17 admitted
   floor overrides, rehashed nominal drift, stock spelling/case collisions,
   unreviewed permissions, missing decisions, crafted/deloot flags and legacy
@@ -408,123 +371,7 @@ Review trace: HC-22 / P2-1, P3-1, P3-2 and P3-4.
 - [ ] Native acceptance, content-status integration and target-load budgets
   remain pending as specified above. Source tests do not accept these tasks.
 
-RED was recorded before production edits with:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_datamined_items.UsefulSupply tests.unit.test_friend_bundle.FriendBundleTests.test_exported_economy_install_refuses_missing_repo_only_supply_ledger -v
-```
-
-The corrected-fixture RED run executed 13 tests and ended
-`FAILED (failures=4, errors=5)`. Actual failure lines included:
-
-```text
-ValueError: HC22_MISSING_DISPOSITION: SyntheticUnrelatedProposal
-AssertionError: ValueError not raised
-FileNotFoundError: [Errno 2] No such file or directory: .../absent-ledger.json
-AssertionError: 'unresolved' unexpectedly found in ...
-ImportError: cannot import name 'firearms' from 'tools.package' (unknown location)
-```
-
-These respectively exposed whole-proposal install validation, absent digest
-checking, missing ledger diagnostics, mislabeled counts, and the exported
-installer reaching an unavailable optional dependency before ledger refusal.
-The second digest subcase also encountered state left by the first unexpectedly
-successful install; it is not claimed as an independent product failure.
-No production check was temporarily disabled. Existing admission/refusal
-safeguards passed on first meaningful execution. The first draft of the tests
-incorrectly expected nominal 3 instead of the shipped 5, and initially generated
-a collision fixture after adding the stock bandana; both test-fixture mistakes
-were corrected before this recorded RED run. Those are not product defects.
-
-After the smallest production changes, the same command returned
-`Ran 13 tests` / `OK`. The exported test also caught exception chaining exposing
-`FileNotFoundError`; the named refusal now suppresses that irrelevant traceback.
-Later missing-report/digest and off-count subcases passed on first execution.
-
-Final requested regression command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_datamined_items test_economy_contract test_firearms_roster test_loot_boost test_loot_routes test_package test_package_manifest test_friend_bundle -v
-```
-
-Result: `Ran 280 tests` / `OK (skipped=1)`. The skipped test is the native
-Windows PowerShell smoke-helper check, which belongs to Windows CI.
-
-Required source/hygiene regression command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
-PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.hygiene
-```
-
-Results: `Ran 53 tests` / `OK`; repository report `valid=true`, `errors=[]`.
-Framework reused: existing bounded row/disposition parsers, CE extension and
-collision checks, immutable manifest hashes, staged delta, receipt and byte-exact
-rollback. No runtime framework or engine API was added; no new distances.
-
-Additional dependent-reader checks (required by the shared worker brief):
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_firearm_families tests.unit.test_friend_install tests.unit.test_gameplay_delta tests.unit.test_local_test_session tests.unit.test_optional_ce_composition tests.unit.test_optional_gun_scale tests.unit.test_snafu_optional tests.unit.test_tactical_flava_optional tests.unit.test_v2_optional_overlays tests.unit.test_ce_coverage tests.unit.test_enforce_formula_complexity -v
-```
-
-This invocation ran 544 entries: 543 tests passed and one module-loader entry
-failed with `ModuleNotFoundError: No module named 'test_firearms_roster'` because
-`test_hc_firearm_families` uses a top-level fixture import. This was a command
-setup error, not a behavioral failure. The correctly configured focused rerun:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_firearm_families -v
-```
-
-returned `Ran 1 test` / `OK`. No source change was needed for that rerun.
-The initial aggregate command is honestly recorded as `FAILED (errors=1)`;
-there are no remaining failed behavioral checks.
-
-Commit message supplied to the Banso writer in `.banso-writer/commit-message`:
-`fix(economy): test HC-22 supply and bind installs to ledger policy`.
-No staging, commit or publication was performed by this worker.
-
-## W46 round 1 verification record (historical)
-
-RED before cabinet implementation:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 -v
-```
-
-Actual failure: `AttributeError: type object 'HCSearchPreviewSites' has no attribute 'PilotKey'`;
-`Ran 4 tests`, `FAILED (errors=4)`. Before the refusal reporter was authored,
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46.InteriorCoverage -v`
-failed with `AssertionError: False is not true : missing bounded per-building furnishing refusal reporter`.
-The subsequent behavioral reporter fixture verifies cursor resumption, covered-row
-skips, print-once behavior and pack-revision reset.
-
-GREEN final focused source/readers/common-brief command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_search_economy_houses tests.unit.test_v1_combined_rpc tests.unit.test_enforce_lint tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
-python3 -B -m tools.validate.enforce_lint --no-native
-```
-
-The isolated lead patch was also applied with `patch -p1` under a temporary
-directory, then its updated `UsefulSupply` suite ran against copied tool/ledger
-modules: `Ran 12 tests`, `OK`. No worker-owned or unowned production file was
-changed by that rehearsal. This is additional fixture coverage, not a claim
-that the 17-route integration has landed.
-
-A renewal regression was caught before its fix with:
-`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46.CabinetSites.test_pilot_request_round_trip_is_instance_bound_and_expires -v`.
-Actual RED: `AssertionError: False is not true : refreshing membership must not cancel a six-second search`.
-The corrected cache retains its positive membership during renewal and drops it
-on a negative reply; the fixture covers the full six-second action window.
-
-Final W46 results: the focused command above ran **149 tests, OK**;
-`enforce_lint: pass findings=1 new=0 stale=0 native=no`.
-No setting was changed, so settings-registry validation was not required.
-No new mission data file, module slot or shared package registration is needed.
-Nothing observed in DayZ yet.
-
+Offline results establish package behavior only. Nothing observed in DayZ yet.
 
 ## W46 round 2 review fixes
 
@@ -534,51 +381,4 @@ evicting in-flight requests or positive sites. The obsolete source-rewriting
 fixture was replaced by integrated generation/install/rollback behavior.
 P3: current accounting and overlay regeneration instructions are updated above.
 
-Actual RED command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46.FloorAdmissionIntegration tests.unit.test_loot_w46.CabinetSites.test_decorative_cabinets_cannot_starve_a_bound_cabinet -v
-```
-
-Result: `Ran 2 tests`, `FAILED (failures=2)`. Actual assertions:
-`AssertionError: '1' != '0'` for the generated Drysack crafted flag;
-`AssertionError: Lists differ: ['StaticObj_Furniture_case_a_x255y0z0w0'] != ['StaticObj_Furniture_case_a_x256y0z0w0']`
-when decorative cabinet 257 could not send a request.
-The additional throttled-unsent behavioral test also failed before its fix:
-`AssertionError: 1 != 2` (one request instead of the required second request).
-
-GREEN cache/source/common-brief command:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_loot_w46 tests.unit.test_search_preview_sites tests.unit.test_v1_combined_rpc tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
-```
-
-Result: `Ran 91 tests`, `OK`. The integrated floor test additionally passes
-with the independent exact-17 allowlist and stock-preservation assertion.
-Installer regression cases reject changed count flags, restored crafted/deloot,
-unreviewed-row flag changes, extra flag attributes and changed cost before writes.
-The audit test credits only actual emitted floor flags and retains conservative
-common-route accounting for conflicting definitions.
-
-`python3 -B -m tools.validate.enforce_lint --no-native`:
-`enforce_lint: pass findings=1 new=0 stale=0 native=no`.
-The full focused/affected commands and their results are recorded in the writer
-commit message. No shared registry, mission-file list or settings edit is needed.
-DayZDiag, normal PBO/server, single-client checks and target-load measurements
-remain pending. Nothing observed in DayZ yet.
-
-Broad focused/package/friend run: 841 reported checks, including one loader error
-and one Windows-only PowerShell skip; 839 executed tests passed. The only loader
-error was the firearm-family suite's sibling import (`test_firearms_roster`).
-The required path fixes the invocation without source changes:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest tests.unit.test_hc_firearm_families -v
-```
-
-Result: `Ran 1 test`, `OK`. Across that broad run and the corrected module rerun,
-840 tests passed and one Windows-only check was skipped. The additional affected
-economy/package group ran 270 tests, `OK`. The final cache/source group ran 91
-tests, `OK`. The independent exact-17 integration test also ran once, `OK`.
-These are overlapping suites; their counts must not be summed as unique tests.
 Nothing observed in DayZ yet.

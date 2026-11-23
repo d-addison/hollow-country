@@ -66,8 +66,9 @@ class PitfallCardTests(unittest.TestCase):
         self.assertEqual(set(cards.CARDS), set(built))
         for title, _ in cards.COMPILE_PITFALLS:
             self.assertIn(title, built['enforce-pitfalls'])
-        for word in ('owned', 'inout', 'Wait', 'bitwise', 'signature'):
-            self.assertIn(word.lower(), built['enforce-pitfalls'].lower())
+        self.assertIn('## Native compile pitfalls the lint cannot see', built['enforce-pitfalls'])
+        for rule in ('HC-E042', 'HC-E043', 'HC-E044', 'HC-E045', 'HC-E046', 'HC-E047'):
+            self.assertIn(rule, built['enforce-pitfalls'])
 
     def test_comment_selection_rules(self):
         with tempfile.TemporaryDirectory() as directory:

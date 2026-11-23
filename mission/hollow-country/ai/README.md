@@ -265,29 +265,18 @@ copy these routes into a live admitted profile until that work is complete.
 The events boundary is only `Id` plus `Position` in world metres `[x, y, z]`.
 `event-sites.contract.json` snapshots those fields and the source-review flag from
 `HCEventSites.ChernarusPlus()`; it is not a second events configuration. IDs are
-case-sensitive; anchors must match exactly. W1.4 must retain those IDs/positions or
-supply its `Sites` JSON to the validator and update this snapshot and the routes.
-There was no W1.4 mission/events file available when these examples were authored.
+case-sensitive; anchors must match exactly. When the events site list changes, update
+that snapshot and the routes in the same change.
 
-The adapter DTO adds `SiteId`, `GroupSize`, spawn positions, loop waypoints, actor,
-faction and exact per-member equipment. `GroupSize == len(Spawns)`. The event
-bridge retains the existing family-5 mapping `MissionId = SiteId + "-5"` and
-`Anchor = Position`; it receives the mission ID and anchor, never player targets.
-Each example gives each actor one Makarov, one spare eight-round magazine and two
-clothing items. It does not replenish magazines, request tracking coordinates or
-use Expansion's autonomous patrol spawner.
-
-Validate against W1.4's real site manifest after landing:
+Validate the examples against the snapshot:
 
 ```sh
 python3 -m tools.package.ai_patrols \
   --patrols mission/hollow-country/ai/patrols.example.json \
-  --sites mission/hollow-country/events/sites.json
+  --sites mission/hollow-country/ai/event-sites.contract.json
 ```
 
-For an offline contract check before W1.4 lands, pass
-`mission/hollow-country/ai/event-sites.contract.json` as `--sites`. The tool
-requires a JSON object containing `Sites: [{Id, Position, Reviewed, ...}]`; all
+The tool requires a JSON object containing `Sites: [{Id, Position, Reviewed, ...}]`; all
 reviewed sites must have exactly one patrol. Bounds, IDs, exact anchors, group
 sizes, route lengths, ammunition and loadout hashes are checked. Exit 0 means
 structurally valid; `qualified` is always false. The loadout digest is SHA-256 of
@@ -353,23 +342,14 @@ all budgets remain provisional until measured with 3–6 players.
 
 ### Prerequisite: HC-10 (separate change)
 
-Applied `.banso-writer/inputs/w9-hc10.patch` unchanged before this task's changes.
-The supplied intent is `fix(ai): persist materializer party and cargo custody
-(HC-10)`. Its prerequisite command was:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody -v
-Ran 1 test; OK
-```
-
-This adds `HCAIPartyIdentity.c`, materializer custody persistence and bridge
-custody/lifecycle handling, with its behavioral smoke. The limits work then
+HC-10 (`fix(ai): persist materializer party and cargo custody`) landed before this
+task. It added `HCAIPartyIdentity.c`, materializer custody persistence and bridge
+custody/lifecycle handling. The limits work then
 replaces HC-10's inherited four-actor reservation ceiling with the shared
 12-member safety ceiling. The review fix below resolves prior-process claims
 without replaying cargo, recycles completed identities after cooldown, and keeps
 in-process CLAIMED/QUARANTINED identities exclusive. Claimed bodies are never
 released by a timeout.
-
 ### Spec, plan and tasks
 
 The repository instruction names `docs/SPECIFICATION.md` and
@@ -503,100 +483,9 @@ HollowCountry cannot silently account for arbitrary third-party creation.
 
 All Python fixtures are explicitly synthetic; native arrays/strings/provider
 calls are ports around the authored policy bodies. They establish source and
-policy behavior, not native DayZ behavior.
-
-Actual RED commands and outcomes:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits -v
-Ran 7 tests; FAILED (failures=2, errors=5)
-## Missing HCAILimits class and former literal-cap scan findings before implementation.
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits -v
-Ran 9 tests; FAILED (failures=1, errors=1)
-## Expanded scan exposed HC-10 actorCap > 4; separate synthetic constant-port typo repaired.
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_expansion_ai_live_map -v
-Ran 19 tests; FAILED (failures=4)
-## Config key absent; 300-unit cursor coverage regressed to 72; observed cap ignored.
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.AILimitsBehavior.test_scan_no_numeric_human_ai_population_caps -v
-Ran 1 test; FAILED (failures=1)
-## Expanded scan exposed HCHoldouts.BindOccupant's 18-body gate.
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.SharedSpawnPaths.test_surveyed_adapter_uses_configured_stable_size_without_inventing_positions -v
-Ran 1 test; FAILED (failures=1)
-## Retired MaxActors profile field still rejected an otherwise-configured survey.
-```
-
-Additional actual RED:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits -v
-Ran 14 tests; FAILED (failures=2, errors=1)
-## Expanded survivor scan and typed-result behavior exposed another HC-10 >4 gate;
-## malformed saved holdout preflight fixture initially needed its native array port.
-```
-
-A final dependent-index scan also reproduced the picker saved-index bound:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.AILimitsBehavior.test_scan_no_numeric_human_ai_population_caps -v
-Ran 1 test; FAILED (failures=1)
-## NextHouse >= 24 would reject a saved picker cursor in the larger holdout catalog;
-## it now uses MaxHoldouts and logs refusal.
-```
-
-The corrected malformed-row fixture then reproduced the previous preflight body:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.OldWorldCompatibility.test_null_holdout_row_is_safe_before_saved_image_validation -v
-Ran 1 test; FAILED (errors=1)
-## AttributeError: NoneType object has no attribute Occupants; guard added.
-```
-
-Actual GREEN commands and outcomes on the completed policy:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_hc_ai_custody tests.unit.test_v2_holdouts -v
-Ran 20 tests; OK
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
-Ran 53 tests; OK
-
-python3 -B -m tools.validate.enforce_lint --no-native
-enforce_lint: pass findings=126 new=0 stale=0 native=no
-
-python3 -B -m tools.validate.runtime
-status=pass, errors=[], scope=operator settings admission only
-
-git diff --check
-# clean
-```
-
-The required AI/world/camp/holdout/Expansion selection passed 601 tests (one
-Windows-native-helper skip) using this exact standard-library orchestration:
-
-```sh
-python3 -B - <<'PY'
-import subprocess,sys
-paths=subprocess.check_output(['rg','-l','-i','HCXAI|HCWorld|Camp|Holdout','tests/unit'],text=True).splitlines()
-modules=sorted({p[:-3].replace('/','.') for p in paths if p.endswith('.py') and p.split('/')[-1].startswith('test_')})
-print('Required selection:',', '.join(modules),flush=True)
-raise SystemExit(subprocess.call([sys.executable,'-B','-m','unittest',*modules,'-v']))
-PY
-```
-
-Only seven obsolete lint baseline entries were removed when their owned refusal
-paths gained logs or changed; no new suppression was added. Packaging rejected a
-new standalone mission documentation file under the existing handoff allowlist.
-An intermediate full run copied that file into synthetic fixtures before its
-removal and failed 27 friend-bundle assertions plus one handoff check. This
-record is now part of the tracked, allowlisted AI README. The final clean-layout
-packaging and discover results are recorded at the end. The first broad run
-identified six diagnostic fixture errors (limits not installed), then the
-behavioral RED above caught the actual observation truncation regression.
-No failed run is presented as passing.
+policy behavior, not native DayZ behavior. The earlier per-run test records were
+removed with the modules they cited; the current checks are `tools.validate.preland`
+and the native compile gate.
 
 ### Native API inspection and deferred acceptance
 
@@ -631,29 +520,6 @@ Lead acceptance remains open:
    geometry capacity and performance acceptance remain pending; do not enable a
    production release based on the offline suite.
 
-### Final verification results
-
-Completed after the documentation was folded into this existing allowlisted file:
-
-```
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle tests.unit.test_gameplay_delta tests.unit.test_package -v
-Ran 111 tests in 2.233s
-OK (skipped=1)
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
-Ran 5892 tests in 428.791s
-OK (skipped=1, expected failures=3)
-```
-
-The required 601-test selection, 20 limits/custody/holdout regressions, 53 syntax /
-identifier / hygiene checks, settings admission validator and lint (`new=0`,
-`stale=0`, 126 existing findings) passed. The one skipped check executes a native
-Windows PowerShell helper and belongs to Windows CI; the three expected failures
-are existing suite expectations. No native DayZ acceptance is inferred. The
-worker wrote `.banso-writer/commit-message` for the dispatcher and did not stage,
-commit or push. HC-10 remains separately identified in that message and above.
-
-
 ### AI limits / HC-10 review fix round
 
 Spec/plan/task trace (review P1s block landing): preserve one live party/cargo,
@@ -681,22 +547,7 @@ Cooldowns remain process-local. Restart returns identity/cargo authority to the
 existing owner store; this code creates no inventory. Back up custody and its
 owner stores together; v2 writes are not readable by the earlier v1-only build.
 
-Actual RED/GREEN commands and failures are recorded in the module docstring of
-`tests/unit/test_hc_ai_custody.py` (claim 65 refused, startup debt 0 != 4, save
-failure admitted new bodies, fold-back leaks, short survey refused, 50 refusal
-logs instead of one, same-process duplicate and late typed budget leak). The
-focused limits/custody command passes 28 tests. The integration test executes
-actual authored materializer, site Spawn and adapter admission together.
-
-All disk, JSON, world, observer and provider ports in these tests are explicitly
-synthetic standard-library fixtures. DayZDiag, normal PBO/server, native restart
-and two-client inventory/visibility/retirement acceptance remain pending.
-
-Final review-round validation: 404 tests passed with two existing expected
-failures in CombinedWorkTests. The selection included every requested module,
-all six `test_expansion_ai_*` modules, plus `test_hc_unit_budget`, `test_v2_world`,
-`test_v2_leads` and `test_enforce_lint`. The focused custody/limits command above
-passed all 28 tests. `python3 -B -m tools.validate.enforce_lint --no-native` passed
-with `findings=126 new=0 stale=0 native=no`; `git diff --check` was clean.
-The commit message is in `.banso-writer/commit-message`; git staging, commit and
-push remain dispatcher-owned. No native gameplay acceptance was performed.
+All disk, JSON, world, observer and provider ports in these fixtures were explicitly
+synthetic. DayZDiag, normal PBO/server, native restart and two-client
+inventory/visibility/retirement acceptance remain pending. No native gameplay
+acceptance was performed.

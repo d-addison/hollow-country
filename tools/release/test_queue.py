@@ -26,7 +26,6 @@ OOM_CODES = (137, -9)
 CLIENT_IMAGE = 'DayZ_x64.exe'
 WORKTREES = Path('/code/hc-worktrees')
 CALIBRATION_DOC = 'docs/tools/WORKBENCH_COMPILE.md'
-CALIBRATED = (14, 14)
 SHA = re.compile(r'[0-9a-f]{40}')
 
 
@@ -86,8 +85,16 @@ def calibration():
     return (int(found[1]), int(found[2])) if found else None
 
 
+def corpus_size():
+    """Rows in the wb_calibrate corpus; the doc's total must equal it."""
+    from tools.release import wb_calibrate
+    return len(wb_calibrate.CORPUS)
+
+
 def wb_calibrated():
-    return calibration() == CALIBRATED
+    """True only when every corpus row agrees and the doc total is the corpus size."""
+    found = calibration()
+    return found is not None and found[0] == found[1] == corpus_size()
 
 
 def run_command(argv, cwd, log_path, timeout):
