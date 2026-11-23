@@ -4,7 +4,7 @@ Authored templates for composed map locations (roadblocks, camps, crashes, depot
 owner's 11-22 complaint that generated locations were a random scatter of props: every site is now one
 story with a reason to be at its spot, a frame taken from the world (road tangent, approach, view or fall
 line) and parts placed relative to a named part. Status: templates and schema only. The composer
-(`tools/package/site_composer.py`, wave W4) will consume them; nothing here places an object yet, and no
+(planned, wave W4) will consume them; nothing here places an object yet, and no
 template establishes in-game behaviour. Layers, `classes.json` and the map overlay are unchanged.
 
 Files: `config/sites/archetypes/<id>.json` (15 templates) and `config/sites/archetypes/schema.json`.

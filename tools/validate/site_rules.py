@@ -489,6 +489,8 @@ def load_inputs(root=ROOT, mission=None, composed=True, allow_reserve=False):
     geometry = parse_geometry(_json(gpath), classes) if gpath.is_file() else None
     archetypes = {}
     for path in sorted((root / 'config/sites/archetypes').glob('*.json')):
+        if path.name == 'schema.json':   # the archetype schema lives beside the templates; it is not one
+            continue
         archetypes[path.stem] = _json(path)
     files = sorted((root / 'config/sites/survey').glob('*.json'))
     survey = Survey([_json(p) for p in files]) if files else None
