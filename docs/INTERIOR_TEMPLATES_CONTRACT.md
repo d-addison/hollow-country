@@ -124,8 +124,8 @@ horizontally and `height` vertically.
 **PropSlots** (≤ `MaxPropsPerInterior`, default 5): `Type` is a `HCInteriorCatalog.SearchType`
 case or a decoration type from `tools/package/interior_catalog.py PILOT` and passes
 `ConfigIsExisting`. `Bounds` (T2's conservative per-type boxes, pinned via `generator`) lie inside
-the slot's room, intersect no keep-out, and leave ≥0.6 m of floor to any door keep-out, so doors
-are never blocked. `History` ⊆ {`family`, `ransacked`}. No passing slot → `Furniture: clearance_failed`.
+the slot's room, intersect no keep-out, and leave ≥0.6 m of floor to any door or stair keep-out, so doors
+and stair landings are never blocked (runtime `HCInteriorTemplatePlacement.StairLandingClear` repeats the stair rule). `History` ⊆ {`family`, `ransacked`}. No passing slot → `Furniture: clearance_failed`.
 
 **SearchSites** (1–24): `Radius` 0.25–**8.0** m; `Source` ∈ `lootshelves`, `loot`, `lootFloor`,
 `lootweapons`; `Points` are stock point indices (document order within that container); `Center`

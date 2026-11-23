@@ -1076,7 +1076,7 @@ def _template_contains(outer, inner):
 
 
 def _template_intersects(a, b, margin=0):
-    # Reader includes touching faces; doors additionally require 0.6 m Euclidean floor clearance.
+    # Reader includes touching faces; doors and stairs additionally require 0.6 m Euclidean floor clearance.
     vertical = a['Max'][1] >= b['Min'][1] and a['Min'][1] <= b['Max'][1]
     if margin:
         gaps = [max(0, b['Min'][i] - a['Max'][i], a['Min'][i] - b['Max'][i]) for i in (0, 2)]
@@ -1135,8 +1135,8 @@ def _validate_template_geometry(template, class_row, sources, groups):
                 and row['Room'] in rooms and _template_contains(rooms[row['Room']], bounds)
                 and _template_contains(box, bounds) and _template_inside(row['Position'], bounds)
                 and row['Orientation'][1:] == [0, 0], 'invalid prop identity, type, pose or containment')
-        require(not any(_template_intersects(bounds, k, 0.6 if k['Kind'] == 'door' else 0)
-                        for k in template['KeepOuts']), 'prop intersects keepout or door margin')
+        require(not any(_template_intersects(bounds, k, 0.6 if k['Kind'] in ('door', 'stair') else 0)
+                        for k in template['KeepOuts']), 'prop intersects keepout, door margin or stair landing margin')
         _template_texts(row['History'], 1, 3, 'prop History')
         require(all(h in ('family', 'ransacked', 'abandoned') for h in row['History']), 'invalid prop history')
         props.add(row['Id'])
