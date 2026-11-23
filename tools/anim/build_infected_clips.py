@@ -117,7 +117,7 @@ def body_turn(pose, stand, bone, axis, degrees):
     pose.rotate_world(bone, rig.qaxis(rig.qrot(frame, axis), degrees))
 
 
-HIP_SEAT_Y = 0.11   # hip joints above the ground when sitting on it
+HIP_SEAT_Y = 0.025   # hip joints above the ground when sitting on it
 SEAM_METRES = 0.12  # our standing pose stays this close to the vanilla idle (joint positions; tested)
 
 
@@ -152,53 +152,51 @@ def seat_on_hips(p, hips):
     p.set_root_pos('Pelvis', rig.vadd(p.pos('Pelvis'), rig.vsub(hips, mid)))
 
 
-def sit_wall_pose(stand, breath=0.0, sway=0.0):
-    """Sitting on the ground, back against a wall or tree behind (-Z), knees up, head hanging.
+def _seated_foot(p, side, target, pole=(0.0, 0.2, 1.0)):
+    two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', target, pole)
+    ankle = p.pos(side + 'Foot')
+    p.aim(side + 'Foot', side + 'ToeBase',
+          rig.vsub((ankle[0], ankle[1] - 0.084, ankle[2] + 0.135), ankle))
 
-    ``breath`` and ``sway`` in -1..1 animate the chest and the head without moving the root.
-    """
+
+def _seated_hand(p, side, target):
+    sx = -1.0 if side == 'Left' else 1.0
+    two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', target, (sx, -0.2, -0.6))
+    # Slack fingers lie along the floor rather than pointing through it.
+    p.aim(side + 'Hand', side + 'HandMiddle2', (sx * 0.035, 0.008, 0.10))
+
+
+def sit_wall_pose(stand, breath=0.0, sway=0.0):
+    """Asymmetric wall slump, fixed hips/soles and a slack ground hand."""
     p = stand.copy()
-    # Pelvis: tilted back and lowered onto the ground; the torso follows the pelvis.
-    p.rotate_world('Pelvis', rig.qaxis(X, -18))
+    p.rotate_world('Pelvis', rig.qaxis(X, -26))
     seat_on_hips(p, (0.0, HIP_SEAT_Y, -0.04))
-    # Slumped chest, breathing in the upper spine, hanging head with a slow sway.
-    p.rotate_world('Spine2', rig.qaxis(X, 8 + 1.6 * breath))
-    p.rotate_world('Spine3', rig.qaxis(X, 6 + 1.2 * breath))
-    p.rotate_world('Neck', rig.qaxis(X, 12 + 2.0 * sway))
-    p.rotate_world('Head', rig.qaxis(Y, 14 + 5.0 * sway))
-    p.rotate_world('Head', rig.qaxis(X, 10 + 1.5 * breath))
-    # Legs: knees up, feet flat on the ground in front.
+    body_turn(p, stand, 'Spine2', X, 8 + 0.7 * breath)
+    body_turn(p, stand, 'Spine3', X, 5 + 0.5 * breath)
+    body_turn(p, stand, 'Neck', X, 17 + 1.3 * sway)
+    body_turn(p, stand, 'Head', Z, 24 + 3 * sway)
+    body_turn(p, stand, 'Head', Y, -12 + 3 * sway)
+    body_turn(p, stand, 'Head', X, 12 + 2 * breath)
     for side, sx in (('Left', -1.0), ('Right', 1.0)):
         hip = p.pos(side + 'UpLeg')
-        foot = (hip[0] + sx * 0.12, 0.09, hip[2] + 0.52 + (0.04 if side == 'Right' else 0.0))
-        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', foot, (sx * 0.25, 1.0, 0.4))
-        ankle = p.pos(side + 'Foot')
-        p.aim(side + 'Foot', side + 'ToeBase', rig.vsub((ankle[0] + sx * 0.03, 0.02, ankle[2] + 0.15), ankle))
-    # Left forearm rests over the left knee; the right arm hangs with the hand on the ground.
-    knee = p.pos('LeftLeg')
-    two_bone(p, 'LeftArm', 'LeftForeArm', 'LeftHand', (knee[0] + 0.06, knee[1] + 0.02, knee[2] + 0.10),
-             (-1.0, -0.3, -0.4))
-    hip = p.pos('RightUpLeg')
-    two_bone(p, 'RightArm', 'RightForeArm', 'RightHand', (hip[0] + 0.24, 0.05 + 0.01 * breath, hip[2] + 0.02),
-             (1.0, 0.0, -0.6))
+        _seated_foot(p, side, (hip[0] + sx * 0.10, 0.104,
+                              0.68 if side == 'Left' else 0.43), (sx * 0.25, 1.0, 0.4))
+    knee = p.pos('RightLeg')
+    _seated_hand(p, 'Right', (knee[0], knee[1] + 0.035, knee[2] + 0.04))
+    _seated_hand(p, 'Left', (-0.25, 0.025, -0.18))
     return p
 
 
 def crouch_forward_pose(stand):
-    """Get-up midpoint: feet drawn under, chest over the knees, hands pushing on the knees."""
+    """Loaded crouch: chest forward of the hips, palms over the knees."""
     p = stand.copy()
-    p.rotate_world('Pelvis', rig.qaxis(X, 38))
-    p.set_root_pos('Pelvis', (0.0, 0.42, -0.12))
-    p.rotate_world('Neck', rig.qaxis(X, -20))
+    p.rotate_world('Pelvis', rig.qaxis(X, 43))
+    p.set_root_pos('Pelvis', (0.0, 0.48, -0.10))
+    body_turn(p, stand, 'Neck', X, -15)
     for side, sx in (('Left', -1.0), ('Right', 1.0)):
-        hip = p.pos(side + 'UpLeg')
-        foot = (hip[0] + sx * 0.05, 0.09, 0.08)
-        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', foot, (sx * 0.15, 0.3, 1.0))
-        ankle = p.pos(side + 'Foot')
-        p.aim(side + 'Foot', side + 'ToeBase', rig.vsub((ankle[0], 0.02, ankle[2] + 0.15), ankle))
+        _seated_foot(p, side, (sx * 0.133, 0.104, 0.0 if side == 'Left' else -0.07))
         knee = p.pos(side + 'Leg')
-        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', (knee[0], knee[1] + 0.04, knee[2] + 0.02),
-                 (sx, -0.2, -0.5))
+        _seated_hand(p, side, (knee[0], knee[1] + 0.04, knee[2] + 0.02))
     return p
 
 
@@ -234,23 +232,76 @@ def to_anim(bones, poses):
 def build_sit_wall_idle(stand, seconds=4.0):
     n = int(round(seconds * FPS))
     poses = []
-    for f in range(n + 1):                      # last frame equals the first: closed loop
-        ph = 2 * math.pi * f / n
-        poses.append(sit_wall_pose(stand, breath=math.sin(2 * ph), sway=math.sin(ph)))
+    for f in range(n + 1):
+        ph = 2 * math.pi * (f % n) / n
+        breath = 0.65 * math.sin(ph) + 0.25 * math.sin(2 * ph) + 0.10 * math.sin(3 * ph)
+        sway = 0.7 * math.sin(ph) + 0.3 * math.sin(3 * ph)
+        p = sit_wall_pose(stand, breath, sway)
+        body_turn(p, stand, 'RightHand', X, 3 * math.sin(3 * ph))
+        poses.append(p)
+    return poses
+
+
+def _seated_rise(stand, keyposes, knots, seconds):
+    """Ease each load phase separately, then solve support targets in world space."""
+    n = int(round(seconds * FPS))
+    poses = []
+    for f in range(n + 1):
+        t = f / n
+        i = next((j for j in range(len(knots) - 1) if t <= knots[j + 1]), len(knots) - 2)
+        phase = (t - knots[i]) / (knots[i + 1] - knots[i])
+        u = _smooth(phase)
+        a, b = keyposes[i:i + 2]
+        p = blend(a, b, u)
+        p.hinges = stand.hinges
+        head_phase = min(1.0, phase * 1.7) if i == 0 else max(0.0, (phase - 0.12) / 0.88)
+        head_u = _smooth(head_phase)
+        for bone in ('Neck', 'Head'):
+            ta, qa = a.local[bone]
+            tb, qb = b.local[bone]
+            p.local[bone] = (rig.vlerp(ta, tb, head_u), rig.qslerp(qa, qb, head_u))
+        p._world = None
+        for side in ('Left', 'Right'):
+            pole = rig.vlerp(rig.vsub(a.pos(side + 'Leg'), a.pos(side + 'UpLeg')),
+                             rig.vsub(b.pos(side + 'Leg'), b.pos(side + 'UpLeg')), u)
+            target = rig.vlerp(a.pos(side + 'Foot'), b.pos(side + 'Foot'), u)
+            target = (target[0], 0.104, target[2])
+            travel = rig.vlen(rig.vsub(a.pos(side + 'Foot'), b.pos(side + 'Foot')))
+            if travel > 0.04:
+                lift = 0.08 if side == 'Left' else 0.055
+                target = rig.vadd(target, (0, lift * math.sqrt(max(0.0, math.sin(math.pi * u))), 0))
+            _seated_foot(p, side, target, pole)
+            _seated_hand(p, side, rig.vlerp(a.pos(side + 'Hand'), b.pos(side + 'Hand'), u))
+        poses.append(p)
+    poses[0], poses[-1] = keyposes[0].copy(), stand.copy()
     return poses
 
 
 def build_sit_wall_getup(stand, seconds=1.6):
-    n = int(round(seconds * FPS))
-    sit, mid = sit_wall_pose(stand), crouch_forward_pose(stand)
-    poses = []
-    for f in range(n + 1):
-        t = f / n
-        if t < 0.45:
-            poses.append(blend(sit, mid, _smooth(t / 0.45)))
-        else:
-            poses.append(blend(mid, stand, _smooth((t - 0.45) / 0.55)))
-    return poses
+    sit = build_sit_wall_idle(stand)[0]
+    alert = sit_wall_pose(stand)
+    body_turn(alert, stand, 'Head', X, -20)
+    body_turn(alert, stand, 'Head', Z, -12)
+    _seated_hand(alert, 'Right', (0.25, 0.025, -0.18))
+    brace = alert.copy()
+    body_turn(brace, stand, 'Spine3', X, 2)
+    for side, sx in (('Left', -1.0), ('Right', 1.0)):
+        _seated_hand(brace, side, (sx * 0.25, 0.025, -0.18))
+    load = crouch_forward_pose(stand)
+    load.set_root_pos('Pelvis', (0.0, 0.44, -0.10))
+    for side, sx in (('Left', -1.0), ('Right', 1.0)):
+        _seated_foot(load, side, (sx * 0.133, 0.104, 0.0 if side == 'Left' else -0.07))
+        _seated_hand(load, side, (sx * 0.32, 0.025, -0.015))
+    draw = load.copy()
+    _seated_foot(draw, 'Right', sit.pos('RightFoot'), (0.0, 0.2, 1.0))
+    mid = crouch_forward_pose(stand)
+    settle = blend(mid, stand, 0.90)
+    settle.hinges = stand.hinges
+    body_turn(settle, stand, 'Spine3', Z, -3)
+    for side in ('Left', 'Right'):
+        _seated_foot(settle, side, stand.pos(side + 'Foot'))
+    return _seated_rise(stand, [sit, alert, brace, draw, load, mid, settle, stand],
+                        (0, 0.10, 0.18, 0.38, 0.57, 0.72, 0.90, 1), seconds)
 
 
 
@@ -320,21 +371,51 @@ def lie_rise_pose(stand, breath=0.0, face_down=False):
 
 
 def kneel_pose(stand, dip=0.0, all_fours=False):
-    """Knees down, toes behind; hands support the roll or work at ground level."""
+    """Knees planted behind the feeding hands, shoulders folded toward a ground body."""
     p = stand.copy()
-    p.rotate_world('Pelvis', rig.qaxis(X, 65 if all_fours else 36 + 12 * dip))
-    seat_on_hips(p, (0.0, 0.42, -0.10))
-    # Sub-degree lean avoids coincident vanilla keys during the authored rises.
-    p.rotate_world('Spine3', rig.qaxis(X, 12.2 + 8 * dip))
-    p.rotate_world('Neck', rig.qaxis(X, 8))
+    p.rotate_world('Pelvis', rig.qaxis(X, 65 if all_fours else 78 + 7 * dip))
+    seat_on_hips(p, (0.0, 0.40, -0.13))
+    body_turn(p, stand, 'Spine3', X, 10 + 5 * dip)
+    body_turn(p, stand, 'Neck', X, 10 + 5 * dip)
     for side, sx in (('Left', -1.0), ('Right', 1.0)):
         hip = p.pos(side + 'UpLeg')
-        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot',
-                 (hip[0] + sx * 0.06, 0.10, -0.49), (sx * 0.15, -1, 0.8))
-        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand',
-                 (sx * (0.28 if all_fours else 0.16), 0.07, 0.40 + sx * 0.035 * dip),
-                 (sx, 0.2, -0.3))
+        thigh = rig.vlen(rig.vsub(p.pos(side + 'Leg'), hip))
+        shin = rig.vlen(rig.vsub(p.pos(side + 'Foot'), p.pos(side + 'Leg')))
+        knee_z = hip[2] + math.sqrt(max(0.001, thigh * thigh - (hip[1] - 0.025) ** 2))
+        foot_z = knee_z - math.sqrt(shin * shin - (0.104 - 0.025) ** 2)
+        _seated_foot(p, side, (hip[0], 0.104, foot_z), (0, -1, 1))
+        _seated_hand(p, side, (sx * (0.28 if all_fours else 0.18), 0.025, 0.44))
     return p
+
+
+def _seated_feed_idle(stand, seconds=4.0):
+    n = int(round(seconds * FPS))
+    poses = []
+    for f in range(n + 1):
+        ph = 2 * math.pi * (f % n) / n
+        dip = 0.55 * math.sin(ph) + 0.30 * math.sin(2 * ph) + 0.15 * math.sin(3 * ph)
+        p = kneel_pose(stand, dip)
+        body_turn(p, stand, 'Spine3', Y, 3 * math.sin(2 * ph))
+        body_turn(p, stand, 'Head', Y, 5 * math.sin(2 * ph))
+        lag = math.sin(ph - 0.18) + math.sin(0.18)
+        body_turn(p, stand, 'Head', X, 5 * (lag - math.sin(ph)))
+        for side, sx in (('Left', -1.0), ('Right', 1.0)):
+            _seated_hand(p, side, (sx * 0.18, 0.025, 0.44))
+            body_turn(p, stand, side + 'Hand', X, sx * 2 * math.sin(3 * ph))
+        poses.append(p)
+    return poses
+
+
+def _seated_feed_getup(stand, seconds=2.0):
+    feed = _seated_feed_idle(stand)[0]
+    alert = kneel_pose(stand, -0.7)
+    body_turn(alert, stand, 'Head', X, -18)
+    half = kneel_pose(stand, -3.0)
+    _seated_foot(half, 'Left', (-0.133, 0.104, 0.0), (0, 0.3, 1))
+    _seated_hand(half, 'Left', (-0.20, 0.32, 0.27))
+    mid = crouch_forward_pose(stand)
+    return _seated_rise(stand, [feed, alert, half, mid, stand],
+                        (0, 0.18, 0.42, 0.68, 1), seconds)
 
 
 def authored_idle(stand, pose_fn, seconds):
@@ -470,9 +551,8 @@ def build_all(parents, rest, bones):
             stand, lambda p, b: lie_rise_pose(p, b, face_down=True), 4.0)),
         'hc_lie_face_down_getup': to_anim(bones, authored_getup(
             [lie_rise_pose(stand, face_down=True), fours, crouch, stand], 2.8, (0, 0.38, 0.72, 1))),
-        'hc_feed_kneel_idle': to_anim(bones, authored_idle(stand, kneel_pose, 1.2)),
-        'hc_feed_kneel_getup': to_anim(bones, authored_getup(
-            [feed, crouch, stand], 2.0, (0, 0.45, 1))),
+        'hc_feed_kneel_idle': to_anim(bones, _seated_feed_idle(stand)),
+        'hc_feed_kneel_getup': to_anim(bones, _seated_feed_getup(stand)),
     }
 
 
