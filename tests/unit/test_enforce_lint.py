@@ -405,6 +405,114 @@ class DependencyBridgeRule(unittest.TestCase):
             self.assertEqual(synthetic, lint.load_baseline(path))
 
 
+def _engine(parent, methods=(), fields=None):
+    return [dict(layer=3, modded=False, parent=parent, methods=set(methods), fields=fields or {})]
+
+
+ENGINE_SYMBOLS = {'classes': {
+    'Class': _engine(''),
+    'EntityAI': _engine('Class', {'GetInventory'}),
+    'ItemBase': _engine('EntityAI', {'SetQuantity'}),
+    'ItemTransmitter': _engine('ItemBase', {'GetTunedFrequency'}),
+    'TransmitterBase': _engine('ItemTransmitter'),
+    'DayZPlayerImplement': _engine('Class', {'GetIdentity'}),
+    'PlayerBase': _engine('DayZPlayerImplement', {'GetInventory'}),
+    'string': _engine('', {'Length'}),
+    'Orphan': _engine('UnknownEngineParent', {'Known'}),
+}}
+
+
+class EngineReceiverMethodRule(unittest.TestCase):
+    """HC-E012 on engine-declared receivers (synthetic symbol table, no engine claims)."""
+
+    def findings(self, text, path=W + 'Caller.c', symbols=ENGINE_SYMBOLS, support=''):
+        sources = [lint.es.Source(path, text)]
+        if support:
+            sources.append(lint.es.Source(W + 'Types.c', support))
+        return lint.lint(sources, rules=(lint.rule_receiver_methods,), symbols=symbols)
+
+    def test_engine_method_declared_on_a_subclass_is_flagged_on_every_declaration_form(self):
+        for name, text in (
+            ('member (the soak compile error)',
+             'class HCProbe { protected ItemBase m_Main; float Run() { return m_Main.GetTunedFrequency(); } }'),
+            ('parameter', 'class HCProbe { void Run(ItemBase item) { item.GetTunedFrequency(); } }'),
+            ('local', 'class HCProbe { void Run() { ItemBase item; item.GetTunedFrequency(); } }'),
+            ('after a template parameter',
+             'class HCProbe { void Run(map<string, string> a, ItemBase item) { item.GetTunedFrequency(); } }'),
+        ):
+            with self.subTest(name):
+                result = self.findings(text)
+                self.assertEqual(['HC-E012'], [f.rule for f in result])
+                self.assertIn('ItemBase has no visible method GetTunedFrequency', result[0].message)
+
+    def test_cast_inherited_and_authored_modded_methods_are_not_flagged(self):
+        for name, text, support in (
+            ('cast to the declaring subclass',
+             'class HCProbe { void Run(ItemBase item) { TransmitterBase t = TransmitterBase.Cast(item); '
+             't.GetTunedFrequency(); } }', ''),
+            ('method inherited from an engine parent',
+             'class HCProbe { void Run(ItemBase item) { item.GetInventory(); item.SetQuantity(1); } }', ''),
+            ('method added by our own modded class',
+             'class HCProbe { void Run(ItemBase item) { item.HCMark(); } }',
+             'modded class ItemBase { void HCMark() {} }'),
+            ('template parameter does not split a parameter list',
+             'class HCProbe { void Run(map<string, string> left, string name) { left.Count(); name.Length(); } }', ''),
+        ):
+            with self.subTest(name):
+                self.assertEqual([], self.findings(text, support=support))
+
+    def test_template_parameters_keep_their_own_type(self):
+        source = lint.es.Source(W + 'Caller.c', 'class HCProbe { void Run(map<string, bool> a, int b, '
+                                                'array<ref map<string, string>> c = null) {} }')
+        parameters = source.classes[0].methods[0].parameters()
+        self.assertEqual(['a', 'b', 'c'], [name for _, name, _ in parameters])
+        self.assertEqual(['map<string, bool>', 'int'], [kind for kind, _, _ in parameters[:2]])
+
+    def test_provider_bridge_files_do_not_judge_engine_receivers(self):
+        text = 'class HCProbe { void Run(DayZPlayerImplement value) { value.GetGroup(); } }'
+        for bridge in lint._PROVIDER_BRIDGES:
+            with self.subTest(bridge=bridge):
+                self.assertEqual([], self.findings(text, path=bridge))
+        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text)])
+
+    def test_provider_method_outside_a_bridge_needs_an_exact_allowlist_entry(self):
+        path = W + 'HCXDefence.c'
+        text = ('class HCXDefence { void OnShot(PlayerBase shooter) { shooter.%s(); } }')
+        self.assertEqual([], self.findings(text % 'Expansion_GetAimDirection', path=path))
+        # Same method elsewhere, another method in the same file, and another receiver type all fail.
+        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text % 'Expansion_GetAimDirection')])
+        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text % 'Expansion_Other', path=path)])
+        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(
+            text.replace('PlayerBase', 'DayZPlayerImplement') % 'Expansion_GetAimDirection', path=path)])
+
+    def test_allowlist_entries_need_a_reason_and_exact_fields(self):
+        entries = lint.load_provider_methods()
+        self.assertTrue(entries)
+        self.assertTrue(all(len(entry) == 4 for entry in entries))
+        with tempfile.TemporaryDirectory() as folder:
+            path = lint.Path(folder) / 'allow.json'
+            for entry in ({'path': 'a.c', 'symbol': 'A.B', 'receiver_type': 'PlayerBase', 'method': 'M'},
+                          {'path': 'a.c', 'symbol': 'A.B', 'receiver_type': 'PlayerBase', 'method': 'M',
+                           'reason': ' '}):
+                path.write_text(json.dumps({'schema': 1, 'entries': [entry]}), encoding='utf-8')
+                with self.assertRaises(ValueError):
+                    lint.load_provider_methods(path)
+
+    def test_unresolvable_receivers_are_skipped_not_guessed(self):
+        text = 'class HCProbe { void Run(Orphan a, UnknownType b) { a.Other(); b.Other(); } }'
+        self.assertEqual([], self.findings(text))
+        known = 'class HCProbe { void Run(Orphan a) { a.Known(); } }'
+        self.assertEqual([], self.findings(known))
+        # No symbol table, or only the committed names index: engine receivers are not judged.
+        bad = 'class HCProbe { void Run(ItemBase item) { item.GetTunedFrequency(); } }'
+        self.assertEqual([], self.findings(bad, symbols=None))
+        self.assertEqual([], self.findings(bad, symbols=dict(ENGINE_SYMBOLS, origin='names-index')))
+
+    def test_authored_receivers_are_still_checked(self):
+        text = 'class HCOwn { void A() {} } class HCProbe { void Run(HCOwn own) { own.B(); } }'
+        self.assertEqual(['HC-E012'], [f.rule for f in self.findings(text, symbols=None)])
+
+
 class NativeCompileRetroRules(unittest.TestCase):
     path = 'mods/HollowCountry/scripts/4_World/Probe.c'
 

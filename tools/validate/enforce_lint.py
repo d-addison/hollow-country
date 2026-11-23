@@ -36,6 +36,7 @@ from tools.validate import native_symbols
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).with_name('enforce_lint_baseline.json')
 STORAGE_ALLOWLIST = Path(__file__).with_name('enforce_lint_storage_allowlist.json')
+PROVIDER_METHODS = Path(__file__).with_name('enforce_lint_provider_methods.json')
 WORKSHOP_ROOT = Path('/mnt/e/HollowCountryLocal/friend-local-1')
 DEFAULT_CACHE = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289')
 # Vanilla 1.30.164289 4_World/Entities/GardenBase/Slot.c declares class Slot(float); an authored
@@ -164,6 +165,10 @@ class Project:
         self._receiver_cache = {}
         self.provider_layers = provider_layers or {}
         self.storage_allowlist = load_storage_allowlist()
+        self.provider_methods = load_provider_methods()
+        # The committed names index is not the engine method table; only a real
+        # extracted-scripts cache may judge calls on engine-declared receivers.
+        self.engine_receivers = bool(self.symbols) and (symbols or {}).get('origin') != 'names-index'
         self.links, self.types, self.enums, self.typedefs = {}, {}, set(), {}
         for source in sources:
             for definition in source.classes:
@@ -641,6 +646,27 @@ def load_storage_allowlist(path=STORAGE_ALLOWLIST):
     return entries
 
 
+def load_provider_methods(path=PROVIDER_METHODS):
+    """Engine receivers that call a Workshop-provider method outside a bridge.
+
+    Packed providers (Expansion, CF, COT) add methods to engine classes through
+    modded bodies we cannot index. Each entry names the exact file, calling
+    method, engine receiver type and called method, with a reason; anything
+    broader fails closed. These are possible dependency-boundary violations that
+    are parked here until a bridge owns the call, not approvals of the pattern.
+    """
+    data = json.loads(Path(path).read_text(encoding='utf-8'))
+    if data.get('schema') != 1 or not isinstance(data.get('entries'), list):
+        raise ValueError('invalid provider method allowlist')
+    entries = set()
+    for entry in data['entries']:
+        keys = ('path', 'symbol', 'receiver_type', 'method', 'reason')
+        if not all(isinstance(entry.get(k), str) and entry[k].strip() for k in keys):
+            raise ValueError('provider method exception requires ' + ', '.join(keys))
+        entries.add(tuple(entry[k] for k in keys[:4]))
+    return entries
+
+
 def workshop_class_layers(names, root=WORKSHOP_ROOT):
     """Read available provider .c declarations only, never unpack or copy mods.
 
@@ -1043,6 +1069,7 @@ _EXPANSION_PLAYER_PORTS = {'GetGroup', 'SetGroup', 'GetTargetInformation'}
 
 _COT_BRIDGE = 'mods/HollowCountryExpansionAI/scripts/4_World/HCXCotPermissions.c'
 _CF_BRIDGE = 'mods/HollowCountryExpansionAI/scripts/4_World/HCXCFBridge.c'
+_PROVIDER_BRIDGES = frozenset({_EXPANSION_BRIDGE, _COT_BRIDGE, _CF_BRIDGE})
 _DEPENDENCY_GLOBALS = {
     'GetPermissionsManager': ('JMPermissionManager', _COT_BRIDGE),
     'GetRPCManager': ('RPCManager', _CF_BRIDGE),
@@ -1747,10 +1774,15 @@ def rule_fresh_arguments(project, source):
 def rule_receiver_methods(project, source):
     """Resolve explicit typed receivers; no cast, return-type or auto inference.
 
-    Start only with types originally declared in our mods, not engine/provider
-    types that we merely mod. Provider method tables are unavailable here.
-    Ancestors may be engine classes. Field chains retain declared types,
-    never the runtime subtype. Incomplete ancestor chains are skipped.
+    Receivers typed with our own classes, and (with a real native-scripts cache)
+    engine classes, are checked. Ancestors may be engine classes. Field chains
+    retain declared types, never the runtime subtype. Incomplete ancestor
+    chains and generic specializations are skipped.
+
+    Packed providers add methods to engine classes through modded bodies that
+    cannot be indexed. Engine receivers are therefore not judged inside the
+    dependency bridges (the only files allowed to call provider APIs); a call
+    elsewhere needs an exact, reasoned entry in enforce_lint_provider_methods.json.
     """
     for method in _all_methods(source):
         fields = (project.receiver_members(method.owner.name, source.layer)[1]
@@ -1782,13 +1814,20 @@ def rule_receiver_methods(project, source):
             kind = project.resolve_typedef(kind)
             # Generic specializations and template parameters need substitution;
             # skip them instead of resolving against an unrelated concrete type.
-            if kind not in project.types or kind not in project.links or '<' in kind:
+            engine_kind = kind in project.symbols and kind not in project.types
+            if engine_kind:
+                if not project.engine_receivers or source.rel in _PROVIDER_BRIDGES:
+                    continue
+            elif kind not in project.types or kind not in project.links:
+                continue
+            if '<' in kind:
                 continue
             layers = project.types.get(kind, set()) - {None}
             if layers and source.layer is not None and min(layers) > source.layer:
                 continue  # E013 owns invisible receiver types
             methods, _, complete = project.receiver_members(kind, source.layer)
-            if complete and call[2] not in methods:
+            if (complete and call[2] not in methods
+                    and (source.rel, _symbol(method), kind, call[2]) not in project.provider_methods):
                 yield _finding('HC-E012', source, offset, _symbol(method),
                                f'{call[1]}.{call[2]}: {kind} has no visible method {call[2]} '
                                '(including parents and modded bodies)',
