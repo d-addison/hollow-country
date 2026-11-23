@@ -30,6 +30,9 @@ class Generator:
     # Generators whose outputs are bound in config/generated-digests.json; a repo-local derived
     # document set (the pitfall cards) is compared by its own --check and has no digest contract.
     digest: bool = True
+    # Seconds per child when the global --timeout is lower (0 = use the global value). Set only from a
+    # measured worst case with 3x headroom, never as a blanket raise.
+    timeout: int = 0
 
 
 # All check-capable generators live here, including positional check subcommands.
@@ -37,10 +40,15 @@ GENERATORS = (
     Generator('admin_world_catalog', ('--check',)),
     Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),
+    # Measured 2026-11-22 on this WSL host with other workers loading /mnt/d and /mnt/g (118 vanilla
+    # PBOs, 13 Workshop dirs; every PBO open costs about 12 ms there). Direct --check child: 6-7 s.
+    # Digest compare child (regenerate + installed snapshot, both reading the PBOs once now): quiet
+    # host 14-22 s, loaded host up to 45.5 s (inventory_sizes) and 25.7 s (variety_packs).
+    # Timeout = 3 x the loaded worst case, rounded: 150 s and 80 s.
     Generator('inventory_sizes', ('--check', '--addons', '{addons}', '--workshop', '{workshop}'),
-              ('addons', 'inventory_stack')),
+              ('addons', 'inventory_stack'), timeout=150),
     Generator('variety_packs', ('--check', '--addons', '{addons}', '--workshop', '{workshop}', '--source', '{source}'),
-              ('addons', 'source', 'variety_packs')),
+              ('addons', 'source', 'variety_packs'), timeout=80),
     Generator('firearms', ('generate', '--check', '--source', '{source}'), ('source',),
               'committed bytes match fresh generation'),
     Generator('loot_point_preserve', ('--check', '--prior', '{prior}', '--candidate', '{candidate}',
@@ -114,6 +122,7 @@ def missing_inputs(generator, values):
 
 
 def check_generator(generator, values, timeout):
+    timeout = max(timeout, generator.timeout)
     missing = missing_inputs(generator, values)
     if missing:
         return 'SKIP', missing

@@ -307,3 +307,42 @@ class InventorySizes(unittest.TestCase):
             definitions, _ = inv.load_vanilla(tmp)
             with self.assertRaisesRegex(ValueError, 'ambiguous'):
                 inv.select_changes(definitions, self.rules)
+
+
+class BufferedPboReading(unittest.TestCase):
+    """inventory_sources.read_index/iter_members must stay byte-for-byte equal to the audit reader."""
+
+    def test_index_and_members_match_the_audit_reader(self):
+        from tools.audit import pbo_config
+        raw = synthetic_pbo({'config.bin': b'\0raPdata', 'Sub/Config.cpp': b'class A {};', 'x.paa': b'12'})
+        with tempfile.TemporaryDirectory(prefix='hc-inventory-synthetic-') as tmp:
+            path = Path(tmp) / 'gear_tools.pbo'
+            path.write_bytes(raw)
+            self.assertEqual(inv.inventory_sources.read_index(path), pbo_config.read_pbo_index(path))
+            index = pbo_config.read_pbo_index(path)
+            names = ['sub/config.cpp', 'config.bin', 'missing.bin']
+            self.assertEqual(dict(inv.inventory_sources.iter_members(path, index, names)),
+                             {n: pbo_config.read_member(path, index, n) for n in names})
+            with self.assertRaises(ValueError):
+                list(inv.inventory_sources.iter_members(path, index, ['config.bin'], max_bytes=3))
+            with self.assertRaises(ValueError):
+                inv.inventory_sources.read_index(path, max_entries=2)
+            with self.assertRaises(ValueError):
+                inv.inventory_sources.read_index(path, max_header_bytes=30)
+            path.write_bytes(raw[:25])
+            with self.assertRaises(ValueError):
+                inv.inventory_sources.read_index(path)
+
+    def test_documents_are_memoised_only_while_the_files_are_unchanged(self):
+        first = klass(CfgPatches=klass(P=klass()), CfgVehicles=klass(A=klass('Inventory_Base', scope=2)))
+        second = klass(CfgPatches=klass(P=klass()), CfgVehicles=klass(
+            A=klass('Inventory_Base', scope=2), B=klass('Inventory_Base', scope=2)))
+        with tempfile.TemporaryDirectory(prefix='hc-inventory-synthetic-') as tmp:
+            path = Path(tmp) / 'gear_tools.pbo'
+            path.write_bytes(synthetic_pbo({'config.bin': rap(first)}))
+            args = (tmp, 'vanilla', inv.FIELDS, inv._config_rows)
+            one = inv.inventory_sources.documents(*args, vanilla=True)
+            self.assertEqual(inv.inventory_sources.documents(*args, vanilla=True), one)
+            path.write_bytes(synthetic_pbo({'config.bin': rap(second)}))
+            rows = inv.inventory_sources.documents(*args, vanilla=True)[0][0]['rows']
+            self.assertEqual(sorted(rows), ['A', 'B'])

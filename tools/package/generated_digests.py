@@ -184,7 +184,6 @@ def installed_snapshot(contract, values):
                 raise MissingInput('inventory provider Addons unavailable')
             # Match inventory_sources.documents: pin the config member bytes it reads,
             # and the opaque file inventory. No multi-gigabyte asset hashing needed.
-            from tools.audit import pbo_config as reader
             members = {}
             families = ('characters_', 'gear_', 'weapon_', 'weapons_', 'vehicles_')
             for path in sorted(directory.iterdir(), key=lambda p: p.name.lower()):
@@ -195,18 +194,20 @@ def installed_snapshot(contract, values):
                     continue
                 if provider == 'vanilla' and not (path.name.startswith(families) or path.name in {'dz.pbo', 'plants.pbo'}):
                     continue
-                index = reader.read_pbo_index(path)
+                # One buffered index and one open per PBO (same bytes as the audit reader).
+                index = sources.read_index(path)
                 entries = index['entries']
                 bins = {e['name'].lower().replace('\\', '/')[:-3] for e in entries
                         if e['name'].lower().endswith('config.bin')}
-                members[path.name] = {}
+                wanted = []
                 for entry in entries:
                     member = entry['name'].lower().replace('\\', '/')
                     if not member.endswith(('config.bin', 'config.cpp')):
                         continue
                     if member.endswith('.cpp') and member[:-3] in bins:
                         continue
-                    members[path.name][entry['name']] = sha(reader.read_member(path, index, entry['name']))
+                    wanted.append(entry['name'])
+                members[path.name] = {name: sha(data) for name, data in sources.iter_members(path, index, wanted)}
             if not members:
                 raise MissingInput('inventory provider file list empty')
             identities['provider/' + provider] = sha(json.dumps(members, sort_keys=True).encode())

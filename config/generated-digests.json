@@ -4921,7 +4921,7 @@
         "tools/package/datamined_items.json": "dacc16e3ee52d3af59866eff013d4643ee1e7a954f114ea347e6d76b85fc09db",
         "tools/package/essential_routes.json": "4ddc26e65acf42a865ed0988e22eea78286731a03fca23261f277bf3c1d9475e",
         "tools/package/firearms_roster.json": "17e313d7b7d8af07ce3e43ef6ad0f9a2982c3d0c98a428b930813b3bd3813c41",
-        "tools/package/generated_digests.py": "90cc703f01343b08867c7d0356d519cb7a121400c418acbc17beec5213fdf226",
+        "tools/package/generated_digests.py": "e5f36971bf5da811746132d91fb1771ecbb22b40629ec73162a4a2c94773a45d",
         "tools/package/interior_prop_boxes.json": "a6e1379b86231cd8872ff9e60536a930949a6d4960cd22f8d00f1c8c1fbb6c7f",
         "tools/package/interior_themes/coverage-layouts-000.json": "50b7737e144a923cd74f874ae6d422482bd5911f5762ad0b48ee550b810f0211",
         "tools/package/interior_themes/coverage-layouts-001.json": "73661cb412274af21376efe62cf13c54960e4c5f06023d8e8e6067f4123376bb",
@@ -4936,13 +4936,13 @@
         "tools/package/interior_themes/coverage-layouts-010.json": "3350edeea87f4320bd15f3e9e9d4776cfedf58aa7bf5f5628e109cb70909174f",
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
-        "tools/package/inventory_sizes.py": "368651e2fb42baace7ad78bca1f120e74c1f6122af044562cc2417e4aa155557",
-        "tools/package/inventory_sources.py": "d0a32a81ac53b0b9a77dceb55fb7c2b6cbe704a1045100099e7e9b2a8ab5ae9d",
+        "tools/package/inventory_sizes.py": "d77716acf886dbec71e74294ad10e53619333ee99e64dc71b0064a5b6d5d5b01",
+        "tools/package/inventory_sources.py": "64991d8cb1e40f94dc5413ede2e421e59c3060f4e0168f04819646d3c0c0ae68",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "02a9e006732e90a53827da94e1015599ea67fbba53f6b5ac891f726ec0660561",
+        "tools/package/regenerate_all.py": "748e8d766c42646ab68300ea4b4a8597abb4069b7c94104adc0301b1568e4255",
         "tools/package/snafu_allowlist.json": "68373aa2f4bac54b57e83ad432d9394eb587f68f128034e56d224489d3d04b97",
         "tools/package/tactical_flava_allowlist.json": "5850d8e72859933eec806ef101701bf740f5ddcddc64dac77a9ba44025bcfc9f",
-        "tools/package/weapon_pack_sizes.json": "75b563203eb7203a60320e7e059192a0958078bbb82ae1f44edca17119d019d6",
+        "tools/package/weapon_pack_sizes.json": "05e89c36e5dab086b8f53740de651ee986041a85f6d4e63d3d34b3ac3366808f",
         "tools/setup/workshop_mods.json": "1d08f9af1bddeea0cb6a70fb5e06e1e200d573baa3581ff4bec8e3108f21ab98"
       },
       "installed": {
@@ -4964,7 +4964,7 @@
       "outputs": {
         "mods/HollowCountry/config.cpp": "a4100fcd1bc24c0edba9b134bd18406efd406e31aa5aa1ca8bda3e74750d552d",
         "mods/HollowCountryExpansionAI/config.cpp": "60d75a94b014f4d195af4cdb5607b67672fc673947509862832978652723f1ea",
-        "tools/package/weapon_pack_sizes.json": "75b563203eb7203a60320e7e059192a0958078bbb82ae1f44edca17119d019d6"
+        "tools/package/weapon_pack_sizes.json": "05e89c36e5dab086b8f53740de651ee986041a85f6d4e63d3d34b3ac3366808f"
       },
       "verified": true
     },
@@ -7949,7 +7949,7 @@
         "tools/package/datamined_items.json": "dacc16e3ee52d3af59866eff013d4643ee1e7a954f114ea347e6d76b85fc09db",
         "tools/package/essential_routes.json": "4ddc26e65acf42a865ed0988e22eea78286731a03fca23261f277bf3c1d9475e",
         "tools/package/firearms_roster.json": "17e313d7b7d8af07ce3e43ef6ad0f9a2982c3d0c98a428b930813b3bd3813c41",
-        "tools/package/generated_digests.py": "90cc703f01343b08867c7d0356d519cb7a121400c418acbc17beec5213fdf226",
+        "tools/package/generated_digests.py": "e5f36971bf5da811746132d91fb1771ecbb22b40629ec73162a4a2c94773a45d",
         "tools/package/interior_prop_boxes.json": "a6e1379b86231cd8872ff9e60536a930949a6d4960cd22f8d00f1c8c1fbb6c7f",
         "tools/package/interior_themes/coverage-layouts-000.json": "50b7737e144a923cd74f874ae6d422482bd5911f5762ad0b48ee550b810f0211",
         "tools/package/interior_themes/coverage-layouts-001.json": "73661cb412274af21376efe62cf13c54960e4c5f06023d8e8e6067f4123376bb",
@@ -7964,14 +7964,14 @@
         "tools/package/interior_themes/coverage-layouts-010.json": "3350edeea87f4320bd15f3e9e9d4776cfedf58aa7bf5f5628e109cb70909174f",
         "tools/package/interior_themes/home-layouts.json": "7e6687c50044bfc00fa06cd11bd8c0c6061e76a80bb9e0d66221a20bf9ef7bae",
         "tools/package/interior_themes/service-layouts.json": "b7a96fda43901726c19ccadf4f20937a540fa82aadd1d4a4d3eb5ea3eab03641",
-        "tools/package/inventory_sources.py": "d0a32a81ac53b0b9a77dceb55fb7c2b6cbe704a1045100099e7e9b2a8ab5ae9d",
+        "tools/package/inventory_sources.py": "64991d8cb1e40f94dc5413ede2e421e59c3060f4e0168f04819646d3c0c0ae68",
         "tools/package/military_loot_allowlist.json": "f78d0d6ba9576e0ee02f71d6dd28e016b8f5ee03c816787f6238d7c19ab43c52",
-        "tools/package/regenerate_all.py": "02a9e006732e90a53827da94e1015599ea67fbba53f6b5ac891f726ec0660561",
+        "tools/package/regenerate_all.py": "748e8d766c42646ab68300ea4b4a8597abb4069b7c94104adc0301b1568e4255",
         "tools/package/snafu_allowlist.json": "68373aa2f4bac54b57e83ad432d9394eb587f68f128034e56d224489d3d04b97",
         "tools/package/tactical_flava_allowlist.json": "5850d8e72859933eec806ef101701bf740f5ddcddc64dac77a9ba44025bcfc9f",
         "tools/package/variety_optional.py": "a48ecb68d58fb4248af9846514dca3f529e0bf18d9fa2c6b6c8bd83e0512f3dc",
-        "tools/package/variety_packs.py": "9025b1f50125cef23e3177a05333fef7689119ab74b3f341113c6002ade6f6a1",
-        "tools/package/weapon_pack_sizes.json": "75b563203eb7203a60320e7e059192a0958078bbb82ae1f44edca17119d019d6",
+        "tools/package/variety_packs.py": "e235b2537accec2edbce093246ab07eeb9c5f56aa535aa67b1c598f79f52e607",
+        "tools/package/weapon_pack_sizes.json": "05e89c36e5dab086b8f53740de651ee986041a85f6d4e63d3d34b3ac3366808f",
         "tools/setup/workshop_mods.json": "1d08f9af1bddeea0cb6a70fb5e06e1e200d573baa3581ff4bec8e3108f21ab98"
       },
       "installed": {

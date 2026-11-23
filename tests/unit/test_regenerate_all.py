@@ -100,8 +100,9 @@ class RegenerateAllTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             values = dict(addons=Path(temp), workshop=Path(temp), source=Path(temp),
                           snafu_report=Path(temp) / 'snafu.json', tactical_flava_report=Path(temp) / 'tf.json')
+            current = [None]
             def run(command, **kwargs):
-                self.assertEqual(7, kwargs['timeout'])
+                self.assertEqual(max(7, current[0].timeout), kwargs['timeout'])
                 self.assertEqual(regen.ROOT, kwargs['cwd'])
                 self.assertTrue(kwargs['capture_output'])
                 if command[:2] == ['git', 'show']:
@@ -116,9 +117,24 @@ class RegenerateAllTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 0, 'ok', '')
             with patch.object(regen, 'missing_inputs', return_value=None), patch.object(regen.subprocess, 'run', side_effect=run) as child:
                 for generator in regen.GENERATORS:
+                    current[0] = generator
                     self.assertEqual('PASS', regen.check_generator(generator, values, 7)[0])
             expected = sum(bool(g.arguments) + bool(g.digest) for g in regen.GENERATORS) + len(regen.LOOT_REVISIONS)
             self.assertEqual(expected, child.call_count)
+
+    def test_generator_timeout_only_raises_the_global_default(self):
+        measured = [g for g in regen.GENERATORS if g.timeout]
+        self.assertTrue(measured)
+        for generator in measured:
+            self.assertGreater(generator.timeout, 60)
+            values = {name: Path('/nonexistent') for name in ('addons', 'workshop', 'source')}
+            with patch.object(regen, 'missing_inputs', return_value=None), \
+                    patch.object(regen.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'ok', '')) as run:
+                regen.check_generator(generator, values, 60)
+                self.assertEqual({generator.timeout}, {call.kwargs['timeout'] for call in run.call_args_list})
+                run.reset_mock()
+                regen.check_generator(generator, values, 900)
+                self.assertEqual({900}, {call.kwargs['timeout'] for call in run.call_args_list})
 
     def test_failed_history_is_failure_not_skip(self):
         generator = next(g for g in regen.GENERATORS if g.name == 'loot_point_preserve')
