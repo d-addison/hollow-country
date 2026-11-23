@@ -140,6 +140,7 @@ class HCWorldMaterializer : HCModule
     protected float m_CustodyStepTime = -1;
     protected ref HCWorkBudget m_CustodyStepBudget = new HCWorkBudget;
     protected bool m_CustodyFailurePrinted;
+    protected bool m_CustodyWitnessRetireFailurePrinted;
     protected string m_CustodyPath = "$profile:HollowCountry/ai-custody.json";
     protected int m_DuplicateRefused;
     protected int m_Proposals;
@@ -904,7 +905,7 @@ class HCWorldMaterializer : HCModule
         bool loaded = this.HCLoadCustodyImage();
         string basePath = "$profile:HollowCountry/ai-custody.json";
         int depth = (m_CustodyPath.Length() - basePath.Length()) / 4;
-        Print("[HC " + GetName() + "] custody_load path=" + m_CustodyPath + " relocation_depth=" + depth.ToString() + " loaded=" + loaded.ToString());
+        Print("[HC " + GetName() + "] custody_load file=ai-custody.json relocation_depth=" + depth.ToString() + " loaded=" + loaded.ToString());
         return loaded;
     }
 
@@ -1196,7 +1197,9 @@ class HCWorldMaterializer : HCModule
         if (!m_CustodyFailurePrinted)
         {
             m_CustodyFailurePrinted = true;
-            Print("[HC " + GetName() + "] CUSTODY SAVE FAILED path=" + m_CustodyPath + " stage=" + m_CustodyFailedStage.ToString() + "; ALL NEW AI BLOCKED; inspect active path and intent before restart runtime=PENDING");
+            string failedBase = "$profile:HollowCountry/ai-custody.json";
+            int failedDepth = (m_CustodyPath.Length() - failedBase.Length()) / 4;
+            Print("[HC " + GetName() + "] CUSTODY SAVE FAILED file=ai-custody.json relocation_depth=" + failedDepth.ToString() + " stage=" + m_CustodyFailedStage.ToString() + "; ALL NEW AI BLOCKED; inspect active path and intent before restart runtime=PENDING");
         }
         return false;
     }
@@ -1255,7 +1258,18 @@ class HCWorldMaterializer : HCModule
         if (m_CustodyStage == 6)
         {
             HCSaveJob.HCOperation = "custody_restore_witness_retire";
-            if (!DeleteFile("$profile:HollowCountry/ai-custody.json.restore_pending")) { return HCSaveJob.STEP_FAILED; }
+            if (!DeleteFile("$profile:HollowCountry/ai-custody.json.restore_pending"))
+            {
+                // The checkpoint committed and verified: the witness is housekeeping. Keep it and
+                // m_CustodyReseedUnsafe set (stage 5 retries the delete at every later checkpoint).
+                if (!m_CustodyWitnessRetireFailurePrinted)
+                {
+                    m_CustodyWitnessRetireFailurePrinted = true;
+                    Print("[HC " + GetName() + "] custody_restore_witness_retire_failed file=ai-custody.json.restore_pending action=retain_retry_next_checkpoint");
+                }
+                HCModuleReadiness.HCUse(GetName(), "custody_restore_witness_retire_failed");
+                return this.HCFinishCustodySnapshot();
+            }
             m_CustodyRestoreWitness = false;
             m_CustodyReseedUnsafe = false;
             return this.HCFinishCustodySnapshot();

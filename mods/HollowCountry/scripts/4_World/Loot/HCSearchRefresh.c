@@ -551,14 +551,41 @@ class HCSearchRefreshStore
         return state;
     }
 
+    protected static bool s_RecoveryUnavailablePrinted;
+
+    // EnSystem.c:397/417/425. An existing file that cannot be opened or read is
+    // unavailable, never empty: HCReadRaw folds both into false/"" and an
+    // unreadable intent would be archived as unverifiable. Empty or oversize
+    // content that was read stays "" (invalid) for the caller's Decode.
+    protected bool ReadRecoveryFile(string path, out string text)
+    {
+        text = "";
+        if (!FileExist(path)) { return true; }
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int count = ReadFile(handle, text, MAX_BYTES + 1);
+        CloseFile(handle);
+        if (count < 0) { text = ""; return false; }
+        if (count < 1 || count > MAX_BYTES || text.Length() < 1 || text.Length() > MAX_BYTES) { text = ""; }
+        return true;
+    }
+
     protected bool RecoverIntent()
     {
         // Recovery promotes, restores or discards the primary outside the image writer.
         HCStagedSaveImage.HCForget(PATH);
         string primaryText;
         string intentText;
-        HCGroupIO.HCReadRaw(PATH, MAX_BYTES, primaryText);
-        HCGroupIO.HCReadRaw(PATH + ".tmp", MAX_BYTES, intentText);
+        if (!ReadRecoveryFile(PATH, primaryText) || !ReadRecoveryFile(PATH + ".tmp", intentText))
+        {
+            // Keep primary, intent and backup untouched; Open() faults and the next boot retries.
+            if (!s_RecoveryUnavailablePrinted)
+            {
+                s_RecoveryUnavailablePrinted = true;
+                Print("[HC Search Refresh] intent_read_unavailable file=search-refresh.json action=retain_retry_next_boot");
+            }
+            return false;
+        }
         HCSearchRefreshState primary = Decode(primaryText);
         HCSearchRefreshState intent = Decode(intentText);
         if (!primary) { primaryText = ""; }
@@ -569,7 +596,7 @@ class HCSearchRefreshStore
         if (!primary && intent && FileExist(PATH + ".bak"))
         {
             string backupText;
-            HCGroupIO.HCReadRaw(PATH + ".bak", MAX_BYTES, backupText);
+            if (!ReadRecoveryFile(PATH + ".bak", backupText)) { return false; }
             HCSearchRefreshState backup = Decode(backupText);
             if (!backup || backup.LastUtc > intent.LastUtc) { return false; }
         }
