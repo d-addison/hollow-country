@@ -52,7 +52,8 @@
     "Police": 8.0,
     "Prison": 6.0,
     "School": 2.5,
-    "Town": 1.2
+    "Town": 1.2,
+    "Village": 3.0
   },
   "GroupLootmaxCap": {
     "Default": 80,
