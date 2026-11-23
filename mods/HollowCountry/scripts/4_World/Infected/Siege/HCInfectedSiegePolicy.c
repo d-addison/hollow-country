@@ -1,8 +1,9 @@
 // Siege policy (wh-nav-c, 2026-11-22): pure decisions for the infected siege of an elevated haven.
 // The engine gives infected no ladder and no climb, so a player on a roof, container or tower is
 // sieged instead of faked-at: the infected that gave up make real
-// noise at their own position, and a bounded number of hidden reinforcements are sent. Nothing here
-// reads the engine; HCInfectedSiege.c owns every engine call.
+// noise at their own position, amplified through the native noise strength multiplier so the ambient
+// population hears it from a wider perimeter. A siege never spawns infected (owner 2026-11-23, #354).
+// Nothing here reads the engine; HCInfectedSiege.c owns every engine call.
 // Native evidence, installed scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print;
 // 1_Core/proto/EnConvert.c:30,115 int/float ToString; EnMath.c AbsFloat, Sqrt.
@@ -13,8 +14,18 @@ class HCInfectedSiegeConfig
     bool Enabled = true;
     float GatherSeconds = 8;
     float NoiseSeconds = 20;
+    // Multiplier on the siege noise strength (NoiseSystem.AddNoisePos external_strenght_multiplier).
+    // Arithmetic: the installed config entry CfgVehicles SurvivorBase NoiseActionDefault has strength = 10
+    // (characters_data.pbo config.bin, 1.30.164289; the shipped game, not the scripts). Taking strength as
+    // metres of hearing radius (the unobserved assumption the old reinforce ring also made; the engine's
+    // exact mapping is not in the scripts), 10 m x 17 = 170 m, inside the 150-200 m aim, before the
+    // environment reduction (Noise.c:13, an absolute subtraction) which only shortens it. The runtime clamp
+    // (HCInfectedSiegePolicy.HCNoiseMultiplier) keeps strength x multiplier at or under 250 m.
+    float NoiseStrengthMultiplier = 17;
     int MaxSieges = 8;
-    int ReinforcePerPlayerWindow = 4;
+    // Retired 2026-11-23: a siege never spawns infected. Still decoded and registered so an operator file that
+    // sets it loads; the value is ignored and a non-zero one is reported once at start.
+    int ReinforcePerPlayerWindow = 0;
 
     protected string m_LastRefusal;
     void HCRefuse(string reason)
@@ -46,13 +57,15 @@ class HCInfectedSiegeConfig
         if (HCJsonFields.Has(text, "Enabled")) { Enabled = decoded.Enabled; }
         if (HCJsonFields.Has(text, "GatherSeconds") && HCValid("GatherSeconds", decoded.GatherSeconds, 3, 60)) { GatherSeconds = decoded.GatherSeconds; }
         if (HCJsonFields.Has(text, "NoiseSeconds") && HCValid("NoiseSeconds", decoded.NoiseSeconds, 10, 120)) { NoiseSeconds = decoded.NoiseSeconds; }
+        if (HCJsonFields.Has(text, "NoiseStrengthMultiplier") && HCValid("NoiseStrengthMultiplier", decoded.NoiseStrengthMultiplier, 1, 25)) { NoiseStrengthMultiplier = decoded.NoiseStrengthMultiplier; }
         if (HCJsonFields.Has(text, "MaxSieges") && HCValid("MaxSieges", decoded.MaxSieges, 1, 8)) { MaxSieges = decoded.MaxSieges; }
         if (HCJsonFields.Has(text, "ReinforcePerPlayerWindow") && HCValid("ReinforcePerPlayerWindow", decoded.ReinforcePerPlayerWindow, 0, 8)) { ReinforcePerPlayerWindow = decoded.ReinforcePerPlayerWindow; }
+        if (ReinforcePerPlayerWindow != 0) { Print("[HC Nav] siege retired key ignored key=ReinforcePerPlayerWindow value=" + ReinforcePerPlayerWindow.ToString() + " (a siege never spawns infected; safe to remove) runtime=PENDING"); }
     }
 
     void HCLog()
     {
-        Print("[HC Nav] siege effective Enabled=" + HCV2Admission.OnOff(Enabled) + " GatherSeconds=" + GatherSeconds.ToString() + " NoiseSeconds=" + NoiseSeconds.ToString() + " MaxSieges=" + MaxSieges.ToString() + " ReinforcePerPlayerWindow=" + ReinforcePerPlayerWindow.ToString() + " runtime=PENDING");
+        Print("[HC Nav] siege effective Enabled=" + HCV2Admission.OnOff(Enabled) + " GatherSeconds=" + GatherSeconds.ToString() + " NoiseSeconds=" + NoiseSeconds.ToString() + " NoiseStrengthMultiplier=" + NoiseStrengthMultiplier.ToString() + " MaxSieges=" + MaxSieges.ToString() + " runtime=PENDING");
     }
 }
 
@@ -75,19 +88,10 @@ class HCInfectedSiegePolicy
     static const int LADDER_SCAN = 8;
     // The bottom of a world-space ladder lies within this of its building.
     static const float LADDER_SPACE_METRES = 50;
-    // Reinforcement: one batch per siege, at most 2 bodies and 6 attempts, 3 s apart; the per-player
-    // window is the cap on bodies a single player can draw in 10 minutes.
-    static const int REINFORCE_BATCH = 2;
-    static const int REINFORCE_TRIES = 6;
-    static const float REINFORCE_GAP_SECONDS = 3;
-    static const float REINFORCE_WINDOW_SECONDS = 600;
-    static const int WINDOW_SLOTS = 8;
-    // Hidden spawn ring (HCHordeReinforce.HCHidden needs 300 m from every player), centred on the real
-    // siege noise. The ring never lies beyond the noise's hearing radius, so a spawn is refused (never
-    // moved closer or steered) when the radius is shorter than the ring.
-    static const float RING_MIN_METRES = 320;
-    static const float RING_MAX_METRES = 360;
-    static const float RING_SAMPLE_METRES = 20;
+    // The strength of NoiseActionDefault in the installed config (10), used only when the config read gives
+    // nothing. The siege noise is never allowed an effective strength above NOISE_RADIUS_CAP_METRES.
+    static const float NOISE_BASE_STRENGTH = 10;
+    static const float NOISE_RADIUS_CAP_METRES = 250;
     static const int START_LINES = 8;
     static const int START_LINE_EVERY = 16;
 
@@ -122,36 +126,19 @@ class HCInfectedSiegePolicy
         return vector.Distance(bottom, host) <= LADDER_SPACE_METRES;
     }
 
-    // The outer ring distance for a hearing radius: the ring maximum, cut to the radius.
-    static float HCRingMax(float radius)
+    // The multiplier the siege noise really uses: the requested one, at least 1 (vanilla strength) and never
+    // so large that base strength x multiplier passes the radius cap. A base strength of 0 or less (entry
+    // absent or unreadable) falls back to the installed value so the cap still bites.
+    static float HCNoiseMultiplier(float requested, float baseStrength)
     {
-        if (radius < RING_MAX_METRES) { return radius; }
-        return RING_MAX_METRES;
-    }
-
-    // A ring exists only when the hearing radius reaches the inner ring distance.
-    static bool HCRingFits(float radius)
-    {
-        return radius >= RING_MIN_METRES;
-    }
-
-    // A spawn point hears the noise only when it lies within the radius.
-    static bool HCHears(float distance, float radius)
-    {
-        return distance <= radius;
-    }
-
-    static int HCBatch(int cap, int used)
-    {
-        int remaining = cap - used;
-        if (remaining < 1) { return 0; }
-        if (remaining > REINFORCE_BATCH) { return REINFORCE_BATCH; }
-        return remaining;
-    }
-
-    static bool HCWindowExpired(float now, float start)
-    {
-        return now - start >= REINFORCE_WINDOW_SECONDS;
+        float perUnit = baseStrength;
+        if (!(perUnit > 0)) { perUnit = NOISE_BASE_STRENGTH; }
+        float ceiling = NOISE_RADIUS_CAP_METRES / perUnit;
+        float used = requested;
+        if (!(used >= 1)) { used = 1; }
+        if (used > ceiling) { used = ceiling; }
+        if (used < 1) { used = 1; }
+        return used;
     }
 
     // A start line is printed for the first few sieges, then every START_LINE_EVERY-th.
