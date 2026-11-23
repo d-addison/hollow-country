@@ -71,9 +71,6 @@ COMPILE_PITFALLS = (
     ('Bitwise operator in a float expression',
      '`&`, `|`, `^`, `<<` and `>>` inside a float expression fail the native compile. Keep bitwise work in '
      'int-only statements and convert afterwards.'),
-    ('Reading a field the class no longer has',
-     'Removing or renaming a field leaves readers in other files compiling only until the native pass. '
-     'Search every file of the modded-class chain for the old name before reporting done.'),
     ('Modded override with a different signature',
      'A modded override must match the native signature exactly (name, parameter types, return type). Open the '
      'installed native script and copy the declaration.'),

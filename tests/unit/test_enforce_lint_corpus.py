@@ -14,7 +14,7 @@ from tools.validate import enforce_lint_syntax as syntax
 
 CORPUS = Path(__file__).resolve().parents[1] / 'fixtures' / 'enforce_lint'
 DEFAULT_PATH = 'mods/HollowCountry/scripts/4_World/Fixture/Fixture.c'
-RULE_IDS = ('HC-E026', 'HC-E036', 'HC-E046', 'HC-E048', 'HC-E049')
+RULE_IDS = ('HC-E026', 'HC-E036', 'HC-E046', 'HC-E048', 'HC-E049', 'HC-E050')
 MIN_BAD, MIN_GOOD = 5, 3
 
 
@@ -87,6 +87,16 @@ class RuleDetails(unittest.TestCase):
         self.assertEqual(1, len(found))
         self.assertIn('m_Port.Walker.m_PartnerGroup', found[0].message)
         self.assertIn('HCXAICaravanAdapter', found[0].message)
+
+    def test_renamed_field_names_the_stale_read_and_the_class(self):
+        found = findings_for('HC-E050', CORPUS / 'HC-E050' / 'bad_renamed_field_read_by_subclass.c')
+        self.assertEqual(1, len(found))
+        self.assertEqual('HCW38SituationSmokeStock.HCStep', found[0].symbol)
+        self.assertTrue(found[0].message.startswith('Actor:'))
+
+    def test_one_finding_per_name_and_line(self):
+        found = findings_for('HC-E050', CORPUS / 'HC-E050' / 'bad_read_in_return_and_comparison.c')
+        self.assertEqual([10, 11], [f.line for f in found])
 
 
 if __name__ == '__main__':
