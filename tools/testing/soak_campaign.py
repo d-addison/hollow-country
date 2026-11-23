@@ -924,6 +924,31 @@ class Stager:
 
 # ------------------------------------------------------------------ run
 
+_CRASH_FRAME = re.compile(r'^[A-Za-z0-9_./ -]+\.c:\d+ Function \w+$')
+
+
+def crash_summary(folder):
+    """'<innermost script frame>' of the newest engine crash log in folder, or None.
+
+    Only script stack frames (mod-relative .c paths) are returned, never the program path or other text.
+    """
+    try:
+        logs = sorted(Path(folder).glob('crash_*.log'), key=lambda p: p.stat().st_mtime)
+    except OSError:
+        return None
+    if not logs:
+        return None
+    try:
+        text = logs[-1].read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return 'crash log unreadable'
+    for line in text.splitlines():
+        line = line.strip()
+        if _CRASH_FRAME.match(line):
+            return line
+    return 'native crash without a script frame'
+
+
 def os_reason(error):
     """errno name of an OSError, never its path."""
     return errno.errorcode.get(getattr(error, 'errno', None) or 0, type(error).__name__)
@@ -989,9 +1014,12 @@ class Campaign:
         if manual_problems(self.phases) or unmapped(self.phases):
             raise Refused('the phase map is incomplete; run plan')
 
-    def wait_for(self, what, minutes, check, image):
+    def wait_for(self, what, minutes, check, images):
+        """Poll check() until it returns a truthy result; every image in images must stay alive meanwhile."""
+        images = (images,) if isinstance(images, str) else tuple(images)
         end = self.now() + minutes * 60
-        unreadable = unknown = 0
+        unreadable = 0
+        unknown = dict.fromkeys(images, 0)
         while True:
             try:
                 result = check()
@@ -1003,7 +1031,8 @@ class Campaign:
                 result = None
             if result:
                 return result
-            unknown = self.still_running(image, unknown, 'stopped while waiting for ' + what)
+            for image in images:
+                unknown[image] = self.still_running(image, unknown[image], 'stopped while waiting for ' + what)
             if self.now() >= end:
                 raise Refused('timed out waiting for ' + what)
             self.sleep(POLL_SECONDS)
@@ -1014,6 +1043,9 @@ class Campaign:
         if state == 'running':
             return 0
         if state == 'gone':
+            crash = crash_summary(Path(self.stager.server) / PROFILE_COPY) if image == SERVER_IMAGE else None
+            if crash:
+                raise Refused('%s crashed %s: %s (crash log kept in last-run/server)' % (image, stopped.replace('stopped ', '', 1), crash))
             raise Refused('%s %s' % (image, stopped))
         unknown += 1
         if unknown >= UNREADABLE_POLLS:
@@ -1114,7 +1146,9 @@ class Campaign:
 
             budget = int(total * 1.5) + JOIN_MINUTES
             try:
-                self.wait_for('the driver to finish', budget, driver_progress, CLIENT_IMAGE)
+                # The server too: a server crash mid-drive must end the run now, not after the whole budget
+                # (2026-11-23 soak 178: the server died 3 minutes in and the run waited an hour on the client).
+                self.wait_for('the driver to finish', budget, driver_progress, (SERVER_IMAGE, CLIENT_IMAGE))
             except Refused as error:
                 if str(error).startswith('timed out'):
                     self.log('run: driver did not finish in its budget; idling anyway (the report shows how far it got)')

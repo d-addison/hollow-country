@@ -348,7 +348,7 @@ class FakeHost:
     """Simulates the two processes; the fake clock is advanced by the campaign's own sleeps."""
 
     def __init__(self, stager, clock, server_ready=True, stop_ok=True, driver='done', script_error=None,
-                 late=0, unknown_reads=0):
+                 late=0, unknown_reads=0, server_crash=False):
         self.stager, self.clock, self.script_error = stager, clock, script_error
         # late: client polls that read gone after launch (the BattlEye launcher has not started it yet);
         # unknown_reads: client polls that read unknown (lost interop replies) once the client has read running.
@@ -356,6 +356,8 @@ class FakeHost:
         self.running = {camp.SERVER_IMAGE: False, camp.CLIENT_IMAGE: False}
         self.calls, self.client_args, self.stopped_at = [], None, {}
         self.server_ready, self.stop_ok, self.driver = server_ready, stop_ok, driver
+        # server_crash: the server dies (engine crash log written) once the client is up and driving.
+        self.server_crash = server_crash
 
     def state(self, image):
         if image == camp.CLIENT_IMAGE and self.running[image]:
@@ -390,6 +392,12 @@ class FakeHost:
         elif self.driver == 'inert':
             lines = ['[HC Driver] inert reason=no-step-file']
         (folder / 'DayZ_x64_1.RPT').write_text('\n'.join(lines) + '\n')
+        if self.server_crash:
+            self.running[camp.SERVER_IMAGE] = False
+            (Path(self.stager.server) / camp.PROFILE_COPY / 'crash_1.log').write_text(
+                'Program: ' + 'C:' + '\\Us' + 'ers\\someone\\DayZServer_x64.exe\nFunction: \'ProcessGun\'\nStack trace:\n'
+                'HollowCountry/scripts/4_World/loot/hcgunpile.c:177 Function ProcessGun\n'
+                'scripts/3_Game/dayzgame.c:3026 Function OnUpdate\n')
 
     def stop(self, image):
         self.calls.append('stop ' + image)
@@ -458,6 +466,23 @@ class CampaignTests(Tmp):
         run, host = self.campaign()
         self.assertTrue(run.run())
         self.assertFalse(marker.exists())
+
+    def test_a_server_crash_while_driving_ends_the_run_at_once_and_restores(self):
+        run, host = self.campaign(driver='running', server_crash=True)
+        with self.assertRaisesRegex(camp.Refused, 'DayZServer_x64.exe crashed while waiting for the driver to finish: '
+                                    'HollowCountry/scripts/4_World/loot/hcgunpile.c:177 Function ProcessGun') as caught:
+            run.run()
+        self.assertNotIn('someone', str(caught.exception))
+        self.assertLess(self.clock.t, 5 * 60)
+        self.assertEqual(self.snapshot(), self.original)
+        self.assertTrue((self.state / 'last-run/server/crash_1.log').exists())
+
+    def test_crash_summary_without_a_script_frame(self):
+        folder = self.root / 'logs'
+        folder.mkdir()
+        self.assertIsNone(camp.crash_summary(folder))
+        (folder / 'crash_1.log').write_text('Program: x\nReason: Access violation\n')
+        self.assertEqual(camp.crash_summary(folder), 'native crash without a script frame')
 
     def test_a_client_the_launcher_starts_late_is_waited_for(self):
         run, host = self.campaign(late=3)
