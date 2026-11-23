@@ -367,7 +367,10 @@ class HCWreckSalvageModule : HCModule
     {
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) return Fault();
         // An interrupted write is never an empty/new world. No backup rollback.
-        if (FileExist(PATH + ".tmp")) return Fault();
+        // #336: Save writes the .tmp, copies it over the primary and then deletes it, so a hard stop before
+        // that delete leaves .tmp equal to the primary. Only that identical case is cleared (Load runs once
+        // from OnStart; Save is synchronous, so no save of this session is in flight).
+        if (FileExist(PATH + ".tmp") && !HCStagedSaveImage.HCClearCompletedIntent(PATH, 2097152, "wreck_salvage")) return Fault();
         string error;
         if (FileExist(PATH))
         {

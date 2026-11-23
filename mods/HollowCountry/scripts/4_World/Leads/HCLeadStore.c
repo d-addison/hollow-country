@@ -314,7 +314,8 @@ class HCLeadStore
         m_FaultAt = "open_clock_or_folder";
         if (HCWorldClock.UTC() < 1 || (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry"))) { return Fault(); }
         m_FaultAt = "open_tmp_present";
-        if (FileExist(m_Path + ".tmp")) { return Fault(); }
+        // #336: clear only a .tmp byte-identical to the primary (hard stop before clear_intent), never mid-save.
+        if (FileExist(m_Path + ".tmp") && (m_SaveImage.Active() || !HCStagedSaveImage.HCClearCompletedIntent(m_Path, 1048576, "leads"))) { return Fault(); }
         if (FileExist(m_Path))
         {
             m_VerifiedText = HCWorldStore.Read(m_Path);

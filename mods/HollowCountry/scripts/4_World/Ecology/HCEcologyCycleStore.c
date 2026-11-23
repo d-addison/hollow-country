@@ -61,7 +61,8 @@ class HCEcologyCycleStore
     {
         if (!HCEcologyMigrationRules.UtcValid(utc)) { return null; }
         string path = "$profile:HollowCountry/Ecology/cycle-" + world + ".json";
-        if (FileExist(path + ".tmp")) { return null; }
+        // #336: clear only a .tmp byte-identical to the primary (hard stop before clear_intent), never mid-save.
+        if (FileExist(path + ".tmp") && (job.Image.Active() || !HCStagedSaveImage.HCClearCompletedIntent(path, 2048, "ecology_cycle"))) { return null; }
         HCEcologyCycleState state;
         string text;
         string error;
