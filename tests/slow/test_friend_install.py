@@ -1086,6 +1086,100 @@ class MapOverlayStepTests(InstallerCase):
         self.assertEqual(live_snapshot(self.server), before)
 
 
+class EarlierMapOverlayKeptTests(InstallerCase):
+    """#336: replacing the mission overlay rolls back the map overlay sitting on it (they patch the same
+    cfggameplay.json, so the mission rollback refuses while it is in place). A run never leaves the server with
+    fewer installed overlay layers than it started with unless that run installs the replacement."""
+
+    def setUp(self):
+        super().setUp()
+        self.assertEqual(self.apply()[0], 0)
+        self.newer = make_bundle(self.tmp / 'v2')
+        put(self.newer, 'mission-overlay/hollow-country/events/extra.json', '{}')
+        write_manifest(self.newer)
+        self.managed = self.mission / fi.map_overlay.MANAGED
+        self.installed = snapshot(self.mission)
+        self.overlay_calls.clear()
+        self.map_calls.clear()
+
+    def test_skipping_the_map_step_over_an_earlier_map_overlay_refuses_before_any_change(self):
+        before = snapshot(self.server)
+        code, out, err = self.apply('--skip', 'mods,overlays-map', bundle=self.newer)
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('overlay_layers', err)
+        self.assertIn('map overlay', err)
+        self.assertIn('step 6 (map overlays) is skipped', err)
+        self.assertIn('before anything is changed', err)
+        self.assertEqual(snapshot(self.server), before)
+        self.assertEqual(snapshot(self.mission), self.installed)
+        self.assertEqual(self.overlay_calls, [])
+        self.assertEqual([c[0] for c in self.map_calls if c[0] in ('install', 'rollback')], [])
+        self.assertTrue((self.managed / 'receipt.json').is_file())
+
+    def test_the_dry_run_blocks_that_skip_and_says_why(self):
+        before = snapshot(self.server)
+        code, out, err = self.run_cli('--skip', 'mods,overlays-map', bundle=self.newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 5), 'blocked')
+        self.assertIn('map overlay (%s): cannot be kept: step 6 (map overlays) is skipped' % fi.map_overlay.MANAGED, out)
+        self.assertIn('the installed map overlay (%s) stays as it is, byte for byte' % fi.map_overlay.MANAGED, out)
+        self.assertEqual(snapshot(self.server), before)
+
+    def test_the_dry_run_names_which_layers_go_and_which_are_replaced(self):
+        before = snapshot(self.server)
+        code, out, err = self.run_cli(bundle=self.newer)
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(snapshot(self.server), before)
+        self.assertEqual(status_of(out, 5), 'planned')
+        self.assertIn('map overlay (%s): rolled back here, installed again by the overlays-map step' % fi.map_overlay.MANAGED, out)
+        # The installed layer set equals the bundle's, but step 5 removes it: step 6 is not "already done".
+        self.assertEqual(status_of(out, 6), 'planned')
+        self.assertIn('step 5 rolls the installed map overlay back first', out)
+
+    def test_an_unchanged_mission_overlay_leaves_the_map_overlay_alone_even_when_the_map_step_is_skipped(self):
+        code, out, err = self.run_cli('--skip', 'overlays-map')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(status_of(out, 5), 'already-done')
+        self.assertIn('layers on top of it stay installed, byte for byte: %s' % fi.map_overlay.MANAGED, out)
+        code, out, err = self.apply('--skip', 'overlays-map')
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(snapshot(self.mission), self.installed)
+        self.assertEqual(self.map_calls, [])
+
+    def test_a_refused_map_step_undoes_the_whole_run_and_the_earlier_overlay_is_intact(self):
+        def refusing_after_rollback(argv):
+            if argv[0] == 'validate' and '--mission' in argv and not self.managed.exists():
+                print('refused: flat: military-zones-v2/s016-p03: height 257.0 differs from the median 255.9',
+                      file=sys.stderr)
+                return 1
+            return REAL_FAKE_MAP(argv)
+        REAL_FAKE_MAP = fake_map_overlay(self.map_calls)
+        fi.map_overlay.main.side_effect = refusing_after_rollback
+        before = snapshot(self.server)
+        code, out, err = self.apply(bundle=self.newer)
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('flat: military-zones-v2/s016-p03', err)
+        self.assertIn('rolled back: the server is as it was before this run', err)
+        self.assertEqual([c[0] for c in self.map_calls].count('rollback'), 1)
+        # Receipted files, the objectSpawnersArr patch and the overlays folder are byte for byte as they were.
+        self.assertEqual(snapshot(self.mission), self.installed)
+        self.assertTrue((self.managed / 'receipt.json').is_file())
+        self.assertEqual(live_snapshot(self.server), {k: v for k, v in before.items()
+                                                      if k != fi.BACKUP_DIR and not k.startswith(fi.BACKUP_DIR + '/')})
+
+    def test_skipping_the_map_step_at_the_prompt_after_step_5_replaced_the_overlay_undoes_the_run(self):
+        def answers(prompt):
+            if 'Map overlays' in prompt:
+                return 's'
+            return 'y'
+        code, out, err = self.run_cli('--apply', bundle=self.newer, answers=answers)
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('overlay_layers', err)
+        self.assertIn('rolled back: the server is as it was before this run', err)
+        self.assertEqual(snapshot(self.mission), self.installed)
+        self.assertEqual(self.prompts[-1].split(':')[0], 'Map overlays (layers)')
+
+
 class ManifestAndConfigDriftTests(InstallerCase):
     def test_files_not_listed_in_the_manifest_are_never_installed(self):
         put(self.bundle, '@HollowCountry/addons/planted.pbo', b'PLANTED')
