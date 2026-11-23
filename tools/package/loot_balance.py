@@ -112,13 +112,17 @@ def _total(rows, members, current):
 
 
 def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0, pass2_share=1.0,
-            pass2_skip=PASS2_SKIP):
+            pass2_skip=PASS2_SKIP, slack=None, slack_share=0.5):
     """Apply R3, R1, the re-investment and R2b to {class: {category, nominal, stock, locked}}.
 
     Locked rows keep their nominal (they count in totals only). Rows with nominal 0 are never touched. Returns
     ({class: new nominal} for every changed class, report {category: {...}}). Only nominal changes; callers rescale
     min. Deterministic: ordering is by name."""
     current = {n: r['nominal'] for n, r in rows.items()}
+    # capacity table: {'bucket': {id: spare nominal}, 'class': {lowercase class: bucket id}}; slack_share of each
+    # bucket's spare capacity may be handed out (buckets share containers, so the full figure overstates it)
+    left = None if slack is None else {b: int(v * slack_share) for b, v in slack['bucket'].items()}
+    bucket_of = {} if slack is None else {n: slack['class'].get(n.lower()) for n in rows}
     report = {}
     by_cat = {}
     for name, row in rows.items():
@@ -174,6 +178,42 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
         ordered = sorted(totals.values())
         median = ordered[len(ordered) // 2] if ordered else 0
         total = sum(current[n] for n in names)
+
+        def room_of(key):
+            """Nominal the family can still take where the feasibility graph has spare capacity (None: no table)."""
+            if left is None:
+                return None
+            members = [m for m in groups[key] if not rows[m].get('locked')]
+            return sum(left.get(b, 0) for b in {bucket_of.get(m) for m in members if bucket_of.get(m) is not None})
+
+        def give(key, add):
+            """Add nominal to the unlocked variants of a family, proportionally to their size (and, with a capacity
+            table, never past what their bucket still holds); returns the nominal given."""
+            unlocked = [m for m in groups[key] if not rows[m].get('locked')]
+            if left is None:
+                shares = split([(m, current[m]) for m in unlocked], sum(current[m] for m in unlocked) + add)
+                for m in unlocked:
+                    current[m] = shares[m]
+                return add
+            given = 0
+            for _ in range(4):
+                want = add - given
+                eligible = [m for m in unlocked if left.get(bucket_of.get(m), 0) > 0]
+                weight = sum(current[m] for m in eligible)
+                if want <= 0 or not eligible or weight <= 0:
+                    break
+                parts = sorted(eligible, key=lambda m: (-(want * current[m] % weight), m))
+                base = {m: want * current[m] // weight for m in eligible}
+                for m in parts[:want - sum(base.values())]:
+                    base[m] += 1
+                for m in sorted(eligible):
+                    amount = min(base[m], left[bucket_of[m]])
+                    if amount > 0:
+                        current[m] += amount
+                        left[bucket_of[m]] -= amount
+                        given += amount
+            return given
+
         room = {}
         for key, members in groups.items():
             unlocked = [m for m in members if not rows[m].get('locked')]
@@ -184,6 +224,8 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                 limit = min(limit, int(math.ceil(round(k * max(current[m] for m in members), 6))))
             share_cap = max(share, stock_factor * sum(rows[m].get('stock', 0) for m in members) / stock_total)
             limit = min(limit, int(math.floor(share_cap * total)))
+            if left is not None:
+                limit = min(limit, totals[key] + room_of(key))
             if limit > totals[key]:
                 room[key] = (totals[key], limit)
         spend = 0
@@ -197,24 +239,23 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                 else:
                     hi = mid - 1
             gain = {key: max(0, min(lo, limit) - base) for key, (base, limit) in room.items()}
-            left = freed - sum(gain.values())
+            left_over = freed - sum(gain.values())
             for key in sorted(room, key=lambda x: (room[x][0] + gain[x], x)):
-                if left <= 0:
+                if left_over <= 0:
                     break
                 if room[key][0] + gain[key] < room[key][1]:
                     gain[key] += 1
-                    left -= 1
-            for key, add in gain.items():
+                    left_over -= 1
+            for key, add in sorted(gain.items()):
                 if add:
-                    unlocked = [m for m in groups[key] if not rows[m].get('locked')]
-                    shares = split([(m, current[m]) for m in unlocked], sum(current[m] for m in unlocked) + add)
-                    for m in unlocked:
-                        current[m] = shares[m]
-                    spend += add
+                    spend += give(key, add)
         info['reinvested'] = spend
-        # pass 2: pass2_share of the still-unspent nominal goes to every family of the category, proportionally to its
-        # current total, within the R1 cap and the R3 colour budget (measured on the largest variant as it stands now);
-        # categories in pass2_skip (hard to place) get nothing back and report the nominal as unspent
+        # pass 2: the still-unspent nominal goes to every family of the category, within the R1 cap and the R3
+        # colour budget (measured on the largest variant as it stands now). Without a capacity table it is
+        # proportional to the family total; with one it goes only where the feasibility graph
+        # has spare capacity, weighted by that slack and recomputed each round. Only pass2_share of the unspent nominal
+        # is handed back (the owner's total band); categories in pass2_skip (hard to
+        # place) get nothing back and report the nominal as unspent.
         leftover = freed - spend
         if category in pass2_skip:
             leftover = 0
@@ -235,27 +276,36 @@ def balance(rows, r3=R3_CATEGORIES, k=1.5, floor=3, share=0.03, stock_factor=2.0
                 if limit > have:
                     limits[key] = limit - have
             gain = dict.fromkeys(limits, 0)
-            while leftover - sum(gain.values()) > 0:
+            for _ in range(12):
+                pool = leftover - spend2
+                if pool <= 0:
+                    break
                 open_keys = [key for key in sorted(limits) if gain[key] < limits[key]]
+                if left is not None:
+                    open_keys = [key for key in open_keys if room_of(key) > 0]
                 if not open_keys:
                     break
-                pool = leftover - sum(gain.values())
-                weight = {key: sum(current[m] for m in groups[key]) + gain[key] for key in open_keys}
+                if left is None:
+                    weight = {key: sum(current[m] for m in groups[key]) for key in open_keys}
+                    cap = {key: limits[key] - gain[key] for key in open_keys}
+                else:
+                    weight = {key: room_of(key) for key in open_keys}
+                    cap = {key: min(limits[key] - gain[key], weight[key]) for key in open_keys}
                 weight_sum = sum(weight.values())
-                grant = {key: min(limits[key] - gain[key], int(pool * weight[key] / weight_sum)) for key in open_keys}
+                grant = {key: min(cap[key], int(pool * weight[key] / weight_sum)) for key in open_keys}
                 if not any(grant.values()):
-                    # fewer units than families: hand them out one at a time, largest family first
+                    # fewer units than families: hand them out one at a time, largest weight first
                     for key in sorted(open_keys, key=lambda x: (-weight[x], x))[:pool]:
                         grant[key] = 1
-                for key, add in grant.items():
-                    gain[key] += add
-            for key, add in gain.items():
-                if add:
-                    unlocked = [m for m in groups[key] if not rows[m].get('locked')]
-                    shares = split([(m, current[m]) for m in unlocked], sum(current[m] for m in unlocked) + add)
-                    for m in unlocked:
-                        current[m] = shares[m]
-                    spend2 += add
+                moved = 0
+                for key in open_keys:
+                    if grant[key]:
+                        added = give(key, grant[key])
+                        gain[key] += added
+                        moved += added
+                spend2 += moved
+                if not moved:
+                    break
         info['reinvested2'] = spend2
         info['unspent'] = freed - spend - spend2
         # R2b: every family totals at least `floor`

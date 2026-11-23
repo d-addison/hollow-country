@@ -164,7 +164,7 @@ def modded_coverage(mission):
             'uncovered_containers': uncovered}
 
 
-def feasibility(mission, military_weapons=False, limit=LIMIT):
+def feasibility(mission, military_weapons=False, limit=LIMIT, slack=False):
     """Optimistic joint capacity bound, with integral max flow over shared caps.
 
     A failure proves a static demand/capacity conflict under these constraints;
@@ -250,12 +250,13 @@ def feasibility(mission, military_weapons=False, limit=LIMIT):
     unreachable_types = []
     matched_containers = set()
     required = 0
-    demand_nodes = {}
+    demand_nodes, demand_matches, demand_keys = {}, {}, {}
     for (usages, tiers, cats, tags), demand in demands.items():
         ident = node()
         reserved = math.ceil(demand / limit) if military_weapons else demand
         required += reserved
         edge(0, ident, reserved)
+        demand_keys[ident] = (usages, tiers, cats, tags)
         demand_nodes[ident] = dict(usages=sorted(usages), tiers=sorted(tiers),
                                    categories=sorted(cats), tags=sorted(tags), nominal=demand)
         matches = [c[0] for c in containers if usages & c[1] and tiers & c[2] and cats & c[3]
@@ -266,6 +267,7 @@ def feasibility(mission, military_weapons=False, limit=LIMIT):
                 'reason': 'no placed positive-capacity container matches usage, tier, category and tag'}
                 for name, nominal in route_names[usages, tiers, cats, tags])
         matched_containers.update(matches)
+        demand_matches[ident] = matches
         for target in matches:
             edge(ident, target, reserved)
     flow = 0
@@ -320,6 +322,22 @@ def feasibility(mission, military_weapons=False, limit=LIMIT):
                 limitation='Optimistic static bound; point dimensions, collisions and native selection unobserved.')
     if not military_weapons:
         result.update(placeable_upper_bound=flow, deficit=total-flow)
+    if slack:
+        # Spare capacity per demand bucket after the max flow: per shared group, the residual of the matching
+        # containers capped by the group's residual. A bucket with unassigned demand has none. Buckets share
+        # containers, so the sum over buckets overstates what all of them could take at once.
+        result['bucket_slack'] = []
+        for ident, matches in demand_matches.items():
+            per_group = Counter()
+            for target in matches:
+                per_group[container_caps[target][0]] += graph[target][0][1]
+            spare = sum(min(have, graph[group][0][1]) for group, have in per_group.items())
+            usages, tiers, cats, tags = demand_keys[ident]
+            unassigned_here = next((r for t, r, _ in graph[0] if t == ident), 0)
+            result['bucket_slack'].append(dict(
+                usages=sorted(usages), tiers=sorted(tiers), categories=sorted(cats), tags=sorted(tags),
+                nominal=demands[usages, tiers, cats, tags], slack=0 if unassigned_here else spare,
+                unassigned=unassigned_here, classes=sorted(name for name, _ in route_names[usages, tiers, cats, tags])))
     return result
 
 

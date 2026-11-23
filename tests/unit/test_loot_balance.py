@@ -127,6 +127,38 @@ class Balance(unittest.TestCase):
         self.assertEqual(none['clothes']['reinvested2'], 0)
         self.assertEqual(none['clothes']['unspent'], none['clothes']['r3_freed'] - none['clothes']['reinvested'])
 
+    def test_capacity_aware_pass_two_feeds_only_buckets_with_room(self):
+        data = self._pass2_data()
+        names = ['Item%d' % i for i in range(30)]
+        table = {'bucket': {'roomy': 400, 'full': 0}, 'class': {n.lower(): ('roomy' if i < 10 else 'full')
+                                                                   for i, n in enumerate(names)}}
+        table['class'].update({n.lower(): 'full' for n in ('Shirt_Blue', 'Shirt_Red', 'Shirt_Green')})
+        data = {n.lower(): dict(v, name=n) for n, v in data.items()}
+        changed, report = bal.balance(data, slack=table, slack_share=1.0)
+        gained = {n: changed.get(n.lower(), 20) - 20 for n in names}
+        self.assertEqual(sum(gained[n] for n in names[10:]), 0)
+        self.assertGreater(sum(gained[n] for n in names[:10]), 0)
+        self.assertLessEqual(sum(gained.values()), 400)
+        self.assertEqual(report['clothes']['reinvested'] + report['clothes']['reinvested2'] + report['clothes']['unspent'],
+                         report['clothes']['r3_freed'])
+
+    def test_slack_share_scales_what_a_bucket_may_take(self):
+        data = {n.lower(): dict(v, name=n) for n, v in self._pass2_data().items()}
+        table = {'bucket': {'b': 100}, 'class': {'item%d' % i: 'b' for i in range(30)}}
+        full = bal.balance(data, slack=table, slack_share=1.0)[1]['clothes']
+        half = bal.balance(data, slack=table, slack_share=0.5)[1]['clothes']
+        spent = lambda row: row['reinvested'] + row['reinvested2']
+        self.assertLessEqual(spent(full), 100)
+        self.assertLessEqual(spent(half), 50)
+        self.assertGreater(spent(half), 0)
+        self.assertLess(spent(half), spent(full))
+
+    def test_the_slack_table_loads_and_names_known_buckets(self):
+        from tools.package import loot_slack
+        table = loot_slack.load()
+        self.assertTrue(table['class'])
+        self.assertLessEqual(set(table['class'].values()), set(table['bucket']))
+
     def test_the_result_is_deterministic(self):
         data = rows(A_Blue=('clothes', 30), A_Red=('clothes', 30), B=('clothes', 2), C=('clothes', 12))
         self.assertEqual(bal.balance(data), bal.balance(data))
@@ -163,7 +195,7 @@ class SupportFloors(unittest.TestCase):
 
 
 class BalanceKnob(unittest.TestCase):
-    GOOD = {'FamilyFactor': 1.5, 'FamilyFloor': 3, 'ShareCap': 0.03, 'StockFactor': 2.0, 'Pass2Share': 0.5, 'AmmoPerGun': 1.5, 'MagazinePerGun': 1.0}
+    GOOD = {'FamilyFactor': 1.5, 'FamilyFloor': 3, 'ShareCap': 0.03, 'StockFactor': 2.0, 'Pass2Share': 0.55, 'SlackShare': 0.5, 'AmmoPerGun': 1.5, 'MagazinePerGun': 1.0}
 
     def test_shipped_value_is_valid(self):
         self.assertEqual(boost._balance(self.GOOD), boost._balance(dict(self.GOOD)))

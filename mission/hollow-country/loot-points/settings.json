@@ -33,7 +33,8 @@
     "FamilyFloor": 3,
     "ShareCap": 0.03,
     "StockFactor": 2.0,
-    "Pass2Share": 0.5,
+    "Pass2Share": 0.55,
+    "SlackShare": 0.5,
     "AmmoPerGun": 1.5,
     "MagazinePerGun": 1.0
   },

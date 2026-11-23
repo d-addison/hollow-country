@@ -156,6 +156,7 @@ def load_rules():
     return rules
 
 
+EVENT_USAGES = frozenset({'ContaminatedArea', 'Lunapark', 'Historical', 'SeasonalEvent'})
 ROUTE_USAGES = {'Military', 'Police', 'Prison'}
 
 
@@ -642,6 +643,17 @@ def regenerate(output=None):
                 node.remove(old_value)
             for tier in entry['value']:
                 ET.SubElement(node, 'value', {'name': tier})
+        elif entry['kind'] in ('ammo', 'magazine'):
+            # a carrier spawns wherever its guns do (role_routes), minus the event-only usages (wh-econ round 7)
+            have = [u.get('name') for u in node.findall('usage')]
+            want = sorted(set(have) | (set(entry.get('usage', entry.get('set_usage', []))) - EVENT_USAGES))
+            if want != sorted(have):
+                for old_usage in node.findall('usage'):
+                    node.remove(old_usage)
+                last = max([i for i, child in enumerate(node) if child.tag in ('category', 'tag')] or [-1])
+                for offset, usage in enumerate(want):
+                    node.insert(last + 1 + offset, ET.Element('usage', {'name': usage}))
+                changed += 1
         for field, value in entry['set'].items():
             old = node.find(field)
             if old is not None and old.text != str(value):
