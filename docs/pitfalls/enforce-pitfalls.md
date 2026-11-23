@@ -54,6 +54,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E048 | foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first |
 | HC-E049 | modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead |
 | HC-E050 | bare name resolves to no local, parameter, member of the class or its ancestors, global, class, enum or constant (native compile: Can't find variable; a renamed or removed field read by a subclass) |
+| HC-E051 | assignment into an indexed slot whose index calls a function (native compile: Function definition inside block); hold the index in a local first |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |

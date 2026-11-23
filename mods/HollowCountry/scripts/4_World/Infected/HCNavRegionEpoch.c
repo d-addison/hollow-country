@@ -58,7 +58,8 @@ class HCNavRegionEpoch
                 int cellX = centreX + dx;
                 int cellZ = centreZ + dz;
                 if (cellX < 0 || cellZ < 0) { continue; }
-                s_Stamp[HCBucket(cellX, cellZ)] = s_Counter;
+                int bucket = HCBucket(cellX, cellZ);
+                s_Stamp[bucket] = s_Counter;
             }
         }
     }

@@ -87,6 +87,7 @@ RULES = {
     'HC-E036': 'new X passed directly as an argument to a call that does not store it (the temporary has no owner)',
     'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
     'HC-E049': 'modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead',
+    'HC-E051': 'assignment into an indexed slot whose index calls a function (native compile: Function definition inside block); hold the index in a local first',
     'HC-E048': 'foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first',
     'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
@@ -2625,6 +2626,43 @@ def rule_foreach_call_iterable(project, source):
                                f'{found[0].strip()}: {RULES["HC-E048"]}')
 
 
+_INDEXED_TARGET = re.compile(r'(?<![\w.])([A-Za-z_][\w.]*)\s*\[')
+
+
+def rule_call_in_assigned_index(project, source):
+    """a[F(x)] = v fails the native compile (Function definition inside block. (missing '}' ?)).
+
+    The 2026-11-23 gate refused `s_Stamp[HCBucket(cellX, cellZ)] = s_Counter;` in HCNavRegionEpoch.c.
+    Reading `a[F(x)]` is not flagged; only a slot that is assigned (=, +=, -=, *=, /=).
+    """
+    for method in _all_methods(source):
+        body = source.body(method)
+        for match in _INDEXED_TARGET.finditer(body):
+            line_start = body.rfind('\n', 0, match.start()) + 1
+            before = body[line_start:match.start()].strip()
+            if before and not re.search(r'(?:^|[;{}]|\belse|\))$', before):
+                continue
+            depth, index = 0, match.end() - 1
+            while index < len(body):
+                if body[index] == '[':
+                    depth += 1
+                elif body[index] == ']':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                elif body[index] in ';{}':
+                    break
+                index += 1
+            if depth != 0 or index >= len(body):
+                continue
+            inner = body[match.end():index]
+            if not re.search(r'[A-Za-z_]\w*\s*\(', inner):
+                continue
+            if re.match(r'\s*(?:[-+*/]=|=(?!=))', body[index + 1:]):
+                yield _finding('HC-E051', source, method.body_start + match.start(), _symbol(method),
+                               f'{match[1]}[{inner.strip()}]: {RULES["HC-E051"]}')
+
+
 # Vanilla array typedefs (1_Core/proto/EnScript.c); resolved through the native scripts when present.
 _ARRAY_TYPEDEFS = frozenset({'TStringArray', 'TIntArray', 'TFloatArray', 'TBoolArray', 'TVectorArray',
                              'TClassNameArray', 'TManagedArray'})
@@ -2704,7 +2742,7 @@ ALL_RULES = (rule_engine_class_modded, rule_duplicate_locals, rule_static_const_
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
-             rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, rule_foreach_call_iterable, enforce_json.rule_json_defaults,
+             rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, rule_foreach_call_iterable, rule_call_in_assigned_index, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names, _use.rule_use_init_path,
              rule_stored_handles, *_syntax.rules_for(sys.modules[__name__]),
              _names.make_rule(sys.modules[__name__], _syntax))

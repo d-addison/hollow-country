@@ -781,7 +781,7 @@ class WorkflowDefectRules(unittest.TestCase):
         return extra + 'class HCProbe { void Run() {\n' + text + '\n} }'
 
     def test_every_new_rule_id_is_documented_once(self):
-        for rule in ('HC-E031', 'HC-E032', 'HC-E033', 'HC-E034', 'HC-E035', 'HC-E036', 'HC-E037', 'HC-E038', 'HC-E048'):
+        for rule in ('HC-E031', 'HC-E032', 'HC-E033', 'HC-E034', 'HC-E035', 'HC-E036', 'HC-E037', 'HC-E038', 'HC-E048', 'HC-E051'):
             self.assertIn(rule, lint.RULES)
         self.assertEqual(len(set(lint.RULES)), len(lint.RULES))
 
@@ -856,6 +856,14 @@ class WorkflowDefectRules(unittest.TestCase):
         self.assertEqual([], self.rules(self.body('array<Man> ps = HCPerfPlayers.HCGet(); foreach (Man m : ps) {}'), rule))
         self.assertEqual([], self.rules(self.body('foreach (H h : m_State.Herds) {}'), rule))
         self.assertEqual([], self.rules(self.body('// foreach (Man m : Get()) {}\nint x;'), rule))
+
+    def test_call_in_an_assigned_index_is_flagged(self):
+        rule = lint.rule_call_in_assigned_index
+        self.assertEqual(['HC-E051'], self.rules(self.body('s_Stamp[HCBucket(x, z)] = s_Counter;'), rule))
+        self.assertEqual(['HC-E051'], self.rules(self.body('if (ok) m.Counts[Key(a)] += 1;'), rule))
+        self.assertEqual([], self.rules(self.body('int b = HCBucket(x, z); s_Stamp[b] = s_Counter;'), rule))
+        self.assertEqual([], self.rules(self.body('int v = s_Stamp[HCBucket(x, z)];'), rule))
+        self.assertEqual([], self.rules(self.body('if (s_Stamp[HCBucket(x, z)] == s_Counter) { return; }'), rule))
 
     def test_unordered_head_remove_on_arrays_only(self):
         fields = 'class HCProbe { ref array<string> m_Queue; ref TStringArray m_Names; ref map<int, string> m_Map; void Run() {\n%s\n} }'
