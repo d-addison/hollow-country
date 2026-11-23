@@ -49,7 +49,7 @@ CI_EXCLUSIONS = {
     'world_mesh_audit': 'requires installed vanilla Addons (the in-repo ODOL reader is used)',
     'enforce_lint.native': 'installed native and Workshop APIs are absent; use pinned names with --no-native',
     'layout_lint.textures': 'installed vanilla/Workshop texture index is absent; owned UI checks still run',
-    'layout_lint.native_review': 'only existing reasoned texture-baseline references may defer native review',
+    'layout_lint.native_review': 'only reasoned texture-baseline references and vanilla set:dayz_gui members may defer native review',
     'regenerate_all.inventory_sizes': 'requires installed vanilla and Workshop provider Addons',
     'regenerate_all.firearms': 'requires a pristine installed stock mission',
     'regenerate_all.snafu_optional': 'requires a pristine stock mission and external verification report',
@@ -116,6 +116,10 @@ def incomplete_lines(name, output, ci=False):
         baseline = json.loads(layout_lint.BASELINE.read_text(encoding='utf-8'))
         notices += tuple(r'^SKIPPED ' + re.escape(row['reference']) + r'$'
                          for row in baseline['skipped'] if row.get('reason', '').strip())
+        # The vanilla dayz_gui imageset is only readable from the installed index; the
+        # indexed local run resolves each member. Owned and unknown sets stay gaps.
+        notices += (r'^SKIPPED [^\s:]+:\d+: imageset symbolic reference needs native review: '
+                    r'set:dayz_gui image:[A-Za-z0-9_]+$',)
     gaps = [line for line in lines
             if INCOMPLETE.search(re.sub(r'\bskipped=0\b', '', line)) and not (
                 ci and any(re.search(pattern, line) for pattern in notices))]

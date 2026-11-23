@@ -255,6 +255,20 @@ class PrelandTests(unittest.TestCase):
         self.assertEqual(1, self.invoke(['--profile', 'ci'],
             codes={'layout_lint': preland.layout_lint.SKIPPED})[0])
 
+    def test_ci_layout_defers_only_vanilla_dayz_gui_symbolic_members(self):
+        skipped = preland.layout_lint.SKIPPED
+        vanilla = ('SKIPPED mods/HollowCountry/gui/layouts/x.layout:24: imageset symbolic reference '
+                   'needs native review: set:dayz_gui image:circle\n'
+                   'layout_lint: SKIP explicit offline run')
+        self.assertEqual(0, self.invoke(['--profile', 'ci'], codes={'layout_lint': skipped},
+                                        outputs={'layout_lint': vanilla})[0])
+        self.assertEqual(1, self.invoke(['--profile', 'ci', '--strict'], codes={'layout_lint': skipped},
+                                        outputs={'layout_lint': vanilla})[0])
+        for other in ('set:hc_owned image:circle', 'set:dayz_gui image:a b'):
+            owned = vanilla.replace('set:dayz_gui image:circle', other)
+            self.assertEqual(1, self.invoke(['--profile', 'ci'], codes={'layout_lint': skipped},
+                                            outputs={'layout_lint': owned})[0], other)
+
     def test_offline_wiring_keeps_repository_zeroed_rows_and_avoids_stock_reads(self):
         from tools.package import firearms
         audit = wiring.Audit(wiring.DEFAULTS, offline=True)
