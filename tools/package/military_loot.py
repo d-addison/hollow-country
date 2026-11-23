@@ -392,6 +392,28 @@ def _pack_estimates(fingerprint):
     return tuple(sorted(result.items()))
 
 
+def check_pack_family_caps():
+    """The pack installers refuse a layer over its HC-61 family caps (HC61_FAMILY_BUDGET). The rows they write come
+    from apply() (R4 floors included), so check them here, where no Workshop report is needed."""
+    from tools.package import firearms, snafu_optional
+    parts = []
+    for source in SOURCES[1:]:
+        data = json.loads((ROOT / 'tools/package' / source).read_bytes())
+        roster = snafu_optional._family_policy(data)
+        if roster is None:
+            continue
+        entries, _, _ = snafu_optional._scaled_entries(data['entries'], data.get('test_abundance_multiplier', 1), None)
+        rows = [{'class': entry['class'], 'candidate': {field: entry['set'][field] for field in ('nominal', 'min')}}
+                for entry in entries]
+        try:
+            firearms.family_totals(roster, rows)
+        except ValueError as error:
+            raise SystemExit(f'{source}: {error} (the pack installer would refuse this layer: raise the cap in '
+                             f'hc61.family_budgets with a reason, or lower the rows)') from None
+        parts.append(source.removesuffix('_allowlist.json') + '=' + str(len(rows)))
+    return ' '.join(parts)
+
+
 def _roster_classes():
     return {entry['class'] for entry in json.loads((ROOT / 'tools/package' / SOURCES[0]).read_bytes())['entries']}
 
@@ -726,6 +748,7 @@ def main():
         native = json.loads((ROOT / 'tools/package' / SOURCES[0]).read_bytes())['entries']
         check_retained(native, tree.getroot())
         print('military loot retention: catalog=' + str(len(entries)) + ' native=' + str(len(native)) + ' pass')
+        print('pack family caps: ' + check_pack_family_caps() + ' pass')
     if not args.mission and not args.regenerate and not args.check:
         parser.error('select --mission, --regenerate or --check')
 
