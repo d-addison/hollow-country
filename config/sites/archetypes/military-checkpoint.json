@@ -1,0 +1,28 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "military-checkpoint",
+  "version": 1,
+  "title": "Military checkpoint",
+  "story": "A road inspection team still holds a lane 400 m outside the base: nest and sandbags on the near shoulder, a chicane of barriers, concrete blocks facing traffic and a flag over the post.",
+  "frame": {"kind": "road", "forward": "toward_protected"},
+  "location": {"road": {"surface": ["asphalt", "gravel"], "straight_m": 60, "max_turn_deg": 10, "max_grade_pct": 6}, "base_m": [250, 600], "junction_m": [60, 900], "slope_pct_max": 5, "not_in": ["town_core"]},
+  "lane": "passable",
+  "allowed_roles": ["nest", "barrier", "wall", "mast", "furnishing", "scene dressing"],
+  "loot_theme": "military",
+  "zone_role": "outpost",
+  "zones": [{"id": "post_yard", "of": "post", "shape": "disc", "r_m": 9}],
+  "story_items": {"note": {"key": "checkpoint-duty-log", "on": "desk"}, "ai": {"role": "military", "guard_posts": ["post", "rear"]}},
+  "density": {"max_per_map": 6, "min_same_m": 2500, "min_any_m": 300},
+  "parts": [
+    {"id": "post", "class": "Land_Mil_Fortified_Nest_Small", "op": "shoulder", "anchor": true, "loot": "proto", "side": "right", "s": 0, "offset_m": 3, "faces": "axis", "guard_post": true},
+    {"id": "bar", "class": "StaticObj_Misc_RoadBarrier", "op": "across_lane", "s": 8, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "blocks", "class": "StaticObj_Roadblock_CncBlocks_Long", "op": "across_lane", "s": -15, "count": 2, "gap_m": 3.5, "faces": "-forward"},
+    {"id": "bags", "class": "StaticObj_Misc_BagFence_3m", "op": "ring", "of": "post", "r_m": 4.5, "count": 5, "arc_deg": 200, "centre_on": "-forward", "faces": "outward"},
+    {"id": "rear", "class": "Land_Mil_Fortified_Nest_Small", "op": "shoulder", "loot": "proto", "side": "left", "s": 12, "offset_m": 3, "faces": "forward", "guard_post": true},
+    {"id": "rearbags", "class": "StaticObj_Misc_BagFence_3m", "op": "ring", "of": "rear", "r_m": 4.5, "count": 3, "arc_deg": 120, "centre_on": "forward", "faces": "outward"},
+    {"id": "flag", "class": "StaticObj_Misc_Flagpole", "op": "behind", "of": "post", "dist_m": 6},
+    {"id": "desk", "class": "Land_Roadblock_Table", "op": "beside", "of": "post", "dist_m": 7, "side": "forward", "align": "road"},
+    {"id": "crate", "class": "Land_Roadblock_WoodenCrate", "op": "beside", "of": "desk", "dist_m": 2.5, "side": "right"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c"], "op": "scatter", "zone": "post_yard", "count": [2, 3], "min_gap_m": 2}
+  ]
+}

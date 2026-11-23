@@ -1,0 +1,24 @@
+{
+  "kind": "hollow-country-site-archetype",
+  "id": "farm-holdout",
+  "version": 1,
+  "title": "Farm holdout dressing",
+  "story": "Survivors fortified a farm: sandbags and barriers in arcs facing the yard approach with the door aprons left clear, a wreck parked beside the barn to block the gate, and crates stacked in the yard. Nothing is placed inside buildings.",
+  "frame": {"kind": "building", "forward": "yard_approach"},
+  "location": {"road_distance_m": [30, 1200], "settlement_edge_m": [150, 3000], "slope_pct_max": 8, "not_in": ["military", "town_core"]},
+  "lane": "none",
+  "allowed_roles": ["wreck", "barrier", "wall", "scene dressing"],
+  "loot_theme": "civilian",
+  "loot_none_reason": "Vanilla farm buildings keep stock loot and nothing is placed inside them; holdout dressing carries no proto rows.",
+  "external_anchors": [{"id": "house", "match_prefix": ["Land_Farm_"], "required": true}, {"id": "barn", "match_prefix": ["Land_Barn_"], "required": false}],
+  "zones": [{"id": "yard", "of": "house", "shape": "cone", "r_m": 18, "arc_deg": 120, "dir": "forward"}],
+  "story_items": {"ai": {"role": "local", "guard_posts": ["hbar"]}},
+  "density": {"max_per_map": 6, "min_same_m": 300, "min_any_m": 300, "count_basis": "holdout"},
+  "parts": [
+    {"id": "bags", "class": "StaticObj_Misc_BagFence_3m", "op": "ring", "of": "house", "r_m": 9, "count": 4, "arc_deg": 150, "centre_on": "forward", "faces": "outward"},
+    {"id": "hbar", "class": "StaticObj_Mil_HBarrier_4m", "op": "ring", "of": "house", "r_m": 13, "count": 3, "arc_deg": 90, "centre_on": "forward", "faces": "outward", "guard_post": true},
+    {"id": "gate", "class": "Land_Wreck_offroad02_aban2", "op": "beside", "optional": true, "of": "barn", "dist_m": 9, "side": "forward", "align": "anchor"},
+    {"id": "crates", "class": "StaticObj_Furniture_metalcrate", "op": "beside", "of": "house", "dist_m": 7, "side": "right"},
+    {"id": "litter", "class": ["StaticObj_Garbage_Pile1", "StaticObj_Furniture_box_c"], "op": "scatter", "zone": "yard", "count": [2, 3], "min_gap_m": 2}
+  ]
+}
