@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hollow Country module manifest",
+  "description": "One manifest per HCModule subclass. tools/package/gen_modules.py validates each manifest against the Enforce code and generates the module's docs/MODULE_STATUS.md use-feature row from it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "name", "mod", "layer", "class", "source", "default_on", "settings", "uses",
+               "uses_source", "requires_shared_saves", "dependencies", "readiness_reasons"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema": {"const": 1},
+    "name": {
+      "description": "Exactly what the module's GetName() returns.",
+      "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "mod": {
+      "description": "Script mod that owns the module class.",
+      "enum": ["HollowCountry", "HollowCountryExpansionAI"]
+    },
+    "layer": {
+      "description": "Startup phase of the module: StartupPhase() returns HC_PHASE_CORE, _PROVIDER, _FEATURE (default) or _ADDON.",
+      "enum": ["core", "provider", "feature", "addon"]
+    },
+    "class": {
+      "description": "Enforce class name of the module.",
+      "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+    },
+    "source": {
+      "description": "Repository-relative path of the .c file that defines the class and registers it.",
+      "type": "string", "pattern": "^mods/[A-Za-z0-9_./-]+\\.c$"
+    },
+    "default_on": {
+      "description": "True when every Enable* flag in settings defaults on in the settings registry (always true for a module with no flag).",
+      "type": "boolean"
+    },
+    "settings": {
+      "description": "Settings registry keys the module reads: its Enable* admission flags and scoped tuning keys. Every key must be registered with HCAdd and referenced by the module source.",
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.]*$"}
+    },
+    "uses": {
+      "description": "[HC Use] feature names the module registers at start, in the order of its MODULE_STATUS row.",
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+    },
+    "uses_source": {
+      "description": "Where the code declares the uses today: a RegisterUses override, or an HCModuleReadiness s_LegacyUses row (not migrated yet; the manifest only records it).",
+      "enum": ["register_uses", "legacy_uses"]
+    },
+    "requires_shared_saves": {
+      "description": "What RequiresSharedSaves() returns today (override, or membership of s_HCLegacySaveOwners).",
+      "type": "boolean"
+    },
+    "dependencies": {
+      "description": "Bridge or port classes the module depends on; each must be a class defined in the scripts. Dependency calls (Expansion AI, COT, CF) go only through HC bridge classes.",
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"}
+    },
+    "readiness_reasons": {
+      "description": "Reason codes the module publishes in its HCOperationalStatus; each must appear as a string literal in the module source.",
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"}
+    },
+    "status_note": {
+      "description": "Optional text appended to the feature list in the module's MODULE_STATUS row.",
+      "type": "string"
+    }
+  }
+}

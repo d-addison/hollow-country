@@ -1,0 +1,25 @@
+{
+  "$schema": "module.schema.json",
+  "schema": 1,
+  "name": "SettlementDecay",
+  "mod": "HollowCountry",
+  "layer": "feature",
+  "class": "HCSettlementDecay",
+  "source": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+  "default_on": true,
+  "settings": [
+    "EnableWorld"
+  ],
+  "uses": [
+    "prop_placed"
+  ],
+  "uses_source": "register_uses",
+  "requires_shared_saves": true,
+  "dependencies": [],
+  "readiness_reasons": [
+    "persistence_clock_or_schema_fault",
+    "settlement_state_loading",
+    "world_unavailable",
+    "settlement_state_catalogue_loaded"
+  ]
+}

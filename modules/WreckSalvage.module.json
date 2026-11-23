@@ -1,0 +1,26 @@
+{
+  "$schema": "module.schema.json",
+  "schema": 1,
+  "name": "WreckSalvage",
+  "mod": "HollowCountry",
+  "layer": "feature",
+  "class": "HCWreckSalvageModule",
+  "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c",
+  "default_on": true,
+  "settings": [
+    "EnableTravel"
+  ],
+  "uses": [
+    "part_created"
+  ],
+  "uses_source": "legacy_uses",
+  "requires_shared_saves": false,
+  "dependencies": [],
+  "readiness_reasons": [
+    "travel_disabled",
+    "wreck_journal_or_config_fault",
+    "server_authority_required",
+    "finite_journal_and_part_config_loaded",
+    "wreck_debit_persistence_uncertain"
+  ]
+}
