@@ -506,11 +506,11 @@ modded class ObjectSpawnerHandler
         if (!groundRow && HCGroundSidecar && HCGroundRowIndex >= 0) { groundRow = HCGroundSidecar.Ground[HCGroundRowIndex]; }
         if (groundRow)
         {
-            int placed = HCGroundSnap.Place(placedObject, groundRow.pivot, groundRow.embed, groundRow.loot == 1, HCPlaceStats);
+            string refusalReason;
+            int placed = HCGroundSnap.Place(placedObject, groundRow.pivot, groundRow.embed, groundRow.loot == 1, HCPlaceStats, refusalReason);
             if (placed == HCGroundSnap.PLACE_REFUSED)
             {
-                // Refused props are removed: the footprint slope or the height correction broke the rule.
-                if (HCPlaceStats.Refused <= 8) { Print("[HC Ground] refused_sample type=" + item.name + " layer_row=" + HCGroundRowIndex.ToString() + " removed=1"); }
+                HCPlaceStats.ReportRemoval(item.name, HCGroundRowIndex, refusalReason);
                 if (siteId != "") { HCLastResult = 2; }
                 return;
             }
