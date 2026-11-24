@@ -175,7 +175,7 @@ class HCDriverVehicle
         side[1] = 0;
         float length = side.Length();
         if (length < 0.1) { return false; }
-        side = side / length;
+        side = side * (1.0 / length);
         vector across = Vector(side[2], 0, -side[0]);
         vector aim = entry + side * 0.8 + across * ((column - 2) * 0.35) + Vector(0, 0.3 + row * 0.25, 0);
         vector begin = MiscGameplayFunctions.GetPlayerHeadPosition(player);
@@ -229,7 +229,7 @@ class HCDriverVehicle
             vector entry;
             vector entryDir;
             m_Car.CrewEntryWS(m_DriverSeat, entry, entryDir);
-            walker.Begin(entry[0], entry[2], "walk", 0.8, 90);
+            walker.Begin(entry[0], entry[2], "walk", 1.0, 90);
             Enter(HCDriverVehicle.V_WALK);
             return HCDriverResult.RUNNING;
         }
