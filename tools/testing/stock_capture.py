@@ -27,6 +27,12 @@ BACKUPS = 'hollow-country-install-backups'
 STOCK_PIN = '4b66a2fb268b9890d23f2e2d60a829690fb504719d965586d1208dcd92cf53c9'
 IMAGES = ('DayZ_x64.exe', 'DayZServer_x64.exe', 'DayZDiag_x64.exe', 'DayZ_BE.exe')
 STAMP = re.compile(r'^\s*(\d{1,2}):(\d{2}):(\d{2})(?:[.,](\d+))?\s')
+# tasklist through WSL interop sometimes returns no answer (state 'unknown').
+# 2026-11-24: one unknown read aborted a 125-minute capture three minutes in,
+# and the interop error in the stop that followed left the server running.
+STATE_UNKNOWN_LIMIT = 6
+STOP_ATTEMPTS = 3
+STOP_SETTLE_SECONDS = 20
 
 
 class Refused(ValueError):
@@ -130,6 +136,22 @@ def minimum_minutes():
 def stopped(host):
     if any(host.state(image) != 'gone' for image in IMAGES):
         raise Refused('host busy or process state unknown; all DayZ images must be stopped')
+
+
+def graceful_stop(host):
+    """Graceful close only, retried across interop losses; verified by a gone read."""
+    for attempt in range(STOP_ATTEMPTS):
+        if host.state(soak.SERVER_IMAGE) == 'gone':
+            break
+        try:
+            host.stop(soak.SERVER_IMAGE)
+        except (Refused, soak.Refused, InteropError):
+            # The close may still be saving the world; re-read before asking again.
+            host.sleep(STOP_SETTLE_SECONDS)
+    else:
+        if host.state(soak.SERVER_IMAGE) != 'gone':
+            raise Refused('graceful stock server stop could not be verified; close it by hand, then run restore')
+    stopped(host)
 
 
 def uncomment(text):
@@ -264,15 +286,23 @@ class Stage:
             if not host.started((soak.SERVER_IMAGE,), 'stock server'):
                 raise Refused('stock server did not boot; no security bypass will be attempted')
             deadline = time.monotonic() + minutes * 60
+            unknown = 0
             while time.monotonic() < deadline:
-                if host.state(soak.SERVER_IMAGE) != 'running':
-                    raise Refused('stock server stopped or state unknown; capture incomplete')
+                state = host.state(soak.SERVER_IMAGE)
+                if state == 'gone':
+                    raise Refused('stock server stopped; capture incomplete')
+                if state == 'running':
+                    unknown = 0
+                else:
+                    # Only a sustained unknown (about 3 minutes) ends the capture.
+                    unknown += 1
+                    if unknown >= STATE_UNKNOWN_LIMIT:
+                        raise Refused('stock server state unknown for %d reads; capture incomplete' % unknown)
                 time.sleep(min(30, max(0, deadline - time.monotonic())))
         finally:
             # A lost launch reply can still mean a process started. Always request
             # graceful close; never kill, restore or copy logs under a live server.
-            host.stop(soak.SERVER_IMAGE)
-            stopped(host)
+            graceful_stop(host)
         logs = sorted((work / 'profiles').glob('*.RPT'))
         if len(logs) != 1:
             raise Refused('expected exactly one stock RPT')
