@@ -52,11 +52,16 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     static bool HCNamesLiveSlot(eAIGroup group)
     {
-        foreach (HCXAISitePatrol patrol : s_HCLiveSlots)
+        // Weak entries a destroyed patrol left behind are compacted here, so the list stays
+        // bounded by the live patrol count.
+        bool named = false;
+        for (int slot = s_HCLiveSlots.Count() - 1; slot >= 0; slot--)
         {
-            if (patrol && patrol.HCBridgeNamesGroup(group)) { return true; }
+            HCXAISitePatrol patrol = s_HCLiveSlots[slot];
+            if (!patrol) { s_HCLiveSlots.Remove(slot); continue; }
+            if (patrol.HCBridgeNamesGroup(group)) { named = true; }
         }
-        return false;
+        return named;
     }
     bool HCMatchesGroup(eAIGroup group)
     {
