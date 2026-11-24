@@ -144,18 +144,34 @@ class HCHintLoad
     {
         // No account fallback: it would collapse distinct lives into one record.
         if (characterId.Length() < 1 || characterId.Length() > 128) return false;
+        // The opaque native ID is not a filename alphabet. Percent-encode
+        // unsafe bytes (including percent itself), preserving existing safe
+        // filenames and retaining the original ID for receipt matching.
         string safe = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
+        string hex = "0123456789abcdef";
+        string filename;
         for (int i = 0; i < characterId.Length(); i++)
         {
-            if (!safe.Contains(characterId.Substring(i, 1))) return false;
+            string letter = characterId.Substring(i, 1);
+            if (safe.Contains(letter)) { filename += letter; }
+            else
+            {
+                int code = letter.ToAscii();
+                if (code < 0 || code > 255) return false;
+                int high = code / 16;
+                int low = code % 16;
+                if (high >= hex.Length() || low >= hex.Length()) return false;
+                filename += "%" + hex.Substring(high, 1) + hex.Substring(low, 1);
+            }
         }
+        if (filename.Length() > 240) return false;
         string root = "$profile:HollowCountry";
         if (!FileExist(root) && !MakeDirectory(root)) return false;
         root = root + "/Polish";
         if (!FileExist(root) && !MakeDirectory(root)) return false;
         root = root + "/Hints";
         if (!FileExist(root) && !MakeDirectory(root)) return false;
-        Path = root + "/" + characterId + ".json";
+        Path = root + "/" + filename + ".json";
         // An interrupted write is ambiguous: never replay hints from an older image.
         if (FileExist(Path + ".tmp")) return false;
         string error;
@@ -163,6 +179,7 @@ class HCHintLoad
         {
             string text;
             if (!HCGroupIO.Read(Path, 4096, text)) return false;
+            State = new HCHintState;
             if (!JsonFileLoader<HCHintState>.LoadData(text, State, error)) return false;
             // A missing -1 sentinel native-zeroes and could replay old hints.
             if (!HCJsonFields.Has(text, "ShownBits") || !HCJsonFields.Has(text, "PlayedSeconds") || !HCJsonFields.Has(text, "NextHintSecond")) return false;
@@ -216,11 +233,16 @@ class HCHints
     protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected string m_Notification;
     protected bool m_Switching;
+    protected bool m_WaitingIdLogged;
 
     bool Open(string characterId)
     {
         HCHintLoad loaded = new HCHintLoad;
-        if (!loaded.Open(characterId)) { return false; }
+        if (!loaded.Open(characterId))
+        {
+            Print("[HollowCountry] Hints client state refused reason=id_or_profile_invalid files=preserved runtime=PENDING");
+            return false;
+        }
         m_State = loaded.State;
         m_Path = loaded.Path;
         if (loaded.NewState) { return Save(); }
@@ -247,6 +269,7 @@ class HCHints
         {
             m_Fault = true;
             m_Notification = "";
+            Print("[HollowCountry] Hints client save failed files=preserved runtime=PENDING");
             return false;
         }
         if (result == HCSaveJob.STEP_DONE && m_Notification != "")
@@ -257,6 +280,7 @@ class HCHints
                 NotificationSystem.AddNotificationExtended(14, "Hollow Country", m_Notification);
                 m_Shown++;
                 HCModuleReadiness.HCUse("Polish", "hint_shown");
+                Print("[HollowCountry] Hints client notification queued runtime=PENDING");
             }
             m_Notification = "";
         }
@@ -339,7 +363,15 @@ class HCHints
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !player.IsAlive()) return;
         string characterId = GetDayZGame().GetDatabaseID();
-        if (characterId == "") return;
+        if (characterId == "")
+        {
+            if (!m_WaitingIdLogged)
+            {
+                m_WaitingIdLogged = true;
+                Print("[HollowCountry] Hints client waiting reason=native_character_id_unavailable runtime=PENDING");
+            }
+            return;
+        }
         if (!m_State || characterId != m_State.CharacterId)
         {
             if (m_State)

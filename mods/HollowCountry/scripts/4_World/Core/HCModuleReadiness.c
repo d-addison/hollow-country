@@ -274,6 +274,14 @@ class HCModuleReadiness
         s_UseCounts.Reserve(HC_USE_CAP);
         s_UseFixtureCounts.Reserve(HC_USE_CAP);
         s_UsePrintedCounts.Reserve(HC_USE_CAP);
+        // These owners run in 5_Mission on the client. Declare their zero rows
+        // there too, so a missing event remains visible in the client RPT.
+        if (GetGame() && !GetGame().IsServer())
+        {
+            HCRegisterUse("SurvivalAlignment", "stamina_applied");
+            HCRegisterUse("SurvivalAlignment", "stamina_hud_shown");
+            HCRegisterUse("Polish", "hint_shown");
+        }
     }
 
     static void HCUseShutdown()

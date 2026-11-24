@@ -883,12 +883,12 @@
     },
     {
       "module": "SurvivalAlignment",
-      "feature": "stamina-hud-shown",
+      "feature": "stamina_hud_shown",
       "signal": {
-        "tag": "[HollowCountry]",
-        "regex": "Stamina client HUD shown stamina_bar=(?P<shown>1) weight_bar=1\\b",
+        "tag": "[HC Use]",
+        "regex": "module=SurvivalAlignment feature=stamina_hud_shown count=(?P<count>\\d+)\\s*$",
         "fields": [
-          "shown"
+          "count"
         ]
       },
       "comparison": "max",
@@ -897,7 +897,8 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c",
       "scope": "client",
-      "note": "Client RPT evidence via --client-rpt only; server-only audit stays SILENT/WAITING. Companion client uses its own timestamp window and server module enablement. HUD visibility does not prove stamina rates."
+      "note": "Client RPT via --client-rpt: first real visible HC stamina HUD sample, after enabled trusted receipt, live conscious player, closed menus and visible native HUD. Server declaration at zero is not client evidence.",
+      "release_smoke": true
     },
     {
       "module": "TapedHelmetMounts",
@@ -1610,6 +1611,61 @@
       "conditional": "upgrade-only",
       "required_when": "[HC Vehicles] retire upgrade_pending",
       "note": "Upgrade-only. No persisted candidate is NOT_APPLICABLE, never ACTIVE or waived; an observed candidate (including queue overflow) requires a positive retired counter. The seeded upgrade fixture must observe the marker and positive use."
+    },
+    {
+      "module": "SurvivalAlignment",
+      "feature": "stamina_applied",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=SurvivalAlignment feature=stamina_applied count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c",
+      "scope": "runtime",
+      "note": "A native stamina step changed stamina while HC continuous rate scaling ran. Sprint after client receipt; standing at full stamina need not change anything. Either peer can report a real step."
+    },
+    {
+      "module": "Polish",
+      "feature": "hint_shown",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Polish feature=hint_shown count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c",
+      "scope": "client",
+      "note": "Client notification queued after the hint image committed, matching native ID, alive player and notification system. Fresh unshown state: play at least 30 seconds with menus closed; later notices use a 180-second shared cooldown. Existing exhausted/invalid profiles need diagnosis, not synthetic counts.",
+      "release_smoke": true
+    },
+    {
+      "module": "InfectedVariety",
+      "feature": "actor_woken",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=InfectedVariety feature=actor_woken count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c",
+      "scope": "runtime",
+      "note": "A real dormant infected woke via proximity, cap repair, shot, native callback or damage. Stand within 6 m with clear geometry of an eligible dormant actor; a quiet join without dormant infected cannot exercise this. Town traversal or a controlled dormant encounter is required; forest alone is not sufficient."
     }
   ]
 }
