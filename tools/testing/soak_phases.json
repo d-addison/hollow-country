@@ -160,6 +160,7 @@
   "SitePatrols": "walk_ai"
  },
  "features": {
+  "InfectedVariety/actor_woken": "walk_town",
   "AISelfDefence/threats_applied": "walk_ai",
   "Infected/actor_bound": "join",
   "Infected/actor_sampled": "join",
@@ -1025,10 +1026,10 @@
    ]
   },
   "InfectedVariety/actor_woken": {
-   "phase": "join",
+   "phase": "walk_town",
    "how": [
-    "boot",
-    "step:stand",
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
     "code:HCInfectedVarietyModule.c"
    ]
   },
