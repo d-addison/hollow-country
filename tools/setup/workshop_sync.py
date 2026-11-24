@@ -890,9 +890,9 @@ def plan_refresh(item, dirs, root, receipt, extra_key_dirs=(), say=lambda _text:
             item_timestamp(source), item_timestamp(case_path(root, folder))))
         return plan
     # Use plan_install's target construction and digest rules, without its new-install conflict rule.
-    targets, skipped, _manual = plan_install([item], [source.parent], root, compare=False)
-    if skipped.get(folder):
-        raise SyncError('Workshop source contains non-allowlisted entries: %s' % ', '.join(skipped[folder]))
+    # Top-level extras (README, LICENSE, example types) are never installed, exactly as on a first install;
+    # anything unexpected inside addons/ or keys/ already refuses in item_files and blocks this item.
+    targets, _skipped, _manual = plan_install([item], [source.parent], root, compare=False)
     targets = {(case_path(root, str(Path(rel).parent)) / Path(rel).name).relative_to(root).as_posix(): value
                for rel, value in targets.items()}
     old = {e['path'].casefold(): e for e in receipt['files']}
