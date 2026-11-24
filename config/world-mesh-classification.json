@@ -1,0 +1,2432 @@
+{
+  "entries": [
+    {
+      "check": "On one client, compare Land_Container_1Mo against the lower-triangle family candidates named in docs/MAP_OVERLAYS.md; verify silhouette, colour/livery, damage, collision, door state and CE prototype. Swap and regenerate if equivalent; otherwise record why no lighter equivalent preserves the scene.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:394"
+      ],
+      "finding": {
+        "classname": "Land_Container_1Mo",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 4814
+      },
+      "reason": "4814 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Bo (4734).",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "On one client, compare Land_Container_1Moh against the lower-triangle family candidates named in docs/MAP_OVERLAYS.md; verify silhouette, colour/livery, damage, collision, door state and CE prototype. Swap and regenerate if equivalent; otherwise record why no lighter equivalent preserves the scene.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:395"
+      ],
+      "finding": {
+        "classname": "Land_Container_1Moh",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 5244
+      },
+      "reason": "5244 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Bo (4734), Land_Container_1Mo (4814).",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s001-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s002-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s006-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s008-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s009-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s010-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s014-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s016-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s017-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s018-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s022-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s024-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s025-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s026-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s030-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s032-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s033-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s034-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s038-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s040-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s041-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s042-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s046-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s048-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s049-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s050-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s053-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s054-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s005-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s005-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s012-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s017-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s017-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s024-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s029-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s029-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s035-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s035-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s005-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s005-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s012-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s017-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s017-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s023-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s034-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s037-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s037-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s043-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s043-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s047-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s054-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s054-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s063-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s066-p04",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:supply-dumps-v1",
+        "key": "d09-p01",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:376",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "contact": "visual",
+        "group": "overlay:supply-dumps-v1",
+        "key": "d09-p02",
+        "offset_m": -0.832,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:396"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Big",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 6994
+      },
+      "reason": "6994 triangles. No lighter equivalent in the installed vanilla Medical_Tent_Big family; the family contains only this model. Retain its authored tent silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:397"
+      ],
+      "finding": {
+        "classname": "Land_Medical_Tent_Shower",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 15353
+      },
+      "reason": "15353 triangles. No lighter equivalent in the installed vanilla Medical_Tent_Shower family; the family contains only this model. Retain its authored tent silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:398"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Fortified_Nest_Small",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 8961
+      },
+      "reason": "8961 triangles. No lighter equivalent in the installed vanilla Mil_Fortified_Nest_Small family; the family contains only this model. Retain its authored building silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:399"
+      ],
+      "finding": {
+        "classname": "Land_Mil_GuardTower",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 6154
+      },
+      "reason": "6154 triangles. No lighter equivalent in the installed vanilla Mil_GuardTower family; the family contains only this model. Retain its authored building silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s010-p01",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s011-p03",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s022-p01",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s023-p03",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s010-p01",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s011-p03",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s022-p03",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s032-p01",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s033-p03",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s052-p01",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:377",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big2_3",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s065-p03",
+        "offset_m": -0.233,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s001-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s011-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s013-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s023-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:inland-discoveries-v2",
+        "key": "s025-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-outposts-v1",
+        "key": "o01-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-outposts-v1",
+        "key": "o03-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s001-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s011-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s013-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s022-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s024-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s033-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s035-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s048-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s055-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:378",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "contact": "visual",
+        "group": "overlay:military-zones-v2",
+        "key": "s065-p01",
+        "offset_m": -1.253,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:400"
+      ],
+      "finding": {
+        "classname": "Land_Mil_Tent_Big4",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 7580
+      },
+      "reason": "7580 triangles. No lighter equivalent in the installed vanilla Mil_Tent_Big4 family; the family contains only this model. Retain its authored tent silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:379",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s003-p01",
+        "offset_m": -0.159,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:379",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s011-p01",
+        "offset_m": -0.159,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:379",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s019-p01",
+        "offset_m": -0.159,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:379",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s027-p01",
+        "offset_m": -0.159,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:379",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s035-p01",
+        "offset_m": -0.159,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:379",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s043-p01",
+        "offset_m": -0.159,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:401"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Caravan_MGreen",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 17152
+      },
+      "reason": "17152 triangles. No lighter equivalent in the installed vanilla Wreck_Caravan_MGreen family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:402"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Ikarus",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 14622
+      },
+      "reason": "14622 triangles. No lighter equivalent in the installed vanilla Wreck_Ikarus family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:403"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Lada_Green",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 15566
+      },
+      "reason": "15566 triangles. No lighter equivalent in the installed vanilla Wreck_Lada_Green family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:404"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_Uaz",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 16595
+      },
+      "reason": "16595 triangles. No lighter equivalent in the installed vanilla Wreck_Uaz family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:405"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_offroad02_aban2",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 27501
+      },
+      "reason": "27501 triangles. No lighter equivalent in the installed vanilla Wreck_offroad02_aban2 family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s005-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s013-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s021-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s029-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s037-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s045-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:380",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s052-p01",
+        "offset_m": -0.806,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "On one client, compare Land_Wreck_sed01_aban1_police against the lower-triangle family candidates named in docs/MAP_OVERLAYS.md; verify silhouette, colour/livery, damage, collision, door state and CE prototype. Swap and regenerate if equivalent; otherwise record why no lighter equivalent preserves the scene.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:406"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban1_police",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 34362
+      },
+      "reason": "34362 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Wreck_sed01_aban2_police (32180), Land_Wreck_sed01_aban1_black (34260), Land_Wreck_sed01_aban1_white (34260), Land_Wreck_sed01_aban1_wine (34260), Land_Wreck_sed01_aban2_black (32109), Land_Wreck_sed01_aban2_white (32109), Land_Wreck_sed01_aban2_wine (32109).",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s005-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s013-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s021-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s029-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s037-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s045-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:381",
+        "tools/package/map_overlay.py:711",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundObjectSpawner.c:510",
+        "mods/HollowCountry/scripts/3_Game/Core/HCGroundSnap.c:274"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "contact": "visual",
+        "group": "overlay:civilian-stories-v2",
+        "key": "s052-p02",
+        "offset_m": -0.531,
+        "reason": "SINKING_PLACEMENT"
+      },
+      "reason": "Runtime HCGroundSnap.Place preserves authored dy; current visual minimum disagrees with committed contact metadata. No authoring evidence establishes intentional burial.",
+      "verdict": "needs_live"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:407"
+      ],
+      "finding": {
+        "classname": "Land_Wreck_sed01_aban2_police",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 32180
+      },
+      "reason": "32180 triangles. Lower-count ordinary sedan skins lack police livery; the police damage-2 variant has no lighter police equivalent. Retain the authored police wreck role.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "check": "On one client, compare StaticObj_Container_1C against the lower-triangle family candidates named in docs/MAP_OVERLAYS.md; verify silhouette, colour/livery, damage, collision, door state and CE prototype. Swap and regenerate if equivalent; otherwise record why no lighter equivalent preserves the scene.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:408"
+      ],
+      "finding": {
+        "classname": "StaticObj_Container_1C",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 5770
+      },
+      "reason": "5770 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Aoh (5244), Land_Container_1Bo (4734), Land_Container_1Mo (4814), Land_Container_1Moh (5244), StaticObj_Container_1Nr2 (5754).",
+      "verdict": "needs_live"
+    },
+    {
+      "check": "On one client, compare StaticObj_Container_1D against the lower-triangle family candidates named in docs/MAP_OVERLAYS.md; verify silhouette, colour/livery, damage, collision, door state and CE prototype. Swap and regenerate if equivalent; otherwise record why no lighter equivalent preserves the scene.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:409"
+      ],
+      "finding": {
+        "classname": "StaticObj_Container_1D",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 5770
+      },
+      "reason": "5770 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Aoh (5244), Land_Container_1Bo (4734), Land_Container_1Mo (4814), Land_Container_1Moh (5244), StaticObj_Container_1Nr2 (5754).",
+      "verdict": "needs_live"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:410"
+      ],
+      "finding": {
+        "classname": "StaticObj_Dead_MassGrave_8m",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 9412
+      },
+      "reason": "9412 triangles. No lighter equivalent in the installed vanilla Dead_MassGrave_8m family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:411"
+      ],
+      "finding": {
+        "classname": "StaticObj_Furniture_foldingbed_open",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 5800
+      },
+      "reason": "5800 triangles. No lighter equivalent in the installed vanilla Furniture_foldingbed_open family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:412"
+      ],
+      "finding": {
+        "classname": "StaticObj_Furniture_hospital_transport_bed",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 3498
+      },
+      "reason": "3498 triangles. No lighter equivalent in the installed vanilla Furniture_hospital_transport_bed family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:413"
+      ],
+      "finding": {
+        "classname": "StaticObj_Mil_CamoNet_Side_east",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 2232
+      },
+      "reason": "2232 triangles. No lighter equivalent in the installed vanilla Mil_CamoNet_Side_east family; all decoded aliases/skins have equal or greater cost. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:414"
+      ],
+      "finding": {
+        "classname": "StaticObj_Mil_HBarrier_4m",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 5547
+      },
+      "reason": "5547 triangles. No lighter equivalent in the installed vanilla Mil_HBarrier_4m family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:415"
+      ],
+      "finding": {
+        "classname": "StaticObj_Mil_HBarrier_6m",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 8357
+      },
+      "reason": "8357 triangles. No lighter equivalent in the installed vanilla Mil_HBarrier_6m family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:416"
+      ],
+      "finding": {
+        "classname": "StaticObj_Misc_BagFence_3m",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 2572
+      },
+      "reason": "2572 triangles. No lighter equivalent in the installed vanilla Misc_BagFence_3m family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:417"
+      ],
+      "finding": {
+        "classname": "StaticObj_Misc_BagFence_Round",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 6253
+      },
+      "reason": "6253 triangles. No lighter equivalent in the installed vanilla Misc_BagFence_Round family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:418"
+      ],
+      "finding": {
+        "classname": "StaticObj_Misc_Razorwire",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 7728
+      },
+      "reason": "7728 triangles. No lighter equivalent in the installed vanilla Misc_Razorwire family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "check": "On one client, compare StaticObj_Misc_RoadBarrier against the lower-triangle family candidates named in docs/MAP_OVERLAYS.md; verify silhouette, colour/livery, damage, collision, door state and CE prototype. Swap and regenerate if equivalent; otherwise record why no lighter equivalent preserves the scene.",
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:419"
+      ],
+      "finding": {
+        "classname": "StaticObj_Misc_RoadBarrier",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 2075
+      },
+      "reason": "2075 triangles. Lighter family candidates need visual/door/damage equivalence review: StaticObj_Misc_RoadBarrier_2 (182).",
+      "verdict": "needs_live"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:420"
+      ],
+      "finding": {
+        "classname": "StaticObj_Roadblock_Bags_Long",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 8542
+      },
+      "reason": "8542 triangles. No lighter equivalent in the installed vanilla Roadblock_Bags_Long family; the family contains only this model. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:421"
+      ],
+      "finding": {
+        "classname": "StaticObj_Roadblock_CncBlocks_Long",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 2440
+      },
+      "reason": "2440 triangles. No lighter equivalent in the installed vanilla Roadblock_CncBlocks_Long family; all decoded aliases/skins have equal or greater cost. Retain its authored prop silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:422"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_BMP2",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 8632
+      },
+      "reason": "8632 triangles. No lighter equivalent in the installed vanilla Wreck_BMP2 family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:423"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_Digger",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 15362
+      },
+      "reason": "15362 triangles. No lighter equivalent in the installed vanilla Wreck_Digger family; the family contains only this model. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:424"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_MTVR_Cargo",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 21039
+      },
+      "reason": "21039 triangles. No lighter equivalent in the installed vanilla Wreck_MTVR_Cargo family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:425"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_Mi8_Crashed",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 14237
+      },
+      "reason": "14237 triangles. No lighter equivalent in the installed vanilla Wreck_Mi8_Crashed family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:426"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_PowGen",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 2704
+      },
+      "reason": "2704 triangles. No lighter equivalent in the installed vanilla Wreck_PowGen family; the family contains only this model. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:427"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_Stryker",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 54896
+      },
+      "reason": "54896 triangles. No lighter equivalent in the installed vanilla Wreck_Stryker family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:428"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_Trailer_Cistern",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 12049
+      },
+      "reason": "12049 triangles. No lighter equivalent in the installed vanilla Wreck_Trailer_Cistern family; the family contains only this model. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    },
+    {
+      "evidence": [
+        "docs/MAP_OVERLAYS.md:429"
+      ],
+      "finding": {
+        "classname": "StaticObj_Wreck_Ural",
+        "reason": "VISUAL_TRIANGLE_COST",
+        "triangles": 11277
+      },
+      "reason": "11277 triangles. No lighter equivalent in the installed vanilla Wreck_Ural family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function.",
+      "verdict": "triangle_cost_accepted"
+    }
+  ],
+  "policy": {
+    "contact_epsilon_m": 0.005,
+    "door_height_m": 1.8,
+    "door_radius_m": 0.3,
+    "door_sweep_each_way_m": 1.5,
+    "lowest_visual_sections": 20,
+    "lowest_visual_triangles": 2000,
+    "origin_y_tolerance_m": 0.1,
+    "path_sample_step_m": 0.1,
+    "path_step_over_m": 0.2,
+    "pivot_offset_m": 0.5,
+    "stair_min_slope": 0.3
+  },
+  "schema": 1
+}

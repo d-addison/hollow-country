@@ -184,7 +184,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 27.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": 15.0,
           "loot": "proto",
           "yaw": 180.0
@@ -344,7 +344,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 20.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": -14.0,
           "loot": "proto",
           "yaw": 175.0
@@ -725,7 +725,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 15.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": -16.0,
           "loot": "proto",
           "yaw": 165.0
@@ -1361,7 +1361,7 @@
           ]
         }
       ],
-      "layout_notes": "Preserved original layout with central access lane; native model-axis, door and collision survey pending. Additional guard shelter is outside the original perimeter where present.",
+      "layout_notes": "Guard tower at local (-13.25, 0.47, 16), outside the northwest entrance corner; its measured Geometry bounds clear every wall and prop and remain west of the central lane. Native doorway, ladder, sightline and terrain checks remain pending.",
       "pieces": [
         {
           "class": "StaticObj_Mil_HBarrier_6m",
@@ -1451,7 +1451,7 @@
           "class": "Land_Mil_GuardTower",
           "dx": -13.25,
           "dy": 0.47,
-          "dz": 6.0,
+          "dz": 16.0,
           "loot": "proto",
           "yaw": 0.0
         },
@@ -1533,7 +1533,7 @@
           "yaw": 0.0
         }
       ],
-      "purpose": "A walled outpost with an HBarrier perimeter, an entrance gap facing the approach, and a guard tower just outside the west wall in the local layout. Sandbag cover lines sit inside the gate, a tent and camo net shelter the work area at the back, and hedgehogs sit outside the gate.",
+      "purpose": "A walled outpost with an HBarrier perimeter, an entrance gap facing the approach, and a guard tower at the northwest entrance corner covering the central lane in the local layout. Sandbag cover lines sit inside the gate, a tent and camo net shelter the work area at the back, and hedgehogs sit outside the gate.",
       "status": "runtime-unverified",
       "theme": "forward outpost",
       "threat_hint": "exposed military salvage",
@@ -1572,7 +1572,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 28.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": 14.0,
           "loot": "proto",
           "yaw": 180.0
@@ -1735,7 +1735,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 27.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": 16.0,
           "loot": "proto",
           "yaw": 180.0
@@ -2593,7 +2593,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 19.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": -12.0,
           "loot": "proto",
           "yaw": 180.0
@@ -2766,7 +2766,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 24.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": 17.0,
           "loot": "proto",
           "yaw": 25.0
@@ -3686,7 +3686,7 @@
         {
           "class": "StaticObj_Wreck_MTVR_Cargo",
           "dx": 23.0,
-          "dy": 0.19,
+          "dy": 0.04,
           "dz": 15.0,
           "loot": "proto",
           "yaw": 180.0

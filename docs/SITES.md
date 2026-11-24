@@ -190,8 +190,11 @@ A forward outpost on the highest flat ground above the base approach: tent rows 
 - How many: up to 8 on the map, 1500 m apart from the same story and 300 m from any other composed site.
 - Lead note: `outpost-roster`, on the table part.
 
-The `forward-outpost` map overlay composition places its guard tower just outside the west wall in the
-template's local frame. Each placed overlay rotates with its site heading.
+The `forward-outpost` map overlay composition places its guard tower at the northwest entrance corner, covering the
+central lane: local `(dx, dy, dz) = (-13.25, 0.47, 16.0)`, previously
+`(-13.25, 0.47, 6.0)`. Its measured Geometry bounds overlap no wall or prop;
+they stay west of the lane (`x = -3.5..3.5`). Each overlay rotates with its site
+heading. Native door/ladder access and the line of sight still need a client check.
 [Overlay compositions](../config/map-overlays/compositions.json)
 
 ### `supply-dump` (Supply dump)
@@ -317,3 +320,14 @@ names them; accepted keys are recorded in the layer `composer` metadata. View, f
 unmeasured and cannot be accepted. `faces: axis`, `faces: tanks` and ring/outward with `of: origin` are not yet
 resolved by `site_rules`; the composer evaluates them itself and counts them (`faces:axis=N`), so the R3 finding
 `faces 'X' but no object of part 'Y' exists` still appears on the committed layers until the validator learns them.
+
+## Heavy-building interior inspection (owner decision, 2026-11-24)
+
+In heavy buildings, interior slot inspection covers only HC-owned props; foreign-object
+detection is not performed there. The owner accepted this limit on 2026-11-24.
+`HCInteriorResolveCursor.HCRayHeavy` lists `Land_Tenement_Small` and `Land_House_2B04`;
+classes measured heavy during resolve or inspection also enter this path for the boot.
+`HCInteriorTemplatePlacement.Available` uses `InspectOwnedProp` and records
+`inspect_native_skipped`; the first slow inspect records `inspect_query_heavy` and later
+slots skip the indivisible native query. This limit does not establish collision-free
+placement around foreign or persistent props. Native placement acceptance remains pending.

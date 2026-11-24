@@ -481,5 +481,52 @@ class WorldMeshAuditTests(unittest.TestCase):
             self.assertIn('INVALID_INPUT_OR_READER', output.getvalue())
 
 
+
+class ClassificationTests(unittest.TestCase):
+    """The reviewed classification is a ratchet, never a blanket suppression."""
+
+    def review(self, finding, verdict='triangle_cost_accepted'):
+        return {'finding': finding, 'verdict': verdict, 'reason': 'Reviewed model family.',
+                'evidence': ['evidence.md:1'], 'check': 'Inspect this exact placed object on one client.'}
+
+    def run_review(self, findings, entries, policy=None):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'evidence.md').write_text('Review\n')
+            path = root / 'review.json'
+            path.write_text(json.dumps({'schema': 1, 'policy': audit.POLICY if policy is None else policy,
+                                        'entries': entries}))
+            return audit.classify(audit.report([], findings=findings), path, root)
+
+    def test_exact_cost_review_and_new_or_changed_measurement(self):
+        cost = {'classname': 'Vanilla', 'reason': 'VISUAL_TRIANGLE_COST', 'triangles': 3000}
+        result = self.run_review([cost], [self.review(cost)])
+        self.assertEqual(result['status'], 'pass')
+        self.assertEqual(result['raw_findings'], [cost])
+        for finding in [dict(cost, triangles=3001), dict(cost, classname='New')]:
+            result = self.run_review([finding], [self.review(cost)])
+            self.assertEqual(result['status'], 'fail')
+            self.assertEqual(result['classification']['unclassified'], 1)
+            self.assertIn('CLASSIFICATION_STALE', [f['reason'] for f in result['findings']])
+
+    def test_removed_finding_requires_removing_review(self):
+        cost = {'classname': 'Vanilla', 'reason': 'VISUAL_TRIANGLE_COST', 'triangles': 3000}
+        result = self.run_review([], [self.review(cost)])
+        self.assertEqual(result['findings'][0]['reason'], 'CLASSIFICATION_STALE')
+
+    def test_real_and_needs_live_remain_blocking(self):
+        finding = {'classname': 'Prop', 'reason': 'SINKING_PLACEMENT', 'key': 'p1', 'offset_m': -.3}
+        for verdict in ('real', 'needs_live'):
+            self.assertEqual(self.run_review([finding], [self.review(finding, verdict)])['findings'], [finding])
+
+    def test_invalid_reviews_fail_closed(self):
+        finding = {'classname': 'Prop', 'reason': 'FLOATING_PLACEMENT', 'key': 'p1', 'offset_m': .3}
+        row = self.review(finding, 'needs_live')
+        for entries in ([self.review(finding)], [row, row], [dict(row, check='')],
+                        [dict(row, evidence=['../outside:1'])], [dict(row, evidence=['evidence.md:99'])]):
+            self.assertEqual(self.run_review([finding], entries)['status'], 'fail')
+        self.assertEqual(self.run_review([finding], [row], policy={})['status'], 'fail')
+
+
 if __name__ == '__main__':
     unittest.main()

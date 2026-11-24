@@ -28,6 +28,7 @@ POLICY = {
 GEOMETRY, VIEW_GEOMETRY, PATHS = 1e13, 6e15, 4e15
 COMPONENT = re.compile(r'component\d+', re.IGNORECASE)
 CLASS_CATALOG = 'config/map-overlays/classes.json'
+CLASSIFICATION = 'config/world-mesh-classification.json'
 SHELTER_PROPS = ('StaticObj_Furniture_fireplace_grill', 'StaticObj_Misc_Chair_Camp1',
                  'StaticObj_Furniture_PaperBox_01_small_closed')
 WIRING = ('Local preland runs this audit using HC_GENERATED_GEOMETRY_ADDONS when set '
@@ -712,12 +713,70 @@ def report(rows, metrics=(), findings=(), skips=()):
                             'Host checks use baked Geometry, excluding proxy marker faces; stock proxy solids are not expanded.']}
 
 
+def classify(result, path, repo):
+    """Exact reviewed findings, with a stale-entry ratchet like enforce_lint.
+
+    Keep raw measurements in the report; only the blocking findings drive exit status.
+    Real defects and pending live checks can never be suppressed by classification.
+    """
+    findings = result['findings']
+    identity = lambda finding: json.dumps(finding, sort_keys=True, allow_nan=False)
+    current = {identity(f): f for f in findings}
+    reviewed, errors = {}, []
+    counts = defaultdict(int)
+    try:
+        doc = read_json(path) if path.is_file() else {'schema': 1, 'policy': POLICY, 'entries': []}
+        if doc.get('schema') != 1 or doc.get('policy') != result['policy'] or not isinstance(doc.get('entries'), list):
+            raise ValueError('invalid classification policy/schema')
+        for entry in doc['entries']:
+            finding, verdict = entry['finding'], entry['verdict']
+            key = identity(finding)
+            if key in reviewed or not isinstance(finding, dict) or not entry['reason'].strip():
+                raise ValueError('duplicate or invalid review')
+            if verdict not in {'real', 'runtime_corrected', 'intended', 'triangle_cost_accepted', 'needs_live'}:
+                raise ValueError('unknown verdict')
+            if verdict == 'triangle_cost_accepted' and finding.get('reason') != 'VISUAL_TRIANGLE_COST':
+                raise ValueError('cost review on a placement')
+            if verdict in {'runtime_corrected', 'intended'} and finding.get('reason') not in {'SINKING_PLACEMENT', 'FLOATING_PLACEMENT'}:
+                raise ValueError('placement review on a cost')
+            if verdict == 'needs_live' and not entry.get('check', '').strip():
+                raise ValueError('missing live check')
+            evidence = entry['evidence']
+            if not isinstance(evidence, list) or not evidence:
+                raise ValueError('missing evidence')
+            for reference in evidence:
+                name, line = reference.rsplit(':', 1)
+                relative = Path(name)
+                target = Path(repo) / relative
+                if relative.is_absolute() or '..' in relative.parts or not target.resolve().is_relative_to(Path(repo).resolve()):
+                    raise ValueError('non-repository evidence')
+                if not 1 <= int(line) <= len(target.read_text(encoding='utf-8').splitlines()):
+                    raise ValueError('invalid evidence line')
+            reviewed[key] = entry
+            counts[verdict] += 1
+        for key in reviewed.keys() - current.keys():
+            errors.append({'reason': 'CLASSIFICATION_STALE', 'finding': reviewed[key]['finding']})
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        errors = [{'reason': 'CLASSIFICATION_INVALID'}]
+        reviewed = {}
+    blocking = [f for key, f in current.items() if key not in reviewed
+                or reviewed[key]['verdict'] in {'real', 'needs_live'}]
+    result['raw_findings'] = findings
+    result['findings'] = blocking + errors
+    result['classification'] = {'counts': dict(sorted(counts.items())),
+                                'unclassified': len(current.keys() - reviewed.keys()), 'errors': len(errors)}
+    result['status'] = 'fail' if result['findings'] else 'pass'
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, default=ROOT)
     parser.add_argument('--addons', type=Path, default=ADDONS)
     parser.add_argument('--reader', type=Path, default=None, help=argparse.SUPPRESS)  # legacy, ignored
     parser.add_argument('--report', type=Path, help='JSON destination; defaults to stdout')
+    parser.add_argument('--classification', type=Path,
+                        help='reviewed exact-match findings; default config/world-mesh-classification.json in --repo')
     parser.add_argument('--bounds-out', type=Path,
                         help='write the proposed measured-bounds update for the class catalogue')
     parser.add_argument('--contact-out', type=Path,
@@ -745,6 +804,7 @@ def main(argv=None):
         # External reader/PBO diagnostics can contain private filesystem paths.
         # Keep errors machine-readable without echoing paths or raw exceptions.
         result = report([], findings=[{'reason': 'INVALID_INPUT_OR_READER'}])
+    classify(result, args.classification or args.repo / CLASSIFICATION, args.repo)
     rendered = json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + '\n'
     if args.bounds_out and proposal is not None:
         args.bounds_out.write_text(json.dumps(proposal, sort_keys=True, indent=2, allow_nan=False) + '\n',
@@ -758,6 +818,9 @@ def main(argv=None):
         print(rendered, end='')
     for reason in sorted({s['reason'] for s in result['skipped']}):
         print('SKIP ' + reason)
+    review = result['classification']
+    print('world_mesh_classification: ' + ' '.join(f'{k}={v}' for k, v in review['counts'].items())
+          + f" unclassified={review['unclassified']} errors={review['errors']}")
     print(f"world_mesh_audit: {result['status']} checked={result['checked']} "
           f"findings={len(result['findings'])} skipped={len(result['skipped'])}")
     return int(bool(result['findings']) or (args.require_installed and bool(result['skipped'])))
