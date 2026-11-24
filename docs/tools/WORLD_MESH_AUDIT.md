@@ -158,10 +158,13 @@ SKIPs. Origin and View Geometry facts are model-relative; ground contact is judg
 against authored terrain heights only, not final terrain contact. Runtime props outside
 these authored data families are outside this inventory.
 
-This task does not wire the audit into preland. The report's `wiring_needed`
-field describes the future adapter: invoke this module with installed inputs,
-retain the JSON report and require installed checks. Offline tests and reports
-never establish DayZ placement, action, collision or multiplayer behavior.
+Local preland runs the audit with `HC_GENERATED_GEOMETRY_ADDONS` when set and
+falls back to preland's `--addons` path. Set the environment variable to full
+DayZ client Addons so the audit can read visual LODs while strict regeneration
+uses the server Addons for inventory and other stock inputs. Preland writes
+the audit report to its scratch directory and fails in strict mode if any
+coverage is skipped. Use the direct audit command above to retain a report.
+DayZ placement, action and collision still require runtime evidence.
 
 ## DamageZones census (WD-2B-1)
 

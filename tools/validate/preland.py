@@ -163,9 +163,8 @@ def asset_lint_runs(sources=None, config=None):
     return runs
 
 
-def world_mesh_gap(args):
+def world_mesh_gap(addons):
     """Why the offline mesh audit cannot read installed data, or '' when it can."""
-    addons = Path(args.addons).expanduser()
     if not addons.is_dir() or not any(addons.glob('*.pbo')):
         return 'installed vanilla Addons unavailable'
     return ''
@@ -282,7 +281,7 @@ def main(argv=None):
     parser.add_argument('--ce-mission', type=Path, default=os.environ.get('HC_CE_MISSION') or None,
                         help='staged mission (stock plus installed overlays) for ce_slot_pressure; default HC_CE_MISSION')
     parser.add_argument('--addons', type=Path, default=ADDONS,
-                        help='installed vanilla Addons for world_mesh_audit availability')
+                        help='installed vanilla Addons; HC_GENERATED_GEOMETRY_ADDONS overrides mesh audit input')
     parser.add_argument('--wb', action='store_true', help='also run tools.release.wb_compile when installed')
     parser.add_argument('--strict', action='store_true', help='fail on any unavailable/skipped coverage or missing input')
     parser.add_argument('--profile', choices=('local', 'ci'), default='local',
@@ -336,8 +335,9 @@ def execute(args, paths, scratch):
             else:
                 gap = 'staged CE mission not provided (--ce-mission or HC_CE_MISSION)'
         elif name == 'world_mesh_audit':
-            gap = world_mesh_gap(args)
-            arguments += ['--report', str(scratch / 'world-mesh-audit.json')]
+            addons = Path(os.environ.get('HC_GENERATED_GEOMETRY_ADDONS') or args.addons).expanduser().resolve()
+            gap = world_mesh_gap(addons)
+            arguments += ['--report', str(scratch / 'world-mesh-audit.json'), '--addons', str(addons)]
         elif name == 'asset_lint':
             runs = asset_lint_runs()
             if isinstance(runs, str):

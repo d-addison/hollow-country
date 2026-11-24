@@ -30,10 +30,9 @@ COMPONENT = re.compile(r'component\d+', re.IGNORECASE)
 CLASS_CATALOG = 'config/map-overlays/classes.json'
 SHELTER_PROPS = ('StaticObj_Furniture_fireplace_grill', 'StaticObj_Misc_Chair_Camp1',
                  'StaticObj_Furniture_PaperBox_01_small_closed')
-WIRING = ('Not wired into preland. A future preland adapter must invoke this module, '
-          'supply full-client --addons (models decode with tools.audit.odol56), '
-          'retain the JSON report, and use --require-installed to refuse SKIPs. '
-          'Native placement, terrain contact and action checks remain separate.')
+WIRING = ('Local preland runs this audit using HC_GENERATED_GEOMETRY_ADDONS when set '
+          'or its --addons path by default. Strict preland fails on SKIPs. '
+          'Native placement, terrain contact and action still require runtime evidence.')
 
 
 @dataclass(frozen=True)

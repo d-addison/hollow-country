@@ -28,12 +28,13 @@ class PrelandTests(unittest.TestCase):
                mission=True, mesh_gap=''):
         calls = []
         outputs = {'world_mesh_audit': MESH_PASS, **(outputs or {})}
+        check_mesh_gap = preland.world_mesh_gap if mesh_gap is None else lambda addons: mesh_gap
         def run(module, arguments):
             calls.append((module, arguments))
             return preland.CheckResult((codes or {}).get(key(module, arguments), 0),
                                        outputs.get(key(module, arguments), ''))
         args = list(args) + (['--ce-mission', 'synthetic-mission'] if mission else [])
-        with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), patch.object(preland, 'asset_lint_runs', return_value=[list(a) for a in assets] if not isinstance(assets, str) else assets), patch.object(preland, 'world_mesh_gap', return_value=mesh_gap), patch.dict(os.environ, {'HC_CE_MISSION': ''}), contextlib.redirect_stdout(io.StringIO()) as out:
+        with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), patch.object(preland, 'asset_lint_runs', return_value=[list(a) for a in assets] if not isinstance(assets, str) else assets), patch.object(preland, 'world_mesh_gap', side_effect=check_mesh_gap), patch.dict(os.environ, {'HC_CE_MISSION': ''}), contextlib.redirect_stdout(io.StringIO()) as out:
             code = preland.main(args)
         return code, calls, out.getvalue()
 
@@ -408,6 +409,36 @@ class PrelandTests(unittest.TestCase):
         failing = 'world_mesh_audit: fail checked=3 findings=2 skipped=0'
         self.assertEqual(1, self.invoke(codes={'world_mesh_audit': 1}, outputs={'world_mesh_audit': failing})[0])
         self.assertEqual(1, self.invoke(outputs={'world_mesh_audit': ''})[0], 'a missing summary is not a pass')
+
+    def test_world_mesh_audit_uses_geometry_addons_and_keeps_generator_addons(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            server = Path(scratch) / 'server'
+            client = Path(scratch) / 'client'
+            client.mkdir()
+            (client / 'test.pbo').touch()
+            with patch.dict(os.environ, {'HC_GENERATED_GEOMETRY_ADDONS': str(client / '..' / 'client')}):
+                code, calls, _ = self.invoke(['--strict', '--addons', str(server)], mesh_gap=None)
+            self.assertEqual(0, code)
+            by_name = {key(module, args): args for module, args in calls}
+            self.assertEqual(['--addons', str(client.resolve())], by_name['world_mesh_audit'][2:])
+            for name in ('regenerate_all', 'generated_digests'):
+                self.assertEqual(['--check', '--require-installed', '--addons', str(server.resolve())],
+                                 by_name[name])
+
+    def test_world_mesh_audit_uses_addons_argument_when_geometry_is_unset(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            addons = Path(scratch)
+            (addons / 'test.pbo').touch()
+            with patch.dict(os.environ, {'HC_GENERATED_GEOMETRY_ADDONS': ''}):
+                code, calls, _ = self.invoke(['--addons', str(addons)], mesh_gap=None)
+            self.assertEqual(0, code)
+            by_name = {key(module, args): args for module, args in calls}
+            self.assertEqual(['--addons', str(addons.resolve())], by_name['world_mesh_audit'][2:])
+            with patch.dict(os.environ, {'HC_GENERATED_GEOMETRY_ADDONS': str(addons / 'missing')}):
+                code, calls, output = self.invoke(['--strict', '--addons', str(addons)], mesh_gap=None)
+            self.assertEqual(1, code)
+            self.assertIn('world_mesh_audit | FAIL (skipped: installed vanilla Addons unavailable)', output)
+            self.assertNotIn('world_mesh_audit', [key(module, args) for module, args in calls])
 
     def test_ci_excludes_staged_and_installed_gates_but_keeps_offline_ones(self):
         code, calls, output = self.invoke(['--profile', 'ci'], mission=False, mesh_gap='unavailable')
