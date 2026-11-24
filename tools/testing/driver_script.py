@@ -65,7 +65,7 @@ GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
 KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route",
-         "combat", "loot")
+         "combat", "loot", "survive")
 # route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
 # stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
 MAX_ROUTE_POINTS = 64
@@ -78,6 +78,10 @@ COMBAT_RANGE = (10, 150)
 # the test kit) with the inventory drop request (HCDriverLoot).
 LOOT_RANGE = (5, 80)
 LOOT_MAX_ITEMS = 10
+# survive: bandage when bleeding, then drink and eat with the item's own vanilla continuous action;
+# mode need acts only on a falling or warning HUD water/energy level, always drinks and eats whatever
+# it carries (HCDriverSurvive). Missing items are listed (missing=no-food,...), never faked.
+SURVIVE_MODES = ("need", "always")
 
 # action kind -> (required args, optional args). Every arg value is a string.
 ACTION_ARGS = {
@@ -135,6 +139,7 @@ _STEP_FIELDS = {
     "route": {"points", "gait", "arrive_m", "timeout_s"},
     "combat": {"range_m", "timeout_s"},
     "loot": {"range_m", "max_items", "timeout_s"},
+    "survive": {"mode", "timeout_s"},
 }
 _TOP_FIELDS = {"version", "run_id", "steps"}
 
@@ -340,6 +345,8 @@ def _phase_forest(b):
     b.admin("forage", 20)
     b.action("pickup_forage")
     b.add("stand", seconds=60)
+    # Eat and drink what the town loot and the forage gave; bandage if the town fight left a wound.
+    b.add("survive", mode="always", timeout_s=120)
 
 
 def site_candidates():
@@ -567,6 +574,10 @@ def validate_step(step, label="step"):
         if isinstance(max_items, bool) or not isinstance(max_items, int) or not 1 <= max_items <= LOOT_MAX_ITEMS:
             raise ScriptError("%s max_items must be an integer 1..%d" % (label, LOOT_MAX_ITEMS))
         _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
+    elif kind == "survive":
+        if step.get("mode") not in SURVIVE_MODES:
+            raise ScriptError("%s survive mode must be one of %s" % (label, SURVIVE_MODES))
+        _number(step.get("timeout_s"), 10, 600, label + " timeout_s")
     elif kind == "action":
         name = step.get("name")
         if name not in ACTION_ARGS:
@@ -625,6 +636,8 @@ def describe(step, notes):
         detail = "range_m=%s timeout_s=%s (fire=unsupported)" % (step["range_m"], step["timeout_s"])
     elif kind == "loot":
         detail = "range_m=%s max_items=%s timeout_s=%s" % (step["range_m"], step["max_items"], step["timeout_s"])
+    elif kind == "survive":
+        detail = "mode=%s timeout_s=%s" % (step["mode"], step["timeout_s"])
     elif kind == "action":
         detail = "name=%s args=%s timeout_s=%s" % (
             step["name"], json.dumps(step["args"], sort_keys=True), step["timeout_s"])

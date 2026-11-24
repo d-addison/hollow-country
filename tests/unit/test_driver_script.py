@@ -258,6 +258,20 @@ class DriverScriptTests(unittest.TestCase):
             with self.assertRaises(ds.ScriptError):
                 ds.validate_step(step)
 
+    def test_survive_steps_have_a_known_mode(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        survives = [step for step in script["steps"] if step["kind"] == "survive"]
+        self.assertTrue(survives)
+        self.assertEqual(ds.step_token(survives[0], notes), "survive")
+        good = {"id": "s01", "kind": "survive", "mode": "need", "timeout_s": 120}
+        ds.validate_step(good)
+        ds.validate_step(dict(good, mode="always"))
+        bad = [dict(good, mode="heal"), dict(good, mode=None), dict(good, timeout_s=5),
+               dict(good, timeout_s=900), dict(good, health=100)]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
 
 if __name__ == "__main__":
     unittest.main()

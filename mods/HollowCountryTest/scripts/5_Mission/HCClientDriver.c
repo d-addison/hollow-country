@@ -26,6 +26,7 @@ class HCClientDriver
     protected ref HCDriverRoute m_Route = new HCDriverRoute;
     protected ref HCDriverCombat m_Combat = new HCDriverCombat;
     protected ref HCDriverLoot m_Loot = new HCDriverLoot;
+    protected ref HCDriverSurvive m_Survive = new HCDriverSurvive;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -168,6 +169,11 @@ class HCClientDriver
         {
             code = StepLoot(step, player, dt);
             detail = m_Loot.Detail();
+        }
+        else if (step.kind == "survive")
+        {
+            code = StepSurvive(step, player, dt);
+            detail = m_Survive.Detail();
         }
         else
         {
@@ -544,6 +550,16 @@ class HCClientDriver
             m_Loot.Begin(step);
         }
         return m_Loot.Tick(player, dt, m_Walker);
+    }
+
+    protected int StepSurvive(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Survive.Begin(step);
+        }
+        return m_Survive.Tick(player, dt);
     }
 
     protected int StepAction(HCDriverStep step, PlayerBase player, float dt)
