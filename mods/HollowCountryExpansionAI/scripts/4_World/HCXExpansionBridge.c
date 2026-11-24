@@ -363,6 +363,9 @@ class HCXExpansionBridge
     {
         if (!value) { HCRefuse("HCSitePatrolDelete", "RECEIVER_NULL"); return; }
         if (value.IsBeingDestroyed()) { HCRefuse("HCSitePatrolDelete", "ALREADY_DELETING"); return; }
+        value.HCEndPatrol();
+        // Despawned may synchronously finish a transient and re-enter Delete.
+        if (value.IsBeingDestroyed()) { return; }
         value.HCReleaseHold();
         value.Delete();
     }
@@ -385,6 +388,14 @@ class HCXExpansionBridge
         if (!HCGate("PatrolSpawn")) { return; }
         if (!HCConfig(value.m_Config, "HCSitePatrolSpawn")) { return; }
         value.Spawn();
+    }
+
+    static void HCSitePatrolSpawnDeferred(HCXAISitePatrol value, int index)
+    {
+        if (!value) { HCRefuse("HCSitePatrolSpawnDeferred", "RECEIVER_NULL"); return; }
+        if (index < 0 || value.IsBeingDestroyed()) { HCRefuse("HCSitePatrolSpawnDeferred", "DEFERRED_SPAWN_TERMINAL"); return; }
+        // Dispatch the HC override, which checks the hold before any provider/config read.
+        value.SpawnAI_Deferred(index);
     }
 
     static void HCSitePatrolStop(HCXAISitePatrol value)
@@ -923,6 +934,13 @@ class HCXExpansionBridge
         return value.IsZombie();
     }
 
+    // Death-hold validation reads only the existing strong hold.
+    static bool HCHeldDeathClean(HCXAIGroupHold hold, array<DayZPlayerImplement> killed, out bool terminal)
+    {
+        terminal = false;
+        if (!hold) { HCRefuse("HCHeldDeathClean", "DEATH_HOLD_IDENTITY_MISSING"); return false; }
+        return hold.HCDeathClean(killed, terminal);
+    }
     // #334: resolve a stored group id to the live group, or null when it is gone.
     // Group ids are never reused (eAIGroup.s_IDCounter only increments), so a stale id
     // cannot match another group. Use this instead of keeping a raw eAIGroup handle in
@@ -1310,6 +1328,7 @@ class HCXAIGroupHold
     // HCHold* bridge calls read the group.
     int Epoch;
     int Id;
+    int Deaths;
     bool Retired;
     static const int HC_LISTED_TTL_MS = 100;
     int ListedAtMs = -1;
@@ -1322,7 +1341,8 @@ class HCXAIGroupHold
         SettledAtMs = -1;
         SettledSeenMs = -1;
         Epoch = HCXExpansionBridge.HCEpoch();
-        if (group) { Id = group.GetID(); }
+        // Identity is read only after the strong reference has been established.
+        if (Group) { Id = Group.GetID(); }
         HCXExpansionBridge.HCHandleMade();
     }
     void ~HCXAIGroupHold()
@@ -1388,6 +1408,55 @@ class HCXAIGroupHold
         ListedStamp = HCXExpansionBridge.HCListStamp();
         return true;
     }
+    bool HCDeathClean(array<DayZPlayerImplement> killed, out bool terminal)
+    {
+        terminal = false;
+        if (Retired || Epoch != HCXExpansionBridge.HCEpoch() || !Group || Id <= 0 || !killed || killed.Count() == 0)
+        {
+            HCXExpansionBridge.HCRefuse("HCHeldDeathClean", "DEATH_HOLD_IDENTITY_MISSING");
+            return false;
+        }
+        if (eAIGroup.GetGroupByID(Id, false) != Group)
+        {
+            terminal = true;
+            HCXExpansionBridge.HCRefuse("HCHeldDeathClean", "DEATH_HOLD_GROUP_UNLISTED");
+            return false;
+        }
+        int live = Group.Count();
+        if (live == 0) { terminal = true; return false; }
+        if (live > 16 || killed.Count() > 16)
+        {
+            HCXExpansionBridge.HCRefuse("HCHeldDeathClean", "DEATH_HOLD_MEMBER_CAP");
+            return false;
+        }
+        foreach (DayZPlayerImplement dead : killed)
+        {
+            // Deleted weak entries are absent too; deceased accounting below must
+            // still confirm provider cleanup, otherwise defer until terminal.
+            if (dead && Group.GetIndex(dead) >= 0)
+            {
+                HCXExpansionBridge.HCRefuse("HCHeldDeathClean", "DEATH_HOLD_CLEANUP_PENDING");
+                return false;
+            }
+        }
+        if (Deaths < killed.Count() || Group.DeceasedCount() < Deaths)
+        {
+            HCXExpansionBridge.HCRefuse("HCHeldDeathClean", "DEATH_HOLD_DECEASED_UNCONFIRMED");
+            return false;
+        }
+        return true;
+    }
+    // A positive cache entry is never death-hold release/resume evidence.
+    eAIGroup HCResolveFresh()
+    {
+        if (Retired || !Group || Id <= 0 || Epoch != HCXExpansionBridge.HCEpoch() || !HCXExpansionBridge.HCLive()) { return null; }
+        if (HCXExpansionBridge.HCGroupById(Id) != Group) { ListedGone = true; return null; }
+        return Group;
+    }
+    bool HCNamesLiveSlot()
+    {
+        return HCXAISitePatrol.HCNamesLiveSlot(Group);
+    }
     void Track(DayZPlayerImplement member)
     {
         if (member && Members.Find(member) < 0) { Members.Insert(member); }
@@ -1429,8 +1498,8 @@ class HCXAIGroupHold
     }
 }
 
-// Retired holds: bounded scan, two entries per call (each site patrol calls it from
-// its 5 s update, the AI adapter from its tick). A hold is released once its last
+// Retired holds: bounded scan, two entries per site-director owner tick.
+// A hold is released once its last
 // tracked member has been gone for 2 s AND on three distinct frames, so one long
 // hitch cannot release it before the provider's queued group cleanup has run.
 class HCXAIGroupHolds
@@ -1476,6 +1545,7 @@ class HCXAIGroupHolds
         {
             if (s_Cursor >= s_Retired.Count()) { s_Cursor = 0; }
             HCXAIGroupHold hold = s_Retired[s_Cursor];
+            if (hold && hold.HCNamesLiveSlot()) { hold.SettledAtMs = -1; hold.SettledSeen = 0; s_Cursor++; continue; }
             if (hold && !hold.Settled()) { hold.SettledAtMs = -1; hold.SettledSeen = 0; s_Cursor++; continue; }
             if (hold && hold.SettledSeenMs != nowMs) { hold.SettledSeenMs = nowMs; hold.SettledSeen++; }
             if (hold && hold.SettledAtMs < 0) { hold.SettledAtMs = nowMs; s_Cursor++; continue; }
@@ -1493,6 +1563,7 @@ class HCXAIGroupHolds
             HCXAIGroupHold held = s_Retired[at];
             if (held)
             {
+                if (held.HCNamesLiveSlot()) { continue; }
                 if (!held.Settled() || held.SettledAtMs < 0 || held.SettledSeen < 3) { continue; }
                 if (GetGame() && GetGame().GetTime() - held.SettledAtMs < HC_SETTLE_MS) { continue; }
             }
@@ -1564,13 +1635,20 @@ class HCXExpansionPatrol : eAIDynamicPatrol
         if (!m_Group || !m_Formation) { HCXExpansionBridge.HCRefuse("SpawnAI_Deferred", "GROUP_OR_FORMATION_NULL"); return; }
         super.SpawnAI_Deferred(i);
     }
-    // The provider's m_Group is raw (eAIGroup is not Managed). These two are the only reads of it
-    // outside the provider: the null compare never dereferences, and the pointer goes straight
-    // into an HCXAIGroupHold (HCXAIGroupHolds.Follow) without leaving this class; every other
-    // reader uses the hold.
+    // The provider slot is raw. Identity comparisons never dereference it; only
+    // the unheld spawn/update path may Follow it into an owned hold. Other
+    // readers resolve the hold, with death-sensitive readers using a fresh lookup.
     bool HCBridgeHasGroupSlot()
     {
         return m_Group != null;
+    }
+    bool HCBridgeNamesGroup(eAIGroup group)
+    {
+        return group && m_Group == group;
+    }
+    bool HCBridgeOwnsHold(HCXAIGroupHold hold)
+    {
+        return hold && hold.HCIsGroup(m_Group);
     }
     HCXAIGroupHold HCBridgeFollowHold(HCXAIGroupHold hold)
     {
@@ -1730,7 +1808,11 @@ modded class eAIBase
         if (GetGame() && GetGame().IsServer())
         {
             HCXAISiteDirector raidDirector = HCXAISiteDirector.Active();
-            if (raidDirector) { raidDirector.RecordDeath(GetGroup()); }
+            if (raidDirector)
+            {
+                raidDirector.HCArmDeath(GetGroup(), this);
+                raidDirector.RecordDeath(GetGroup());
+            }
             // Durable betrayal depends on faction relation, not the defence
             // record super.OnKill creates for the bounded survivor response.
             PlayerBase attacker = HCXDefence.AttackerOf(EntityAI.Cast(killer));

@@ -41,6 +41,9 @@ modded class HCModuleReadiness
         }
         if (module == "optional-expansion-human-ai")
         {
+            HCRegisterUse("SitePatrols", "death-hold-armed");
+            HCRegisterUse("SitePatrols", "death-hold-released");
+            HCRegisterUse("SitePatrols", "death-hold-deferred");
             HCRegisterUse("optional-expansion-human-ai", "actor_spawned");
             HCRegisterUse("optional-expansion-human-ai", "route_cache");
             HCRegisterUse("optional-expansion-human-ai", "convoy_astar");
