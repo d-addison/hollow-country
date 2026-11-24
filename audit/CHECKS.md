@@ -32,6 +32,7 @@ The compile/boot traps under D:
 | Class | Offline deterministic check (all together about 30 s) | Optional runtime self-check / receipt |
 |---|---|---|
 | Compile traps (D) | **`tools/validate/enforce_lint.py` rules HC-E001..E007 and HC-L001 (implemented)**, plus the existing `test_script_syntax`, `test_enforce_locals` and `test_script_identifiers` | DayZDiag compile: `0 SCRIPT (E)` in the boot log (already captured by native boot runs) |
+| RPC id collisions (#370) | **HC-E054**: literal RPC constants, explicit RPC enum members and literal ScriptRPC.Send / GetGame().RPCSingleParam ids share one namespace. Reports all colliding file:line locations; named references do not allocate ids. Vanilla ERPCs comparison is omitted while the native index has names only. | Two-client settings delivery still needs runtime evidence. |
 | Silent server refusal (A, B) | **HC-S001 / HC-S002 (implemented, baselined)** | Each refusal emits `[HC <Module>] refuse reason=<code> actor=<id>`, rate-limited. The admin debug snapshot counts refusals per reason. |
 | Predicted action with no player feedback (A) | **HC-S003 (implemented, baselined)** | Server `MessageStatus` on the refusal path. Single-client check for the networked ones. |
 | Feature silently off (E) | WP-5: a readiness-line registry test. Every `HCModule` subclass has one `[HC <Name>] ready` / `[HC <Name>] off reason=` print, and `HCServer` logs the modules it skips. | Boot log grep: one line per registered module, no gaps. |
