@@ -294,7 +294,8 @@ class RefreshTests(unittest.TestCase):
         self.update()
         put(self.root, '@CF/addons/a.pbo', b'owner edit')
         a = fi.analyze(self.ctx)
-        self.assertEqual(fi.plan_workshop(self.ctx, a)[0], 'blocked')
+        self.assertEqual(fi.plan_workshop(self.ctx, a)[0], 'planned')
+        self.assertIn('repairable', '\n'.join(fi.plan_workshop(self.ctx, a)[1]))
         self.assertIn('Workshop source', a.repairs[0]['detail'])
         self.assertEqual(fi.repair_step(a.repairs[0]), 'workshop')
         with self.assertRaises(fi.Refused):
@@ -412,22 +413,217 @@ class RefreshTests(unittest.TestCase):
         self.assertTrue((self.root / 'keys/key.bikey').is_file())
         self.assertNotIn('keys/key.bikey', {e['path'] for e in self.load()['files']})
 
-    def test_missing_owned_folder_without_content_never_auto_fetches(self):
+    def test_missing_owned_folder_without_content_queues_fetch_and_missing_check(self):
         self.installer_context()
         shutil.rmtree(self.root / '@CF')
         shutil.rmtree(self.source)
         a = fi.analyze(self.ctx)
-        self.assertFalse(a.fetch)
-        self.assertFalse(a.pending)
-        self.assertEqual(a.dependencies[0]['state'], 'content-missing')
+        self.assertEqual(a.fetch, [self.item])
+        self.assertEqual([t['item'] for t in a.pending], [self.item])
+        self.assertNotIn('existing server copy kept', '\n'.join(a.dependency_warnings))
+        a.fetch = []
+        with self.assertRaisesRegex(fi.Refused, 'not downloaded'):
+            fi.pre_apply(self.ctx, a)
 
     def test_missing_owned_folder_restored_when_source_available(self):
         self.installer_context()
         shutil.rmtree(self.root / '@CF')
         a = fi.analyze(self.ctx)
-        self.assertFalse(a.pending)
-        fi.plan_workshop(self.ctx, a)[2]()
+        self.assertEqual([t['item'] for t in a.pending], [self.item])
+        self.assertFalse(a.fetch)
+        self.update()
+        fi.plan_workshop(self.ctx, fi.analyze(self.ctx))[2]()
+        self.assertEqual((self.root / '@CF/addons/a.pbo').read_bytes(), b'new pbo')
         self.assertEqual(self.plan()['state'], 'current')
+
+    def test_missing_owned_fetch_installs_newest_available_copy(self):
+        self.installer_context()
+        shutil.rmtree(self.root / '@CF')
+        shutil.rmtree(self.source)
+        a = fi.analyze(self.ctx)
+        with mock.patch.object(fi, 'do_fetch', side_effect=lambda ctx, request: self.update_source()):
+            fi.plan_workshop(self.ctx, a)[2]()
+        self.assertEqual((self.root / '@CF/addons/a.pbo').read_bytes(), b'new pbo')
+
+    def update_source(self):
+        for rel, data in [('addons/a.pbo', b'new pbo'), ('addons/a.pbo.key.bisign', b'new sig'),
+                          ('keys/key.bikey', b'old key'), ('meta.cpp', 'timestamp = 30;')]:
+            put(self.source, rel, data)
+
+    def test_nonowned_comparison_errors_warn_read_only(self):
+        self.installer_context()
+        (self.root / ws.RECEIPT_NAME).unlink()
+        for error in (ws.SyncError('synthetic symlink'), OSError('unreadable meta')):
+            with self.subTest(error=error), mock.patch.object(ws, 'find_item', side_effect=error):
+                a = fi.analyze(self.ctx)
+                self.assertIn('@CF: not compared (%s)' % error, a.dependency_warnings)
+                self.assertEqual(fi.plan_workshop(self.ctx, a)[0], 'already-done')
+                self.ctx.args.check = True
+                self.ctx.out = io.StringIO()
+                fi.run_check(self.ctx)
+                self.assertNotIn('FAIL  dependency_versions', self.ctx.out.getvalue())
+                self.assertIn('WARN  dependency_versions  @CF: not compared', self.ctx.out.getvalue())
+                self.assertIsNone(self.ctx.journal)
+
+    def test_nonowned_bad_source_and_server_symlink_warn(self):
+        self.installer_context()
+        (self.root / ws.RECEIPT_NAME).unlink()
+        bad = put(self.source, 'addons/no.txt', b'unsupported')
+        a = fi.analyze(self.ctx)
+        self.assertIn('not compared', '\n'.join(a.dependency_warnings))
+        bad.unlink()
+        (self.root / '@CF/addons/link.pbo').symlink_to(self.source / 'addons/a.pbo')
+        self.assertIn('not compared', '\n'.join(fi.analyze(self.ctx).dependency_warnings))
+
+    def test_owned_content_error_blocks_only_that_folder(self):
+        self.installer_context()
+        put(self.source, 'addons/no.txt', b'unsupported')
+        a = fi.analyze(self.ctx)
+        self.assertEqual(a.dependencies[0]['state'], 'blocked')
+        self.assertIn('@CF: blocked (', '\n'.join(fi.plan_workshop(self.ctx, a)[1]))
+        fi.pre_apply(self.ctx, a)
+        self.ctx.args.check = True
+        fi.run_check(self.ctx)
+        self.assertIn('FAIL  dependency_versions  @CF: blocked', self.ctx.out.getvalue())
+        self.assertIsNone(self.ctx.journal)
+
+    def test_owned_error_and_downgrade_allow_other_item_update(self):
+        self.installer_context()
+        other = dict(self.item, folder='@Other', id='1559212037')
+        shutil.copytree(self.source, self.content / other['id'])
+        shutil.copytree(self.root / '@CF', self.root / '@Other')
+        receipt = self.load()
+        receipt['files'] += [dict(e, path=e['path'].replace('@CF/', '@Other/'), item=other['id'])
+                             for e in list(receipt['files']) if e['path'].startswith('@CF/')]
+        receipt['dirs'] += ['@Other', '@Other/addons', '@Other/keys']
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, receipt)
+        ws.load_manifest.return_value['mods'].append(other)
+        put(self.content / other['id'], 'addons/a.pbo', b'other updated')
+        put(self.content / other['id'], 'meta.cpp', 'timestamp = 20;')
+        for bad in ('downgrade', 'blocked'):
+            updated_bytes = ('updated with ' + bad).encode()
+            put(self.content / other['id'], 'addons/a.pbo', updated_bytes)
+            put(self.source, 'meta.cpp', 'timestamp = 9;')
+            if bad == 'blocked':
+                put(self.source, 'meta.cpp', 'timestamp = 10;')
+                put(self.source, 'addons/no.txt', b'unsupported')
+            a = fi.analyze(self.ctx)
+            self.assertEqual(a.dependencies[0]['state'], bad)
+            fi.pre_apply(self.ctx, a)
+            action = fi.plan_workshop(self.ctx, a)[2]
+            if action:
+                action()
+            self.assertEqual((self.root / '@Other/addons/a.pbo').read_bytes(), updated_bytes)
+            self.assertEqual((self.root / '@CF/addons/a.pbo').read_bytes(), b'old pbo')
+            if bad == 'downgrade':
+                self.ctx.args.check = True
+                self.ctx.out = io.StringIO()
+                fi.run_check(self.ctx)
+                self.assertNotIn('FAIL  dependency_versions', self.ctx.out.getvalue())
+                self.assertIn('WARN  dependency_versions  @CF: downgrade skipped', self.ctx.out.getvalue())
+                self.assertIn('--update-workshop', self.ctx.out.getvalue())
+
+    def test_download_marker_skips_only_its_source(self):
+        other = self.base / 'other/content/221100'
+        shutil.copytree(self.source, other / self.item['id'])
+        marker = self.content.parent.parent / 'downloads/221100' / self.item['id']
+        marker.mkdir(parents=True)
+        state, source, detail = ws.find_item(self.item['id'], [self.content, other])
+        self.assertEqual(state, 'present')
+        self.assertEqual(source, other / self.item['id'])
+        self.assertIn(str(marker), detail)
+
+    def test_first_install_download_marker_refuses_with_path(self):
+        self.installer_context()
+        shutil.rmtree(self.root / '@CF')
+        marker = self.content.parent.parent / 'downloads/221100' / self.item['id']
+        marker.mkdir(parents=True)
+        a = fi.analyze(self.ctx)
+        self.assertTrue(a.pending)
+        self.assertFalse(a.fetch)
+        self.assertIn(str(marker), '\n'.join(fi.plan_workshop(self.ctx, a)[1]))
+        with self.assertRaisesRegex(fi.Refused, 'Steam is still downloading 1559212036') as error:
+            fi.pre_apply(self.ctx, a)
+        self.assertIn(str(marker), str(error.exception))
+        self.assertIsNone(self.ctx.journal)
+
+    def test_unrecorded_repair_listing_and_backup(self):
+        self.installer_context()
+        receipt = self.load()
+        receipt['files'] = [e for e in receipt['files'] if e['path'] != '@CF/addons/a.pbo']
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, receipt)
+        put(self.root, '@CF/addons/a.pbo', b'owner unrecorded')
+        self.ctx.args.repair = True
+        a = fi.analyze(self.ctx)
+        self.assertIn('not installed by us; replaced with the Workshop copy, old file backed up', a.repairs[0]['detail'])
+        fi.plan_workshop(self.ctx, a)[2]()
+        self.assertEqual((self.ctx.backup_root / '@CF/addons/a.pbo').read_bytes(), b'owner unrecorded')
+
+    def test_existing_keys_directory_not_added_to_receipt(self):
+        receipt = self.load()
+        receipt['dirs'].remove('keys')
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, receipt)
+        (self.root / 'keys').rename(self.root / 'Keys')
+        self.update()
+        put(self.source, 'keys/key.bikey', b'new key')
+        self.apply()
+        self.assertNotIn('keys', {d.casefold() for d in self.load()['dirs']})
+
+    def test_new_directory_recorded_case_insensitively(self):
+        shutil.rmtree(self.root / '@CF/keys')
+        receipt = self.load()
+        receipt['dirs'].remove('@CF/keys')
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, receipt)
+        self.apply()
+        self.assertIn('@CF/keys', self.load()['dirs'])
+        receipt = self.load()
+        receipt['dirs'] = [d.upper() for d in receipt['dirs']]
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, receipt)
+        self.assertIsNotNone(self.load())
+
+    def test_nonowned_incomplete_and_updating_warnings_are_accurate(self):
+        self.installer_context()
+        (self.root / ws.RECEIPT_NAME).unlink()
+        for state in ('incomplete', 'content-updating'):
+            with mock.patch.object(ws, 'find_item', return_value=(state, self.source, 'source unavailable')):
+                warnings = '\n'.join(fi.analyze(self.ctx).dependency_warnings)
+                self.assertIn(state, warnings)
+                self.assertNotIn('differs from Workshop', warnings)
+
+    def test_dry_run_preserves_interactive_edited_repair_offer(self):
+        self.installer_context()
+        put(self.root, '@CF/addons/a.pbo', b'owner edit')
+        planners = {name: (lambda ctx, a: ('already-done', [], None)) for name in fi.STEPS}
+        planners['workshop'] = fi.plan_workshop
+        with mock.patch.dict(fi.PLANNERS, planners):
+            self.assertFalse(fi.run_steps(self.ctx, False))
+        self.assertTrue(any(row['kind'] == 'edited' for row in self.ctx.repair_blocked))
+        self.assertIsNone(self.ctx.journal)
+
+    def test_owned_top_level_nonallowlisted_file_blocks(self):
+        self.installer_context()
+        put(self.source, 'no.exe', b'unsupported')
+        self.assertEqual(fi.analyze(self.ctx).dependencies[0]['state'], 'blocked')
+
+    def test_repaired_receipt_persisted_when_refresh_replan_is_noop(self):
+        self.installer_context()
+        orphan = put(self.root, 'keys/orphan.bikey', b'orphan')
+        put(self.root, '@Other/keys/orphan.bikey', b'orphan')
+        receipt = self.load()
+        receipt['files'].append(dict(path='keys/orphan.bikey', item=self.item['id'],
+                                     sha256=ws.sha256_of(orphan), size=orphan.stat().st_size))
+        ws.write_json_atomic(self.root / ws.RECEIPT_NAME, receipt)
+        self.update()
+        a = fi.analyze(self.ctx)
+        self.assertTrue(a.receipt_repaired)
+        # Steam's content returns to the installed bytes after the initial analysis.
+        put(self.source, 'addons/a.pbo', b'old pbo')
+        put(self.source, 'meta.cpp', 'timestamp = 10;')
+        fi.plan_workshop(self.ctx, a)[2]()
+        self.assertFalse(fi.analyze(self.ctx).receipt_repaired)
+        self.assertNotIn('keys/orphan.bikey', {e['path'] for e in self.load()['files']})
+        self.assertTrue(orphan.exists())
+        self.assertTrue(any(e['path'] == ws.RECEIPT_NAME for e in self.ctx.journal['entries']))
 
     def test_current_check_pass_row(self):
         self.installer_context()

@@ -1159,22 +1159,28 @@ def analyze(ctx):
     ctx.owned = owned
     for item in ctx.third_items:
         ctx.say('Checking Workshop dependency %s ...' % item['folder'])
-        exists = ws.case_path(ctx.server, item['folder']).exists()
-        resolved = ws.find_item(item['id'], dirs)
+        try:
+            folder_path = ws.case_path(ctx.server, item['folder'])
+            exists = folder_path.exists() or folder_path.is_symlink()
+            resolved = ws.find_item(item['id'], dirs)
+        except (ws.SyncError, OSError) as error:
+            exists = True  # uncertain content must never enter the first-install path
+            resolved = ('blocked', None, str(error))
         a.third.append({'item': item, 'exists': exists, 'ours': item['folder'].casefold() in {d.casefold() for d in owned},
                         'content': resolved[0], 'resolved': resolved})
     a.dependencies = []
     for dep in a.third:
         item = dep['item']
         if dep['ours']:
-            plan = ws.plan_refresh(item, dirs, ctx.server, receipt, [ctx.bundle / 'keys'], say=ctx.say, resolved=dep['resolved'])
+            plan = dependency_plan(ctx, item, receipt, dep['resolved'])
             a.dependencies.append(plan)
             for kind in ('edited', 'unrecorded'):
                 for rel in plan[kind]:
                     root_key = kind == 'unrecorded' and rel.casefold().startswith('keys/')
                     row = repair_row(kind, rel, 'Workshop source %s; %s' % (plan['source'],
                         'unowned root key blocks the whole folder; reconcile by hand' if root_key else
-                        'run --apply --repair to restore it (current bytes backed up first)'),
+                        ('not installed by us; replaced with the Workshop copy, old file backed up' if kind == 'unrecorded' else
+                         'run --apply --repair to restore it (current bytes backed up first)')),
                         status='repair' if args.repair and not root_key else 'blocked')
                     row['step'] = 'workshop'
                     a.repairs.append(row)
@@ -1188,30 +1194,42 @@ def analyze(ctx):
             if state == 'present':
                 # Compare read-only, without ever claiming or touching this folder.
                 fake = {'schema': 1, 'dirs': [item['folder']], 'files': []}
-                plan = ws.plan_refresh(item, dirs, ctx.server, fake, say=ctx.say, resolved=dep['resolved'])
+                plan = dependency_plan(ctx, item, fake, dep['resolved'])
                 dep['version'] = plan['state']
+                if plan['state'] == 'blocked':
+                    dep['not_compared'] = '; '.join(plan['warnings'])
             else:
                 dep['version'] = state
+                if state == 'blocked':
+                    dep['not_compared'] = detail
     a.workshop_receipt = receipt
-    a.pending = [t for t in a.third if not t['exists'] and not t['ours'] and t['content'] != 'content-updating']
+    a.pending = [t for t in a.third if not t['exists']]
+    blocked_items = {p['item']['id'] for p in a.dependencies if p['state'] == 'blocked'}
+    a.pending = [t for t in a.pending if t['item']['id'] not in blocked_items]
     a.left = [t for t in a.third if t['exists'] and not t['ours']]
-    a.fetch = [t['item'] for t in a.pending if t['content'] != 'present']
+    a.fetch = [t['item'] for t in a.pending if t['content'] not in ('present', 'content-updating')]
     a.dependency_warnings = []
     for dep in a.third:
         state, source, detail = dep['resolved']
         folder = dep['item']['folder']
         if detail:
             a.dependency_warnings.append('%s: %s' % (folder, detail))
-        if state != 'present':
+        if state not in ('present', 'blocked'):
             label = state if state == 'content-updating' else 'content-missing (' + state + ')'
-            a.dependency_warnings.append('%s: %s; existing server copy kept' % (folder, label))
+            a.dependency_warnings.append('%s: %s%s' % (folder, label,
+                '; existing server copy kept' if dep['exists'] else ''))
         copies = [d for d in dirs if (d / dep['item']['id']).is_dir()]
         steam_dir = ws.content_dirs((), ctx.steamcmd)
         if copies and all(d in steam_dir for d in copies) and not getattr(ctx, 'workshop_updated', False):
             a.dependency_warnings.append('%s: steamcmd copies are only refreshed with --update-workshop' % folder)
-        if dep['exists'] and not dep['ours'] and dep.get('version') not in ('current', 'content-missing', 'missing'):
+        if dep.get('not_compared'):
+            a.dependency_warnings.append('%s: not compared (%s)' % (folder, dep['not_compared']))
+        elif dep['exists'] and not dep['ours'] and dep.get('version') in ('stale', 'edited', 'unrecorded', 'downgrade'):
             a.dependency_warnings.append('%s: non-owned dependency differs from Workshop; update by hand' % folder)
     for plan in a.dependencies:
+        if plan['state'] == 'downgrade':
+            a.dependency_warnings.append('%s: downgrade skipped; %s; use --update-workshop' % (
+                plan['item']['folder'], '; '.join(plan['warnings'])))
         for rel in plan['extras']:
             a.dependency_warnings.append('%s: untracked extra; kept unless --repair' % rel)
     return a
@@ -1219,6 +1237,18 @@ def analyze(ctx):
 
 # ---------------------------------------------------------------------------------------------------------
 # Backups and writes
+
+def dependency_plan(ctx, item, receipt, resolved=None):
+    """Content problems are local to one dependency, including read-only comparisons."""
+    try:
+        if resolved and resolved[0] == 'blocked':
+            raise ws.SyncError(resolved[2])
+        return ws.plan_refresh(item, ctx.dirs, ctx.server, receipt, [ctx.bundle / 'keys'],
+                               say=ctx.say, resolved=resolved)
+    except (ws.SyncError, OSError) as error:
+        return dict(item=item, state='blocked', source=None, warnings=[str(error)],
+                    writes={}, removes={}, edited=[], unrecorded=[], extras=[])
+
 
 def stamp():
     return datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -1718,13 +1748,12 @@ def plan_workshop(ctx, a):
     for plan in updates:
         lines.append('update %s from %s: %d file(s) to write, %d to remove' % (
             plan['item']['folder'], plan['source'], len(plan['writes']), len(plan['removes'])))
-    blockers = [p for p in a.dependencies if p['state'] == 'downgrade' or
-                ((p['edited'] or p['unrecorded']) and not ctx.args.repair) or
-                any(r.casefold().startswith('keys/') for r in p['unrecorded'])]
-    if blockers:
-        return 'blocked', lines + ['%s: %s; %s' % (p['item']['folder'], p['state'],
-            '; '.join(p['warnings']) if p['state'] == 'downgrade' else 'run --apply --repair; unowned root keys require reconciliation by hand')
-            for p in blockers], None
+    for p in a.dependencies:
+        if p['state'] == 'blocked' or any(r.casefold().startswith('keys/') for r in p['unrecorded']):
+            lines.append('%s: blocked (%s); folder skipped' % (p['item']['folder'],
+                '; '.join(p['warnings']) if p['state'] == 'blocked' else 'unowned root key; reconcile by hand'))
+        elif (p['edited'] or p['unrecorded']) and not ctx.args.repair:
+            lines.append('%s: repairable; run --apply --repair' % p['item']['folder'])
     present = [t for t in a.pending if t['content'] == 'present']
     if a.left:
         lines.append('already in the server folder and left as they are: %s' % ', '.join(t['item']['folder'] for t in a.left))
@@ -1753,19 +1782,20 @@ def plan_workshop(ctx, a):
                      'from it (the key files stay)' % len(a.receipt_repaired))
     if updates or a.pending or a.retire_files or a.retire_dirs or a.receipt_repaired:
         return 'planned', lines, lambda: do_workshop(ctx, a)
-    lines.append('all %d dependencies are in the server folder; available receipt-owned copies are current' % len(third))
+    if all(p['state'] == 'current' for p in a.dependencies):
+        lines.append('all %d dependencies are in the server folder; available receipt-owned copies are current' % len(third))
     return 'already-done', lines, None
 
 
 def dependency_todo(ctx, plan):
-    return (plan['state'] in ('current', 'stale', 'edited', 'unrecorded') and
+    return (not any(r.casefold().startswith('keys/') for r in plan['unrecorded']) and
+            plan['state'] in ('current', 'stale', 'edited', 'unrecorded') and
             (plan['writes'] or plan['removes'] or plan.get('receipt_changed') or
              (ctx.args.repair and plan['extras'])))
 
 
 def do_workshop(ctx, a):
-    updates = [p for p in a.dependencies if dependency_todo(ctx, p)]
-    if a.receipt_repaired and not updates:
+    if a.receipt_repaired:
         # Written first and journaled like every other receipt write, so the warning does not come back each run.
         manifest = ws.load_manifest()
         ws.persist_repaired_receipt(
@@ -1774,24 +1804,27 @@ def do_workshop(ctx, a):
             before_write=lambda rel, digest: record_written(ctx, rel, digest))
     if a.fetch:
         do_fetch(ctx, a)
-    updates = [p for p in a.dependencies if dependency_todo(ctx, p)]
-    if updates:
-        # Reclassify after any fetch and immediately before applying; never use an obsolete source plan.
-        receipt = ws.load_receipt(ctx.server, {i['folder'] for i in ws.load_manifest()['mods'] + ws.load_manifest()['retired']},
-                                  [ctx.bundle / 'keys'], warn=ctx.say)
-        plans = [ws.plan_refresh(p['item'], ctx.dirs, ctx.server, receipt, [ctx.bundle / 'keys'], say=ctx.say)
-                 for p in updates]
-        for p in plans:
-            if p['state'] in ('content-updating', 'content-missing'):
-                ctx.say('  %s: %s; folder skipped' % (p['item']['folder'], p['state']))
-        plans = [p for p in plans if p['state'] not in ('content-updating', 'content-missing')]
-        if plans:
-            ws.apply_refresh(ctx.server, receipt, plans, lambda rel, digest: record_written(ctx, rel, digest), ctx.args.repair)
-        for p in plans:
-            ctx.say('  updated %s from %s: %d file(s) written, %d removed' % (
-                p['item']['folder'], p['source'], len(p['writes']), len(p['removes'])))
+    receipt = ws.load_receipt(ctx.server, {i['folder'] for i in ws.load_manifest()['mods'] + ws.load_manifest()['retired']},
+                              [ctx.bundle / 'keys'], warn=ctx.say)
+    # Reclassify planned updates and first installs after fetching, immediately before applying.
+    pending_ids = {t['item']['id'] for t in a.pending}
+    plans = [dependency_plan(ctx, p['item'], receipt) for p in a.dependencies
+             if dependency_todo(ctx, p) or p['item']['id'] in pending_ids]
+    for p in plans:
+        if p['state'] in ('blocked', 'downgrade', 'content-updating', 'content-missing'):
+            ctx.say('  %s: %s (%s); folder skipped' % (p['item']['folder'], p['state'], '; '.join(p['warnings'])))
+    blocked_items = {p['item']['id'] for p in plans if p['state'] == 'blocked'}
+    plans = [p for p in plans if dependency_todo(ctx, p)]
+    if plans:
+        ws.apply_refresh(ctx.server, receipt, plans, lambda rel, digest: record_written(ctx, rel, digest), ctx.args.repair)
+    for p in plans:
+        ctx.say('  updated %s from %s: %d file(s) written, %d removed' % (
+            p['item']['folder'], p['source'], len(p['writes']), len(p['removes'])))
     if a.pending:
-        install_dependencies(ctx, a)
+        handled = blocked_items | {p['item']['id'] for p in plans}
+        a.pending = [t for t in a.pending if t['item']['id'] not in handled]
+        if a.pending:
+            install_dependencies(ctx, a)
     if a.retire_files or a.retire_dirs:
         retire_dependencies(ctx, a)
     return 'done'
@@ -3022,10 +3055,11 @@ def run_check(ctx):
     try:
         analysis = analyze(ctx)
         say_repairs(ctx, repair_rows(ctx, analysis), False)
-        failures = ['%s: %s; %s' % (p['item']['folder'], p['state'],
+        failures = ['%s: %s; %s' % (p['item']['folder'],
+                    'blocked (%s)' % '; '.join(p['warnings']) if p['state'] == 'blocked' else p['state'],
                     '--apply' if p['state'] == 'stale' else '--apply --repair' if p['state'] in ('edited', 'unrecorded')
-                    else 'use a newer Workshop source; downgrade refused')
-                    for p in analysis.dependencies if p['state'] in ('stale', 'edited', 'unrecorded', 'downgrade')]
+                    else 'folder skipped')
+                    for p in analysis.dependencies if p['state'] in ('stale', 'edited', 'unrecorded', 'blocked')]
         result('dependency_versions', failures, 'every available receipt-owned dependency is current')
         for warning in analysis.dependency_warnings:
             say('WARN  dependency_versions  ' + warning)
@@ -3254,9 +3288,13 @@ def pre_apply(ctx, a):
     args = ctx.args
     require_stopped(ctx, a.running)
     if 'workshop' not in ctx.skip:
-        status, lines, _action = plan_workshop(ctx, a)
-        if status == 'blocked':
-            raise Refused('workshop', '; '.join(lines))
+        edits = [p['item']['folder'] for p in a.dependencies if
+                 (p['edited'] or p['unrecorded']) and not args.repair and p['state'] != 'blocked']
+        if edits:
+            raise Refused('workshop', 'edited dependencies: %s; run --apply --repair' % ', '.join(edits))
+        for t in a.pending:
+            if t['content'] == 'content-updating':
+                raise Refused('workshop_missing', t['resolved'][2])
     if 'overlay' not in ctx.skip:
         mission = map_mission(ctx)
         problem = globals_upgrade_problem(mission)

@@ -63,7 +63,7 @@ KEY = re.compile(r'^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.bikey$', re.IGNORECASE)
 TOP_FILES = re.compile(r'^(?:mod|meta)\.cpp$', re.IGNORECASE)
 RECEIPT_FILE = re.compile(r'^(?:@[A-Za-z0-9][A-Za-z0-9_.-]*/(?:(?:addons|keys)/' + NAME + r'|(?:mod|meta)\.cpp)'
                           r'|keys/[A-Za-z0-9_-][A-Za-z0-9_.-]*\.bikey)$', re.IGNORECASE)
-RECEIPT_DIR = re.compile(r'^(?:keys|@[A-Za-z0-9][A-Za-z0-9_.-]*(?:/(?:addons|keys))?)$')
+RECEIPT_DIR = re.compile(r'^(?:keys|@[A-Za-z0-9][A-Za-z0-9_.-]*(?:/(?:addons|keys))?)$', re.IGNORECASE)
 SHA256 = re.compile(r'^[0-9a-f]{64}$')
 
 
@@ -217,7 +217,7 @@ def find_item(item_id, dirs):
         path = directory / item_id
         downloading = directory.parent.parent / 'downloads' / APP_ID / item_id
         if downloading.exists():
-            updating = updating or path
+            updating = updating or downloading
             continue
         if path.is_dir() and not path.is_symlink():
             state, detail = inspect_item(path)
@@ -225,12 +225,9 @@ def find_item(item_id, dirs):
                 present.append((item_timestamp(path), path))
             else:
                 incomplete = incomplete or (path, detail)
-    # Even another complete copy might be older than the in-flight update: defer the whole item.
-    if updating is not None:
-        return 'content-updating', updating, 'Steam download in progress; folder skipped'
     if present:
         newest = max(present, key=lambda row: row[0])
-        detail = ''
+        detail = ('Steam download in progress at %s; that source skipped' % updating) if updating else ''
         disagree = len({stamp for stamp, _path in present}) > 1
         if len(present) > 1 and not disagree:
             # Equal metadata timestamps do not establish equal bytes. Compare allowlisted files,
@@ -249,8 +246,11 @@ def find_item(item_id, dirs):
                     disagree = True
                     break
         if disagree:
-            detail = 'WARN: Workshop sources disagree: ' + ', '.join('%s (timestamp %s)' % (p, t) for t, p in present)
+            detail = (detail + '; ' if detail else '') + 'WARN: Workshop sources disagree: ' + ', '.join(
+                '%s (timestamp %s)' % (p, t) for t, p in present)
         return 'present', newest[1], detail
+    if updating is not None:
+        return 'content-updating', None, 'Steam is still downloading %s (%s); wait for Steam and run this again' % (item_id, updating)
     if incomplete:
         return 'incomplete', incomplete[0], incomplete[1]
     return 'missing', None, ''
@@ -499,7 +499,7 @@ def load_receipt(root, managed, extra_key_dirs=(), warn=None, repaired=None):
     for rel in data['dirs']:
         if not isinstance(rel, str) or not RECEIPT_DIR.match(rel):
             raise SyncError('receipt folder %r is not one this tool creates; refusing to roll back' % (rel,))
-        if rel.startswith('@') and rel.split('/')[0] not in managed:
+        if rel.startswith('@') and rel.split('/')[0].casefold() not in {m.casefold() for m in managed}:
             raise SyncError('receipt folder %r is not a mod folder in the manifest; refusing to roll back' % (rel,))
     created = {rel for rel in data['dirs'] if rel.startswith('@') and '/' not in rel}
     by_path = {e['path'].casefold(): e for e in data['files']}
@@ -837,7 +837,7 @@ def plan_install(items, dirs, root, owned=(), compare=True):
         folder = root / top
         if folder.exists() and not folder.is_dir():
             conflicts.append('%s exists and is not a directory' % folder.name)
-        elif top.startswith('@') and folder.is_dir() and top not in owned:
+        elif top.startswith('@') and folder.is_dir() and top.casefold() not in {d.casefold() for d in owned}:
             conflicts.append('%s exists but was not created by an earlier install' % top)
     if conflicts:
         raise SyncError('refusing to overwrite: ' + '; '.join(conflicts)
@@ -890,7 +890,9 @@ def plan_refresh(item, dirs, root, receipt, extra_key_dirs=(), say=lambda _text:
             item_timestamp(source), item_timestamp(case_path(root, folder))))
         return plan
     # Use plan_install's target construction and digest rules, without its new-install conflict rule.
-    targets, _skip, _manual = plan_install([item], [source.parent], root, compare=False)
+    targets, skipped, _manual = plan_install([item], [source.parent], root, compare=False)
+    if skipped.get(folder):
+        raise SyncError('Workshop source contains non-allowlisted entries: %s' % ', '.join(skipped[folder]))
     targets = {(case_path(root, str(Path(rel).parent)) / Path(rel).name).relative_to(root).as_posix(): value
                for rel, value in targets.items()}
     old = {e['path'].casefold(): e for e in receipt['files']}
@@ -1034,9 +1036,14 @@ def apply_refresh(root, receipt, plans, before_write, repair=False):
         fsync_parent(root / rel)
     for rel, (_item, digest, source) in sorted(writes.items()):
         before_write(rel, digest)
-        (root / rel).parent.mkdir(parents=True, exist_ok=True)
-        parent = Path(rel).parent.as_posix()
-        dirs.add(next((d for d in dirs if d.casefold() == parent.casefold()), parent))
+        parent = root
+        for part in Path(rel).parts[:-1]:
+            parent /= part
+            if not parent.exists():
+                parent.mkdir()
+                name = parent.relative_to(root).as_posix()
+                if name.casefold() not in {d.casefold() for d in dirs}:
+                    dirs.add(name)
         copy_atomic(source, root / rel, expected=digest)
         row_path = next(p for p in files if p.casefold() == rel.casefold())
         files[row_path]['size'] = (root / rel).stat().st_size
