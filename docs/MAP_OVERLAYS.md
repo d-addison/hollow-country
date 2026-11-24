@@ -441,13 +441,64 @@ runtime_corrected 0. No runtime acceptance or multiplayer claim is made.
 ### Tower corner
 
 The sole active forward-outpost site is `military-outposts-v1/o02` (heading 0).
-Local tower position moves (-13.25, 0.47, 6.0) → (-13.25, 0.47, 16.0), world
-(4436.75, 341.194792, 9421.0) → (4436.75, 341.194792, 9431.0).
-Its Geometry bounds are x=-17.273586..-11.946311, z=13.304224..25.917276.
-These have no AABB overlap with any other composition piece, including all walls
-and crates; no container is present. They clear the central x=-3.5..3.5 lane.
-The tent bounds end at z=8.004910, leaving 5.299314 m to the tower, beyond
-the audit door sweep plus radius (1.8 m); the tower does not block its entrance apron.
+The tower stays outside the northwest entrance corner, angled across the lane.
+Local `(dx, dy, dz; yaw)` moves `(-13.25, 0.47, 16.0; 0)` →
+`(-8.1, 0.47, 19.95; 315)`, world `(4436.75, 341.194792, 9431.0)` →
+`(4441.9, 341.194792, 9434.95)`. Pivot compensation remains 0.47 m.
+Using the audit/site-rules compass rotation (`x'=x*cos(yaw)+z*sin(yaw)`,
+`z'=-x*sin(yaw)+z*cos(yaw)`), class-geometry.json's rounded Geometry AABB
+is local x=-17.957776..-5.271573, z=15.198242..27.884445. Decoded unrounded Geometry
+gives x=-17.957678..-5.271951, z=15.198694..27.884421.
+Its horizontal AABB separation from every other piece is at least 0.562462 m:
+the nearest is p23, the iron hedgehog (z ends at 14.636231). North HBarrier
+p11 ends at z=13.672720, leaving 1.525974 m; west HBarrier p07 ends at
+z=10.888940, leaving 4.309754 m. The tower stays 1.771951 m west of the
+central x=-3.5..3.5 lane. The tent ends at z=8.004910, leaving 7.193784 m,
+beyond the audit door sweep plus radius (1.8 m). No wall or prop overlaps it.
+
+Against the read-only `bundle-src-005/server/mpmissions/dayzOffline.chernarusplus`
+vanilla source, the three rows within the unchanged 90 m support radius are:
+
+| Vanilla group | World (x, y, z) | Distance m |
+| --- | --- | ---: |
+| Land_Wreck_offroad02_aban2 | (4500.157715, 340.514008, 9388.568359) | 74.466220 |
+| Land_Guardhouse | (4509.077637, 340.168182, 9394.977539) | 78.170535 |
+| Land_Mil_Guardhouse1 | (4519.192871, 341.214417, 9389.499023) | 89.665931 |
+
+Height spread is 1.046235 m; median 340.514008 differs from site ground
+340.724792 by 0.210784 m. The exact friendcycle path uses the profile's
+unchanged 1.5 m spread limit (the code default is 1.2 m); this pose passes both.
+`python3 -B -m tools.setup.friend_bundle check-overlays --mission <source>` prints
+`Overlay layers valid against the vanilla rows of the mission` (exit 0).
+`map_overlay.validate` with vanilla rows and proto names returns no errors;
+`compose` produces 16 files in memory; layers retain composition references.
+
+The rejected unturned NW pose has only two rows; its third is 92.299285 m
+away (88.256096 m at the older dz=6 pose). The NE candidate `(13.25, 16; 0)`
+has five rows spanning 1.526123 m, failing both spread limits. Moving the
+unturned NW tower east requires dz >= 16.868496 to clear the north wall by
+0.5 m: the tower's Geometry starts 2.695776 m south of its pivot, while that
+wall occupies z=11.023430..13.672720. The selected angled pose clears it.
+The SW fallback `(-13.25, -16; 0)` has three rows spanning 1.046235 m,
+but the angled north pose preserves the preferred entrance corner.
+The 270° candidate `(-8, 19.25)` passed geometry and flat checks but increased
+report-current R3 facing error from 40° to 67°. The selected 315° pose reduces
+it to 23°; report-current finding counts remain unchanged, including R4.
+The normal site_rules gate passes (zero composed layers, 15 archetypes).
+
+Final client world_mesh_audit is identical to the pre-move audit: 140 raw findings,
+110 needs_live, 30 accepted triangle costs, zero unclassified findings or
+classification errors, and 505 unchanged coverage skips. The tower's sole
+classification entry accepts its class-level triangle cost and is position-independent.
+The requested preland against `90b8c5e5` exited 1: regeneration exceeded the
+non-strict 600-second subprocess timeout; digest receipts have the host gaps and
+drift listed in the worker snapshot below; mesh failures are the unchanged needs_live
+rows listed below. CE slot pressure additionally fails on the supplied vanilla
+mission (military-weapons deficit 27), and on a scratch copy with this checkout's
+overlay installed (deficit 19). These additional failures prevent clean preland
+acceptance; no unrelated CE data or receipts were changed. All other applicable
+preland rows pass. No unit tests, native process or compile gate was run.
+
 The tower exposes no decoded door planes or Paths LOD segments, so offline apron
 tests cannot establish entry clearance. Native ladder, door operation and sightline
 along the lane still need the lead client smoke.

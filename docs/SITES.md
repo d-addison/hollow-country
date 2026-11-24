@@ -190,11 +190,14 @@ A forward outpost on the highest flat ground above the base approach: tent rows 
 - How many: up to 8 on the map, 1500 m apart from the same story and 300 m from any other composed site.
 - Lead note: `outpost-roster`, on the table part.
 
-The `forward-outpost` map overlay composition places its guard tower at the northwest entrance corner, covering the
-central lane: local `(dx, dy, dz) = (-13.25, 0.47, 16.0)`, previously
-`(-13.25, 0.47, 6.0)`. Its measured Geometry bounds overlap no wall or prop;
-they stay west of the lane (`x = -3.5..3.5`). Each overlay rotates with its site
-heading. Native door/ladder access and the line of sight still need a client check.
+The `forward-outpost` map overlay composition places its guard tower outside the northwest entrance corner,
+angled across the central lane: local `(dx, dy, dz) = (-8.1, 0.47, 19.95)`, yaw 315°,
+previously `(-13.25, 0.47, 16.0)`, yaw 0°. Its decoded Geometry AABB is
+x=-17.957678..-5.271951, z=15.198694..27.884421; it clears the nearest prop
+(iron hedgehog) by 0.562462 m, the north HBarrier by 1.525974 m and the
+central x=-3.5..3.5 lane by 1.771951 m. Three vanilla rows within 90 m span
+1.046235 m of height; the offline friendcycle overlay check passes. Each overlay
+rotates with its site heading. Native door/ladder access and the line of sight still need a client check.
 [Overlay compositions](../config/map-overlays/compositions.json)
 
 ### `supply-dump` (Supply dump)
