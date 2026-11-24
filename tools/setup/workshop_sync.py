@@ -63,7 +63,7 @@ KEY = re.compile(r'^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.bikey$', re.IGNORECASE)
 TOP_FILES = re.compile(r'^(?:mod|meta)\.cpp$', re.IGNORECASE)
 RECEIPT_FILE = re.compile(r'^(?:@[A-Za-z0-9][A-Za-z0-9_.-]*/(?:(?:addons|keys)/' + NAME + r'|(?:mod|meta)\.cpp)'
                           r'|keys/[A-Za-z0-9_-][A-Za-z0-9_.-]*\.bikey)$', re.IGNORECASE)
-RECEIPT_DIR = re.compile(r'^(?:keys|@[A-Za-z0-9][A-Za-z0-9_.-]*(?:/(?:addons|keys))?)$')
+RECEIPT_DIR = re.compile(r'^(?:keys|@[A-Za-z0-9][A-Za-z0-9_.-]*(?:/(?:addons|keys))?)$', re.IGNORECASE)
 SHA256 = re.compile(r'^[0-9a-f]{64}$')
 
 
@@ -187,16 +187,70 @@ def inspect_item(path):
     return ('incomplete', 'missing ' + ', '.join(missing)) if missing else ('present', '')
 
 
+def item_timestamp(path):
+    """Steam's meta.cpp timestamp (observed in installed Workshop metadata), or zero if absent."""
+    meta = case_path(Path(path), 'meta.cpp')
+    if not meta.is_file() or meta.is_symlink():
+        return 0
+    match = re.search(r'\btimestamp\s*=\s*(\d+)\s*;', meta.read_text(encoding='utf-8', errors='replace'))
+    return int(match.group(1)) if match else 0
+
+
+def case_path(root, rel):
+    """Resolve Windows-style keys on either host; ambiguous case variants are a refusal."""
+    current = Path(root)
+    for part in Path(rel).parts:
+        if current.is_symlink():
+            raise SyncError('%s is a symlink' % current)
+        matches = [p for p in current.iterdir() if p.name.casefold() == part.casefold()] if current.is_dir() else []
+        if len(matches) > 1:
+            raise SyncError('ambiguous case variants at %s/%s' % (current, part))
+        current = matches[0] if matches else current / part
+    return current
+
+
 def find_item(item_id, dirs):
-    """(state, path, detail) with state present, incomplete or missing."""
-    incomplete = None
+    """Newest complete copy by meta.cpp timestamp. Never use content Steam is downloading."""
+    present, incomplete, updating = [], None, None
     for directory in dirs:
+        directory = Path(directory)
         path = directory / item_id
+        downloading = directory.parent.parent / 'downloads' / APP_ID / item_id
+        if downloading.exists():
+            updating = updating or downloading
+            continue
         if path.is_dir() and not path.is_symlink():
             state, detail = inspect_item(path)
             if state == 'present':
-                return 'present', path, ''
-            incomplete = incomplete or (path, detail)
+                present.append((item_timestamp(path), path))
+            else:
+                incomplete = incomplete or (path, detail)
+    if present:
+        newest = max(present, key=lambda row: row[0])
+        detail = ('Steam download in progress at %s; that source skipped' % updating) if updating else ''
+        disagree = len({stamp for stamp, _path in present}) > 1
+        if len(present) > 1 and not disagree:
+            # Equal metadata timestamps do not establish equal bytes. Compare allowlisted files,
+            # checking sizes before hashes, just as the server comparison does.
+            template = {'id': item_id, 'folder': '@source'}
+            base_files, _skip = item_files(template, newest[1])
+            baseline = {rel.casefold(): src for rel, src in base_files}
+            for _stamp, candidate in present:
+                if candidate == newest[1]:
+                    continue
+                files, _skip = item_files(template, candidate)
+                other = {rel.casefold(): src for rel, src in files}
+                if other.keys() != baseline.keys() or any(
+                        baseline[rel].stat().st_size != src.stat().st_size or
+                        sha256_of(baseline[rel]) != sha256_of(src) for rel, src in other.items()):
+                    disagree = True
+                    break
+        if disagree:
+            detail = (detail + '; ' if detail else '') + 'WARN: Workshop sources disagree: ' + ', '.join(
+                '%s (timestamp %s)' % (p, t) for t, p in present)
+        return 'present', newest[1], detail
+    if updating is not None:
+        return 'content-updating', None, 'Steam is still downloading %s (%s); wait for Steam and run this again' % (item_id, updating)
     if incomplete:
         return 'incomplete', incomplete[0], incomplete[1]
     return 'missing', None, ''
@@ -320,13 +374,15 @@ def fsync_parent(path):
             os.close(fd)
 
 
-def _write_atomic(path, writer, prefix):
+def _write_atomic(path, writer, prefix, expected=None):
     fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix=prefix, suffix='.tmp')
     try:
         with os.fdopen(fd, 'wb') as handle:
             writer(handle)
             handle.flush()
             os.fsync(handle.fileno())
+        if expected is not None and sha256_of(Path(temp)) != expected:
+            raise SyncError("Workshop source changed during copy: %s" % path)
         os.chmod(temp, 0o644)
         os.replace(temp, path)
         fsync_parent(path)
@@ -336,11 +392,11 @@ def _write_atomic(path, writer, prefix):
         raise
 
 
-def copy_atomic(source, target):
+def copy_atomic(source, target, expected=None):
     def copy(handle):
         with open(source, 'rb') as src:
             shutil.copyfileobj(src, handle, 1024 * 1024)
-    _write_atomic(target, copy, '.sync-')
+    _write_atomic(target, copy, '.sync-', expected)
 
 
 def write_bytes_atomic(path, data):
@@ -443,20 +499,20 @@ def load_receipt(root, managed, extra_key_dirs=(), warn=None, repaired=None):
     for rel in data['dirs']:
         if not isinstance(rel, str) or not RECEIPT_DIR.match(rel):
             raise SyncError('receipt folder %r is not one this tool creates; refusing to roll back' % (rel,))
-        if rel.startswith('@') and rel.split('/')[0] not in managed:
+        if rel.startswith('@') and rel.split('/')[0].casefold() not in {m.casefold() for m in managed}:
             raise SyncError('receipt folder %r is not a mod folder in the manifest; refusing to roll back' % (rel,))
     created = {rel for rel in data['dirs'] if rel.startswith('@') and '/' not in rel}
-    by_path = {e['path']: e for e in data['files']}
+    by_path = {e['path'].casefold(): e for e in data['files']}
     orphans = []
     for entry in data['files']:
         path = entry['path']
         if path.startswith('@'):
-            if path.split('/')[0] not in created:
+            if path.split('/')[0].casefold() not in {d.casefold() for d in created}:
                 raise SyncError('receipt entry %s is in a folder install did not create; refusing to roll back' % path)
         else:
             # A server key is ours only if a created mod folder holds the same key we copied from it.
             name = path.split('/')[-1]
-            if not any(by_path.get(top + '/keys/' + name, {}).get('sha256') == entry['sha256'] for top in created):
+            if not any(by_path.get((top + '/keys/' + name).casefold(), {}).get('sha256') == entry['sha256'] for top in created):
                 orphans.append(entry)
     if orphans:
         live = live_key_files(root, set(), extra_key_dirs)
@@ -512,12 +568,12 @@ def _split(receipt, manifest, root=None, extra_key_dirs=()):
 
     def key_copies(keep):
         return {(e['path'].split('/')[-1].casefold(), e['sha256']) for e in receipt['files']
-                if e['path'].startswith('@') and '/keys/' in e['path'] and keep(e['path'].split('/')[0].casefold())}
+                if e['path'].startswith('@') and '/keys/' in e['path'].casefold() and keep(e['path'].split('/')[0].casefold())}
 
     retired_keys = key_copies(lambda top: top in retired)
     active_keys = key_copies(lambda top: top not in retired)
     active_exact = {(e['path'].split('/')[-1], e['sha256']) for e in receipt['files']
-                    if e['path'].startswith('@') and e['path'].count('/') == 2 and '/keys/' in e['path']
+                    if e['path'].startswith('@') and e['path'].count('/') == 2 and '/keys/' in e['path'].casefold()
                     and e['path'].split('/')[0].casefold() not in retired}
     live = None
     rows, kept, disown = [], [], set()
@@ -741,7 +797,7 @@ def cmd_fetch(args, say):
     return 0
 
 
-def plan_install(items, dirs, root, owned=()):
+def plan_install(items, dirs, root, owned=(), compare=True):
     """Resolve every file to write before writing anything. Returns (work, skipped, manual)."""
     missing, work, skipped, manual = [], [], {}, []
     for item in items:
@@ -766,6 +822,8 @@ def plan_install(items, dirs, root, owned=()):
         if rel in targets and targets[rel][1] != digest:
             raise SyncError('%s and %s both supply a different %s' % (targets[rel][0]['folder'], item['folder'], rel))
         targets.setdefault(rel, (item, digest, source))
+    if not compare:
+        return targets, skipped, manual
     conflicts = []
     for rel, (item, digest, source) in sorted(targets.items()):
         check_no_symlink_below(root, rel)
@@ -773,18 +831,226 @@ def plan_install(items, dirs, root, owned=()):
         if target.exists() or target.is_symlink():
             if not target.is_file():
                 conflicts.append('%s exists and is not a regular file' % rel)
-            elif sha256_of(target) != digest:
+            elif not matches_file(target, digest, source.stat().st_size):
                 conflicts.append('%s exists and differs' % rel)
         top = rel.split('/')[0]
         folder = root / top
         if folder.exists() and not folder.is_dir():
             conflicts.append('%s exists and is not a directory' % folder.name)
-        elif top.startswith('@') and folder.is_dir() and top not in owned:
+        elif top.startswith('@') and folder.is_dir() and top.casefold() not in {d.casefold() for d in owned}:
             conflicts.append('%s exists but was not created by an earlier install' % top)
     if conflicts:
         raise SyncError('refusing to overwrite: ' + '; '.join(conflicts)
                         + '. Run rollback first if these came from an earlier install, or move them away.')
     return targets, skipped, manual
+
+
+def matches_file(path, digest, size=None):
+    """Avoid hashing gigabytes when size already proves a difference."""
+    return (path.is_file() and not path.is_symlink()
+            and (size is None or path.stat().st_size == size) and sha256_of(path) == digest)
+
+
+def file_state(path, candidate_sizes):
+    """Hash only if some candidate's size permits equality; otherwise retain a stat precondition."""
+    if not path.exists():
+        return None, None, None
+    if not path.is_file() or path.is_symlink():
+        raise SyncError('not a regular file: %s' % path)
+    info = path.stat()
+    snapshot = (info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_ino)
+    digest = sha256_of(path) if info.st_size in candidate_sizes or None in candidate_sizes else None
+    return digest, info.st_size, digest if digest is not None else snapshot
+
+
+def plan_refresh(item, dirs, root, receipt, extra_key_dirs=(), say=lambda _text: None, resolved=None):
+    """Classify one receipt-owned item, including root keys, using casefolded paths.
+
+    Workshop equality wins (and adopts missing rows); otherwise receipt equality permits an update.
+    A file differing from both is edited; a differing file without a row is unrecorded.
+    The caller must reject the whole item before applying any blocked file.
+    """
+    folder = item['folder']
+    plan = dict(item=item, state='current', source=None, warnings=[], writes={}, removes={},
+                rows={}, edited=[], unrecorded=[], extras=[], expected={}, drop=set(), extra_key_dirs=extra_key_dirs)
+    if receipt is None or folder.casefold() not in {d.casefold() for d in receipt['dirs']}:
+        raise SyncError('cannot refresh unowned folder %s' % folder)
+    if resolved is None:
+        say('Checking Workshop dependency %s ...' % folder)
+    state, source, detail = resolved or find_item(item['id'], dirs)
+    plan['source'] = source
+    if detail:
+        plan['warnings'].append(detail)
+    if state != 'present':
+        plan['state'] = 'content-updating' if state == 'content-updating' else 'content-missing'
+        return plan
+    if item_timestamp(source) < item_timestamp(case_path(root, folder)):
+        plan['state'] = 'downgrade'
+        plan['warnings'].append('refusing downgrade: source timestamp %s < server timestamp %s' % (
+            item_timestamp(source), item_timestamp(case_path(root, folder))))
+        return plan
+    # Use plan_install's target construction and digest rules, without its new-install conflict rule.
+    targets, skipped, _manual = plan_install([item], [source.parent], root, compare=False)
+    if skipped.get(folder):
+        raise SyncError('Workshop source contains non-allowlisted entries: %s' % ', '.join(skipped[folder]))
+    targets = {(case_path(root, str(Path(rel).parent)) / Path(rel).name).relative_to(root).as_posix(): value
+               for rel, value in targets.items()}
+    old = {e['path'].casefold(): e for e in receipt['files']}
+    desired = {rel.casefold(): rel for rel in targets}
+    if len(desired) != len(targets):
+        raise SyncError('Workshop item has duplicate casefolded targets: %s' % folder)
+    # Reuse retirement's shared-root-key protection, excluding only the item being refreshed.
+    retired = {'retired': [item]}
+    obsolete, _dirs, kept, disown = _split(receipt, retired, root, extra_key_dirs)
+    candidates = [e for e in obsolete if e['path'].casefold() not in desired]
+    plan['drop'] |= {e['path'].casefold() for e in receipt['files']
+                     if e['path'].casefold().startswith(folder.casefold() + '/')}
+    plan['drop'] |= {p.casefold() for p, _reason in kept if p.casefold() not in desired and
+                     (p in disown or not any(e['path'].startswith('@') and
+                         e['path'].split('/')[0].casefold() != folder.casefold() and
+                         e['path'].endswith('/keys/' + p.split('/')[-1]) and
+                         e['sha256'] == old[p.casefold()]['sha256'] for e in receipt['files']))}
+    for entry in candidates:
+        rel = entry['path']
+        target = case_path(root, rel)
+        check_no_symlink_below(root, target.relative_to(root).as_posix())
+        plan['drop'].add(rel.casefold())
+        if target.exists():
+            if not target.is_file():
+                raise SyncError('not a regular file: %s' % target)
+            actual = target.relative_to(root).as_posix()
+            digest, _size, snapshot = file_state(target, [entry.get('size')])
+            plan['expected'][actual] = snapshot
+            if digest != entry['sha256']:
+                plan['edited'].append(actual)
+            plan['removes'][actual] = entry
+    for rel, (mod, digest, src) in targets.items():
+        target = case_path(root, rel)
+        actual = target.relative_to(root).as_posix()
+        # Several items can share one root key with differently cased names. Keep its live
+        # spelling so those items do not take turns renaming the same Windows path.
+        if rel.casefold().startswith('keys/') and target.exists():
+            rel = actual
+        check_no_symlink_below(root, actual)
+        entry = old.get(rel.casefold())
+        size = src.stat().st_size
+        sizes = [size] + ([entry.get('size')] if entry else [])
+        current, current_size, snapshot = file_state(target, sizes)
+        present = current_size is not None
+        same = present and current_size == size and current == digest
+        plan['expected'][actual] = snapshot
+        if present and not same:
+            if entry is None:
+                plan['unrecorded'].append(actual)
+            elif current != entry['sha256']:
+                plan['edited'].append(actual)
+        if not same or (present and actual != rel):
+            if present and actual != rel:
+                plan['removes'][actual] = entry
+            plan['writes'][rel] = (mod, digest, src)
+        row_item = (entry.get('item', mod['id']) if rel.casefold().startswith('keys/') and entry
+                    and entry['sha256'] == digest else mod['id'])
+        plan['rows'][rel] = dict(path=rel, item=row_item, sha256=digest, size=size)
+    folder_path = case_path(root, folder)
+    if folder_path.is_dir():
+        for path in sorted(folder_path.rglob('*')):
+            rel = path.relative_to(root).as_posix()
+            if path.is_symlink():
+                raise SyncError('symlink in dependency: %s' % rel)
+            if path.is_file() and rel.casefold() not in old and rel.casefold() not in desired:
+                plan['extras'].append(rel)
+                plan['expected'][rel] = file_state(path, [])[2]
+    plan['receipt_changed'] = any(old.get(rel.casefold()) != row for rel, row in plan['rows'].items()) or any(
+        key not in desired for key in plan['drop'])
+    plan['state'] = ('unrecorded' if plan['unrecorded'] else 'edited' if plan['edited'] else
+                     'stale' if plan['writes'] or plan['removes'] else 'current')
+    return plan
+
+
+def apply_refresh(root, receipt, plans, before_write, repair=False):
+    """Apply preflighted items; caller supplies the durable backup/journal and rolls back on failure.
+
+    Deletions precede writes (including case renames). Folder and root key rows commit once together.
+    """
+    writes, removes, expected = {}, {}, {}
+    for plan in plans:
+        if plan['state'] not in ('current', 'stale', 'edited', 'unrecorded'):
+            raise SyncError('%s: %s' % (plan['item']['folder'], plan['state']))
+        # Root keys without ownership are never repairable by overwriting.
+        if any(p.casefold().startswith('keys/') for p in plan['unrecorded']):
+            raise SyncError('unowned root key blocks %s' % plan['item']['folder'])
+        if (plan['edited'] or plan['unrecorded']) and not repair:
+            raise SyncError('%s: %s; run --apply --repair' % (plan['item']['folder'], plan['state']))
+        for rel, value in plan['writes'].items():
+            collision = next((v for p, v in writes.items() if p.casefold() == rel.casefold()), None)
+            if collision and collision[1] != value[1]:
+                raise SyncError('items supply different root key: %s' % rel)
+            if collision is None:
+                writes[rel] = value
+        removes.update(plan['removes'])
+        expected.update(plan['expected'])
+        if repair:
+            removes.update({rel: None for rel in plan['extras']})
+    # Check every live precondition before the first mutation, even under --repair.
+    for rel, snapshot in expected.items():
+        target = root / rel
+        check_no_symlink_below(root, rel)
+        _digest, _size, current = file_state(target, [] if isinstance(snapshot, tuple) else [None])
+        if current != snapshot:
+            raise SyncError('dependency changed after planning: %s' % rel)
+    backup_bytes = sum((root / rel).stat().st_size for rel in set(removes) | set(writes) if (root / rel).is_file())
+    backup_bytes += (root / RECEIPT_NAME).stat().st_size if (root / RECEIPT_NAME).is_file() else 0
+    files = {e['path']: e for e in receipt['files']}
+    dirs = set(receipt['dirs'])
+    for plan in plans:
+        files = {p: row for p, row in files.items() if p.casefold() not in plan['drop']}
+        for rel, row in plan['rows'].items():
+            if rel.casefold().startswith('keys/'):
+                live_path = case_path(root, rel)
+                canonical = (live_path.relative_to(root).as_posix() if live_path.is_file() else
+                             next((p for p in files if p.casefold() == rel.casefold()), rel))
+                rel, row = canonical, dict(row, path=canonical)
+            files = {p: e for p, e in files.items() if p.casefold() != rel.casefold()}
+            files[rel] = row
+    # A retained shared key may no longer be backed by an owned folder. Keep bytes but disown the row.
+    backed = {(p.split('/')[-1].casefold(), row['sha256']) for p, row in files.items() if p.startswith('@') and '/keys/' in p.casefold()}
+    files = {p: row for p, row in files.items() if p.startswith('@') or (p.split('/')[-1].casefold(), row['sha256']) in backed}
+    data = receipt_data(files, dirs)
+    largest = max([src.stat().st_size for _item, _digest, src in writes.values()] + [len(json_bytes(data))])
+    if shutil.disk_usage(root).free < backup_bytes + largest:
+        raise SyncError('not enough free space for dependency backups plus the largest new file')
+    updating = {p['item']['folder'].casefold() for p in plans}
+    live = live_key_files(root, updating)
+    for plan in plans:
+        live += live_key_files(None, set(), plan.get('extra_key_dirs', ()))
+    for rel, (_item, digest, _src) in writes.items():
+        if rel.casefold().startswith('keys/'):
+            provider = next((label for label, name, sha in live if name == Path(rel).name.casefold() and sha != digest), None)
+            if provider:
+                raise SyncError('root key %s conflicts with active provider %s; folder update blocked' % (rel, provider))
+    if not writes and not removes and data == receipt:
+        return False
+    for rel in sorted(removes):
+        before_write(rel, None)
+        (root / rel).unlink()
+        fsync_parent(root / rel)
+    for rel, (_item, digest, source) in sorted(writes.items()):
+        before_write(rel, digest)
+        parent = root
+        for part in Path(rel).parts[:-1]:
+            parent /= part
+            if not parent.exists():
+                parent.mkdir()
+                name = parent.relative_to(root).as_posix()
+                if name.casefold() not in {d.casefold() for d in dirs}:
+                    dirs.add(name)
+        copy_atomic(source, root / rel, expected=digest)
+        row_path = next(p for p in files if p.casefold() == rel.casefold())
+        files[row_path]['size'] = (root / rel).stat().st_size
+    data = receipt_data(files, dirs)
+    before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
+    write_json_atomic(root / RECEIPT_NAME, data)
+    return True
 
 
 def cmd_install(args, say, before_write=None):
@@ -812,7 +1078,7 @@ def cmd_install(args, say, before_write=None):
                     (root / parent).mkdir()
                     made_dirs.add(parent)
                     changed = True
-            copy_atomic(source, target)
+            copy_atomic(source, target, expected=digest)
             files[rel] = {'path': rel, 'sha256': digest, 'size': target.stat().st_size, 'item': item['id']}
             created.add(rel)
             changed = True
