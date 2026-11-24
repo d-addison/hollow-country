@@ -191,7 +191,7 @@ def submit(store, args):
     notes = []
     if 'gate' in checks and wb_calibrated() and not (args.wave or args.release):
         checks.remove('gate')
-        notes.append('Wine gate dropped: wb_compile is calibrated 14/14, so the gate runs once per wave or release'
+        notes.append('Wine gate dropped: wb_compile agrees on the full corpus, so the gate runs once per wave or release'
                      ' (resubmit with --wave or --release)')
     if not checks:
         raise Refused('no checks left to run')
@@ -283,7 +283,7 @@ def process(store, job):
             else:
                 status = 'pass' if rc == 0 else 'fail'
             if advisory:
-                note = (note + '; ' if note else '') + 'advisory: wb_compile is not calibrated 14/14 against the Wine gate'
+                note = (note + '; ' if note else '') + 'advisory: wb_compile is not calibrated against the full Wine gate corpus'
             add_result(job, check, rc, status, str(log), started, note, advisory)
             store.save(job)
             print('%s id=%s check=%s rc=%s%s' % (status, job['id'], check, rc, ' (advisory)' if advisory else ''))

@@ -29,7 +29,8 @@ python3 -B -m tools.release.test_queue list [--json]
 - Each check writes a result record: `sha`, `check`, `rc`, `status` (`pass`/`fail`/`oom`/`held`),
   `log` (under `.hc-queue/logs/`), `started`, `finished`, `advisory`, `note`.
 - `wb` is advisory (its failure does not fail the job, and the record says so) until the
-  `Calibration status: N/M` line in `docs/tools/WORKBENCH_COMPILE.md` reads `14/14`. From then
+  `Calibration status: N/M` line in `docs/tools/WORKBENCH_COMPILE.md` records agreement on all
+  rows in the current corpus. From then
   on `submit` drops `gate` unless `--wave` or `--release` is given (the Wine gate runs once per
   integration wave and per release). Until then every gated commit gets the gate.
 
