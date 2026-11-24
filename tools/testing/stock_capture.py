@@ -30,6 +30,10 @@ STAMP = re.compile(r'^\s*(\d{1,2}):(\d{2}):(\d{2})(?:[.,](\d+))?\s')
 # tasklist through WSL interop sometimes returns no answer (state 'unknown').
 # 2026-11-24: one unknown read aborted a 125-minute capture three minutes in,
 # and the interop error in the stop that followed left the server running.
+# Attempt 2 (same day) refused after 30 minutes: six unknown reads in a row
+# while a heavy preland ran beside it. An unknown read now also checks the
+# stock RPT, which WSL reads without interop: while it keeps growing the
+# server is alive and the count resets.
 STATE_UNKNOWN_LIMIT = 6
 STOP_ATTEMPTS = 3
 STOP_SETTLE_SECONDS = 20
@@ -136,6 +140,17 @@ def minimum_minutes():
 def stopped(host):
     if any(host.state(image) != 'gone' for image in IMAGES):
         raise Refused('host busy or process state unknown; all DayZ images must be stopped')
+
+
+def rpt_bytes(profiles):
+    """Size of the single stock RPT, or -1 when there is not exactly one."""
+    logs = sorted(Path(profiles).glob('*.RPT'))
+    if len(logs) != 1:
+        return -1
+    try:
+        return logs[0].stat().st_size
+    except OSError:
+        return -1
 
 
 def graceful_stop(host):
@@ -287,17 +302,26 @@ class Stage:
                 raise Refused('stock server did not boot; no security bypass will be attempted')
             deadline = time.monotonic() + minutes * 60
             unknown = 0
+            rpt_size = rpt_bytes(work / 'profiles')
             while time.monotonic() < deadline:
                 state = host.state(soak.SERVER_IMAGE)
                 if state == 'gone':
                     raise Refused('stock server stopped; capture incomplete')
+                size = rpt_bytes(work / 'profiles')
                 if state == 'running':
                     unknown = 0
+                elif size > rpt_size:
+                    if unknown == 0:
+                        print('run: process state unknown; stock RPT still growing, server treated as alive')
+                    unknown = 0
                 else:
-                    # Only a sustained unknown (about 3 minutes) ends the capture.
+                    # Only a sustained unknown with a stalled RPT ends the capture.
                     unknown += 1
+                    print('run: process state unknown and stock RPT not growing (%d/%d)'
+                          % (unknown, STATE_UNKNOWN_LIMIT))
                     if unknown >= STATE_UNKNOWN_LIMIT:
                         raise Refused('stock server state unknown for %d reads; capture incomplete' % unknown)
+                rpt_size = max(rpt_size, size)
                 time.sleep(min(30, max(0, deadline - time.monotonic())))
         finally:
             # A lost launch reply can still mean a process started. Always request
