@@ -56,6 +56,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E050 | bare name resolves to no local, parameter, member of the class or its ancestors, global, class, enum or constant (native compile: Can't find variable; a renamed or removed field read by a subclass) |
 | HC-E051 | assignment into an indexed slot whose index calls a function (native compile: Function definition inside block); hold the index in a local first |
 | HC-E052 | GunPile and reach fixtures must use config compatibility, never weapon magazine/muzzle/chamber natives |
+| HC-E053 | method overrides or redeclares an inherited proto method, or adds an overload of its native name (build 185: Multiple declaration of function); hook a script method instead |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |

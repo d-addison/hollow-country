@@ -7,6 +7,13 @@ the local extracted engine script cache (``--native-scripts`` or the
 HC_NATIVE_SCRIPTS environment variable; never committed). ``--no-native``
 forces the pinned-only mode the unit tests use.
 
+Preland also prints every SERVER/CLIENT conditional arm under mods/*/scripts
+and explicitly checks those files with HC-E012 and HC-E053, preserving the
+whole-project receiver/signature context. Both arms are inspected; this is
+static coverage, not evidence of a client compile. The server compile gate
+cannot compile code excluded by SERVER, and neither compile driver currently
+exposes a qualified client-defines mode.
+
 Every rule maps to a trap a native compile/boot or a real client actually hit
 (see audit/CHECKS.md). Findings already present when the lint landed are listed
 in tools/validate/enforce_lint_baseline.json (and HC-S005 module legacy entries)
@@ -95,6 +102,7 @@ RULES = {
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
+    'HC-E053': 'method overrides or redeclares an inherited proto method, or adds an overload of its native name (build 185: Multiple declaration of function); hook a script method instead',
     'HC-E052': 'GunPile and reach fixtures must use config compatibility, never weapon magazine/muzzle/chamber natives',
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
     enforce_json.RULE: enforce_json.DESCRIPTION,
@@ -2801,7 +2809,99 @@ def rule_config_only_weapon_compat(project, source):
                            RULES['HC-E052'])
 
 
-ALL_RULES = (rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+def rule_proto_native_methods(project, source):
+    """Reject native redeclarations, retaining existing scripted overload hooks.
+
+    Use the same layer-aware ancestry/declaration model as HC-E042. Unknown
+    parents do not hide a known proto ancestor. Proto external and static proto
+    declarations are native boundaries too; the native modifier is not required.
+    """
+    shared = _syntax.model(project)
+    for definition in source.classes:
+        if not (definition.modded or definition.base):
+            continue
+        pool = shared.parent_declarations(definition, source)
+        for declaration in _syntax.declarations(source, definition):
+            if declaration.name == definition.name or declaration.name.startswith('~'):
+                continue
+            candidates = [d for d in pool if d.name == declaration.name]
+            protos = [d for d in candidates if 'proto' in d.modifiers
+                      and d.source not in project.sources]
+            if not protos:
+                continue
+            arity = len(declaration.params)
+            matches = [d for d in protos if len(d.params) == arity]
+            script_hook = any('proto' not in d.modifiers
+                              and shared.same_parameters(declaration.params, d.params)
+                              for d in candidates)
+            if not matches and script_hook:
+                continue
+            parent = (matches or protos)[0]
+            action = 'redeclares' if matches else 'adds an overload of'
+            yield _finding('HC-E053', source, declaration.offset,
+                           f'{definition.name}.{declaration.name}',
+                           f'{_syntax._show(declaration)} {action} proto {parent.cls}.{parent.name}; '
+                           + RULES['HC-E053'], native=True,
+                           key=f'proto: {_syntax._show(declaration)}')
+
+
+def client_only_blocks(source):
+    """Inventory role-conditional arms, including else/elif and nested blocks.
+
+    Both sides of SERVER/CLIENT conditions are retained deliberately: lint has
+    no selected preprocessor branch. Offsets come from the source lexer so
+    comments and quoted directive examples cannot create inventory entries.
+    """
+    directives = []
+    es.clean(source.text, directives)
+    stack, blocks = [], []
+    for offset, keyword in directives:
+        line = source.line_text(offset).strip()
+        # Prefix prevents clean() from treating the directive itself as a line
+        # to erase, while still masking comments and quoted examples.
+        condition = es.clean('_' + line)[1:]
+        role = bool(re.search(r'\b(?:SERVER|CLIENT)\b', condition))
+        if keyword in {'if', 'ifdef', 'ifndef'}:
+            stack.append([offset, line, role])
+        elif keyword in {'else', 'elif', 'endif'} and stack:
+            start, label, relevant = stack[-1]
+            if relevant or role:
+                blocks.append((start, offset, label))
+            if keyword == 'endif':
+                stack.pop()
+            else:
+                stack[-1] = [offset, line, relevant or role]
+    for start, label, relevant in stack:
+        if relevant:
+            blocks.append((start, len(source.text), label))
+    return sorted(blocks)
+
+
+def client_branch_coverage(sources, native=None, symbols=None, provider_layers=None):
+    """Explicitly run client-relevant rules on files with role branches.
+
+    Keep whole files and the whole project index: slicing a block would discard
+    its owning class and declarations outside the block. Return branch-local
+    findings plus a deterministic inventory for the preland transcript.
+    """
+    project = Project(sources, native, symbols, provider_layers)
+    inventory, findings = [], []
+    for source in sources:
+        blocks = client_only_blocks(source)
+        for start, end, label in blocks:
+            inventory.append({'path': source.rel, 'line': source.line_of(start),
+                              'end_line': source.line_of(end), 'condition': label})
+        if not blocks:
+            continue
+        for rule in (rule_receiver_methods, rule_proto_native_methods):
+            for finding in rule(project, source):
+                if any(source.line_of(start) <= finding.line <= source.line_of(end)
+                       for start, end, _ in blocks):
+                    findings.append(finding)
+    return inventory, findings
+
+
+ALL_RULES = (rule_proto_native_methods, rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
@@ -2936,6 +3036,10 @@ def main(argv=None):
                    if d.modded and not project.declaring_layers(d.name, source)}
         provider_layers = workshop_class_layers(unknown)
     findings = lint(sources, native, symbols=symbols, provider_layers=provider_layers)
+    client_blocks, client_findings = client_branch_coverage(
+        sources, native, symbols, provider_layers)
+    findings = sorted(set(findings + client_findings),
+                      key=lambda f: (f.path, f.line, f.rule, f.symbol, f.key))
     if args.write_baseline:
         args.baseline.write_text(json.dumps(baseline_from(findings, args.write_baseline), indent=1) + '\n',
                                  encoding='utf-8')
@@ -2947,9 +3051,15 @@ def main(argv=None):
     new_rule = Counter(f.rule for f in new)
     if args.json:
         print(json.dumps({'status': 'fail' if new or stale else 'pass', 'native': native is not None,
+                          'client_blocks': client_blocks, 'client_findings': len(client_findings),
                           'counts': {r: {'total': per_rule[r], 'new': new_rule[r]} for r in RULES},
                           'new': [asdict(f) for f in new], 'stale': stale}, indent=1))
     else:
+        for block in client_blocks:
+            print('client-branch: {path}:{line}-{end_line} {condition} '
+                  'checked=HC-E012,HC-E053'.format(**block))
+        print(f'enforce_lint: client branches={len(client_blocks)} findings={len(client_findings)} '
+              'coverage=static-all-arms (not a client compile)')
         for finding in (findings if args.all else new):
             print(('NEW  ' if finding in new else 'base ') + finding.render())
         for entry in stale:
