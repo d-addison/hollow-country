@@ -189,15 +189,23 @@ class HCGunPile
 
     // Named config-ancestry refusal list, including non-firearm Weapon_Base tools.
     // Crossbow is intentionally absent: its loose bolts follow the normal ammunition chain.
+    // M79 is absent too (owner, 2026-11-24): it may get a non-lethal 40mm round; LethalRound drops
+    // the explosive and gas rounds entry by entry.
     protected static bool SpecialFamily(string name)
     {
-        if (name == "m79" || name == "m79_base") { return true; }
         if (name == "flaregun" || name == "flaregun_base") { return true; }
         if (name == "dartgun" || name == "dartgun_base") { return true; }
         if (name == "shockpistol" || name == "shockpistol_base") { return true; }
         if (name == "trumpet" || name == "trumpet_base") { return true; }
-        if (name == "ammo_40mm_base" || name == "ammo_dartsyringe" || name == "ammo_flare") { return true; }
+        if (name == "ammo_dartsyringe" || name == "ammo_flare") { return true; }
         return name == "nonlethalcore";
+    }
+
+    // 40mm explosive and gas rounds never lie beside a launcher; smoke rounds may.
+    protected static bool LethalRound(string self, TStringArray chain)
+    {
+        if (self == "ammo_40mm_explosive" || self == "ammo_40mm_chemgas") { return true; }
+        return chain.Find("ammo_40mm_explosive") >= 0 || chain.Find("ammo_40mm_chemgas") >= 0;
     }
 
     protected static bool ValidToken(string token)
@@ -270,6 +278,9 @@ class HCGunPile
         {
             if (SpecialFamily(chain[c])) { special = true; return false; }
         }
+        string self = type;
+        self.ToLower();
+        if (LethalRound(self, chain)) { return false; }
         if (HCConfigHelper.GetInt(path + " scope", 0) != 2) { return false; }
         bool ammunition = chain.Find("ammunition_base") >= 0;
         if (loose && !ammunition) { return false; }
