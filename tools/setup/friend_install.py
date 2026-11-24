@@ -1158,12 +1158,62 @@ def analyze(ctx):
         raise Refused('workshop_receipt', str(error))
     ctx.owned = owned
     for item in ctx.third_items:
-        exists = (ctx.server / item['folder']).exists()
-        state = ws.find_item(item['id'], dirs)[0]
-        a.third.append({'item': item, 'exists': exists, 'ours': item['folder'] in owned, 'content': state})
-    a.pending = [t for t in a.third if not t['exists']]
+        ctx.say('Checking Workshop dependency %s ...' % item['folder'])
+        exists = ws.case_path(ctx.server, item['folder']).exists()
+        resolved = ws.find_item(item['id'], dirs)
+        a.third.append({'item': item, 'exists': exists, 'ours': item['folder'].casefold() in {d.casefold() for d in owned},
+                        'content': resolved[0], 'resolved': resolved})
+    a.dependencies = []
+    for dep in a.third:
+        item = dep['item']
+        if dep['ours']:
+            plan = ws.plan_refresh(item, dirs, ctx.server, receipt, [ctx.bundle / 'keys'], say=ctx.say, resolved=dep['resolved'])
+            a.dependencies.append(plan)
+            for kind in ('edited', 'unrecorded'):
+                for rel in plan[kind]:
+                    root_key = kind == 'unrecorded' and rel.casefold().startswith('keys/')
+                    row = repair_row(kind, rel, 'Workshop source %s; %s' % (plan['source'],
+                        'unowned root key blocks the whole folder; reconcile by hand' if root_key else
+                        'run --apply --repair to restore it (current bytes backed up first)'),
+                        status='repair' if args.repair and not root_key else 'blocked')
+                    row['step'] = 'workshop'
+                    a.repairs.append(row)
+            if args.repair:
+                for rel in plan['extras']:
+                    row = repair_row('retired', rel, 'extra file moved to backup; Workshop source %s' % plan['source'])
+                    row['step'] = 'workshop'
+                    a.repairs.append(row)
+        elif dep['exists']:
+            state, source, detail = dep['resolved']
+            if state == 'present':
+                # Compare read-only, without ever claiming or touching this folder.
+                fake = {'schema': 1, 'dirs': [item['folder']], 'files': []}
+                plan = ws.plan_refresh(item, dirs, ctx.server, fake, say=ctx.say, resolved=dep['resolved'])
+                dep['version'] = plan['state']
+            else:
+                dep['version'] = state
+    a.workshop_receipt = receipt
+    a.pending = [t for t in a.third if not t['exists'] and not t['ours'] and t['content'] != 'content-updating']
     a.left = [t for t in a.third if t['exists'] and not t['ours']]
     a.fetch = [t['item'] for t in a.pending if t['content'] != 'present']
+    a.dependency_warnings = []
+    for dep in a.third:
+        state, source, detail = dep['resolved']
+        folder = dep['item']['folder']
+        if detail:
+            a.dependency_warnings.append('%s: %s' % (folder, detail))
+        if state != 'present':
+            label = state if state == 'content-updating' else 'content-missing (' + state + ')'
+            a.dependency_warnings.append('%s: %s; existing server copy kept' % (folder, label))
+        copies = [d for d in dirs if (d / dep['item']['id']).is_dir()]
+        steam_dir = ws.content_dirs((), ctx.steamcmd)
+        if copies and all(d in steam_dir for d in copies) and not getattr(ctx, 'workshop_updated', False):
+            a.dependency_warnings.append('%s: steamcmd copies are only refreshed with --update-workshop' % folder)
+        if dep['exists'] and not dep['ours'] and dep.get('version') not in ('current', 'content-missing', 'missing'):
+            a.dependency_warnings.append('%s: non-owned dependency differs from Workshop; update by hand' % folder)
+    for plan in a.dependencies:
+        for rel in plan['extras']:
+            a.dependency_warnings.append('%s: untracked extra; kept unless --repair' % rel)
     return a
 
 
@@ -1406,8 +1456,19 @@ def rollback_changes(ctx, root, data, force=False):
                 before = {'': row['sha256']}
             else:
                 before = {}
+            # A Workshop update may rename only the case. The journal owns that Windows path,
+            # including on a case-sensitive test host; restore its original spelling and bytes.
+            target = ws.case_path(ctx.server, rel)
+            actual = target.relative_to(ctx.server).as_posix()
             current = ({'': sha256_file(target)} if target.is_file() else
                        {'': 'dir'} if target.is_dir() else {})
+            if actual != rel and target.is_file():
+                live = current['']
+                if live != before.get('') and live not in row.get('written', {}).get('', []):
+                    conflicts.append('%s (backup: %s)' % (actual, shown(backup)))
+                    continue
+                changes.append(('remove', actual, None))
+                current = {}
         whole = force and row['kind'] == 'tree' and bool(row.get('writing'))
         written = row.get('written', {})
         row_changes = []
@@ -1649,6 +1710,21 @@ def plan_workshop(ctx, a):
     lines = []
     if 'workshop' in ctx.skip:
         return 'skipped', ['you asked to skip this step'], None
+    updates = [p for p in a.dependencies if dependency_todo(ctx, p)]
+    for warning in a.dependency_warnings:
+        lines.append('WARN: ' + warning)
+    if getattr(ctx.args, 'update_workshop', False) and not getattr(ctx, 'workshop_updated', False):
+        lines.append('--update-workshop: on apply, ask Steam for updates to every receipt-owned item before analysis')
+    for plan in updates:
+        lines.append('update %s from %s: %d file(s) to write, %d to remove' % (
+            plan['item']['folder'], plan['source'], len(plan['writes']), len(plan['removes'])))
+    blockers = [p for p in a.dependencies if p['state'] == 'downgrade' or
+                ((p['edited'] or p['unrecorded']) and not ctx.args.repair) or
+                any(r.casefold().startswith('keys/') for r in p['unrecorded'])]
+    if blockers:
+        return 'blocked', lines + ['%s: %s; %s' % (p['item']['folder'], p['state'],
+            '; '.join(p['warnings']) if p['state'] == 'downgrade' else 'run --apply --repair; unowned root keys require reconciliation by hand')
+            for p in blockers], None
     present = [t for t in a.pending if t['content'] == 'present']
     if a.left:
         lines.append('already in the server folder and left as they are: %s' % ', '.join(t['item']['folder'] for t in a.left))
@@ -1675,14 +1751,21 @@ def plan_workshop(ctx, a):
     if a.receipt_repaired:
         lines.append('the Workshop receipt records %d key row(s) an earlier release left orphaned; they are dropped '
                      'from it (the key files stay)' % len(a.receipt_repaired))
-    if a.pending or a.retire_files or a.retire_dirs or a.receipt_repaired:
+    if updates or a.pending or a.retire_files or a.retire_dirs or a.receipt_repaired:
         return 'planned', lines, lambda: do_workshop(ctx, a)
-    lines.append('all %d dependencies are in the server folder' % len(third))
+    lines.append('all %d dependencies are in the server folder; available receipt-owned copies are current' % len(third))
     return 'already-done', lines, None
 
 
+def dependency_todo(ctx, plan):
+    return (plan['state'] in ('current', 'stale', 'edited', 'unrecorded') and
+            (plan['writes'] or plan['removes'] or plan.get('receipt_changed') or
+             (ctx.args.repair and plan['extras'])))
+
+
 def do_workshop(ctx, a):
-    if a.receipt_repaired:
+    updates = [p for p in a.dependencies if dependency_todo(ctx, p)]
+    if a.receipt_repaired and not updates:
         # Written first and journaled like every other receipt write, so the warning does not come back each run.
         manifest = ws.load_manifest()
         ws.persist_repaired_receipt(
@@ -1691,6 +1774,22 @@ def do_workshop(ctx, a):
             before_write=lambda rel, digest: record_written(ctx, rel, digest))
     if a.fetch:
         do_fetch(ctx, a)
+    updates = [p for p in a.dependencies if dependency_todo(ctx, p)]
+    if updates:
+        # Reclassify after any fetch and immediately before applying; never use an obsolete source plan.
+        receipt = ws.load_receipt(ctx.server, {i['folder'] for i in ws.load_manifest()['mods'] + ws.load_manifest()['retired']},
+                                  [ctx.bundle / 'keys'], warn=ctx.say)
+        plans = [ws.plan_refresh(p['item'], ctx.dirs, ctx.server, receipt, [ctx.bundle / 'keys'], say=ctx.say)
+                 for p in updates]
+        for p in plans:
+            if p['state'] in ('content-updating', 'content-missing'):
+                ctx.say('  %s: %s; folder skipped' % (p['item']['folder'], p['state']))
+        plans = [p for p in plans if p['state'] not in ('content-updating', 'content-missing')]
+        if plans:
+            ws.apply_refresh(ctx.server, receipt, plans, lambda rel, digest: record_written(ctx, rel, digest), ctx.args.repair)
+        for p in plans:
+            ctx.say('  updated %s from %s: %d file(s) written, %d removed' % (
+                p['item']['folder'], p['source'], len(p['writes']), len(p['removes'])))
     if a.pending:
         install_dependencies(ctx, a)
     if a.retire_files or a.retire_dirs:
@@ -2921,8 +3020,17 @@ def run_check(ctx):
 
     say('Check of %s against the bundle (read only)' % shown(server))
     try:
-        say_repairs(ctx, repair_rows(ctx, analyze(ctx)), False)
+        analysis = analyze(ctx)
+        say_repairs(ctx, repair_rows(ctx, analysis), False)
+        failures = ['%s: %s; %s' % (p['item']['folder'], p['state'],
+                    '--apply' if p['state'] == 'stale' else '--apply --repair' if p['state'] in ('edited', 'unrecorded')
+                    else 'use a newer Workshop source; downgrade refused')
+                    for p in analysis.dependencies if p['state'] in ('stale', 'edited', 'unrecorded', 'downgrade')]
+        result('dependency_versions', failures, 'every available receipt-owned dependency is current')
+        for warning in analysis.dependency_warnings:
+            say('WARN  dependency_versions  ' + warning)
     except (Refused, ws.SyncError, OSError, ValueError) as error:
+        result('dependency_versions', ['analysis unavailable: %s' % shown(error)], '')
         say('WARN  repair_preview  unavailable: %s' % shown(error))
     if 'overlay' not in ctx.skip:
         mission = map_mission(ctx)
@@ -3127,27 +3235,35 @@ def require_stopped(ctx, running):
                           '--assume-stopped')
 
 
+def prepare_workshop_fetch(ctx):
+    resolve_steamcmd(ctx)
+    if not ctx.steam_user:
+        typed = ctx.ask('Steam login name to download with (type your login name only; steamcmd asks for the '
+                        'password itself, never type it here): ')
+        if typed is None or not typed.strip():
+            raise Refused('steam_user_required', 'the Workshop download needs your Steam login name: pass '
+                          '--steam-user <name> (steamcmd then asks for the password itself)')
+        ctx.steam_user = typed.strip()
+    if not ws.STEAM_USER.match(ctx.steam_user):
+        raise Refused('steam_user_invalid', 'that is not a Steam login name (type your login name only: no spaces; '
+                      'steamcmd asks for the password itself). What you typed is not shown or kept')
+
+
 def pre_apply(ctx, a):
     """Every refusal that can be known before the first write."""
     args = ctx.args
     require_stopped(ctx, a.running)
+    if 'workshop' not in ctx.skip:
+        status, lines, _action = plan_workshop(ctx, a)
+        if status == 'blocked':
+            raise Refused('workshop', '; '.join(lines))
     if 'overlay' not in ctx.skip:
         mission = map_mission(ctx)
         problem = globals_upgrade_problem(mission)
         if problem:
             raise Refused('globals_drift', '\n'.join([problem] + globals_recovery(mission)))
     if 'workshop' not in ctx.skip and a.fetch:
-        resolve_steamcmd(ctx)
-        if not ctx.steam_user:
-            typed = ctx.ask('Steam login name to download with (type your login name only; steamcmd asks for the '
-                            'password itself, never type it here): ')
-            if typed is None or not typed.strip():
-                raise Refused('steam_user_required', 'the Workshop download needs your Steam login name: pass '
-                              '--steam-user <name> (steamcmd then asks for the password itself)')
-            ctx.steam_user = typed.strip()
-        if not ws.STEAM_USER.match(ctx.steam_user):
-            raise Refused('steam_user_invalid', 'that is not a Steam login name (type your login name only: no spaces; '
-                          'steamcmd asks for the password itself). What you typed is not shown or kept')
+        prepare_workshop_fetch(ctx)
     if 'workshop' not in ctx.skip:
         fetching = {i['id'] for i in a.fetch}
         missing = ['%s %s' % (t['item']['folder'], t['item']['id']) for t in a.pending
@@ -3218,6 +3334,8 @@ def repair_rows(ctx, a):
 
 
 def repair_step(row):
+    if row.get('step') == 'workshop':
+        return 'workshop'
     if row['path'] == LAUNCHER_REL:
         return 'launcher'
     if row['kind'] == 'globals':
@@ -3243,6 +3361,21 @@ def say_repairs(ctx, rows, done):
 
 def run_steps(ctx, apply):
     ctx.retire_cache, ctx.retire_reasons = None, {}  # a dry run's answer must not outlive it
+    if apply and getattr(ctx.args, 'update_workshop', False) and 'workshop' not in ctx.skip and not getattr(ctx, 'workshop_updated', False):
+        require_stopped(ctx, False if ctx.args.assume_stopped else ws.server_running(ctx.server))
+        find_steamcmd(ctx)
+        ctx.dirs = content_dirs(ctx, ctx.server)
+        manifest = ws.load_manifest()
+        receipt = ws.load_receipt(ctx.server, {m['folder'] for m in manifest['mods'] + manifest['retired']},
+                                  [ctx.bundle / 'keys'], warn=ctx.say)
+        owned = {d.casefold() for d in receipt['dirs']} if receipt else set()
+        fetch = [i for i in manifest['mods'] if i['id'] and i['folder'].casefold() in owned]
+        if fetch:
+            prepare_workshop_fetch(ctx)
+            request = Analysis()
+            request.fetch = fetch
+            do_fetch(ctx, request)
+        ctx.workshop_updated = True
     a = analyze(ctx)
     ctx.say('Mode: %s' % ('apply (changes are backed up and recorded)' if apply else 'dry-run (nothing is changed)'))
     ctx.say('Server: %s' % shown(ctx.server))
@@ -3321,7 +3454,7 @@ def build_parser():
                         help='restore the infected variety backup before restart; leave the stock infected mix')
     parser.add_argument('--repair', action='store_true',
                         help='with --apply: restore edited or unrecorded files this installer owns (our mod folders, '
-                             'keys, start-server.bat) from the bundle, each backed up first; profiles are never '
+                             'keys, start-server.bat, Workshop dependencies) from their source, each backed up first; profiles are never '
                              'overwritten and saves are never touched')
     parser.add_argument('--keep-stock-globals', action='store_true',
                         help='db/globals.xml variables put back to their stock values stay at stock instead of '
@@ -3337,6 +3470,7 @@ def build_parser():
     parser.add_argument('--assume-stopped', action='store_true', help='skip the running-server check')
     parser.add_argument('--workshop-content', action='append', default=[],
                         help='a steamapps/workshop/content/221100 folder (repeatable)')
+    parser.add_argument('--update-workshop', action='store_true', help='with --apply, fetch every receipt-owned Workshop item first (Steam asks for your password)')
     parser.add_argument('--steamcmd', help='path to steamcmd (its folder is searched for downloads)')
     parser.add_argument('--steam-user', help='your Steam login name (steamcmd asks for the password itself)')
     return parser

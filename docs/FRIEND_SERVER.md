@@ -111,6 +111,8 @@ or an older journal without written hashes, can require this manual review.
 Never delete the journal to bypass a conflict. Identical dependency files are
 recorded as unchanged and receive no backup.
 
+Receipt-owned Workshop dependencies refresh on the next install from the newest local Workshop copy (the `meta.cpp` timestamp); use `--apply --update-workshop` to ask Steam for updates first, using your own login (Steam asks for the password). A stale server dependency can kick players with error 146 (“Client has a more recent version”). Edited or conflicting unrecorded files require `--repair`; unowned folders stay yours to update by hand. Replaced dependency files are backed up, use disk space, and are never pruned. `--rollback RUN --apply` restores the old files and receipt; the next apply updates them again from Workshop.
+
 The installer's **Profiles** step also handles upgrades from v1-test-9 or earlier:
 if `profiles/HollowCountry/holdouts.json` has legacy `Version: 1` (unfunded) or
 `Version: 2` (funded, before camp reserves) state or invalid JSON, it moves that file and any existing `holdouts.json.bak`
