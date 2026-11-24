@@ -16,7 +16,7 @@
   {
    "name": "walk_ai",
    "minutes": 30,
-   "what": "walk to the nearest AI site on foot (no teleport)"
+   "what": "walk to police-chernogorsk on foot, wait 30 s, fx_site_patrol_kill once, observe 20 s"
   },
   {
    "name": "walk_zone",
@@ -195,28 +195,31 @@
    "phase": "walk_ai",
    "how": [
     "step:walk:site:police-chernogorsk",
+    "fixture:fx_site_patrol_kill",
     "code:HCXAISitePatrols.c"
    ],
-   "class": "diagnostic",
-   "note": "#334: needs a site patrol member killed; the scripted client does not fight, so this stays zero until a kill fixture lands."
+   "class": "required",
+   "note": "#334: fx_site_patrol_kill kills one live director-owned police patrol member after the walk_ai wait; EEKilled must arm the real hold."
   },
   "SitePatrols/death_hold_deferred": {
    "phase": "walk_ai",
    "how": [
     "step:walk:site:police-chernogorsk",
+    "fixture:fx_site_patrol_kill",
     "code:HCXAISitePatrols.c"
    ],
    "class": "diagnostic",
-   "note": "#334: needs a site patrol member killed; the scripted client does not fight, so this stays zero until a kill fixture lands."
+   "note": "#334: conditional stale cleanup diagnostic after the kill; only fires if the hold is still unclean at the 10 s report boundary. Zero is normal."
   },
   "SitePatrols/death_hold_released": {
    "phase": "walk_ai",
    "how": [
     "step:walk:site:police-chernogorsk",
+    "fixture:fx_site_patrol_kill",
     "code:HCXAISitePatrols.c"
    ],
-   "class": "diagnostic",
-   "note": "#334: needs a site patrol member killed; the scripted client does not fight, so this stays zero until a kill fixture lands."
+   "class": "required",
+   "note": "#334: after the native kill and deferred provider cleanup, the surviving patrol must release its own death hold; server must survive subsequent timer ticks."
   },
   "AIIncidents/lease_step": {
    "phase": "fixtures",

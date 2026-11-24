@@ -521,3 +521,13 @@ the output. The lead reviews the classified warnings and applies any justified
 proposal by hand; the tool never edits acceptance targets. A ceiling is never
 raised merely to pass a candidate. This capture and offline proposal do not
 establish release acceptance.
+
+The R3 campaign ends `walk_ai` with the dev-only `fx_site_patrol_kill`, after the
+30-second wait at police-chernogorsk, followed by 20 seconds standing. It uses
+the real director-owned patrol (at least two live members, no pending spawn),
+kills exactly one via native global `SetHealth`, and leaves its timer registered.
+The bounded `[HC Test]` receipt reports the site, result and live members before/after;
+only HC's death hook and update produce the required `SitePatrols/death_hold_armed`
+and `death_hold_released` counters. `death_hold_deferred` stays diagnostic because
+normal next-frame cleanup need not reach its stale report boundary. Test code
+never bumps counters; a receipt alone proves neither hold release nor crash survival.

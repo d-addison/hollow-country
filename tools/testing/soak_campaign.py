@@ -225,8 +225,7 @@ def _quoted_commands(root):
 
 
 def reach_context(root=ROOT):
-    from tools.testing import driver_script
-    return {'index': driver_script.phase_index(), 'sources': _source_names(root),
+    return {'index': _step_index(), 'sources': _source_names(root),
             'commands': _quoted_commands(root)}
 
 
@@ -338,7 +337,7 @@ def _step_index():
         from tools.testing import driver_script
     except ImportError:
         raise Refused('tools.testing.driver_script is not in this checkout') from None
-    return driver_script.phase_index()
+    return _campaign_driver_plan(PHASE_ORDER)[1]
 
 
 def timer_minutes(how):
@@ -1365,15 +1364,42 @@ def command_report(phases, state, out):
 
 # ------------------------------------------------------------------ plan
 
+def _campaign_driver_plan(route):
+    """Keep campaign-only kill plumbing and the audited step index in the same builder."""
+    from tools.testing import driver_script
+    original, notes = driver_script.build_plan(list(route))
+    steps, index, offset = [], {}, 0
+    for phase in route:
+        # Preserve the full route's distance-based walk timeouts and waypoint notes.
+        length = len(driver_script.build_route([phase])['steps'])
+        phase_steps = original['steps'][offset:offset + length]
+        offset += length
+        if phase == 'walk_ai':
+            phase_steps += [dict(kind='admin', cmd='fx_site_patrol_kill', value=''),
+                            dict(kind='stand', seconds=20)]
+        tokens = index.setdefault(phase, {})
+        for step in phase_steps:
+            token = driver_script.step_token(step, notes)
+            step['id'] = 's%02d' % (len(steps) + 1)
+            steps.append(step)
+            tokens.setdefault(token, []).append(step['id'])
+            if step['kind'] == 'admin' and step['cmd'].startswith('fx_'):
+                tokens.setdefault('fixture:' + step['cmd'], []).append(step['id'])
+    digest = hashlib.sha256(json.dumps(steps, sort_keys=True).encode('utf-8')).hexdigest()
+    result = dict(version=driver_script.VERSION, run_id='r' + digest[:10], steps=steps)
+    driver_script.validate_script(result)
+    return result, index
+
+
 def step_script(route=PHASE_ORDER):
     try:
         from tools.testing import driver_script
     except ImportError:
-        raise Refused('tools.testing.driver_script is not in this checkout (the drv brief adds it)') from None
+        raise Refused('tools.testing.driver_script is not in this checkout') from None
     if tuple(driver_script.PHASES) != PHASE_ORDER:
         raise Refused('driver_script phases differ from the campaign phases')
     try:
-        return driver_script.build_route(list(route))
+        return _campaign_driver_plan(route)[0]
     except ValueError as error:
         raise Refused('driver_script refused the route: ' + str(error)) from None
 
@@ -1473,6 +1499,8 @@ def main(argv=None, *, host=None, out=None):
             if selection:
                 lines = selection_lines(selection, phases) + ['', 'phase map problems: %d' % len(problems)]
                 lines += ['  ' + problem for problem in problems]
+            else:
+                lines += ['', 'phase map problems: %d' % len(problems)]
             reasons = plan_checks()
             for line in lines:
                 print(line, file=out)

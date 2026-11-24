@@ -1,15 +1,17 @@
-// Dev-only test addon (never shipped). Second set of setup-only admin fixtures for the soak
-// reach map: each creates a starting state with vanilla APIs or runs the real server entry point
+// Dev-only test addon (never shipped). Admin fixtures for the soak reach map: setup fixtures
+// create a starting state with vanilla APIs or run the real server entry point
 // a player action would, logs fixture=1, and the real HC code then counts on its own. No counter
 // is bumped, faked or credited here; no player is moved. Server side only, honours
 // EnableSmokeFixtures (HCAdminFixtures.HCEnabled); one object set per fixture (a repeat call
-// deletes only the objects this provider created, held weakly).
+// deletes only the objects this provider created, held weakly). The one-shot kill fixture instead
+// kills one existing site-patrol member through native health; it never deletes or stops the patrol.
 // Commands: fx_animal (OptionalPacks/animal_seen), fx_food (FoodCompat/food_compat_guard),
 // fx_cooking (CookingCompat/cooking_dish_cooked), fx_kit_place and fx_kit_refuse
 // (Fortify/fortify_placed and fortify_refused), fx_barricade (Fortify/barricade_breached),
 // fx_melee (Melee/hit_processed, wall_veto, parity_probe, zombie-hit-bonuses), fx_shoot
 // (InfectedMemory/heat_recorded via Weapon_Base.EEFired, AITactics/fire-events via a weapon hit
-// on a tracked AI; one native Weapon.Fire discharge exactly as HCXWarningShot does).
+// on a tracked AI; one native Weapon.Fire discharge exactly as HCXWarningShot does),
+// fx_site_patrol_kill (SitePatrols/death-hold-armed and death-hold-released, real site member death).
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:594/611/612 ConfigGetChildName/
 // ConfigGetChildrenCount/ConfigIsExisting, :703 CreateObjectEx, :705 ObjectDelete, :1437 IsKindOf;
 // 3_Game/dayzplayer.c:1293 ProcessMeleeHitName (the engine melee hit entry the client melee logic
@@ -41,6 +43,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     protected static ref HCTestReachFixtures s_Provider;
     protected static const int CONFIG_SCAN_LIMIT = 20000;
     protected static const int INVENTORY_SCAN_LIMIT = 256;
+    protected bool m_SitePatrolKillAttempted;
     protected Object m_Animal;
     protected Object m_Food;
     protected Object m_Fire;
@@ -60,7 +63,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     {
         if (command == "fx_animal" || command == "fx_food" || command == "fx_cooking") { return true; }
         if (command == "fx_kit_place" || command == "fx_kit_refuse") { return true; }
-        return command == "fx_barricade" || command == "fx_melee" || command == "fx_shoot";
+        return command == "fx_barricade" || command == "fx_melee" || command == "fx_shoot" || command == "fx_site_patrol_kill";
     }
 
     override bool HCFixture(string command, vector pos, out string reason)
@@ -77,6 +80,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
                 reason = "position-invalid";
                 if (HCDebugSnapshot.HCPositionValid(pos) && pos[1] == pos[1])
                 {
+                    if (command == "fx_site_patrol_kill") { done = HCSitePatrolKill(pos, reason); }
                     if (command == "fx_animal") { done = HCAnimal(pos, reason, created); }
                     if (command == "fx_food") { done = HCFood(pos, reason, created); }
                     if (command == "fx_cooking") { done = HCCooking(pos, reason, created); }
@@ -96,7 +100,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
 
     override void HCFixtureKit(array<string> lines)
     {
-        array<string> commands = {"fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade", "fx_melee", "fx_shoot"};
+        array<string> commands = {"fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade", "fx_melee", "fx_shoot", "fx_site_patrol_kill"};
         string value = "0";
         string why = "EnableSmokeFixtures-off";
         if (HCAdminFixtures.HCEnabled())
@@ -108,6 +112,70 @@ class HCTestReachFixtures : HCAdminFixtureProvider
         {
             lines.Insert(command + " available=" + value + " reason=" + why + " fixture=1");
         }
+    }
+
+    // ---- fx_site_patrol_kill -----------------------------------------------------------
+    // Kill one real director-owned police patrol member while its normal timer remains live.
+    // Object.c:1015 SetHealth (empty zone/type = global/main); PlayerBase.c:3888 uses this
+    // native for a fatal environmental death. No manual EEKilled/RecordDeath/hold calls.
+    // Pinned Expansion d84d3c7 DayZPlayerImplement.c:431-438 queues cleanup next frame;
+    // HCBridgeStanceKilled arms/records before any killer-dependent work. No player needed.
+    protected bool HCSitePatrolKill(vector pos, out string reason)
+    {
+        reason = "already-attempted";
+        if (m_SitePatrolKillAttempted) { return false; }
+        m_SitePatrolKillAttempted = true;
+        int before = 0;
+        int after = 0;
+        string patrolId = "none";
+        string result = "no-live-patrol";
+        bool done = false;
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        if (director && director.Phase() == "run")
+        {
+            array<ref HCXAISiteState> states = director.States();
+            int limit = Math.Min(states.Count(), 4096);
+            for (int index = 0; index < limit; index++)
+            {
+                HCXAISiteState state = states[index];
+                if (!state || !state.Patrol) { continue; }
+                HCXAISitePatrol patrol = state.Patrol;
+                if (patrol.m_HCSiteId != "police-chernogorsk") { continue; }
+                patrolId = "police-chernogorsk";
+                if (!patrol.m_HCLive || patrol.m_HCFinished || patrol.HCDeathHeld() || patrol.m_HCPendingMembers > 0) { break; }
+                // Snapshot weak engine members BEFORE the kill; do not resolve the group after
+                // EEKilled while the hold is active. Count live actors, not provider list slots.
+                array<DayZPlayerImplement> members = new array<DayZPlayerImplement>;
+                HCXAIGroupHold hold = patrol.HCGroupHold();
+                int count = HCXExpansionBridge.HCHoldCount(hold);
+                if (count > 16) { result = "member-limit"; break; }
+                for (int slot = 0; slot < count; slot++)
+                {
+                    DayZPlayerImplement member = HCXExpansionBridge.HCHoldGetMember(hold, slot);
+                    if (member && !member.IsPendingDeletion() && member.IsAlive()) { members.Insert(member); }
+                }
+                before = members.Count();
+                after = before;
+                result = "needs-survivor";
+                if (before < 2) { break; }
+                DayZPlayerImplement victim = members[0];
+                result = "patrol-not-near-actor";
+                if (vector.DistanceSq(victim.GetPosition(), pos) > 250000) { break; }
+                victim.SetHealth("", "", 0);
+                after = 0;
+                foreach (DayZPlayerImplement observed : members)
+                {
+                    if (observed && observed.IsAlive()) { after++; }
+                }
+                done = (!victim || !victim.IsAlive()) && after == before - 1;
+                result = "kill-refused";
+                if (done) { result = "ok"; }
+                break;
+            }
+        }
+        reason = result;
+        Print("[HC Test] fx_site_patrol_kill patrol=" + patrolId + " result=" + result + " members_before=" + before.ToString() + " members_after=" + after.ToString());
+        return done;
     }
 
     // ---- shared helpers ---------------------------------------------------------------
