@@ -49,6 +49,11 @@
    "what": "walk to a woodland barn, run the forage tick, pick forage and stand under the trees for the wind loop"
   },
   {
+   "name": "mission",
+   "minutes": 30,
+   "what": "on foot into a published mission zone from outside (enter zone=mission: in, out and in again until the server's radius receipt arrives)"
+  },
+  {
    "name": "idle",
    "minutes": 125,
    "what": "stand still; background and time-window counters (125 minutes); DebugSnapshot fires every 300 s"
@@ -147,7 +152,8 @@
   "Shelters/regional_props_placed": "idle",
   "optional-expansion-human-ai/convoy_astar": "fixtures",
   "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
-  "optional-expansion-human-ai/stuck_recovery": "fixtures"
+  "optional-expansion-human-ai/stuck_recovery": "fixtures",
+  "Events/mission_radius_entered": "mission"
  },
  "manual": {
   "TeamPing/ping_recipients": {
@@ -554,10 +560,11 @@
    ]
   },
   "Events/mission_radius_entered": {
-   "phase": "walk_zone",
+   "phase": "mission",
    "how": [
-    "step:walk:zone:balota-cf3bbed7",
-    "code:HCMissionBeacon.c"
+    "step:enter:mission",
+    "code:HCMissionBeacon.c",
+    "code:HCUseLifecycle.c"
    ]
   },
   "Events/police_barrel_recreated": {

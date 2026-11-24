@@ -6,7 +6,7 @@ strictly in order. This module is the only writer of that file: it picks waypoin
 rejects any step the driver does not implement (unknown kind, unknown field, a teleport command).
 
   python3 -B -m tools.testing.driver_script plan --route default [--phases join,group,...]
-  python3 -B -m tools.testing.driver_script write <path> [--route default] [--phases ...]
+  python3 -B -m tools.testing.driver_script write <path> [--route default|r3] [--phases ...]
   python3 -B -m tools.testing.driver_script validate <path>
 
 Offline output only. It never starts DayZ and never establishes game behaviour.
@@ -22,7 +22,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 MISSION = ROOT / "mission" / "hollow-country"
 VERSION = 1
-PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "fixtures", "actions", "scene", "forest", "idle")
+PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "fixtures", "actions", "scene", "forest",
+          "mission", "idle")
 DEFAULT_PHASES = list(PHASES)
 MAX_STEPS = 400
 WORLD_SIZE = 15360.0
@@ -39,6 +40,17 @@ SCENE = "scene:scene-kamenka"
 # Forest phase: an existing authored barn of travel/route-surveys.json set in woodland (forage
 # habitats and the forest wind loop need a wooded surface under the player).
 FOREST = "shelter:Bor South Rest"
+# Radius entry (enter kind). The server counts an entry only after it sampled the player outside and
+# then inside the same radius (HCReleaseRadius.c); the driver walks in, out and in again until the
+# server's own RPC_ENTRY confirms it. Site candidates: patrol sites of ai/sites.json at their first
+# waypoint (HCSiteAnchor), radius = the repo-default activation radius: HCXAISites EncounterRadius
+# max(600, ActivationRadius) at ActivationRadiusScale 1, clamped up to the default perception ring
+# HCSpawnMax (HCPerceptionRing.HCClampActivation), about 1500 m. A server whose radius differs is
+# covered by the driver's widening in/out margins, never by a closer guess here.
+ENTER_ZONES = ("site", "mission")
+SITE_RADIUS_FLOOR = 1500.0
+SITE_CELL_METERS = 2000.0
+MAX_SITE_CANDIDATES = 64
 
 # Setup fixtures in the order the fixture block calls them (fxsetup brief plus the existing ones).
 FIXTURES = ("fx_car_side", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict",
@@ -52,7 +64,7 @@ ADMIN_STEPS = ("status", "snapshot", "scene", "radio", "deaddrop", "loot", "fora
 GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
-KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action")
+KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter")
 
 # action kind -> (required args, optional args). Every arg value is a string.
 ACTION_ARGS = {
@@ -105,6 +117,7 @@ _STEP_FIELDS = {
     "group": {"op"},
     "ping": set(),
     "action": {"name", "args", "timeout_s"},
+    "enter": {"zone", "sites", "gait", "hold_s", "timeout_s"},
 }
 _TOP_FIELDS = {"version", "run_id", "steps"}
 
@@ -277,6 +290,34 @@ def _phase_forest(b):
     b.add("stand", seconds=60)
 
 
+def site_candidates():
+    """Flat [x, z, radius, ...] of patrol site anchors, one per 2 km cell (first by Id), at most 64."""
+    cells = {}
+    for site in sorted(_load("ai/sites.json").get("Sites", []), key=lambda row: str(row.get("Id"))):
+        points = site.get("Waypoints") or []
+        if site.get("Kind") != "patrol" or not points:
+            continue
+        x, z = _xz(points[0], "site:%s" % site.get("Id"))
+        cell = (int(x // SITE_CELL_METERS), int(z // SITE_CELL_METERS))
+        if cell in cells:
+            continue
+        radius = max(float(site.get("ActivationRadius") or 0.0), 600.0, SITE_RADIUS_FLOOR)
+        cells[cell] = [x, z, round(min(radius, 7500.0), 1)]
+    flat = []
+    for cell in sorted(cells)[:MAX_SITE_CANDIDATES]:
+        flat += cells[cell]
+    if not flat:
+        raise ScriptError("no patrol site with a waypoint in ai/sites.json")
+    return flat
+
+
+def _phase_mission(b):
+    # A published mission zone (the client's own beacon rows); refused no-published-mission when the
+    # server publishes none inside the timeout.
+    b.add("enter", zone="mission", gait="jog", hold_s=60, timeout_s=1800)
+    b.add("stand", seconds=20)
+
+
 def _phase_idle(b):
     b.add("stand", seconds=60)
 
@@ -284,7 +325,8 @@ def _phase_idle(b):
 _PHASE_BUILDERS = {
     "join": _phase_join, "group": _phase_group, "walk_ai": _phase_walk_ai,
     "walk_zone": _phase_walk_zone, "walk_town": _phase_walk_town, "fixtures": _phase_fixtures,
-    "actions": _phase_actions, "scene": _phase_scene, "forest": _phase_forest, "idle": _phase_idle,
+    "actions": _phase_actions, "scene": _phase_scene, "forest": _phase_forest, "mission": _phase_mission,
+    "idle": _phase_idle,
 }
 
 
@@ -305,8 +347,10 @@ def build_plan(phases):
 
 def step_token(step, notes):
     """The reach-map token of a step: wait|stand|sprint|ping, menu:<name>, admin:<cmd>, group:<op>,
-    action:<name> or walk:<waypoint source>. A fixture is also reachable as fixture:<cmd>."""
+    action:<name>, enter:<zone> or walk:<waypoint source>. A fixture is also reachable as fixture:<cmd>."""
     kind = step["kind"]
+    if kind == "enter":
+        return "enter:" + step["zone"]
     if kind == "menu":
         return "menu:" + step["name"]
     if kind == "admin":
@@ -338,6 +382,24 @@ def phase_index():
 def build_route(phases):
     """The step file for the phases, in the order given. Raises ScriptError on a bad request."""
     return build_plan(phases)[0]
+
+
+def build_r3():
+    """(script, notes) of the no-human R3 client smoke (release_gate --client-mode scripted): the six
+    categories map, inventory, groups (the M map's group frame), admin, ai (site radius) and event
+    (mission radius), each through the same real client path a tester would use."""
+    builder = _Builder()
+    builder.add("wait", seconds=30)
+    builder.add("stand", seconds=5)
+    for name in ("map", "inventory", "admin"):
+        builder.add("menu", name=name, seconds=4)
+    builder.add("enter", zone="site", sites=site_candidates(), gait="jog", hold_s=120, timeout_s=1800)
+    builder.add("enter", zone="mission", gait="jog", hold_s=60, timeout_s=1500)
+    builder.add("stand", seconds=30)
+    digest = hashlib.sha256(json.dumps(builder.steps, sort_keys=True).encode("utf-8")).hexdigest()
+    script = {"version": VERSION, "run_id": "r3" + digest[:10], "steps": builder.steps}
+    validate_script(script)
+    return script, builder.notes
 
 
 def _number(value, low, high, label):
@@ -410,6 +472,25 @@ def validate_step(step, label="step"):
     elif kind == "group":
         if step.get("op") not in GROUP_OPS:
             raise ScriptError("%s group op must be one of %s" % (label, GROUP_OPS))
+    elif kind == "enter":
+        zone = step.get("zone")
+        if zone not in ENTER_ZONES:
+            raise ScriptError("%s enter zone must be one of %s" % (label, ENTER_ZONES))
+        sites = step.get("sites")
+        if zone == "site":
+            if not isinstance(sites, list) or not 3 <= len(sites) <= 3 * MAX_SITE_CANDIDATES or len(sites) % 3:
+                raise ScriptError("%s sites must be a flat [x, z, radius, ...] list of 1..%d sites"
+                                  % (label, MAX_SITE_CANDIDATES))
+            for index in range(0, len(sites), 3):
+                _number(sites[index], 0, WORLD_SIZE, label + " sites.x")
+                _number(sites[index + 1], 0, WORLD_SIZE, label + " sites.z")
+                _number(sites[index + 2], 50, 7500, label + " sites.radius")
+        elif sites is not None:
+            raise ScriptError("%s sites only belong to zone site" % label)
+        if step.get("gait") not in GAITS:
+            raise ScriptError("%s gait must be one of %s" % (label, GAITS))
+        _number(step.get("hold_s"), 10, 540, label + " hold_s")
+        _number(step.get("timeout_s"), 30, 3600, label + " timeout_s")
     elif kind == "action":
         name = step.get("name")
         if name not in ACTION_ARGS:
@@ -454,6 +535,11 @@ def describe(step, notes):
         detail = "cmd=%s value=%s" % (step["cmd"], step["value"])
     elif kind == "group":
         detail = "op=%s" % step["op"]
+    elif kind == "enter":
+        detail = "zone=%s gait=%s hold_s=%s timeout_s=%s" % (
+            step["zone"], step["gait"], step["hold_s"], step["timeout_s"])
+        if "sites" in step:
+            detail += " candidates=%d" % (len(step["sites"]) // 3)
     elif kind == "action":
         detail = "name=%s args=%s timeout_s=%s" % (
             step["name"], json.dumps(step["args"], sort_keys=True), step["timeout_s"])
@@ -475,7 +561,8 @@ def main(argv=None):
         child = sub.add_parser(name)
         if name == "write":
             child.add_argument("path", type=Path)
-        child.add_argument("--route", default="default", choices=("default",))
+        child.add_argument("--route", default="default", choices=("default", "r3"),
+                           help="r3: the no-human R3 client smoke (ignores --phases)")
         child.add_argument("--phases", type=_phases_arg, default=DEFAULT_PHASES,
                            help="comma list of: " + ",".join(PHASES))
     check = sub.add_parser("validate")
@@ -486,7 +573,10 @@ def main(argv=None):
             validate_script(json.loads(args.path.read_text(encoding="utf-8")))
             print("valid: true")
             return 0
-        script, notes = build_plan(args.phases)
+        if args.route == "r3":
+            script, notes = build_r3()
+        else:
+            script, notes = build_plan(args.phases)
         if args.command == "plan":
             print("run_id=%s steps=%d" % (script["run_id"], len(script["steps"])))
             for step in script["steps"]:

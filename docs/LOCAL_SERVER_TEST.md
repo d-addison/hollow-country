@@ -136,3 +136,28 @@ With the full-client geometry input set, the offline mesh audit reports 110
 blocking findings and 505 skips on both this branch and `ddd8c2d1`; the complete
 reports match. Its 140 raw findings include 30 accepted triangle-cost findings.
 This is a pre-existing placement/mesh audit failure, separate from soak joining.
+
+## Scripted client without a person (2026-11-24)
+
+Two runs drive one real client with the dev-only test addon, so nobody has to play
+(docs/tools/AUTOPLAYER.md):
+
+- the soak campaign (`python3 -B -m tools.testing.soak_campaign run`) stages the test
+  profile and runs every phase, now including `mission` (on foot into a published
+  mission zone from outside);
+- the release gate's client step (`python3 -B -m tools.release.release_gate ...`,
+  `--client-mode scripted`, the default) runs the R3 route only: the M map with group
+  controls, the inventory, the admin window, then one AI site radius and one published
+  mission zone, entered from outside. The gate leaves the server installation untouched;
+  the test addon loads on the client only (docs/tools/RELEASE_GATE.md).
+
+Both use the same join path as the campaign above: dependency parity before anything
+starts, the BattlEye launcher once the server logs `Player connect enabled`, a graceful
+client close before the server and restore only once both client images are gone. The
+local client must be on the admin allowlist of the profile in use for the admin window
+step; otherwise that step logs `result=refused` and the R3 admin signal stays absent.
+Read the result from the `[HC Driver] step=` lines in the client RPT: an `enter` step
+ends `result=ok detail=server-confirmed zone=<site|mission> ...` only when the server's
+own radius receipt arrived; `no-published-mission`, `not-confirmed` and `stuck` are
+refusals and timeouts, never a pass. Native behaviour of the scripted client is
+unverified until the lead's first run.

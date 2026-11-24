@@ -22,6 +22,7 @@ class HCClientDriver
     protected ref HCDriverScript m_Script;
     protected ref HCDriverWalker m_Walker = new HCDriverWalker;
     protected ref HCDriverActions m_Actions = new HCDriverActions;
+    protected ref HCDriverEnter m_Enter = new HCDriverEnter;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -140,6 +141,12 @@ class HCClientDriver
         {
             code = StepAction(step, player, dt);
             detail = m_Actions.Detail();
+        }
+        else if (step.kind == "enter")
+        {
+            code = StepEnter(step, player, dt);
+            detail = m_Text;
+            if (detail == "") { detail = m_Enter.Detail(); }
         }
         else
         {
@@ -460,6 +467,30 @@ class HCClientDriver
         return HCDriverResult.RUNNING;
     }
 
+    // The server's own radius answer (HCUseLifecycle.c stores RPC_ENTRY); read-only here.
+    protected bool RadiusObserved(string zone)
+    {
+        MissionGameplay mission = MissionGameplay.Cast(GetGame().GetMission());
+        if (!mission) { return false; }
+        if (zone == "site") { return mission.HCTestRadiusObserved(HCReleaseRadiusWire.AI_SITE); }
+        return mission.HCTestRadiusObserved(HCReleaseRadiusWire.MISSION);
+    }
+
+    protected int StepEnter(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            if (step.zone != "site" && step.zone != "mission")
+            {
+                m_Text = "enter-needs-zone";
+                return HCDriverResult.REFUSED;
+            }
+            m_Enter.Begin(step);
+        }
+        return m_Enter.Tick(player, dt, m_Walker, RadiusObserved(step.zone));
+    }
+
     protected int StepAction(HCDriverStep step, PlayerBase player, float dt)
     {
         if (m_Stage == 0)
@@ -487,6 +518,14 @@ modded class MissionGameplay
     {
         super.OnUpdate(timeslice);
         if (m_HCDriver) { m_HCDriver.Tick(timeslice); }
+    }
+
+    // Test-only read of the flags HCUseLifecycle.c sets from the server's RPC_ENTRY answer.
+    bool HCTestRadiusObserved(int observation)
+    {
+        if (observation == HCReleaseRadiusWire.AI_SITE) { return m_HCReleaseAISiteObserved; }
+        if (observation == HCReleaseRadiusWire.MISSION) { return m_HCReleaseMissionObserved; }
+        return false;
     }
 
     override void OnMissionFinish()

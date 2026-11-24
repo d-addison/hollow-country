@@ -167,5 +167,48 @@ class DriverScriptTests(unittest.TestCase):
                 self.assertEqual(ds.main(["validate", str(path)]), 1)
 
 
+    def test_r3_route_covers_the_six_smoke_categories_on_foot(self):
+        script, _ = ds.build_r3()
+        ds.validate_script(script)
+        menus = [step["name"] for step in script["steps"] if step["kind"] == "menu"]
+        zones = [step["zone"] for step in script["steps"] if step["kind"] == "enter"]
+        self.assertEqual(menus, ["map", "inventory", "admin"])  # the M map also opens the group controls
+        self.assertEqual(zones, ["site", "mission"])
+        self.assertFalse({"admin", "action", "walk"} & {step["kind"] for step in script["steps"]})
+        self.assertEqual(ds.build_r3(), ds.build_r3())
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "client_driver.json"
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(ds.main(["write", str(path), "--route", "r3"]), 0)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), script)
+
+    def test_site_candidates_are_patrol_anchors_at_the_default_radius(self):
+        sites = ds.site_candidates()
+        self.assertEqual(len(sites) % 3, 0)
+        self.assertLessEqual(len(sites) // 3, ds.MAX_SITE_CANDIDATES)
+        anchors = {ds.resolve_waypoint("site:" + row["Id"]) for row in ds._load("ai/sites.json")["Sites"]
+                   if row.get("Kind") == "patrol" and row.get("Waypoints")}
+        for index in range(0, len(sites), 3):
+            self.assertIn((sites[index], sites[index + 1]), anchors)
+            self.assertGreaterEqual(sites[index + 2], ds.SITE_RADIUS_FLOOR)
+
+    def test_enter_steps_checked(self):
+        good = {"id": "s01", "kind": "enter", "zone": "site", "sites": [6564.47, 2551.96, 1500.0],
+                "gait": "jog", "hold_s": 60, "timeout_s": 600}
+        ds.validate_step(good)
+        bad = [dict(good, zone="town"), dict(good, sites=[1.0, 2.0]), dict(good, sites=[]),
+               dict(good, sites=[1.0, 2.0, 10.0]), dict(good, sites=[99999.0, 2.0, 1500.0]),
+               dict(good, hold_s=5), dict(good, hold_s=600), dict(good, timeout_s=10), dict(good, gait="crawl"),
+               dict(good, zone="mission"), dict(good, to=[1, 2])]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+        mission = {key: value for key, value in good.items() if key != "sites"}
+        ds.validate_step(dict(mission, zone="mission"))
+        with self.assertRaises(ds.ScriptError):
+            ds.validate_step(mission)  # a site step needs its candidates
+        self.assertEqual(ds.step_token(dict(mission, zone="mission"), {}), "enter:mission")
+
+
 if __name__ == "__main__":
     unittest.main()

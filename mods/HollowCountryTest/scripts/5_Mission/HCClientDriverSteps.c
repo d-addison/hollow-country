@@ -48,6 +48,15 @@ class HCDriverStep
     string value;
     string op;
     ref HCDriverArgs args;
+    // Autoplayer fields (flat float lists: JsonFileLoader reads no nested arrays of points).
+    ref array<float> points;
+    ref array<float> sites;
+    string zone;
+    float hold_s;
+    float range_m;
+    int max_items;
+    string mode;
+    float throttle;
 }
 
 class HCDriverScript

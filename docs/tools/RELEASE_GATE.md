@@ -7,6 +7,7 @@ establish orchestration behaviour, never DayZ or multiplayer acceptance.
 python3 -B -m tools.release.release_gate --commit FULL_40_CHARACTER_SHA \
   --bundle /mnt/e/HollowCountryLocal/candidate \
   --previous-bundle /mnt/e/HollowCountryLocal/previous \
+  --client-mode scripted --client-timeout 3600 \
   --smoke-use map=ClientUI/map_open \
   --smoke-use inventory=ClientUI/inventory_open \
   --smoke-use groups=Groups/menu_open \
@@ -58,10 +59,40 @@ Order:
    targets file. Failed self-tests, quarantine and failed/absent readiness refuse.
 5. Run `activity_check --release` on the server and fresh client RPT together;
    `activity_requires_active_for_default_on` controls whether INERT features fail.
-6. Print the one-tester checklist and wait up to 900 seconds (configurable with
+6. Print the client checklist and wait up to 900 seconds (configurable with
    `--client-timeout`, maximum 3600) for all mapped client features to be ACTIVE
    with positive counts. Apply `client_max_vme`, `max_script_errors` and `client_max_missing_textures`
    from the targets file to client errors.
+
+### Client mode
+
+`--client-mode scripted` (the default, owner 2026-11-24) needs no person. Before
+the install the gate builds and signs the dev-only test addon
+(`tools.testing.test_addon`), writes the R3 step file
+(`python3 -B -m tools.testing.driver_script plan --route r3`) and stages both in
+one new folder next to the server root, `release-gate-client`, marked as the
+gate's own. A watcher launches one real client through the BattlEye launcher
+(the soak campaign's `WindowsHost.launch_client` and `client_arguments`) once
+the fresh soak RPT says `Player connect enabled`. The client loads the
+candidate's mods from the server root, the Workshop dependencies by id (the
+campaign's dependency parity check refuses a mismatch before anything starts)
+and the test addon last; the server runs the installed candidate unchanged and
+never loads the test addon. The client RPT is read from the staged profile.
+The scripted client opens the M map (map and group controls), the inventory and
+the admin window, then walks on foot from outside into one AI site activation
+radius and one published mission zone, in, out and in again until the server's
+own radius receipt arrives (docs/tools/AUTOPLAYER.md). It stays connected
+through activity validation. Cleanup closes the client first (the campaign's
+graceful CloseMainWindow path), confirms `DayZ_BE.exe` and `DayZ_x64.exe` are
+gone, removes the folder, then stops the server. A client that cannot be
+confirmed gone leaves the folder in place and fails the verdict. The verdict
+records `client_mode` and `client` (`scripted client`). Pass `--client-root`
+for a client install the campaign cannot discover. The test addon is built from
+the checkout running the gate; it is never part of the bundle. The two-step
+route takes up to 55 minutes, so give the client step `--client-timeout 3600`.
+
+`--client-mode human` keeps the one-tester path below (`--client-profiles`
+belongs to it).
 
 The tester should join during the soak, open the M map with group controls,
 inventory and admin window, and approach an AI site and published mission zone
@@ -122,8 +153,10 @@ activation geometry, and the event owner samples the live public mission circle.
 Both require an observed outside position followed by an inside position for
 the same living character and radius, then send a one-int observation only to
 that character's identity. The receipt carries no site details or player data.
-Fixture counts and server log lines cannot satisfy client evidence. Native
-delivery, observations and a full R3 pass remain unverified.
+Fixture counts and server log lines cannot satisfy client evidence; the
+scripted client counts nothing itself and only reads the server's receipt.
+Native delivery, observations, the scripted client and a full R3 pass remain
+unverified.
 
 ## Native host lock (R18) and capacity check (R15)
 
@@ -150,6 +183,7 @@ override. Prepare-only packaging does not launch a native compiler.
 
 Server cleanup uses only CloseMainWindow and bounded waiting. A failed graceful
 close fails the verdict and requires operator intervention; no forced kill or
-stop command is used. No client is launched or stopped by this gate. Only
+stop command is used. Only the scripted client mode launches and stops a client,
+through the same graceful path. Only
 `rpt_summary.filtered` output is printed; raw RPTs are never printed or saved in
 the verdict. Keep verdicts local until reviewed.
