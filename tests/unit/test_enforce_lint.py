@@ -890,6 +890,116 @@ class FreshArgumentOwnershipTests(unittest.TestCase):
         self.assertEqual(['HC-O026', 'HC-O026'], [f.rule for f in result])
 
 
+class ProtoNativeMethodRule(unittest.TestCase):
+    def setUp(self):
+        from pathlib import Path
+        self.cache = tempfile.TemporaryDirectory()
+        self.addCleanup(self.cache.cleanup)
+        self.root = Path(self.cache.name)
+        folder = self.root / '3_Game'
+        folder.mkdir()
+        (folder / 'Native.c').write_text("""
+class CGame {
+    proto native int Connect(int a, int b, int c, int d);
+    proto external void External(int value);
+    static proto void StaticCall(map<string, int> values, int value = 0);
+    proto void Plain();
+};
+class DayZGame : CGame { void Connect() {} };
+""")
+        self.patch = mock.patch.object(lint._syntax, 'NATIVE_ROOT', self.root)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+
+    def sources(self, text):
+        return [lint.es.Source('mods/HollowCountryTest/scripts/3_Game/Probe.c', text)]
+
+    def findings(self, text):
+        return lint.lint(self.sources(text), rules=(lint.rule_proto_native_methods,))
+
+    def test_native_match_with_and_without_override_and_changed_types(self):
+        for prefix in ('override ', '', 'static ', 'proto '):
+            for owner in ('modded class DayZGame', 'class HCGame : DayZGame'):
+                with self.subTest(prefix=prefix, owner=owner):
+                    result = self.findings(owner + ' { ' + prefix
+                        + 'int Connect(string a, int b, int c, int d) {} }')
+                    self.assertEqual(['HC-E053'], [f.rule for f in result])
+                    self.assertIn('proto CGame.Connect', result[0].message)
+
+    def test_new_native_name_overload_is_rejected_but_script_hook_is_allowed(self):
+        self.assertEqual(['HC-E053'], [f.rule for f in self.findings(
+            'modded class DayZGame { int Connect(int value) {} }')])
+        self.assertEqual([], self.findings(
+            'modded class DayZGame { override void Connect() {} void HCConnect() {} }'))
+        self.assertEqual([], self.findings('class Unrelated { void Connect(int a) {} }'))
+
+    def test_external_static_plain_proto_and_template_arity(self):
+        for declaration in ('override void External(int value)',
+                            'override static void StaticCall(map<string, int> values, int value)',
+                            'void Plain()'):
+            with self.subTest(declaration=declaration):
+                self.assertEqual(['HC-E053'], [f.rule for f in self.findings(
+                    'modded class CGame { ' + declaration + ' {} }')])
+
+    def test_authored_chain_cycle_unknown_parent_and_layer_visibility(self):
+        self.assertEqual(['HC-E053'], [f.rule for f in self.findings(
+            'class HCBase : DayZGame {} class HCLeaf : HCBase { void Plain() {} }')])
+        self.assertEqual([], self.findings('class HCBase : Missing { void Plain() {} }'))
+        self.assertEqual([], self.findings('class A : B {} class B : A { void Plain() {} }'))
+        folder = self.root / '4_World'
+        folder.mkdir()
+        (folder / 'Later.c').write_text('modded class CGame { proto void Later(); }')
+        lint._syntax._NATIVE.pop(str(self.root), None)
+        self.assertEqual([], self.findings('modded class CGame { void Later() {} }'))
+
+    def test_rule_registered_and_comments_do_not_declare_methods(self):
+        self.assertIn(lint.rule_proto_native_methods, lint.ALL_RULES)
+        self.assertEqual([], self.findings('modded class CGame { // void Plain() {}\n'
+                                          'void Run() { string s = "void Plain()"; } }'))
+
+    def test_branch_inventory_handles_nested_elif_else_and_ignores_examples(self):
+        source = self.sources("""// #ifndef SERVER
+/* #ifdef CLIENT */
+#ifndef SERVER
+#ifdef OTHER
+class A {}
+#endif
+#elif defined(CLIENT)
+class B {}
+#else
+class C {}
+#endif
+#if !defined(SERVER) && defined(CLIENT)
+class D {}
+#endif
+""")[0]
+        self.assertEqual([], lint.client_only_blocks(self.sources(
+            '#ifdef OTHER // CLIENT\nclass E {}\n#endif\n')[0]))
+        blocks = lint.client_only_blocks(source)
+        self.assertEqual(['#ifndef SERVER', '#elif defined(CLIENT)', '#else',
+                          '#if !defined(SERVER) && defined(CLIENT)'], [b[2] for b in blocks])
+        self.assertEqual([3, 7, 9, 12], [source.line_of(b[0]) for b in blocks])
+
+    def test_client_branch_rules_keep_class_context_and_run_both_rules(self):
+        sources = self.sources("""class HCTarget { void Known() {} }
+#ifndef SERVER
+modded class DayZGame { override void Plain() {} }
+class HCClient { void Run(HCTarget target) { target.Missing(); } }
+#else
+class HCServer {}
+#endif
+""")
+        inventory, findings = lint.client_branch_coverage(sources)
+        self.assertEqual(2, len(inventory))
+        self.assertEqual(['HC-E012', 'HC-E053'], sorted(f.rule for f in findings))
+        self.assertTrue(all(f.path.endswith('Probe.c') for f in findings))
+
+    def test_no_role_blocks_means_no_explicit_client_findings(self):
+        inventory, findings = lint.client_branch_coverage(self.sources(
+            'modded class CGame { void Plain() {} }'))
+        self.assertEqual(([], []), (inventory, findings))
+
+
 if __name__ == '__main__':
     unittest.main()
 
