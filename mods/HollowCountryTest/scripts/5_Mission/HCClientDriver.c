@@ -25,6 +25,7 @@ class HCClientDriver
     protected ref HCDriverEnter m_Enter = new HCDriverEnter;
     protected ref HCDriverRoute m_Route = new HCDriverRoute;
     protected ref HCDriverCombat m_Combat = new HCDriverCombat;
+    protected ref HCDriverLoot m_Loot = new HCDriverLoot;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -162,6 +163,11 @@ class HCClientDriver
         {
             code = StepCombat(step, player, dt);
             detail = m_Combat.Detail();
+        }
+        else if (step.kind == "loot")
+        {
+            code = StepLoot(step, player, dt);
+            detail = m_Loot.Detail();
         }
         else
         {
@@ -528,6 +534,16 @@ class HCClientDriver
             m_Combat.Begin(step);
         }
         return m_Combat.Tick(player, dt, m_Walker);
+    }
+
+    protected int StepLoot(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Loot.Begin(step);
+        }
+        return m_Loot.Tick(player, dt, m_Walker);
     }
 
     protected int StepAction(HCDriverStep step, PlayerBase player, float dt)

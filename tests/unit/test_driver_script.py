@@ -244,6 +244,20 @@ class DriverScriptTests(unittest.TestCase):
             with self.assertRaises(ds.ScriptError):
                 ds.validate_step(step)
 
+    def test_loot_steps_are_bounded(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        loots = [step for step in script["steps"] if step["kind"] == "loot"]
+        self.assertTrue(loots)
+        self.assertEqual(ds.step_token(loots[0], notes), "loot")
+        good = {"id": "s01", "kind": "loot", "range_m": 40, "max_items": 4, "timeout_s": 300}
+        ds.validate_step(good)
+        bad = [dict(good, range_m=2), dict(good, range_m=200), dict(good, max_items=0),
+               dict(good, max_items=11), dict(good, max_items=2.5), dict(good, max_items=True),
+               dict(good, timeout_s=5), dict(good, spawn="Apple")]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
 
 if __name__ == "__main__":
     unittest.main()

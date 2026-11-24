@@ -65,7 +65,7 @@ GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
 KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route",
-         "combat")
+         "combat", "loot")
 # route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
 # stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
 MAX_ROUTE_POINTS = 64
@@ -73,6 +73,11 @@ MAX_ROUTE_POINTS = 64
 # or server AI within range_m; never fires (no retail client entry), at most 3 targets of 20 s each,
 # retreats on foot when bleeding or the health tendency falls (HCDriverCombat).
 COMBAT_RANGE = (10, 150)
+# loot: walk to loose ground items in priority order (magazine the rifle takes, ammunition, food, drink,
+# medical, map) and take each with the vanilla take action; full pockets drop one junk item (never
+# the test kit) with the inventory drop request (HCDriverLoot).
+LOOT_RANGE = (5, 80)
+LOOT_MAX_ITEMS = 10
 
 # action kind -> (required args, optional args). Every arg value is a string.
 ACTION_ARGS = {
@@ -129,6 +134,7 @@ _STEP_FIELDS = {
     "enter": {"zone", "sites", "gait", "hold_s", "timeout_s"},
     "route": {"points", "gait", "arrive_m", "timeout_s"},
     "combat": {"range_m", "timeout_s"},
+    "loot": {"range_m", "max_items", "timeout_s"},
 }
 _TOP_FIELDS = {"version", "run_id", "steps"}
 
@@ -294,6 +300,8 @@ def _phase_walk_town(b):
     b.add("stand", seconds=60)
     # Town streets carry infected: raise, aim and reload at the nearest visible one.
     b.add("combat", range_m=60, timeout_s=180)
+    # Then whatever the streets offer: rifle magazines, food, drink, bandages, a map.
+    b.add("loot", range_m=40, max_items=4, timeout_s=300)
 
 
 # Seconds the player keeps standing after a fixture, so the real code it starts can run.
@@ -553,6 +561,12 @@ def validate_step(step, label="step"):
     elif kind == "combat":
         _number(step.get("range_m"), COMBAT_RANGE[0], COMBAT_RANGE[1], label + " range_m")
         _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
+    elif kind == "loot":
+        _number(step.get("range_m"), LOOT_RANGE[0], LOOT_RANGE[1], label + " range_m")
+        max_items = step.get("max_items")
+        if isinstance(max_items, bool) or not isinstance(max_items, int) or not 1 <= max_items <= LOOT_MAX_ITEMS:
+            raise ScriptError("%s max_items must be an integer 1..%d" % (label, LOOT_MAX_ITEMS))
+        _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
     elif kind == "action":
         name = step.get("name")
         if name not in ACTION_ARGS:
@@ -609,6 +623,8 @@ def describe(step, notes):
             detail += " source=" + notes[step["id"]]
     elif kind == "combat":
         detail = "range_m=%s timeout_s=%s (fire=unsupported)" % (step["range_m"], step["timeout_s"])
+    elif kind == "loot":
+        detail = "range_m=%s max_items=%s timeout_s=%s" % (step["range_m"], step["max_items"], step["timeout_s"])
     elif kind == "action":
         detail = "name=%s args=%s timeout_s=%s" % (
             step["name"], json.dumps(step["args"], sort_keys=True), step["timeout_s"])
