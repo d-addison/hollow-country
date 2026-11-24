@@ -230,6 +230,20 @@ class DriverScriptTests(unittest.TestCase):
             with self.assertRaises(ds.ScriptError):
                 ds.resolve_route(source)
 
+    def test_combat_steps_are_bounded_and_never_fire(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        combats = [step for step in script["steps"] if step["kind"] == "combat"]
+        self.assertTrue(combats)
+        self.assertEqual(ds.step_token(combats[0], notes), "combat")
+        self.assertIn("fire=unsupported", ds.describe(combats[0], notes))
+        good = {"id": "s01", "kind": "combat", "range_m": 60, "timeout_s": 180}
+        ds.validate_step(good)
+        bad = [dict(good, range_m=5), dict(good, range_m=500), dict(good, timeout_s=5),
+               dict(good, timeout_s=7200), dict(good, fire=True), dict(good, range_m="60")]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
 
 if __name__ == "__main__":
     unittest.main()

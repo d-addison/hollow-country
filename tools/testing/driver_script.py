@@ -64,10 +64,15 @@ ADMIN_STEPS = ("status", "snapshot", "scene", "radio", "deaddrop", "loot", "fora
 GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
-KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route")
+KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route",
+         "combat")
 # route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
 # stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
 MAX_ROUTE_POINTS = 64
+# combat: raise, aim (aim overrides) and the vanilla quick reload against the nearest visible infected
+# or server AI within range_m; never fires (no retail client entry), at most 3 targets of 20 s each,
+# retreats on foot when bleeding or the health tendency falls (HCDriverCombat).
+COMBAT_RANGE = (10, 150)
 
 # action kind -> (required args, optional args). Every arg value is a string.
 ACTION_ARGS = {
@@ -123,6 +128,7 @@ _STEP_FIELDS = {
     "action": {"name", "args", "timeout_s"},
     "enter": {"zone", "sites", "gait", "hold_s", "timeout_s"},
     "route": {"points", "gait", "arrive_m", "timeout_s"},
+    "combat": {"range_m", "timeout_s"},
 }
 _TOP_FIELDS = {"version", "run_id", "steps"}
 
@@ -286,6 +292,8 @@ def _phase_walk_town(b):
     # Then the scavenger site's own street line through the town, with the stuck ladder.
     b.route(TOWN)
     b.add("stand", seconds=60)
+    # Town streets carry infected: raise, aim and reload at the nearest visible one.
+    b.add("combat", range_m=60, timeout_s=180)
 
 
 # Seconds the player keeps standing after a fixture, so the real code it starts can run.
@@ -542,6 +550,9 @@ def validate_step(step, label="step"):
             raise ScriptError("%s gait must be one of %s" % (label, GAITS))
         _number(step.get("arrive_m"), 2, 50, label + " arrive_m")
         _number(step.get("timeout_s"), 10, 3600, label + " timeout_s")
+    elif kind == "combat":
+        _number(step.get("range_m"), COMBAT_RANGE[0], COMBAT_RANGE[1], label + " range_m")
+        _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
     elif kind == "action":
         name = step.get("name")
         if name not in ACTION_ARGS:
@@ -596,6 +607,8 @@ def describe(step, notes):
             len(step["points"]) // 2, step["gait"], step["arrive_m"], step["timeout_s"])
         if step["id"] in notes:
             detail += " source=" + notes[step["id"]]
+    elif kind == "combat":
+        detail = "range_m=%s timeout_s=%s (fire=unsupported)" % (step["range_m"], step["timeout_s"])
     elif kind == "action":
         detail = "name=%s args=%s timeout_s=%s" % (
             step["name"], json.dumps(step["args"], sort_keys=True), step["timeout_s"])

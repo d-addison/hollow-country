@@ -24,6 +24,7 @@ class HCClientDriver
     protected ref HCDriverActions m_Actions = new HCDriverActions;
     protected ref HCDriverEnter m_Enter = new HCDriverEnter;
     protected ref HCDriverRoute m_Route = new HCDriverRoute;
+    protected ref HCDriverCombat m_Combat = new HCDriverCombat;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -56,6 +57,7 @@ class HCClientDriver
         if (!m_Live || m_Finished) { return; }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         m_Actions.Abort(player, m_Walker);
+        m_Combat.Release(player);
         Conclude();
     }
 
@@ -68,6 +70,7 @@ class HCClientDriver
     protected void EndStep(HCDriverStep step, int code, string detail, PlayerBase player)
     {
         m_Actions.Abort(player, m_Walker);
+        m_Combat.Release(player);
         string stepId = step.id;
         if (stepId == "") { stepId = "s" + (m_Index + 1).ToString(); }
         HCDriverLog.Step(stepId, step.kind, code, detail);
@@ -154,6 +157,11 @@ class HCClientDriver
             code = StepRoute(step, player, dt);
             detail = m_Text;
             if (detail == "") { detail = m_Route.Detail(); }
+        }
+        else if (step.kind == "combat")
+        {
+            code = StepCombat(step, player, dt);
+            detail = m_Combat.Detail();
         }
         else
         {
@@ -510,6 +518,16 @@ class HCClientDriver
             }
         }
         return m_Route.Tick(player, dt, m_Walker, m_Actions);
+    }
+
+    protected int StepCombat(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Combat.Begin(step);
+        }
+        return m_Combat.Tick(player, dt, m_Walker);
     }
 
     protected int StepAction(HCDriverStep step, PlayerBase player, float dt)
