@@ -136,3 +136,7 @@ Comments under `mods/` that cite a build or issue and say what failed. Open the 
 ### `mods/HollowCountry/scripts/5_Mission/Polish/HCHints.c`
 
 - First hour means accumulated playtime since this client first sees this character. API presence is source evidence only; native compile, reconnect and EXP-POL-1 pending. #256: one authored text source for contextual notices and the native Tutorials help list. Recipe/action evidence: HCNoConstruction, HCTapedLightActions/HCTapedLightRuntime,
+
+### `mods/HollowCountryTest/scripts/3_Game/HCDriverConnect.c`
+
+- CGame.Connect(menu, address, port, password) is proto native and cannot be overridden (client compile: Multiple declaration of function 'Connect', build 185). Vanilla Connect() hides the native result; a nonzero result shows up as a session fail event or as the load state below.

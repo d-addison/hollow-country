@@ -106,7 +106,7 @@ SERVER_PLAYER_CONNECTED = re.compile(r"Server: SetClientState .* SELECTED -> PLA
 # Only our fixed, non-identifying trace grammar may appear in a refusal.
 CONNECT_TRACE = re.compile(
     r"\[HC Driver\] connect (?:initializ(?:e load=-?\d+ game=-?\d+ cli=(?:0|1|true|false)"
-    r"|ed load=-?\d+ game=-?\d+)|entry load=-?\d+ game=-?\d+|native result=-?\d+"
+    r"|ed load=-?\d+ game=-?\d+)|entry load=-?\d+ game=-?\d+|returned load=-?\d+ game=-?\d+"
     r"|session (?:start|fail|end))\s*$")
 # A targeted run idles this long unless a selected counter waits on a longer timer.
 TARGETED_IDLE_MINUTES = 10

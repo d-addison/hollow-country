@@ -98,14 +98,15 @@ variety packs. No third-party source was extracted or retained. No connect
 reissue is installed: it would not resolve the native authentication rejection.
 
 The dev-only test addon traces `[HC Driver] connect initialize load=<n>
-game=<n> cli=<bool>`, `entry load=<n> game=<n>`, `native result=<n>`,
+game=<n> cli=<bool>`, `entry load=<n> game=<n>`, `returned load=<n> game=<n>`,
 `initialized load=<n> game=<n>`, and `session start`, `session fail`, `session end`.
-The usual join order is initialize, entry, native result, initialized, session
-start; asynchronous session events can interleave. A rejected connection can
-return native result 0 (the attempt was accepted locally), then emit session
-fail/end. A skipped attempt produces initialize/initialized without entry or
-native result. Initialization is logged once, with at most 16 entry lines,
-16 native results and 16 session events per process. CLI values, addresses,
+The usual join order is initialize, entry, returned, initialized, session
+start; asynchronous session events can interleave. The native
+`CGame.Connect(menu, address, port, password)` is `proto native` and cannot be
+overridden (a client compile error, build 185), so its result is not traced: a
+rejected connection shows as session fail/end. A skipped attempt produces
+initialize/initialized without entry. Initialization is logged once, with at most
+16 entry/returned pairs and 16 session events per process. CLI values, addresses,
 passwords and event payloads are never printed. All overrides delegate to super.
 Native compilation and runtime acceptance remain lead checks.
 
