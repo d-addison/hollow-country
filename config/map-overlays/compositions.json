@@ -1361,7 +1361,7 @@
           ]
         }
       ],
-      "layout_notes": "Guard tower at local (-13.25, 0.47, 16), outside the northwest entrance corner; its measured Geometry bounds clear every wall and prop and remain west of the central lane. Native doorway, ladder, sightline and terrain checks remain pending.",
+      "layout_notes": "Guard tower at local (-8.1, 0.47, 19.95), yaw 315, outside the northwest entrance corner; its measured Geometry bounds clear every wall and prop and remain west of the central lane. Native doorway, ladder, sightline and terrain checks remain pending.",
       "pieces": [
         {
           "class": "StaticObj_Mil_HBarrier_6m",
@@ -1449,11 +1449,11 @@
         },
         {
           "class": "Land_Mil_GuardTower",
-          "dx": -13.25,
+          "dx": -8.1,
           "dy": 0.47,
-          "dz": 16.0,
+          "dz": 19.95,
           "loot": "proto",
-          "yaw": 0.0
+          "yaw": 315.0
         },
         {
           "class": "Land_Mil_Tent_Big2_2",
