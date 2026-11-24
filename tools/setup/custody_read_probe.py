@@ -11,7 +11,7 @@ from pathlib import Path
 
 from tools.setup.probe_core import safe
 
-FIXTURES = {"ascii": b"abcdef", "nul": b"ab\x00def", "torn": b"\xff\x00x\x01",
+FIXTURES = {"empty": b"", "ascii": b"abcdef", "nul": b"ab\x00def", "torn": b"\xff\x00x\x01",
             "long": b"a" * 4500 + b"Z" + b"a" * 499,
             "long_nul": b"a" * 4500 + b"\x00" + b"a" * 499}
 RESULT = "hc-custody-read-observations.json"
@@ -33,6 +33,7 @@ class HCNulReadRow
 class HCNulReadReceipt
 {
     string kind = "custody-native-read-observations";
+    int ascii_zero_length;
     ref array<ref HCNulReadRow> cases = new array<ref HCNulReadRow>;
 }
 class CustomMission : MissionServer
@@ -44,9 +45,12 @@ class CustomMission : MissionServer
     }
     void HCNulRead()
     {
-        string names[] = {"ascii", "nul", "torn", "long", "long_nul"};
+        string names[] = {"empty", "ascii", "nul", "torn", "long", "long_nul"};
         HCNulReadReceipt receipt = new HCNulReadReceipt;
-        for (int i = 0; i < 5; i++)
+        int nulCode = 0;
+        string nulText = nulCode.AsciiToString();
+        receipt.ascii_zero_length = nulText.Length();
+        for (int i = 0; i < 6; i++)
         {
             string path = "$mission:hc-read-" + names[i] + ".bin";
             FileHandle handle = OpenFile(path, FileMode.READ);
@@ -78,6 +82,7 @@ class CustomMission : MissionServer
             Print("[HC NulRead] result_write_failed");
             return;
         }
+        Print("[HC NulRead] ascii_zero_length=" + receipt.ascii_zero_length.ToString());
         Print("[HC NulRead] complete observations_only=true");
     }
 }
@@ -96,7 +101,7 @@ def stage(destination):
         "kind": "custody-native-read-plan", "max_owned_entities": 0,
         "ce_enabled": False, "lead_only": True, "external_watchdog_seconds": 180,
         "fixtures": {name: list(blob) for name, blob in FIXTURES.items()},
-        "result": RESULT, "acceptance": "PENDING",
+        "result": RESULT, "observes_ascii_zero_length": True, "acceptance": "PENDING",
     }, indent=2) + "\n", encoding="ascii")
 
 
@@ -109,12 +114,21 @@ def ingest(receipt):
     data = json.loads(blob)
     if not isinstance(data, dict) or data.get("kind") != "custody-native-read-observations":
         raise ValueError("unexpected receipt kind")
+    fixture_names = set(FIXTURES)
+    if "ascii_zero_length" in data:
+        length = data["ascii_zero_length"]
+        if type(length) is not int or not 0 <= length < 2**31:
+            raise ValueError("invalid ASCII-zero observation")
+    else:
+        # Older probe receipts remain usable for the five observations they recorded.
+        fixture_names.remove("empty")
     rows = data.get("cases")
-    if not isinstance(rows, list) or len(rows) != len(FIXTURES):
+    if not isinstance(rows, list) or len(rows) != len(fixture_names):
         raise ValueError("fixture observations missing")
     seen = set()
     for row in rows:
-        if not isinstance(row, dict) or row.get("name") not in FIXTURES or row["name"] in seen:
+        if (not isinstance(row, dict) or not isinstance(row.get("name"), str)
+                or row["name"] not in fixture_names or row["name"] in seen):
             raise ValueError("invalid or duplicate fixture")
         seen.add(row["name"])
         for field in ("string_count", "string_length", "raw_count", "raw_second_count", "raw_eof_count", "raw_second_at_101", "raw_second_at_404"):

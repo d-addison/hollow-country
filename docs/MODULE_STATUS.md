@@ -14,8 +14,9 @@ primary with neither a backup nor a deeper backup stays faulted at its current
 path, never opens an empty backup store; an existing deeper backup remains
 eligible for recovery. Compare/scan budget exhaustion writes a durable marker,
 so a one-boot budget event causes permanent relocation without losing data.
-The disposable `tools.setup.custody_read_probe` stages/ingests the 5000-byte and
-NUL experiments; the lead's native run and crash/upgrade checks are still pending.
+The disposable `tools.setup.custody_read_probe` stages and ingests the empty,
+5000-byte and NUL experiments, including the length returned by `AsciiToString(0)`.
+The lead's native run and crash/upgrade checks are still pending.
 The automatic raw-compare self-test uses printable 5000-byte fixtures: it checks
 4096/904/0 read counts, equality, a difference beyond the first chunk and empty-file
 refusal. It no longer covers embedded NUL bytes or `AsciiToString(0)`; a passing
@@ -39,14 +40,11 @@ shared host lock and 180-second external watchdog; never a live profile):
    Check `long` and `long_nul` raw counts 4096/904/0; compare the raw samples for
    `nul`/`torn` against staged binary bytes and inspect `long_nul`'s byte 4500
    (`raw_second_at_404`) versus `long` (0 versus 90 if native arrays expose bytes).
-   Record string count/length observations too; disagreement keeps raw/NUL qualification pending.
-2. In that disposable mission only, have the lead add a startup diagnostic using
-   `int nulCode = 0; string nulText = nulCode.AsciiToString();` and print
-   `"[HC NulRead] ascii_zero_length=" + nulText.Length().ToString()`.
-   Expect `[HC NulRead] ascii_zero_length=0` if conversion drops NUL; a different
-   observed length must be recorded, not assumed. The shipped self-test must
-   still emit its `custody_raw_compare_selftest pass=true` line on an HC-enabled
-   DayZDiag boot because its fixtures no longer use this conversion.
+   Record the empty-file and embedded-NUL string count/length observations too.
+   The probe logs `[HC NulRead] ascii_zero_length=` and saves the observed length
+   in its receipt. A zero length indicates that conversion drops NUL.
+2. Check that the shipped self-test emits `custody_raw_compare_selftest pass=true`
+   on an HC-enabled DayZDiag boot. Its fixtures omit the ASCII-zero conversion.
 3. On disposable HC-enabled boots, inject a transient open failure separately
    for a valid ceiling primary, lone verified `.tmp`, and `.bak` lower bound.
    Expect respectively `custody_lease_ceiling_primary_unreadable action=retain_retry`,
