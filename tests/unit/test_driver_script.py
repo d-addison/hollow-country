@@ -272,6 +272,20 @@ class DriverScriptTests(unittest.TestCase):
             with self.assertRaises(ds.ScriptError):
                 ds.validate_step(step)
 
+    def test_vehicle_steps_are_bounded(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        vehicles = [step for step in script["steps"] if step["kind"] == "vehicle"]
+        self.assertTrue(vehicles)
+        self.assertEqual(ds.step_token(vehicles[0], notes), "vehicle")
+        good = {"id": "s01", "kind": "vehicle", "range_m": 40, "seconds": 8, "throttle": 0.5, "timeout_s": 180}
+        ds.validate_step(good)
+        bad = [dict(good, range_m=200), dict(good, seconds=0), dict(good, seconds=120),
+               dict(good, throttle=0), dict(good, throttle=1.5), dict(good, throttle=True),
+               dict(good, timeout_s=10), dict(good, fuel=1.0)]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
 
 if __name__ == "__main__":
     unittest.main()
