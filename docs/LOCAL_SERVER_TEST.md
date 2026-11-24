@@ -70,3 +70,66 @@ setting, `--no-loot-boost` leaves it out and `--loot-boost` turns any skip advis
 refusal. Firearms, ammunition, magazines, attachments and explosives keep their scarcity.
 `plan` prints a `loot boost (x2 ...)` line with per-family point counts. CE spawns on the added
 `lootHCFloor` containers, the real loot density and the server cost remain pending native checks.
+
+## Soak client join diagnosis (2026-11-24)
+
+The archived 11:35:38 server RPT disproves a skipped CLI connect for this run:
+`SteamGameServer_Init(0,8766,2302,27016,3,1.30.164289)` confirms the game/query
+ports, and at 11:38:08 authentication rejects the client with code 146 because
+DayZ-Expansion-Vehicles is newer on the client. All 33 Vehicles PBO filenames
+match between the resolved Workshop client and staged server copies, but
+`vehicles_scripts.pbo` differs in SHA-256. The lead must reconcile the installed
+dependency versions before rerunning; this change does not update dependencies.
+
+Read-only inspection of 3,140 script entries across the resolved client stack
+(including the two own addons) found no override of `DayZGame.OnInitialize`,
+`ConnectLaunch`, `ConnectFromCLI`, `Connect` or `GetLoadState`, and no dependency
+assignment to the vanilla game/load state fields. CF's `scripts.pbo`,
+`3_Game/CommunityFramework/Game/DayZGame.c` (`DayZGame.OnEvent`) delegates to
+super; COT's `scripts.pbo`, `5_Mission/CommunityOnlineTools/MissionMainMenu.c`
+(`MissionMainMenu.OnMissionStart`) delegates to super and obtains its menu.
+Dabs' `Scripts.pbo`, `5_Mission/DabsFramework/GUI/MainMenu.c` (`MainMenu.Refresh`)
+and Expansion Core's `core_scripts.pbo`,
+`5_Mission/DayZExpansion_Core/GUI/MainMenu/MainMenu.c` (`MainMenu.Refresh`)
+customize menu presentation through super. Expansion's `MissionMainMenu`
+constructor initializes Expansion's game state. No CLI-blocking menu override
+was found in CF, COT, Dabs, Expansion Core/AI/Vehicles/Navigation or the loaded
+variety packs. No third-party source was extracted or retained. No connect
+reissue is installed: it would not resolve the native authentication rejection.
+
+The dev-only test addon traces `[HC Driver] connect initialize load=<n>
+game=<n> cli=<bool>`, `entry load=<n> game=<n>`, `native result=<n>`,
+`initialized load=<n> game=<n>`, and `session start`, `session fail`, `session end`.
+The usual join order is initialize, entry, native result, initialized, session
+start; asynchronous session events can interleave. A rejected connection can
+return native result 0 (the attempt was accepted locally), then emit session
+fail/end. A skipped attempt produces initialize/initialized without entry or
+native result. Initialization is logged once, with at most 16 entry lines,
+16 native results and 16 session events per process. CLI values, addresses,
+passwords and event payloads are never printed. All overrides delegate to super.
+Native compilation and runtime acceptance remain lead checks.
+
+`soak_campaign.CLIENT_JOIN_SECONDS = 360` bounds the join from the BattlEye
+launch, including client startup, with the existing 30-second polling interval.
+Both `[HC Driver] connect session start` in the client RPT and the server RPT's
+`SetClientState` transition `SELECTED -> PLAYER` must be seen before accepting
+driver completion or idling. The earlier `CREATED -> CONNECTED` transition is insufficient: it also
+occurs before a version rejection. On timeout the refusal is
+`client never joined: <last safe [HC Driver] connect line>` (or `no connect line`).
+The existing graceful shutdown and restore path still runs on refusal. If a
+process cannot be confirmed stopped, restore remains deferred until it is safe.
+
+Before building, staging or launching, the campaign compares the size and SHA-256
+of every PBO in the resolved shared dependency folders (case-insensitive names).
+Only PBOs in the actual mod list are read; own addons loaded from the server root
+share the same files and are excluded. A match logs `dependency parity: <n> folders ok`.
+A mismatch refuses with `dependency mismatch: <folder> (<n> pbo differ; players get
+kick 146; rerun friend_install --apply)`. Reconcile dependencies before retrying.
+During the join wait a new server kick line immediately refuses with
+`client never joined: kicked <code> (<reason>)`; the player prefix and identity
+values are removed. Shutdown and restore still run on either refusal.
+
+With the full-client geometry input set, the offline mesh audit reports 110
+blocking findings and 505 skips on both this branch and `ddd8c2d1`; the complete
+reports match. Its 140 raw findings include 30 accepted triangle-cost findings.
+This is a pre-existing placement/mesh audit failure, separate from soak joining.

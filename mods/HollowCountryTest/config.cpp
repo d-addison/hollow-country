@@ -20,9 +20,14 @@ class CfgMods
         author = "Hollow Country";
         version = "0.1.0-dev";
         type = "mod";
-        dependencies[] = {"World", "Mission"};
+        dependencies[] = {"Game", "World", "Mission"};
         class defs
         {
+            class gameScriptModule
+            {
+                value = "";
+                files[] = {"HollowCountryTest/scripts/3_Game"};
+            };
             class worldScriptModule
             {
                 value = "";
