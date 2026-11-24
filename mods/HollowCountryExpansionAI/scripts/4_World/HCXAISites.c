@@ -552,13 +552,10 @@ class HCXAISiteBase : Managed
         if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.HCQueueOwned(); }
         this.HCPumpSiteSave(m_CacheSave);
         this.HCPumpSiteSave(m_OwnedSave);
-        if (m_RouteSave && m_RouteSave.HCDirty && !m_RouteSave.HCFaulted && !HCSaveScheduler.HCRegistered(m_RouteSave))
-        {
-            int routeResult = m_RouteSave.HCStep();
-            if (routeResult == HCSaveJob.STEP_DONE) { m_RouteSave.HCDirty = false; }
-            if (routeResult == HCSaveJob.STEP_FAILED) { m_RouteSave.HCFaulted = true; }
-            return;
-        }
+        this.HCPumpSiteSave(m_RouteSave);
+        // Selection checkpoints retain their urgent, budgeted locality pump.
+        // Routine observations/refusals must also progress without another selection.
+        if (m_LocalitySave && !m_LocalitySave.HCUrgent) { this.HCPumpSiteSave(m_LocalitySave); }
         if (m_Phase == "wait") { this.StepWait(); return; }
         if (m_Phase == "bind") { this.StepBind(); return; }
         if (m_Phase == "qualify") { this.StepQualify(); return; }
