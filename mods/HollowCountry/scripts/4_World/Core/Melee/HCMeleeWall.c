@@ -1,6 +1,6 @@
-// Wall veto for melee hits on infected and AI (Neon P2.4, owner decision Q2). Owner 2026-11-22:
-// log-only this release (Melee.WallVeto default false): a blocked hit is counted and logged with
-// mode=log and still lands; WallVeto=true refuses it (mode=veto).
+// Wall veto for melee hits on infected and AI (Neon P2.4, owner decision Q2). Owner 2026-11-24:
+// v1-test-16 defaults Melee.WallVeto=true: mode=veto refuses a hit through a wall.
+// Set WallVeto=false for log-only: a blocked hit is counted, logs mode=log and still lands.
 // Native scripts-1.30.164289 (relative paths):
 // 3_Game/Entities/Object.c:1144 EEOnDamageCalculated (false = damage not applied),
 // :238 GetBonePositionWS, :1159 GetDamageZonePos (world space);

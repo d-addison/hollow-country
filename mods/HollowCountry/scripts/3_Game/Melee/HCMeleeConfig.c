@@ -37,8 +37,8 @@ class HCMeleeSettings
     bool InPlaceLight = true;
     float InPlaceDistance = 2.0;
     // Refuse melee hits on infected/AI whose head-to-zone line crosses a wall or closed door.
-    // false (owner 2026-11-22, this release) = log-only: the hit is logged with mode=log and lands.
-    bool WallVeto = false;
+    // Default true (owner 2026-11-24, v1-test-16): mode=veto refuses the hit; false is log-only.
+    bool WallVeto = true;
 }
 
 class HCMeleeConfig
@@ -152,6 +152,6 @@ modded class HCOperatorSettingsRegistry
         HCAdd("Melee.WeightStaminaFist", "float", 0.75, 0.25, 2, "HCMeleeConfig");
         HCAdd("Melee.InPlaceLight", "bool", 1, 0, 1, "HCMeleeConfig");
         HCAdd("Melee.InPlaceDistance", "float", 2.0, 1.5, 3, "HCMeleeConfig");
-        HCAdd("Melee.WallVeto", "bool", 0, 0, 1, "HCMeleeConfig");
+        HCAdd("Melee.WallVeto", "bool", 1, 0, 1, "HCMeleeConfig");
     }
 }
