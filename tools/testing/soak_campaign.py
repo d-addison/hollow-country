@@ -101,8 +101,11 @@ SERVER_READY_MINUTES = 20
 JOIN_MINUTES = 10
 # Both peers must prove a join within six minutes of the BattlEye launch, including startup.
 CLIENT_JOIN_SECONDS = 6 * 60
-# CREATED -> CONNECTED precedes authentication and is also emitted for rejected clients.
-SERVER_PLAYER_CONNECTED = re.compile(r"Server: SetClientState .* SELECTED -> PLAYER\s*$")
+# CREATED -> CONNECTED precedes authentication and is also emitted for rejected clients. A joined
+# client ends at "MISSION RECEIVED -> GAME LOADED" (soak 185b, 2026-11-24); "SELECTED -> PLAYER
+# ASSIGNED" is the server's own __SERVER__ identity and never a client.
+SERVER_PLAYER_CONNECTED = re.compile(
+    r"Server: SetClientState dpid=\d+ id=\S+ name=(?!__SERVER__ )\S.* -> GAME LOADED\s*$")
 # Only our fixed, non-identifying trace grammar may appear in a refusal.
 CONNECT_TRACE = re.compile(
     r"\[HC Driver\] connect (?:initializ(?:e load=-?\d+ game=-?\d+ cli=(?:0|1|true|false)"

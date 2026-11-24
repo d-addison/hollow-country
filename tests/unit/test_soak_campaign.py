@@ -464,7 +464,7 @@ class FakeHost:
         server_rpt = Path(self.stager.server) / camp.PROFILE_COPY / 'DayZServer_x64_1.RPT'
         with server_rpt.open('a') as stream:
             if self.join:
-                stream.write('Server: SetClientState player SELECTED -> PLAYER\n')
+                stream.write('Server: SetClientState dpid=7 id=0 name=Survivor MISSION RECEIVED -> GAME LOADED\n')
             if self.kick:
                 stream.write(self.kick + '\n')
         (folder / 'DayZ_x64_1.RPT').write_text('\n'.join(lines) + '\n')
@@ -708,7 +708,7 @@ class CampaignTests(Tmp):
                     if missing == 'client':
                         path = self.server / camp.PROFILE_COPY / 'DayZServer_x64_1.RPT'
                         with path.open('a') as stream:
-                            stream.write('Server: SetClientState player SELECTED -> PLAYER\n')
+                            stream.write('Server: SetClientState dpid=7 id=0 name=Survivor MISSION RECEIVED -> GAME LOADED\n')
 
                 host.launch_client = launch_without_evidence
                 started = self.clock.t

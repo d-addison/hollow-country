@@ -113,8 +113,10 @@ Native compilation and runtime acceptance remain lead checks.
 `soak_campaign.CLIENT_JOIN_SECONDS = 360` bounds the join from the BattlEye
 launch, including client startup, with the existing 30-second polling interval.
 Both `[HC Driver] connect session start` in the client RPT and the server RPT's
-`SetClientState` transition `SELECTED -> PLAYER` must be seen before accepting
-driver completion or idling. The earlier `CREATED -> CONNECTED` transition is insufficient: it also
+`SetClientState` transition `MISSION RECEIVED -> GAME LOADED` for a client identity
+must be seen before accepting driver completion or idling. The server's own `__SERVER__`
+identity (`MISSION SELECTED -> PLAYER ASSIGNED`) never counts; until soak 185b the check
+waited for that line and refused a client that had joined and finished its steps. The earlier `CREATED -> CONNECTED` transition is insufficient: it also
 occurs before a version rejection. On timeout the refusal is
 `client never joined: <last safe [HC Driver] connect line>` (or `no connect line`).
 The existing graceful shutdown and restore path still runs on refusal. If a
