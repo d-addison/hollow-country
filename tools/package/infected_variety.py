@@ -458,9 +458,6 @@ def build(original, presets_data, overlay, kits=None):
     # Stock has duplicate non-infected HuntingVest rows; leave them untouched.
     types = economy._unique([n for n in root.findall('type')
                              if n.get('name', '').startswith(('ZmbM_', 'ZmbF_', 'HC_Zmb'))])
-    present_hc = [name for name in types if name.startswith('HC_Zmb')]
-    if present_hc:
-        raise ValueError('explicit accessory class already present: ' + present_hc[0])
     random_presets = economy.xml(presets_data, 'randompresets')
     presets = economy._unique(random_presets.findall('attachments'))
     cargo_presets = economy._unique(random_presets.findall('cargo')) if kits is not None else {}
@@ -549,6 +546,8 @@ def build(original, presets_data, overlay, kits=None):
 
     additions = []
     for name, parent in overlay['explicit_classes'].items():
+        if name in types:
+            raise ValueError('explicit accessory class already present: ' + name)
         # Keep the shipped attachment-only projection, including bare parents.
         if parent not in types:
             continue

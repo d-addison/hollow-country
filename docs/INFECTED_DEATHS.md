@@ -249,11 +249,12 @@ items and upper weights for substitutions.
 | Hunter | `hc_kit_hunter_ammo`, `hc_kit_hunter_knife` | .308, 7.62×54, 7.62×39 and .22 ammo, hunting knives |
 | Medic | `hc_kit_medic_dress`, `hc_kit_medic_drugs` | Bandages, disinfectant, tetracycline and charcoal tablets |
 
-Five of the 20 role/item combinations already occur in native stock cargo. At stock event nominals,
-the model projects about 5.65 more target items and 5.65 fewer donor items across the active infected
-population in all seasons. `configured_draw_delta=0` reports the data invariant. The unchanged CE
-flags and nominals, native roll interpretation, item fit and refill behavior remain separate from
-that calculation. Confirm them in retail before claiming per-class CE nominal conservation.
+Five of the 20 role/item combinations already occur in native stock cargo. The supply model sums
+each active event's nominal × child weight share × configured gate chance × configured item chance.
+This gives about 5.65 more target items and 5.65 fewer donor items across the active infected
+population in all seasons. `configured_draw_delta=0` reports the data invariant. CE flags and
+nominals are unchanged. Native roll interpretation, item fit, refill behavior and per-class CE
+nominal conservation remain pending retail verification.
 
 ### Visible worn gear
 
@@ -269,8 +270,8 @@ The infected receipt (`hollow-country-infected/receipt.json`) records the events
 it owns, the generator version and the kit policy hash. Rollback accepts the older three-file receipt
 and restores its random preset backup before installing the new two-file output. With an identical
 receipt, a second install is a no-op. Standalone install requires rollback first when the policy or
-generator changes. If the receipt is missing, rollback refuses when it finds the old kit marker in
-`cfgrandompresets.xml`.
+generator changes. If the managed directory exists without its receipt, rollback refuses when it
+finds the old kit marker in `cfgrandompresets.xml`.
 
 The friend installer fingerprints both the generator and policy and rolls back the old layer before
 applying the current bundle. `EnableKits` switches role cargo and the stock worn-gear transfers.

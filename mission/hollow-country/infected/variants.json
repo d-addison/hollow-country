@@ -6606,10 +6606,7 @@
       "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red": "ZmbM_JoggerSkinny_Red",
       "HC_ZmbM_Riser_ZmbM_VillagerOld_Green": "ZmbM_VillagerOld_Green"
     },
-    "constraints": "Only stock preset items; no new armour or occurrence increase; an HC child row copies its parent row (cargo and attachments); a parent without a stock row uses the listed family sibling; all original positive item choices remain positive.",
-    "parent_fallbacks": {
-      "ZmbM_usSoldier_normal_Woodland": "ZmbM_usSoldier_normal_Desert"
-    }
+    "constraints": "Only stock attachment preset items; no new armour or occurrence increase. Each emitted HC child row uses its stock parent's attachments. Children whose parents have no stock row are omitted. All original positive attachment item choices remain positive."
   },
   "infected_kits": {
     "schema_version": 2,

@@ -123,6 +123,17 @@ class SyntheticKitTests(unittest.TestCase):
         self.assertEqual(len(self.rows['ZmbF_PatientOld']), 0)
         self.assertEqual(len(self.rows['HC_ZmbF_Crawler_ZmbF_PatientOld']), 0)
 
+    def test_preexisting_hc_rows_only_conflict_with_owned_names(self):
+        operator = b'<type name="HC_ZmbM_Sitter"><attachments preset="foodArmy" /></type>'
+        original = SPAWNABLE.replace(b'</spawnabletypes>', operator + b'\n</spawnabletypes>')
+        overlay = self.policy['accessories']
+        self.assertIn(operator, iv.build(original, PRESETS, overlay, self.kits)['spawn'])
+
+        owned_name = next(iter(CLASSES))
+        original = original.replace(b'HC_ZmbM_Sitter', owned_name.encode())
+        with self.assertRaisesRegex(ValueError, 'explicit accessory class already present: ' + owned_name):
+            iv.build(original, PRESETS, overlay, self.kits)
+
     def test_report_distinguishes_draw_conservation_from_native_nominal(self):
         report = self.built['report']
         self.assertEqual(report['kit_chance'], {'ZmbM_PatrolNormal_Autumn': iv.Decimal('0.01')})
