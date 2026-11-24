@@ -479,3 +479,45 @@ The ratchet starts at that owner cap and must be tightened against measured boot
 never increased to admit regression. It cannot exceed the owner cap. This worker
 change provides offline tooling evidence only; native compile, a fresh census,
 soak, paired client smoke and upgrade acceptance remain lead-owned and unverified.
+
+
+### Paired stock/candidate capture for R3 categories 2 and 15
+
+The lead uses `python3 -B -m tools.testing.stock_capture plan` first, then
+`stage`, `run --yes --minutes 125`, and `restore`. Workers only inspect and
+statically check this tool; they never start the server. The default observation
+is the full soak campaign idle length (currently 125 minutes), at least the R3
+release soak length. Match the candidate's **whole observation length**, including
+its driven phases, by increasing `--minutes` when necessary. The server must be
+idle; the shared host lock and exact process checks guard stage, run and restore.
+Only the existing graceful CloseMainWindow stop is used. Steam, BattlEye and
+signature checks stay enabled; no mod arguments are passed.
+
+“Stock” means the pinned, complete pre-install Chernarus tree in the earliest
+`friend_install` backup, verified against that run's journal and the install
+receipt layout. The next completed install backed up the same tree. The tool
+checks the whole inventory, including byte-exact `cfgeconomycore.xml`,
+`cfggameplay.json`, `mapgrouppos.xml`, `db/types.xml` and event files; it rejects
+HC init hooks, HC folders, persistence, links and unrecognized entries. Repository
+vanilla-row comparisons alone cannot prove a whole stock mission. Missing or
+changed evidence causes refusal, never a guessed baseline or download.
+
+Staging creates fresh scratch profiles and a stock mission beside the server,
+plus a uniquely named mission copy under `mpmissions`. Its copied config changes
+only the mission template and port. Live missions, profiles, config and storage
+are untouched. A write-ahead receipt drives `restore`; saved RPTs and duration
+receipts remain under the sibling `stock-capture/captures` directory.
+
+For example, use `pair --candidate-rpt CANDIDATE.RPT --stock-rpt STOCK.RPT
+--candidate-minutes 125 --stock-minutes 125 --output ceiling-proposal.json`
+(with the actual equal observation lengths). Pairing uses the unchanged built-in
+`totals_audit` taxonomy and verifies one successful boot and timestamp coverage;
+the only additional time allowed is the bounded graceful shutdown window.
+All 15 numeric category rows show candidate, stock, signed excess and current
+ceiling. Categories 2 and 15 propose `max(candidate_count, stock_count)` without
+scaling or subtracting stock warnings. Unclassified/oversized diagnostics remain
+explicit blockers. No raw warning text, resource names or identities appear in
+the output. The lead reviews the classified warnings and applies any justified
+proposal by hand; the tool never edits acceptance targets. A ceiling is never
+raised merely to pass a candidate. This capture and offline proposal do not
+establish release acceptance.
