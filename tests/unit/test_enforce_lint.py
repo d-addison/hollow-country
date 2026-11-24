@@ -10,6 +10,87 @@ from tools.validate import enforce_lint as lint
 W = 'mods/HollowCountryExpansionAI/scripts/4_World/'
 
 
+class DuplicateRPCIdRule(unittest.TestCase):
+    def findings(self, files):
+        return lint.lint_texts({W + name: text for name, text in files.items()},
+                               rules=(lint.rule_duplicate_rpc_ids,))
+
+    def test_duplicate_pair_reports_both_locations(self):
+        files = {'First.c': 'class First { static const int RPC_REQUEST = 4854011; }',
+                 'Second.c': 'class Second {\nconst int RPC_TUNING = 4854011; }'}
+        findings = self.findings(files)
+        self.assertEqual(['HC-E054', 'HC-E054'], [f.rule for f in findings])
+        for finding in findings:
+            self.assertIn(W + 'First.c:1', finding.message)
+            self.assertIn(W + 'Second.c:2', finding.message)
+        self.assertEqual([1, 2], [f.line for f in findings])
+        self.assertIn(lint.rule_duplicate_rpc_ids, lint.ALL_RULES)
+        self.assertIn('HC-E054', lint.RULES)
+
+    def test_named_references_do_not_allocate_ids(self):
+        self.assertEqual([], self.findings({'Use.c': '''
+            class Wire {
+                static const int RPC_REQUEST = 4854012;
+                void Run() {
+                    ScriptRPC rpc = new ScriptRPC;
+                    rpc.Send(null, RPC_REQUEST, true);
+                    rpc.Send(null, RPC_REQUEST, true);
+                    GetGame().RPCSingleParam(null, RPC_REQUEST, payload, true);
+                }
+            }
+        '''}))
+
+    def test_distinct_ids_pass(self):
+        self.assertEqual([], self.findings({
+            'First.c': 'static const int RPC_REQUEST = 4854012;',
+            'Second.c': 'const int rpc_tuning = 4854011;'}))
+
+    def test_direct_send_literal_collides_with_constant(self):
+        findings = self.findings({'Send.c': '''
+            class Wire {
+                static const int RPC_REQUEST = 4854012;
+                void Run() {
+                    ScriptRPC rpc = new ScriptRPC;
+                    rpc.Send(FindTarget(a, b),
+                             4854012, true, identity);
+                }
+            }
+        '''})
+        self.assertEqual(['RPC_REQUEST', 'Send'], [f.symbol for f in findings])
+        self.assertEqual([3, 7], [f.line for f in findings])
+
+    def test_explicit_enum_members_and_integer_literal_forms(self):
+        findings = self.findings({'Enum.c': '''
+            enum Wire { OTHER = 7, rpc_first = 0x4A106B, RPC_IMPLICIT,
+                        RPC_SECOND = +4853867, RPC_EXPRESSION = 4853867 + 1 }
+        '''})
+        self.assertEqual(['Wire.rpc_first', 'Wire.RPC_SECOND'], [f.symbol for f in findings])
+
+    def test_game_single_param_literal_collides(self):
+        findings = self.findings({'Game.c': '''
+            const int RPC_REQUEST = -17;
+            void Run() { GetGame().RPCSingleParam(Target(a, b), -17, payload, true); }
+        '''})
+        self.assertEqual(['RPC_REQUEST', 'RPCSingleParam'], [f.symbol for f in findings])
+
+    def test_comments_strings_and_unrelated_send_are_ignored(self):
+        self.assertEqual([], self.findings({'Ignored.c': '''
+            const int RPC_REQUEST = 17;
+            const int OTHER = 17;
+            // const int RPC_COMMENT = 17;
+            /* enum Wire { RPC_COMMENT = 17 } */
+            class Example {
+                void First() { ScriptRPC client; client.Send(null, RPC_REQUEST, true); }
+                void Second() {
+                    HCClient client;
+                    client.Send(null, 17, true);
+                    string example = "const int RPC_STRING = 17;";
+                    // GetGame().RPCSingleParam(null, 17, payload, true);
+                }
+            }
+        '''}))
+
+
 class BooleanStringFormulaRule(unittest.TestCase):
     def findings(self, body, rules=None):
         return lint.lint_texts({W + 'Formula.c':

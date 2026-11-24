@@ -102,6 +102,7 @@ RULES = {
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
+    'HC-E054': 'two HC script RPC ids share a value; each RPC needs its own id',
     'HC-E053': 'method overrides or redeclares an inherited proto method, or adds an overload of its native name (build 185: Multiple declaration of function); hook a script method instead',
     'HC-E052': 'GunPile and reach fixtures must use config compatibility, never weapon magazine/muzzle/chamber natives',
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
@@ -2901,7 +2902,88 @@ def client_branch_coverage(sources, native=None, symbols=None, provider_layers=N
     return inventory, findings
 
 
-ALL_RULES = (rule_proto_native_methods, rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+# RPC ids are a global wire namespace, even when declared in different classes.
+_RPC_LITERAL = r'[+-]?\s*(?:0[xX][0-9a-fA-F]+|[0-9]+)'
+_RPC_CONST = re.compile(r'\b(?:static\s+)?const\s+int\s+(\w+)\s*=\s*('
+                        + _RPC_LITERAL + r')\s*;')
+_RPC_MEMBER = re.compile(r'(?:^|,)\s*(\w+)\s*=\s*(' + _RPC_LITERAL + r')\s*(?=,|$)')
+_RPC_SEND = re.compile(r'\b(\w+)\s*\.\s*Send\s*\(')
+_RPC_SINGLE = re.compile(r'\bGetGame\s*\(\s*\)\s*\.\s*RPCSingleParam\s*\(')
+
+
+@dataclass(frozen=True)
+class RPCId:
+    path: str
+    line: int
+    name: str
+    value: int
+
+
+def rpc_id_inventory(sources):
+    """Literal wire allocations only; named uses do not allocate another id."""
+    inventory = []
+
+    def record(source, offset, name, literal):
+        literal = re.sub(r'\s+', '', literal)
+        value = int(literal, 16 if 'x' in literal.lower() else 10)
+        inventory.append(RPCId(source.rel, source.line_of(offset), name, value))
+
+    for source in sources:
+        for match in _RPC_CONST.finditer(source.code):
+            if 'rpc' in match[1].lower():
+                record(source, match.start(1), match[1], match[2])
+        for enum in source.enum_blocks:
+            start = enum.body_start + 1
+            for match in _RPC_MEMBER.finditer(source.code[start:enum.body_end]):
+                if 'rpc' in match[1].lower():
+                    record(source, start + match.start(1), enum.name + '.' + match[1], match[2])
+        methods = list(source.functions) + [m for c in source.classes for m in c.methods]
+        for pattern in (_RPC_SEND, _RPC_SINGLE):
+            for match in pattern.finditer(source.code):
+                if pattern is _RPC_SEND and match[1] != 'ScriptRPC':
+                    # Send also belongs to unrelated HC clients. Inspect the enclosing
+                    # method's locals/parameters and its class fields, not other methods.
+                    method = next((m for m in methods
+                                   if m.body_start < match.start() < m.body_end), None)
+                    if method is None:
+                        continue
+                    receivers = set(re.findall(r'\bScriptRPC\s+(\w+)',
+                                               method.params + ';' + source.code[
+                                                   method.body_start:match.start()]))
+                    if method.owner is not None:
+                        receivers.update(f.name for f in method.owner.fields if f.type == 'ScriptRPC')
+                    if match[1] not in receivers:
+                        continue
+                opening = match.end() - 1
+                closing = es.matching_paren(source.code, opening)
+                args = es.split_top(source.code[opening + 1:closing], ',')
+                # Both native signatures take target first, then rpc_type.
+                if len(args) > 1 and re.fullmatch(_RPC_LITERAL, args[1].strip()):
+                    offset = opening + 1 + len(args[0]) + 1
+                    offset += len(args[1]) - len(args[1].lstrip())
+                    record(source, offset, 'Send' if pattern is _RPC_SEND else 'RPCSingleParam',
+                           args[1].strip())
+    return sorted(inventory, key=lambda entry: (entry.path, entry.line, entry.name, entry.value))
+
+
+def rule_duplicate_rpc_ids(project, source):
+    if not hasattr(project, '_rpc_collisions'):
+        grouped = {}
+        for entry in rpc_id_inventory(project.sources):
+            grouped.setdefault(entry.value, []).append(entry)
+        project._rpc_collisions = {}
+        for value, entries in grouped.items():
+            if len(entries) < 2:
+                continue
+            locations = ', '.join(f'{e.path}:{e.line} ({e.name})' for e in entries)
+            for entry in entries:
+                project._rpc_collisions.setdefault(entry.path, []).append(Finding(
+                    'HC-E054', entry.path, entry.line, entry.name, str(value),
+                    f'RPC id {value} is shared by {locations}; each RPC needs its own id'))
+    return project._rpc_collisions.get(source.rel, ())
+
+
+ALL_RULES = (rule_duplicate_rpc_ids, rule_proto_native_methods, rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
@@ -3015,6 +3097,9 @@ def main(argv=None):
             symbols, native_origin = native_symbols.resolve(path, allow_uncached=True)
         except (OSError, ValueError):
             parser.exit(1, 'enforce_lint: cannot read scripts or write the local symbol cache\n')
+    if symbols is not None:
+        print('enforce_lint: HC-E054 vanilla ERPCs comparison omitted: native index stores '
+              'enum names, not values', file=sys.stderr)
     native = ({int(layer): set(names) for layer, names in symbols['types'].items()}
               if symbols is not None else None)
     _syntax.NATIVE_ROOT = path if symbols is not None else None
@@ -3049,12 +3134,14 @@ def main(argv=None):
     new, stale = compare(findings, baseline, native is not None)
     per_rule = Counter(f.rule for f in findings)
     new_rule = Counter(f.rule for f in new)
+    rpc_count = len(rpc_id_inventory(sources))
     if args.json:
-        print(json.dumps({'status': 'fail' if new or stale else 'pass', 'native': native is not None,
+        print(json.dumps({'rpc_ids': rpc_count, 'status': 'fail' if new or stale else 'pass', 'native': native is not None,
                           'client_blocks': client_blocks, 'client_findings': len(client_findings),
                           'counts': {r: {'total': per_rule[r], 'new': new_rule[r]} for r in RULES},
                           'new': [asdict(f) for f in new], 'stale': stale}, indent=1))
     else:
+        print(f'enforce_lint: RPC id inventory={rpc_count}')
         for block in client_blocks:
             print('client-branch: {path}:{line}-{end_line} {condition} '
                   'checked=HC-E012,HC-E053'.format(**block))
