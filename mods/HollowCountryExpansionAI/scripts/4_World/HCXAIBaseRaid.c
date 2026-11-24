@@ -670,8 +670,6 @@ modded class HCXAIAdapter
         super.OnTick(deltaTime);
         if (HCXAIService.Adapter() == this)
         {
-            // #334: retired group holds also settle when no site patrol is updating.
-            HCXAIGroupHolds.PruneStep();
             // Alternate first service on the same bounded consumer so visits
             // cannot starve behind continuous raid sensing (or vice versa).
             int now = HCWorldClock.UTC();

@@ -347,7 +347,7 @@ class HCXAISiteBase : Managed
                     HCXExpansionBridge.HCSitePatrolDespawn(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
                 }
-                else if (HCXExpansionBridge.HCHoldCountFinal(transientState.Patrol.HCGroupHold()) == 0)
+                else if (!transientState.Patrol.HCDeathHeld() && HCXExpansionBridge.HCHoldCountFinal(transientState.Patrol.HCGroupHold()) == 0)
                 {
                     HCXExpansionBridge.HCSitePatrolWasGroupDestroyed(transientState.Patrol);
                     this.FinishTransient(transientState, true, 0);
@@ -783,6 +783,7 @@ class HCXAISiteBase : Managed
     }
     protected void StepRun()
     {
+        HCXAIGroupHolds.PruneStep();
         int stage = 0;
         if (m_RunStage % 2 == 1) { stage = 1 + m_RunStage / 2; }
         m_RunStage = (m_RunStage + 1) % 8;
@@ -801,7 +802,7 @@ class HCXAISiteBase : Managed
         foreach (HCXAISiteState counted : m_States)
         {
             this.HCRecordRouteState(counted);
-            if (!counted.Patrol || HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold()) == 0) { continue; }
+            if (!counted.Patrol || counted.Patrol.HCDeathHeld() || HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold()) == 0) { continue; }
             sites++;
             actors = actors + HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold());
         }
@@ -917,6 +918,16 @@ class HCXAISiteBase : Managed
     void HCRefreshDepleted(HCXAISitePatrol patrol) {  }
     bool RaidLocked(HCXAISite site, int now) { return false; }
     protected HCXAIOwnedRow OwnershipRow(string siteId) { return null; }
+    void HCArmDeath(eAIGroup killedGroup, DayZPlayerImplement killed)
+    {
+        if (!killedGroup) { return; }
+        foreach (HCXAISiteState state : m_States)
+        {
+            if (!state.Patrol || !state.Patrol.HCMatchesGroup(killedGroup)) { continue; }
+            state.Patrol.HCArmDeath(killed);
+            return;
+        }
+    }
     void RecordDeath(eAIGroup killedGroup) {  }
     void RecordCleared(HCXAISitePatrol patrol, bool death = false) {  }
     protected void StepCache() {  }

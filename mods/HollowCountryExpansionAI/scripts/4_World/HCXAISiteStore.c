@@ -547,12 +547,11 @@ class HCXAISiteStorage : HCXAISiteBase
         if (!killedGroup) { return; }
         foreach (HCXAISiteState killedState : m_States)
         {
-            if (killedState.Transient || !killedState.Patrol) { continue; }
-            if (HCXExpansionBridge.HCHoldSame(killedState.Patrol.HCGroupHold(), killedGroup))
-            {
-                this.RecordCleared(killedState.Patrol, true);
-                return;
-            }
+            // The killed hook already armed persistent and transient patrols.
+            if (!killedState.Patrol || !killedState.Patrol.HCMatchesGroup(killedGroup)) { continue; }
+            if (killedState.Transient) { return; }
+            this.RecordCleared(killedState.Patrol, true);
+            return;
         }
     }
     override void RecordCleared(HCXAISitePatrol patrol, bool death = false)
