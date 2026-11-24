@@ -7,7 +7,8 @@ class CfgPatches
         units[] = {};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"HollowCountry"};
+        // The kill fixture uses public HC site accessors; load the adapter before this addon.
+        requiredAddons[] = {"HollowCountry", "HollowCountryExpansionAI"};
     };
 };
 class CfgMods
