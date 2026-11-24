@@ -1,37 +1,24 @@
-// Gun piles (#338, owner 2026-11-22/23): a gun the CE creates in the world is usually found with its own
-// magazine and ammo lying beside it as a small pile (loose items, never attached or loaded).
-//
-// Hook: Weapon_Base extends Weapon extends InventoryItemSuper, and `typedef ItemBase InventoryItemSuper`
-// (4_World/Entities/Game/Super/InventoryItem.c:4), so a gun IS an ItemBase. EEOnCECreate is declared on
-// EntityAI (3_Game/Entities/EntityAI.c:1414, no parameters) and overridden by ItemBase (ItemBase.c:4111);
-// Weapon_Base does not override it. It runs for entities the CE (or the debug spawner) creates as new, never
-// for an entity loaded from storage (that path is AfterStoreLoad), so a reloaded gun never gets a second pile.
-// Script-created guns (traders, AI loadouts, players, admin tools) never reach it either.
-//
-// Work: the hook only queues the gun (weak reference, cap 2048, time stamped). A 250 ms drain examines at
-// most GunPilePerTick guns per call inside an HCWorkBudget slice, and only guns queued at least one second
-// ago, so HCGroundCELoot (50 ms) has already shifted and snapped the gun. Per gun, one roll against
-// GunPileChance, then at most one magazine (guns that take detachable magazines; random compatible type,
-// random partial count) and one ammo stack (random chamberable type, random partial quantity). A gun that
-// takes an internal magazine gets the ammo stack only.
-//
-// Placement: 0.2-0.5 m beside the gun on the same supporting surface. Each spot is tested with a horizontal
-// geometry ray from the gun (stopped by any wall or prop, extended 0.12 m past the spot) and a downward ray
-// whose contact must lie within 0.25 m under to 0.15 m over the gun and must not be another loose item. The
-// item is created at the contact with ECE_PLACE_ON_SURFACE and verified with HCGroundSnap.Snap (support
-// below, drop-only); an item that cannot be settled is deleted again. Three angles are tried per item; no
-// valid spot counts `skipped`, never a forced placement.
-//
-// Economy: the pile items are script-created world items of CE-known classes, so they count in map like any
-// loot and the CE spawns fewer loose magazines and ammo to stay at nominal. Scripts cannot query types.xml;
-// the class filter is the vanilla and pack data itself (every magazine and ammo class a gun lists is a
-// scope-2 item the shipped economy carries). The lead's CE census must show magazines and ammo in map
-// within nominal +10% after a fresh fill; the offline nominal offset is a later step after econ r5.
-//
-// Native evidence, installed scripts-1.30.164289: Weapon.c GetMagazineTypeCount, GetRandomMagazineTypeName,
-// GetRandomChamberableAmmoTypeName (muzzle 0); Magazine.c:68,70 GetAmmoCount, ServerSetAmmoCount, :160
-// GetAmmoMax; Game.c:703 CreateObjectEx; CentralEconomy.c:38 ECE_PLACE_ON_SURFACE; DayZPhysics.c
-// RaycastRVProxy; EnMath.c Cos, Sin, RandomIntInclusive, RandomFloatInclusive; EnDebug.c Print.
+// #338: CE/CE-debug creation queues a weak handle once; storage loads do not enqueue.
+// Debug sessions are excluded from acceptance. Minimum age alone does not establish ground correction:
+// drain waits for HCGroundCELoot's transient handled marker and the enabled site guard's built grid.
+// Build 178 :177 and 179 :189 called compatibility natives in the same statement. The muzzle-count
+// guard did not prevent the crash; a null resolved config entry is suspected, not proven.
+// This path reads inherited config only, never weapon-instance magazine/muzzle/chamber natives.
+// CE accounting remains UNVERIFIED: a positive fresh-item economy nominal is necessary, but cannot
+// prove map counting. Lead acceptance needs matched fresh fills, restart and one-client evidence.
+// [HC Use] count=1 is a first-use receipt, not the total; later use summaries and placed= carry totals.
+// Native signatures inspected in 1.30.164289: Global/Game.c ConfigIsExisting :612,
+// ConfigGetFullPath :614 (out TStringArray), ConfigGetType :546, ConfigGetTextArray :558,
+// ConfigGetInt :539, ConfigGetText :449; EntityAI.c GetEconomyProfile :888;
+// CentralEconomy.c CEItemProfile.GetNominal :754. Capacity is config count, never GetAmmoMax.
+class HCGunPileShape
+{
+    ref array<string> Magazines = new array<string>;
+    ref array<int> MagazineCounts = new array<int>;
+    ref array<string> Ammo = new array<string>;
+    ref array<int> AmmoCounts = new array<int>;
+}
+
 class HCGunPile
 {
     static const int QUEUE_CAP = 2048;
@@ -45,11 +32,21 @@ class HCGunPile
     static const float SURFACE_DOWN = 0.25;
     static const int ATTEMPTS = 3;
     static const float ATTEMPT_STEP = 2.1;
-    static const int NO_MUZZLE_LINES = 8;
+    static const int CACHE_CAP = 512;
+    static const int COLD_PER_DRAIN = 2;
 
     protected static ref array<ItemBase> s_Queue = new array<ItemBase>;
     protected static ref array<float> s_QueuedAt = new array<float>;
-    protected static int s_Cursor;
+    protected static int s_Head;
+    protected static int s_Count;
+    protected static int s_Cold;
+    protected static ref map<string, ref HCGunPileShape> s_Shapes = new map<string, ref HCGunPileShape>;
+    protected static ref map<string, string> s_Negative = new map<string, string>;
+    protected static ref map<string, bool> s_Economy = new map<string, bool>;
+    protected static ref map<string, int> s_Reasons = new map<string, int>;
+    protected static int s_DeferredGuard;
+    protected static int s_DeferredGround;
+    protected static int s_DeferredCold;
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
     protected static ref HCGroundSnapStats s_SnapStats = new HCGroundSnapStats;
     protected static bool s_Scheduled;
@@ -64,7 +61,6 @@ class HCGunPile
     protected static int s_Mags;
     protected static int s_Ammo;
     protected static int s_Dropped;
-    protected static int s_NoMuzzle;
     protected static string s_LastSummary;
 
     // Module start: read the validated settings. Guns queued before this wait in the queue.
@@ -78,7 +74,7 @@ class HCGunPile
         if (s_PerTick < 1) { s_PerTick = 1; }
         if (s_PerTick > 16) { s_PerTick = 16; }
         s_Configured = true;
-        if (s_Queue.Count() > s_Cursor) { ScheduleDrain(); }
+        if (s_Count > 0) { ScheduleDrain(); }
     }
 
     static bool IsRunning()
@@ -87,18 +83,27 @@ class HCGunPile
     }
 
     // Called from the CE create hook only. Cheap: one append, no world query.
-    static void Enqueue(ItemBase gun)
+    static void Enqueue(Weapon_Base gun)
     {
         if (!GetGame() || !GetGame().IsServer() || !gun) { return; }
         if (s_Configured && !s_Enabled) { return; }
-        if (s_Queue.Count() - s_Cursor >= QUEUE_CAP)
+        if (gun.m_HCGunPileQueued) { return; }
+        gun.m_HCGunPileQueued = true;
+        if (s_Count >= QUEUE_CAP)
         {
             s_Dropped++;
             s_Skipped++;
             return;
         }
-        s_Queue.Insert(gun);
-        s_QueuedAt.Insert(GetGame().GetTickTime());
+        if (s_Queue.Count() == 0)
+        {
+            s_Queue.Resize(QUEUE_CAP);
+            s_QueuedAt.Resize(QUEUE_CAP);
+        }
+        int tail = (s_Head + s_Count) % QUEUE_CAP;
+        s_Queue.Set(tail, gun);
+        s_QueuedAt.Set(tail, GetGame().GetTickTime());
+        s_Count++;
         s_Queued++;
         ScheduleDrain();
         ScheduleSummary();
@@ -132,27 +137,226 @@ class HCGunPile
         {
             s_Queue.Clear();
             s_QueuedAt.Clear();
-            s_Cursor = 0;
+            s_Head = 0;
+            s_Count = 0;
+            return;
+        }
+        if (!HCSiteGuard.HCLootReady())
+        {
+            s_DeferredGuard++;
+            ScheduleDrain();
             return;
         }
         float now = GetGame().GetTickTime();
+        s_Cold = 0;
+        int available = s_Count;
         s_Budget.HCReset(s_PerTick, HCPerfConfig.HCGet().SliceMs);
-        while (s_Cursor < s_Queue.Count() && s_Budget.HCContinue())
+        while (available > 0 && s_Count > 0 && s_Budget.HCContinue())
         {
-            if (now - s_QueuedAt[s_Cursor] < MIN_AGE_SECONDS) { break; }
-            ItemBase gun = s_Queue[s_Cursor];
-            s_Queue.Set(s_Cursor, null);
-            s_Cursor++;
-            ProcessGun(gun);
+            available--;
+            if (now - s_QueuedAt[s_Head] < MIN_AGE_SECONDS) { break; }
+            ItemBase gun = s_Queue[s_Head];
+            float queuedAt = s_QueuedAt[s_Head];
+            s_Queue.Set(s_Head, null);
+            s_Head = (s_Head + 1) % QUEUE_CAP;
+            s_Count--;
+            bool defer = false;
+            if (gun && !gun.IsPendingDeletion() && !gun.GetHierarchyParent())
+            {
+                if (!gun.m_HCGroundCEHandled) { s_DeferredGround++; defer = true; }
+                else
+                {
+                    string key = gun.GetType();
+                    key.ToLower();
+                    if (!s_Shapes.Contains(key) && !s_Negative.Contains(key) && s_Cold >= COLD_PER_DRAIN)
+                    {
+                        s_DeferredCold++;
+                        defer = true;
+                    }
+                }
+            }
+            if (defer)
+            {
+                int tail = (s_Head + s_Count) % QUEUE_CAP;
+                s_Queue.Set(tail, gun);
+                s_QueuedAt.Set(tail, queuedAt);
+                s_Count++;
+            }
+            else { ProcessGun(gun); }
         }
-        if (s_Cursor >= s_Queue.Count())
+        if (s_Count > 0) { ScheduleDrain(); }
+    }
+
+    // Named config-ancestry refusal list, including non-firearm Weapon_Base tools.
+    // Crossbow is intentionally absent: its loose bolts follow the normal ammunition chain.
+    // M79 is absent too (owner, 2026-11-24): it may get a non-lethal 40mm round; LethalRound drops
+    // the explosive and gas rounds entry by entry.
+    protected static bool SpecialFamily(string name)
+    {
+        if (name == "flaregun" || name == "flaregun_base") { return true; }
+        if (name == "dartgun" || name == "dartgun_base") { return true; }
+        if (name == "shockpistol" || name == "shockpistol_base") { return true; }
+        if (name == "trumpet" || name == "trumpet_base") { return true; }
+        if (name == "ammo_dartsyringe" || name == "ammo_flare") { return true; }
+        return name == "nonlethalcore";
+    }
+
+    // 40mm explosive and gas rounds never lie beside a launcher; smoke rounds may.
+    protected static bool LethalRound(string self, TStringArray chain)
+    {
+        if (self == "ammo_40mm_explosive" || self == "ammo_40mm_chemgas") { return true; }
+        return chain.Find("ammo_40mm_explosive") >= 0 || chain.Find("ammo_40mm_chemgas") >= 0;
+    }
+
+    protected static bool ValidToken(string token)
+    {
+        if (token.Length() < 1 || token.Length() > 64) { return false; }
+        for (int i = 0; i < token.Length(); i++)
         {
-            s_Queue.Clear();
-            s_QueuedAt.Clear();
-            s_Cursor = 0;
-            return;
+            string ch = token.Substring(i, 1);
+            if (ch == " " || ch == "\t" || ch == "\\" || ch == "/" || ch == "\r" || ch == "\n") { return false; }
         }
-        ScheduleDrain();
+        return true;
+    }
+
+    protected static bool ValidMagazineToken(string token)
+    {
+        if (token.Length() > 64 || !ValidToken(token)) { return false; }
+        token.ToLower();
+        return token.IndexOf("_test") < 0;
+    }
+
+    protected static void Refuse(string reason, string type)
+    {
+        int count;
+        s_Reasons.Find(reason, count);
+        count++;
+        s_Reasons.Set(reason, count);
+        if (count <= 8) { Print("[HC Loot] gun pile refuse reason=" + reason + " class=" + type); }
+    }
+
+    protected static HCGunPileShape RejectShape(string key, string reason)
+    {
+        if (s_Negative.Count() >= CACHE_CAP) { s_Negative.Clear(); }
+        s_Negative.Set(key, reason);
+        return null;
+    }
+
+    // Only bounded inherited arrays are accepted. Missing arrays mean no entries.
+    protected static bool ReadList(string path, int limit, out TStringArray values)
+    {
+        values = new TStringArray;
+        if (!GetGame().ConfigIsExisting(path)) { return true; }
+        if (GetGame().ConfigGetType(path) != CT_ARRAY) { return false; }
+        GetGame().ConfigGetTextArray(path, values);
+        return values.Count() <= limit;
+    }
+
+    protected static bool ReadChain(string path, out TStringArray chain)
+    {
+        chain = new TStringArray;
+        if (!GetGame().ConfigIsExisting(path)) { return false; }
+        GetGame().ConfigGetFullPath(path, chain);
+        if (chain.Count() < 1 || chain.Count() > 64) { return false; }
+        for (int i = 0; i < chain.Count(); i++)
+        {
+            string name = chain[i];
+            name.ToLower();
+            chain.Set(i, name);
+        }
+        return true;
+    }
+
+    protected static bool ReadItem(string type, bool loose, out string bullet, out int capacity, out bool special)
+    {
+        special = false;
+        if (!ValidToken(type)) { return false; }
+        string path = "CfgMagazines " + type;
+        TStringArray chain;
+        if (!ReadChain(path, chain)) { return false; }
+        for (int c = 0; c < chain.Count(); c++)
+        {
+            if (SpecialFamily(chain[c])) { special = true; return false; }
+        }
+        string self = type;
+        self.ToLower();
+        if (LethalRound(self, chain)) { return false; }
+        if (HCConfigHelper.GetInt(path + " scope", 0) != 2) { return false; }
+        bool ammunition = chain.Find("ammunition_base") >= 0;
+        if (loose && !ammunition) { return false; }
+        if (!loose && (ammunition || chain.Find("magazine_base") < 0)) { return false; }
+        bullet = HCConfigHelper.GetText(path + " ammo", "");
+        if (!ValidToken(bullet) || !GetGame().ConfigIsExisting("CfgAmmo " + bullet)) { return false; }
+        capacity = HCConfigHelper.GetInt(path + " count", 0);
+        if (capacity < 1 || (!loose && capacity <= 1)) { return false; }
+        bullet.ToLower();
+        return true;
+    }
+
+    protected static HCGunPileShape ResolveShape(string type)
+    {
+        string key = type;
+        key.ToLower();
+        HCGunPileShape cached;
+        if (s_Shapes.Find(key, cached)) { return cached; }
+        if (s_Negative.Contains(key)) { return null; }
+        s_Cold++;
+        if (!ValidToken(type)) { return RejectShape(key, "shape_token"); }
+        string root = "CfgWeapons " + type;
+        if (!GetGame().ConfigIsExisting(root)) { return RejectShape(key, "missing_root"); }
+        TStringArray ancestry;
+        if (!ReadChain(root, ancestry)) { return RejectShape(key, "shape_chain"); }
+        for (int n = 0; n < ancestry.Count(); n++)
+        {
+            if (SpecialFamily(ancestry[n])) { return RejectShape(key, "special_family"); }
+        }
+        TStringArray muzzles;
+        if (!ReadList(root + " muzzles", 4, muzzles)) { return RejectShape(key, "shape_muzzles"); }
+        if (GetGame().ConfigIsExisting(root + " muzzles"))
+        {
+            if (muzzles.Count() == 0) { return RejectShape(key, "shape_muzzles"); }
+            for (int u = 0; u < muzzles.Count(); u++)
+            {
+                if (!ValidToken(muzzles[u])) { return RejectShape(key, "shape_muzzles"); }
+            }
+            string first = muzzles[0];
+            first.ToLower();
+            if (first != "this") { return RejectShape(key, "shape_muzzles"); }
+        }
+        TStringArray magazines;
+        TStringArray ammo;
+        if (!ReadList(root + " magazines", 32, magazines)) { return RejectShape(key, "shape_magazines"); }
+        if (!ReadList(root + " chamberableFrom", 16, ammo)) { return RejectShape(key, "shape_chamberable"); }
+        HCGunPileShape shape = new HCGunPileShape;
+        map<string, bool> bullets = new map<string, bool>;
+        for (int a = 0; a < ammo.Count(); a++)
+        {
+            string ammoBullet;
+            int ammoCount;
+            bool ammoSpecial;
+            bool ammoOk = ReadItem(ammo[a], true, ammoBullet, ammoCount, ammoSpecial);
+            if (ammoSpecial) { return RejectShape(key, "special_family"); }
+            if (!ammoOk) { continue; }
+            shape.Ammo.Insert(ammo[a]);
+            shape.AmmoCounts.Insert(ammoCount);
+            bullets.Set(ammoBullet, true);
+        }
+        for (int m = 0; m < magazines.Count(); m++)
+        {
+            if (!ValidMagazineToken(magazines[m])) { continue; }
+            string magBullet;
+            int magCount;
+            bool magSpecial;
+            bool magOk = ReadItem(magazines[m], false, magBullet, magCount, magSpecial);
+            if (magSpecial) { return RejectShape(key, "special_family"); }
+            if (!magOk || !bullets.Contains(magBullet)) { continue; }
+            shape.Magazines.Insert(magazines[m]);
+            shape.MagazineCounts.Insert(magCount);
+        }
+        if (shape.Ammo.Count() == 0 && shape.Magazines.Count() == 0) { return RejectShape(key, "no_compatible"); }
+        if (s_Shapes.Count() >= CACHE_CAP) { s_Shapes.Clear(); }
+        s_Shapes.Set(key, shape);
+        return shape;
     }
 
     protected static void ProcessGun(ItemBase gun)
@@ -168,42 +372,38 @@ class HCGunPile
             s_Skipped++;
             return;
         }
-        if (Math.RandomFloatInclusive(0, 1) >= s_Chance) { return; }
         // A gun inside a site box that is still undecided (or refused) may be moved or removed later.
         if (HCSiteGuard.HCLootVerdict(gun) != HCSiteGuard.LOOT_KEEP)
         {
             s_Skipped++;
+            Refuse("site_verdict", gun.GetType());
             return;
         }
-        // The muzzle natives index the weapon's muzzle array without a bounds check: on a weapon with no
-        // muzzle, muzzle 0 is a native crash (soak 2026-11-23, GetMagazineTypeCount(0)). Vanilla Weapon.c
-        // always loops i < GetMuzzleCount() before it reads a muzzle; so does this.
-        if (weapon.GetMuzzleCount() < 1)
+        if (Math.RandomFloatInclusive(0, 1) >= s_Chance) { return; }
+        HCGunPileShape shape = ResolveShape(gun.GetType());
+        if (!shape)
         {
-            s_Skipped++;
-            s_NoMuzzle++;
-            if (s_NoMuzzle <= NO_MUZZLE_LINES) { Print("[HC Loot] gun pile skip reason=no_muzzle class=" + gun.GetType()); }
-            return;
-        }
-        string magType = "";
-        if (weapon.GetMagazineTypeCount(0) > 0) { magType = weapon.GetRandomMagazineTypeName(0); }
-        string ammoType = weapon.GetRandomChamberableAmmoTypeName(0);
-        if (magType == "" && ammoType == "")
-        {
+            string key = gun.GetType();
+            key.ToLower();
+            string reason;
+            s_Negative.Find(key, reason);
+            Refuse(reason, gun.GetType());
             s_Skipped++;
             return;
         }
         vector origin = gun.GetPosition();
         float angle = Math.RandomFloatInclusive(0, Math.PI2);
         bool anyPlaced = false;
-        if (magType != "")
+        if (shape.Magazines.Count() > 0)
         {
-            if (PlaceOne(gun, origin, magType, angle, true)) { anyPlaced = true; }
+            int m = Math.RandomInt(0, shape.Magazines.Count());
+            if (PlaceOne(gun, origin, shape.Magazines[m], shape.MagazineCounts[m], angle, true)) { anyPlaced = true; }
             angle = angle + ATTEMPT_STEP;
         }
-        if (ammoType != "")
+        if (shape.Ammo.Count() > 0)
         {
-            if (PlaceOne(gun, origin, ammoType, angle, false)) { anyPlaced = true; }
+            int a = Math.RandomInt(0, shape.Ammo.Count());
+            if (PlaceOne(gun, origin, shape.Ammo[a], shape.AmmoCounts[a], angle, false)) { anyPlaced = true; }
         }
         if (!anyPlaced)
         {
@@ -215,7 +415,7 @@ class HCGunPile
     }
 
     // Tries up to ATTEMPTS angles for one pile item; true when it stands on the surface beside the gun.
-    protected static bool PlaceOne(ItemBase gun, vector origin, string type, float startAngle, bool isMagazine)
+    protected static bool PlaceOne(ItemBase gun, vector origin, string type, int capacity, float startAngle, bool isMagazine)
     {
         float angle = startAngle;
         for (int attempt = 0; attempt < ATTEMPTS; attempt++)
@@ -224,10 +424,12 @@ class HCGunPile
             vector spot;
             if (FindSpot(gun, origin, angle, dist, spot))
             {
-                if (Create(type, spot, isMagazine)) { return true; }
+                // Once creation is attempted, never retry this item (cleanup must not duplicate loot).
+                return Create(type, spot, capacity, isMagazine);
             }
             angle = angle + ATTEMPT_STEP;
         }
+        Refuse("no_spot", type);
         return false;
     }
 
@@ -276,32 +478,53 @@ class HCGunPile
         return true;
     }
 
-    protected static bool Create(string type, vector spot, bool isMagazine)
+    protected static bool Create(string type, vector spot, int maxCount, bool isMagazine)
     {
+        string key = type;
+        key.ToLower();
+        bool eligible;
+        bool known = s_Economy.Find(key, eligible);
+        if (known && !eligible) { Refuse("no_economy", type); return false; }
+        if (!known && s_Economy.Count() >= CACHE_CAP) { Refuse("economy_cache_full", type); return false; }
         Object created = GetGame().CreateObjectEx(type, spot, ECE_PLACE_ON_SURFACE);
-        if (!created) { return false; }
+        if (!created) { Refuse("create_failed", type); return false; }
         Magazine mag = Magazine.Cast(created);
         if (!mag)
         {
             GetGame().ObjectDelete(created);
+            Refuse("not_magazine", type);
             return false;
+        }
+        if (!known)
+        {
+            CEItemProfile profile = mag.GetEconomyProfile();
+            eligible = profile && profile.GetNominal() > 0;
+            s_Economy.Set(key, eligible);
+            if (!eligible)
+            {
+                GetGame().ObjectDelete(mag);
+                Refuse("no_economy", type);
+                return false;
+            }
         }
         // Never floating: the created item must find support within 0.5 m below, else it is removed.
         if (!HCGroundSnap.Snap(mag, 0.5, 0.03, s_SnapStats))
         {
             GetGame().ObjectDelete(mag);
+            Refuse("no_support", type);
             return false;
         }
-        int maxCount = mag.GetAmmoMax();
+        int quantity = 1;
         if (maxCount > 1)
         {
             int low = maxCount / 5;
             if (low < 1) { low = 1; }
-            int high = maxCount * 3 / 5;
-            if (isMagazine) { high = maxCount * 4 / 5; }
+            int high = maxCount / 5 * 3;
+            if (isMagazine) { high = maxCount / 5 * 4; }
             if (high < low) { high = low; }
-            mag.ServerSetAmmoCount(Math.RandomIntInclusive(low, high));
+            quantity = Math.RandomIntInclusive(low, high);
         }
+        mag.ServerSetAmmoCount(quantity);
         if (isMagazine) { s_Mags++; }
         else { s_Ammo++; }
         return true;
@@ -310,7 +533,10 @@ class HCGunPile
     // At most one line per 300 s and only when a number changed.
     static void Summary()
     {
-        string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " dropped=" + s_Dropped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString() + " no_muzzle=" + s_NoMuzzle.ToString();
+        string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " dropped=" + s_Dropped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString();
+        line += " deferred_guard=" + s_DeferredGuard.ToString() + " deferred_ground=" + s_DeferredGround.ToString() + " deferred_cold=" + s_DeferredCold.ToString();
+        // Reasons have a fixed vocabulary; this bounded summary is emitted outside per-item loops.
+        foreach (string reason, int count : s_Reasons) { line += " " + reason + "=" + count.ToString(); }
         if (line == s_LastSummary) { return; }
         s_LastSummary = line;
         Print("" + line);
@@ -375,6 +601,7 @@ modded class HCModuleRegistry
 
 modded class Weapon_Base
 {
+    bool m_HCGunPileQueued;
     // CE-created guns only (see the file header): queue and return; the work runs later from the drain.
     override void EEOnCECreate()
     {

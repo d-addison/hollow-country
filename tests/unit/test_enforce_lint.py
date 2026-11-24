@@ -1009,3 +1009,32 @@ class WorkflowDefectRules(unittest.TestCase):
         self.assertEqual([], self.rules(fields % f'{marker}\nm_Queue.Remove(0);', rule))
         self.assertEqual(['HC-E038'], self.rules(fields % f'{marker}\nFoo();\nm_Queue.Remove(0);', rule))
         self.assertEqual(['HC-E038'], self.rules(fields % 'm_Queue.Remove(0); // unordered', rule))
+
+
+class ConfigOnlyWeaponCompatRule(unittest.TestCase):
+    def test_scopes_queries_aliases_and_allowed_fixture_calls(self):
+        scopes = ('mods/HollowCountry/scripts/4_World/Loot/HCGunPile.c',
+                  'mods/Other/scripts/4_World/Loot/HCGunPileExtra.c',
+                  'mods/HollowCountryTest/scripts/4_World/HCTestReachFixtures.c')
+        calls = ('GetMagazineTypeCount', 'GetRandomMagazineTypeName', 'GetMaxMagazineTypeName',
+                 'GetRandomChamberableAmmoTypeName', 'HasInternalMagazine', 'SpawnAmmo',
+                 'SpawnAttachedMagazine', 'FillChamber', 'GetMuzzleCount', 'GetMagazineTypeName',
+                 'GetChamberableAmmoTypeName', 'GetChamberAmmoTypeName', 'GetAmmoMax')
+        for path in scopes:
+            for call in calls:
+                with self.subTest(path=path, call=call):
+                    body = f'class HCProbe {{ void Run() {{ alias.{call}(0); }} }}'
+                    findings = lint.lint_texts({path: body}, rules=(lint.rule_config_only_weapon_compat,))
+                    self.assertEqual(['HC-E052'], [f.rule for f in findings])
+        safe = '''class HCProbe { void Run() {
+            // gun.GetMuzzleCount();
+            string text = "gun.GetMagazineTypeCount()";
+            gun.PushCartridgeToChamber(0, 0, ammo); gun.CanFire();
+            gun.IsChamberEmpty(0); gun.Fire(0, pos, dir, vel);
+        } }'''
+        self.assertEqual([], lint.lint_texts({scopes[2]: safe}, rules=(lint.rule_config_only_weapon_compat,)))
+        self.assertEqual([], lint.lint_texts({'mods/Other/scripts/4_World/Weapon.c':
+            'class HCProbe { void Run() { gun.GetMuzzleCount(); } }'},
+            rules=(lint.rule_config_only_weapon_compat,)))
+        self.assertIn(lint.rule_config_only_weapon_compat, lint.ALL_RULES)
+        self.assertIn('HC-E052', lint.RULES)

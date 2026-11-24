@@ -518,7 +518,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
         m_Gun = null;
         created = "Mp133Shotgun";
         reason = "weapon-class-missing";
-        if (!GetGame().ConfigIsExisting("CfgVehicles " + created)) { return false; }
+        if (!GetGame().ConfigIsExisting("CfgWeapons " + created)) { return false; }
         PlayerBase player = HCActor(pos);
         reason = "no-actor-within-4m";
         if (!player) { return false; }
@@ -530,9 +530,11 @@ class HCTestReachFixtures : HCAdminFixtureProvider
         reason = "weapon-create-failed";
         if (!gun) { return false; }
         m_Gun = gun;
-        string ammo = gun.GetRandomChamberableAmmoTypeName(0);
+        // Fixed Mp133Shotgun chain: AmmunitionPiles.c Ammo_12gaPellets; native effects
+        // identify Bullet_12GaugePellets. Never query the weapon compatibility natives.
+        string ammo = HCConfigHelper.GetText("CfgMagazines Ammo_12gaPellets ammo", "");
         reason = "no-chamberable-ammo";
-        if (ammo == "" || ammo.IndexOf("Bullet_") != 0) { return false; }
+        if (ammo != "Bullet_12GaugePellets" || !GetGame().ConfigIsExisting("CfgAmmo Bullet_12GaugePellets")) { return false; }
         reason = "chamber-push-refused";
         if (!gun.PushCartridgeToChamber(0, 0, ammo)) { return false; }
         vector target = pos + forward * 25.0;

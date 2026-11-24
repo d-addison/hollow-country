@@ -262,6 +262,8 @@ class HCSiteGuard : HCModule
     static const int LOOT_DROP = 2;
 
     protected static HCSiteGuard s_Instance;
+    protected static bool s_HCLootEnableKnown;
+    protected static bool s_HCLootEnabled;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected ref HCSiteConfig m_Config;
     protected HCSiteManifest m_Manifest;
@@ -354,6 +356,8 @@ class HCSiteGuard : HCModule
     // (sweep-only). Neither means a plain server: print enabled=false reason=no_manifest and do nothing else.
     override bool IsEnabled(HCSettings settings)
     {
+        s_HCLootEnableKnown = true;
+        s_HCLootEnabled = false;
         if (!settings || !settings.EnableSites)
         {
             m_Operational.HCPublish("off", "disabled_by_setting");
@@ -364,6 +368,7 @@ class HCSiteGuard : HCModule
             m_Operational.HCPublish("off", "no_manifest");
             return false;
         }
+        s_HCLootEnabled = true;
         return true;
     }
 
@@ -759,6 +764,14 @@ class HCSiteGuard : HCModule
 
     // KEEP: normal correction. HOLD: an undecided site's box, re-examined later. DROP: a refused site's box or a
     // retired-only box (fresh CE loot only; the caller never passes a player item).
+    // Disabled guard means ordinary loot. Enabled but not built must defer pile placement.
+    static bool HCLootReady()
+    {
+        if (!s_HCLootEnableKnown) { return false; }
+        if (!s_HCLootEnabled) { return true; }
+        return s_Instance && s_Instance.m_Active && s_Instance.m_GridOn;
+    }
+
     static int HCLootVerdict(ItemBase item)
     {
         if (!s_Instance || !item) { return HCSiteGuard.LOOT_KEEP; }

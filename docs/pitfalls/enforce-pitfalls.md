@@ -55,6 +55,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E049 | modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead |
 | HC-E050 | bare name resolves to no local, parameter, member of the class or its ancestors, global, class, enum or constant (native compile: Can't find variable; a renamed or removed field read by a subclass) |
 | HC-E051 | assignment into an indexed slot whose index calls a function (native compile: Function definition inside block); hold the index in a local first |
+| HC-E052 | GunPile and reach fixtures must use config compatibility, never weapon magazine/muzzle/chamber natives |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |
@@ -101,6 +102,10 @@ Comments under `mods/` that cite a build or issue and say what failed. Open the 
 ### `mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c`
 
 - Build 100 (native): on a 3585-character piece, multi-character Replace counted the "ClassFiles": key at 1348 but not "TemplateFiles": at 1558, while single-character counts matched the whole piece. Pieces stay at 1 KB; the pack's longest run without
+
+### `mods/HollowCountry/scripts/4_World/Loot/HCGunPile.c`
+
+- Debug sessions are excluded from acceptance. Minimum age alone does not establish ground correction: drain waits for HCGroundCELoot's transient handled marker and the enabled site guard's built grid. Build 178 :177 and 179 :189 called compatibility natives in the same statement. The muzzle-count guard did not prevent the crash; a null resolved config entry ...
 
 ### `mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c`
 
