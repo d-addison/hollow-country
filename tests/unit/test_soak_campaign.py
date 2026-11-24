@@ -238,6 +238,71 @@ class BuilderTests(Tmp):
         self.assertTrue(pairs)
 
 
+class DependencyParityTests(Tmp):
+    def setUp(self):
+        super().setUp()
+        self.server = make_server(self.root)
+        self.client = make_client(self.root)
+        self.mods = camp.server_mods(BAT) + [camp.TEST_MOD]
+        self.paths = camp.client_mods(self.mods, self.server, self.client / '!Workshop', Path)
+        self.left = self.server / '@CF/addons/Example.pbo'
+        self.right = self.paths[0] / 'addons/example.PBO'
+        for path in (self.left, self.right):
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b'matching')
+
+    def rows(self):
+        return camp.dependency_parity(self.mods, self.server, self.paths)
+
+    def test_match_is_case_insensitive_and_logs_folder_count(self):
+        self.assertEqual(self.rows(), [('@CF', 0), ('@Dep', 0)])
+        lines = []
+        camp.require_dependency_parity(self.mods, self.server, self.paths, lines.append)
+        self.assertEqual(lines, ['dependency parity: 2 folders ok'])
+
+    def test_differing_bytes_of_same_size_refuse(self):
+        self.right.write_bytes(b'different'[:8])
+        self.assertEqual(self.rows()[0], ('@CF', 1))
+        with self.assertRaisesRegex(camp.Refused, r'dependency mismatch: @CF \(1 pbo differ; players get kick 146; '
+                                   r'rerun friend_install --apply\)'):
+            camp.require_dependency_parity(self.mods, self.server, self.paths)
+
+    def test_size_difference_and_multiple_missing_pbos_are_counted(self):
+        self.right.write_bytes(b'short')
+        (self.left.parent / 'server_only.pbo').write_bytes(b'one')
+        (self.right.parent / 'client_only.pbo').write_bytes(b'two')
+        self.assertEqual(self.rows()[0], ('@CF', 3))
+
+    def test_own_folder_is_compared_if_client_uses_a_separate_copy(self):
+        own = self.server / '@HollowCountry'
+        own.mkdir()
+        (own / 'own.pbo').write_bytes(b'own')
+        other = self.root / 'other-own'
+        other.mkdir()
+        self.assertEqual(camp.dependency_parity(['@HollowCountry'], self.server, [other]),
+                         [('@HollowCountry', 1)])
+
+    def test_missing_pbo_on_either_side(self):
+        for path in (self.left, self.right):
+            content = path.read_bytes()
+            path.unlink()
+            self.assertEqual(self.rows()[0], ('@CF', 1))
+            path.write_bytes(content)
+
+    def test_only_pbos_in_shared_folders_are_read_and_own_same_files_are_excluded(self):
+        (self.paths[0] / 'ignored.txt').write_bytes(b'other')
+        extra = self.client / '!Workshop/@NotLoaded'
+        extra.mkdir()
+        (extra / 'other.pbo').write_bytes(b'unrelated')
+        for mod in camp.OWN_MODS:
+            folder = self.server / mod
+            folder.mkdir(exist_ok=True)
+            (folder / 'own.pbo').write_bytes(b'own')
+        with mock.patch.object(Path, 'open', autospec=True, side_effect=Path.open) as opened:
+            self.assertEqual(self.rows(), [('@CF', 0), ('@Dep', 0)])
+        self.assertEqual({call.args[0] for call in opened.call_args_list}, {self.left, self.right})
+
+
 class StagerTests(Tmp):
     def setUp(self):
         super().setUp()
@@ -350,7 +415,7 @@ class FakeHost:
     """Simulates the two processes; the fake clock is advanced by the campaign's own sleeps."""
 
     def __init__(self, stager, clock, server_ready=True, stop_ok=True, driver='done', script_error=None,
-                 late=0, unknown_reads=0, server_crash=False):
+                 late=0, unknown_reads=0, server_crash=False, join=True, kick=None):
         self.stager, self.clock, self.script_error = stager, clock, script_error
         # late: client polls that read gone after launch (the BattlEye launcher has not started it yet);
         # unknown_reads: client polls that read unknown (lost interop replies) once the client has read running.
@@ -360,6 +425,7 @@ class FakeHost:
         self.server_ready, self.stop_ok, self.driver = server_ready, stop_ok, driver
         # server_crash: the server dies (engine crash log written) once the client is up and driving.
         self.server_crash = server_crash
+        self.join, self.kick = join, kick
 
     def state(self, image):
         if image == camp.CLIENT_IMAGE and self.running[image]:
@@ -393,6 +459,14 @@ class FakeHost:
             lines.append('[HC Driver] done run=r1 steps=1 ok=1 refused=0 unsupported=0 timeout=0')
         elif self.driver == 'inert':
             lines = ['[HC Driver] inert reason=no-step-file']
+        if self.join:
+            lines.append('[HC Driver] connect session start')
+        server_rpt = Path(self.stager.server) / camp.PROFILE_COPY / 'DayZServer_x64_1.RPT'
+        with server_rpt.open('a') as stream:
+            if self.join:
+                stream.write('Server: SetClientState player SELECTED -> PLAYER\n')
+            if self.kick:
+                stream.write(self.kick + '\n')
         (folder / 'DayZ_x64_1.RPT').write_text('\n'.join(lines) + '\n')
         if self.server_crash:
             self.running[camp.SERVER_IMAGE] = False
@@ -618,6 +692,68 @@ class CampaignTests(Tmp):
         with self.assertRaisesRegex(camp.Refused, 'restore'):
             run.run()
         self.assertEqual(host.calls, [])
+
+    def test_join_deadline_requires_evidence_from_both_peers(self):
+        for missing in ('client', 'server', 'both'):
+            with self.subTest(missing=missing):
+                run, host = self.campaign(join=False)
+                launch = host.launch_client
+
+                def launch_without_evidence(*args):
+                    launch(*args)
+                    if missing == 'server':
+                        path = self.stager.client_parent / camp.CLIENT_PROFILE / 'DayZ_x64_1.RPT'
+                        with path.open('a') as stream:
+                            stream.write('[HC Driver] connect session start\n')
+                    if missing == 'client':
+                        path = self.server / camp.PROFILE_COPY / 'DayZServer_x64_1.RPT'
+                        with path.open('a') as stream:
+                            stream.write('Server: SetClientState player SELECTED -> PLAYER\n')
+
+                host.launch_client = launch_without_evidence
+                started = self.clock.t
+                with self.assertRaisesRegex(camp.Refused, 'client never joined:'):
+                    run.run()
+                self.assertEqual(self.clock.t - started, camp.CLIENT_JOIN_SECONDS)
+                self.assertEqual(self.snapshot(), self.original)
+                self.assertFalse(any(host.running.values()))
+
+    def test_kick_refuses_immediately_and_removes_identity(self):
+        identity = '12345678901234567'
+        line = 'Player "Synthetic Player" (id=' + identity + ') kicked from server: 146 (' + (
+            'Client has a more recent version. (DayZ-Expansion-Vehicles id=' + identity + '))')
+        run, host = self.campaign(join=False, kick=line)
+        with self.assertRaises(camp.Refused) as caught:
+            run.run()
+        refusal = str(caught.exception)
+        self.assertIn('client never joined: kicked 146 (Client has a more recent version.', refusal)
+        self.assertIn('DayZ-Expansion-Vehicles', refusal)
+        self.assertNotIn(identity, refusal)
+        self.assertNotIn('Synthetic Player', refusal)
+        self.assertEqual(self.clock.t, 0)
+        self.assertEqual(self.snapshot(), self.original)
+        self.assertFalse(any(host.running.values()))
+
+    def test_kick_reason_redacts_identity_fields_and_quoted_names(self):
+        line = ('Player "Synthetic Player" kicked from server: 99 '
+                '(Rejected "Synthetic Player" guid=synthetic_base64_identity=)')
+        self.assertEqual(camp.kick_refusal(line),
+                         'client never joined: kicked 99 (Rejected [redacted] [id removed])')
+        self.assertIsNone(camp.kick_refusal('unrelated server line'))
+
+    def test_dependency_mismatch_refuses_before_build_or_launch_and_restores(self):
+        (self.server / '@CF/addons').mkdir()
+        (self.server / '@CF/addons/test.pbo').write_bytes(b'server')
+        original = self.snapshot()
+        run, host = self.campaign()
+        run.addon_build = mock.Mock(side_effect=AssertionError('must not build'))
+        with mock.patch.object(self.stager, 'restore', wraps=self.stager.restore) as restore:
+            with self.assertRaisesRegex(camp.Refused, 'dependency mismatch: @CF'):
+                run.run()
+            restore.assert_called_once()
+        self.assertEqual(host.calls, [])
+        self.assertEqual(self.snapshot(), original)
+        self.assertFalse(self.stager.receipt_path.exists())
 
     def test_a_server_that_never_connects_still_restores(self):
         run, host = self.campaign(server_ready=False)

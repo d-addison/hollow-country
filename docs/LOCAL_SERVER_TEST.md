@@ -118,3 +118,18 @@ occurs before a version rejection. On timeout the refusal is
 `client never joined: <last safe [HC Driver] connect line>` (or `no connect line`).
 The existing graceful shutdown and restore path still runs on refusal. If a
 process cannot be confirmed stopped, restore remains deferred until it is safe.
+
+Before building, staging or launching, the campaign compares the size and SHA-256
+of every PBO in the resolved shared dependency folders (case-insensitive names).
+Only PBOs in the actual mod list are read; own addons loaded from the server root
+share the same files and are excluded. A match logs `dependency parity: <n> folders ok`.
+A mismatch refuses with `dependency mismatch: <folder> (<n> pbo differ; players get
+kick 146; rerun friend_install --apply)`. Reconcile dependencies before retrying.
+During the join wait a new server kick line immediately refuses with
+`client never joined: kicked <code> (<reason>)`; the player prefix and identity
+values are removed. Shutdown and restore still run on either refusal.
+
+With the full-client geometry input set, the offline mesh audit reports 110
+blocking findings and 505 skips on both this branch and `ddd8c2d1`; the complete
+reports match. Its 140 raw findings include 30 accepted triangle-cost findings.
+This is a pre-existing placement/mesh audit failure, separate from soak joining.

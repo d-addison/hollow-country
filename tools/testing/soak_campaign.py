@@ -598,6 +598,56 @@ def client_mods(mods, server_root, workshop, win):
     return paths
 
 
+def dependency_parity(mods, server_root, client_paths):
+    """Read only PBOs in the resolved shared mod list; return (folder, differing PBO count) rows."""
+    def inventory(folder):
+        files = {}
+        for path in sorted(Path(folder).rglob('*')):
+            if path.is_file() and path.suffix.casefold() == '.pbo':
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                        digest.update(chunk)
+                key = path.relative_to(folder).as_posix().casefold()
+                files.setdefault(key, []).append((path.stat().st_size, digest.hexdigest()))
+        return files
+
+    rows = []
+    for mod, client in zip(mods, client_paths, strict=True):
+        server = Path(server_root) / mod
+        if server.resolve() == Path(client).resolve():
+            continue  # Our own addons use the server's files, including the test addon before staging.
+        left, right = inventory(server), inventory(client)
+        rows.append((mod, sum(left.get(key) != right.get(key) for key in left.keys() | right.keys())))
+    return rows
+
+
+def require_dependency_parity(mods, server_root, client_paths, log=print):
+    rows = dependency_parity(mods, server_root, client_paths)
+    for folder, count in rows:
+        if count:
+            raise Refused('dependency mismatch: %s (%d pbo differ; players get kick 146; '
+                          'rerun friend_install --apply)' % (folder, count))
+    log('dependency parity: %d folders ok' % len(rows))
+
+
+def kick_refusal(line):
+    """Extract only the reason, never the player/identity prefix of a server kick line."""
+    match = re.search(r'kicked from server:\s*(\d+)\s*\((.*)\)\s*$', line, re.I)
+    if not match:
+        return None
+    reason = match[2]
+    reason = re.sub(r'"[^"\n]*"', '[redacted]', reason)
+    reason = re.sub(r"'[^']*'", '[redacted]', reason)
+    reason = re.sub(r'\b(?:id|uid|steamid|guid|plainid)\s*[=:]\s*[^\s()]+',
+                    '[id removed]', reason, flags=re.I)
+    reason = re.sub(r'\b(?:\d{6,}|[0-9a-fA-F]{16,}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})\b',
+                    '[id removed]', reason)
+    if re.search(r'[A-Za-z]:\\|/home/|/mnt/', reason):
+        reason = 'reason withheld: host path'
+    return 'client never joined: kicked %s (%s)' % (match[1], reason)
+
+
 def ps_quote(value):
     return "'" + value.replace("'", "''") + "'"
 
@@ -1101,6 +1151,9 @@ class Campaign:
         started = {'server': False, 'client': False}
         failure = None
         try:
+            mod_names = server_mods((stager.server / 'start-server.bat').read_bytes()) + [TEST_MOD]
+            mod_paths = client_mods(mod_names, stager.server, stager.client_root / '!Workshop', Path)
+            require_dependency_parity(mod_names, stager.server, mod_paths, self.log)
             addon = self.addon_build()
             self.log('run: test addon built and signed')
             stager.stage(addon, self.step_script)
@@ -1135,8 +1188,7 @@ class Campaign:
 
             self.wait_for('server connect enabled', SERVER_READY_MINUTES, server_ready, SERVER_IMAGE)
             self.log('run: server is accepting connections')
-            mods = client_mods(server_mods((stager.server / 'start-server.bat').read_bytes()) + [TEST_MOD],
-                               stager.server, stager.client_root / '!Workshop', self.win)
+            mods = [self.win(path) for path in mod_paths]
             args = client_arguments(mods, self.win(stager.client_parent / CLIENT_PROFILE))
             started['client'] = True
             join_deadline = self.now() + CLIENT_JOIN_SECONDS
@@ -1175,8 +1227,12 @@ class Campaign:
                     if server_follow['path'] != path:
                         server_follow.update(path=path, offset=0)
                     lines, server_follow['offset'] = tail_lines(path, server_follow['offset'])
-                    if any(SERVER_PLAYER_CONNECTED.search(line) for line in lines):
-                        follow['player'] = True
+                    for line in lines:
+                        refusal = kick_refusal(line)
+                        if refusal:
+                            raise Refused(refusal)
+                        if SERVER_PLAYER_CONNECTED.search(line):
+                            follow['player'] = True
                 return follow['session'] and follow['player']
 
             try:
