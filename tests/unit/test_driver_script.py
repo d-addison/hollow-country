@@ -209,6 +209,27 @@ class DriverScriptTests(unittest.TestCase):
             ds.validate_step(mission)  # a site step needs its candidates
         self.assertEqual(ds.step_token(dict(mission, zone="mission"), {}), "enter:mission")
 
+    def test_route_steps_follow_site_waypoints_and_are_checked(self):
+        script, notes = ds.build_plan(["walk_town"])
+        routes = [step for step in script["steps"] if step["kind"] == "route"]
+        self.assertEqual(len(routes), 1)
+        source = notes[routes[0]["id"]]
+        self.assertEqual(ds.step_token(routes[0], notes), "route:" + source)
+        points = ds.resolve_route(source)
+        self.assertEqual(routes[0]["points"], [value for point in points for value in point])
+        good = {"id": "s01", "kind": "route", "points": [6790.0, 2580.0, 6659.0, 2575.0], "gait": "jog",
+                "arrive_m": 5, "timeout_s": 300}
+        ds.validate_step(good)
+        bad = [dict(good, points=[6790.0, 2580.0]), dict(good, points=[6790.0, 2580.0, 1.0]),
+               dict(good, points=[99999.0, 2580.0, 6659.0, 2575.0]), dict(good, points=[1.0] * 130),
+               dict(good, arrive_m=1), dict(good, timeout_s=5), dict(good, gait="crawl"), dict(good, to=[1, 2])]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+        for source in ("zone:balota-cf3bbed7", "site:no-such-site"):
+            with self.assertRaises(ds.ScriptError):
+                ds.resolve_route(source)
+
 
 if __name__ == "__main__":
     unittest.main()

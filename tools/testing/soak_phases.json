@@ -26,7 +26,7 @@
   {
    "name": "walk_town",
    "minutes": 20,
-   "what": "walk through a town for signs of life, interiors and doors"
+   "what": "walk through a town for signs of life, interiors and doors, then the scavenger street line as a route (stuck ladder: sidestep, back up, open a door, skip once)"
   },
   {
    "name": "fixtures",

@@ -269,18 +269,18 @@ All new steps have the same contract as the old ones: one `[HC Driver]` line, an
 | Kind | Fields | Behaviour | OK detail |
 |---|---|---|---|
 | `enter` | `zone` (site or mission), `sites` (flat x,z,r list, site only), `gait`, `hold_s`, `timeout_s` | Picks the nearest candidate the player is outside of. For a mission, the candidates are the published rows already on the client. Walks in, then holds inside. If the server has not confirmed, it walks out to radius + 40 m, holds outside, and walks back in. Each round doubles the hold, until `timeout_s`. One hold at least as long as the server's sampling cycle guarantees an outside sample followed by an inside sample. | `server-confirmed zone=<site\|mission> rounds=<n>` |
-| `route` | `points` (flat x,z list), `gait`, `arrive_m`, `timeout_s` | The navigator walks the waypoints in order. Stuck ladder: sidestep left/right, back up for 2 s, try a door (one forward ray, `ActionOpenDoors.Can`, then `PerformActionStart`), then re-route once by skipping the waypoint. If the bot is still stuck, the step is REFUSED with `stuck:<rung>`. | `arrived points=<n> skipped=<k>` |
+| `route` | `points` (flat x,z list of 2..64 waypoints), `gait`, `arrive_m`, `timeout_s` | `HCDriverRoute` (HCClientDriverNav.c) walks the waypoints in order; the default route uses the `scav-chernogorsk` site's own waypoint line (`route:site:scav-chernogorsk`, walk_town phase). Each leg is a walker leg in hand-over mode: 8 s without 1 m of progress climbs one rung of the stuck ladder: side-right 2 s, side-left 2 s, back up 2 s (walk speed, angle 180), door (`open_door` on a door in reach of where the player stands, 72 rays, never walking), then skip the waypoint once (the re-route; not for the last waypoint). Still stuck: REFUSED `stuck:<last rung>`. 10 m of progress since the last stuck spell restarts the ladder; a reached waypoint resets it. | `arrived waypoint=<n>/<n> climbs=<n> doors=<n> remaining_m=<m>` |
 | `combat` | `range_m`, `timeout_s` | Scans every second (reused arrays) for the nearest live `DayZInfected` or identity-less `PlayerBase` with a clear `RaycastRV` line. Turns and pitches with `OverrideAimChangeX/Y`, raises with `OverrideRaise`, and reloads from inventory with `AttachMagazine`/`SwapMagazine`. Fire and melee are logged as unsupported. Retreats when bleeding or when the health tendency is falling. Bounded by `timeout_s`. | `engaged=<n> lost=<n> dead_seen=<n> reloads=<n> fire=unsupported` |
 | `loot` | `range_m`, `max_items`, `timeout_s` | Walks to loose ground items in priority order: ammo or magazines for the held weapon, food, drink, medical, then a map. Takes each with `ActionTakeItem`. Drops junk (items outside the priority list) with `PredictiveDropEntity` when inventory space is needed. | `taken=<n> dropped=<n>` |
 | `survive` | `mode` (need or always), `timeout_s` | Reads only client-visible state (`IsBleeding`, VirtualHud tendencies). Bandages, eats or drinks with the item's own continuous action through `PerformActionStart`. | `bandaged=<0\|1> ate=<0\|1> drank=<0\|1>` |
 | `vehicle` | `seconds`, `throttle`, `timeout_s` | Walks to the nearest car (the `fx_car_side` car once it is flipped back). Raycasts for a seat component, then uses `ActionGetInTransport` and `ActionStartEngine`. Drives through a test-only holder that a modded `CarScript.OnInput` reads after calling super. Then brakes, stops the engine and gets out (`ActionGetOutTransport`). | `drove_m=<n> engine=<0\|1>` |
-| action `open_door` | none | Same raycast scan as `close_door`, with `ActionOpenDoors`. | `completed-client-side` |
+| action `open_door` | none | Same raycast scan as `close_door`, with `ActionOpenDoors` (Can() fails for a locked or open door; never forced). The actions phase runs it right after `close_door`. | `completed-client-side` |
 
 ## Failure handling (no cheating)
 
 | State | How the bot sees it (client-visible) | Recovery |
 |---|---|---|
-| Stuck | No 1 m of progress for 20 s | Sidestep (alternating sides, 2 s), back up 2 s, open a door ahead through the vanilla action, skip the waypoint once. Then `refused detail=stuck:<rung>`. Never a teleport or a position fix. |
+| Stuck | `walk`: no 1 m of progress for 20 s, two alternating sidesteps, then timeout `stuck sidesteps=2`. `route`: 8 s without progress per rung | `route` climbs side-right, side-left, back up, open a door in reach through the vanilla action, skip the waypoint once. Then `refused detail=stuck:<rung>`. Never a teleport or a position fix. |
 | Dead | `!player.IsAlive()` or no player | The current step ends `refused detail=player-unavailable`. The driver waits for a new character. It never respawns itself. The rest of the run continues once a player exists (the `IsPlayerLoaded` gate). |
 | Unconscious | `IsUnconscious()` | Same as dead for the current step: all overrides are released and the step is refused. The next step waits for the player. |
 | Bleeding | `IsBleeding()` | `combat` retreats. `survive` bandages with a bandage or rag from the inventory (`ActionBandageSelf`). With no bandage, it refuses with `no-bandage`. |
@@ -315,8 +315,9 @@ same dev key as the local build, so it is in the server's keys. This is unverifi
 2. `--route r3`: `kind=enter result=ok detail=server-confirmed zone=site ...` and
    `... zone=mission ...`, with `optional-expansion-human-ai/site_radius_entered` and
    `Events/mission_radius_entered` above 0 in the client RPT.
-3. `route`: `kind=route result=ok detail=arrived points=...`. A `refused detail=stuck:...` line
-   names the rung that failed.
+3. `route`: `kind=route result=ok detail=arrived waypoint=4/4 climbs=... doors=...`. A
+   `refused detail=stuck:<rung>` line names the last rung tried; `doors` above 0 shows the door rung
+   opened one. `kind=action ... open_door result=ok` follows `close_door` in the actions phase.
 4. `combat`: `kind=combat result=ok detail=engaged=... fire=unsupported`. Expect `engaged` to be
    at least 1 near town infected.
 5. `loot`: `kind=loot result=ok detail=taken=...`.

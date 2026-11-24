@@ -23,6 +23,7 @@ class HCClientDriver
     protected ref HCDriverWalker m_Walker = new HCDriverWalker;
     protected ref HCDriverActions m_Actions = new HCDriverActions;
     protected ref HCDriverEnter m_Enter = new HCDriverEnter;
+    protected ref HCDriverRoute m_Route = new HCDriverRoute;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -147,6 +148,12 @@ class HCClientDriver
             code = StepEnter(step, player, dt);
             detail = m_Text;
             if (detail == "") { detail = m_Enter.Detail(); }
+        }
+        else if (step.kind == "route")
+        {
+            code = StepRoute(step, player, dt);
+            detail = m_Text;
+            if (detail == "") { detail = m_Route.Detail(); }
         }
         else
         {
@@ -489,6 +496,20 @@ class HCClientDriver
             m_Enter.Begin(step);
         }
         return m_Enter.Tick(player, dt, m_Walker, RadiusObserved(step.zone));
+    }
+
+    protected int StepRoute(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            if (!m_Route.Begin(step))
+            {
+                m_Text = "route-needs-points";
+                return HCDriverResult.REFUSED;
+            }
+        }
+        return m_Route.Tick(player, dt, m_Walker, m_Actions);
     }
 
     protected int StepAction(HCDriverStep step, PlayerBase player, float dt)

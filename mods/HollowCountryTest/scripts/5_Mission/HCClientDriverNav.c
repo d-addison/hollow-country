@@ -296,3 +296,228 @@ class HCDriverEnter
         return HCDriverResult.RUNNING;
     }
 }
+
+// Multi-waypoint walk with a stuck ladder (kind route). points = flat x,z pairs from driver_script.py.
+// Each leg is an HCDriverWalker leg in hand-over mode: after HANDOVER_SECONDS without 1 m of progress
+// the walker reports stuck and the route climbs one rung:
+//   1 side-right  2 s strafe to the right of the heading  (human.c:256 OverrideMovementAngle +90)
+//   2 side-left   2 s strafe to the left                  (-90)
+//   3 back-up     2 s walking backwards                    (180, speed 1 per human.c:467)
+//   4 door        ActionOpenDoors on a door in reach of where the player stands, through the
+//                 client action manager (HCDriverActions.BeginInReach; ActionOpenDoors.c:1); a
+//                 locked or open door fails Can() and is skipped, never forced
+//   5 skip        once per route: give up the current waypoint and head for the next one
+// then the step ends refused stuck:<last rung>. Progress of 10 m since the last stuck spell starts
+// the ladder again at rung 1; reaching a waypoint resets it. Collisions stay engine-owned: no
+// SetPosition, no teleport, no physics change. Per frame: one walker update or one input override
+// (plus one ray during the door rung); nothing is allocated after Begin.
+class HCDriverRoute
+{
+    static const int R_WALK = 0;
+    static const int R_SIDE_RIGHT = 1;
+    static const int R_SIDE_LEFT = 2;
+    static const int R_BACK = 3;
+    static const int R_DOOR = 4;
+    static const int R_SKIP = 5;
+    static const float MOVE_SECONDS = 2.0;
+    static const float DOOR_SECONDS = 6.0;
+    static const float FRESH_PROGRESS = 10.0;
+
+    protected ref array<float> m_Points;
+    protected string m_Gait;
+    protected float m_Arrive;
+    protected float m_Timeout;
+    protected float m_Elapsed;
+    protected int m_Waypoint;
+    protected int m_Rung;
+    protected int m_Mode;
+    protected float m_ModeAge;
+    protected float m_StuckAt;
+    protected bool m_Skipped;
+    protected int m_Climbs;
+    protected int m_Doors;
+    protected bool m_DoorStarted;
+    protected string m_Detail;
+
+    string Detail()
+    {
+        return m_Detail;
+    }
+
+    static string RungName(int rung)
+    {
+        if (rung == HCDriverRoute.R_SIDE_RIGHT) { return "side-right"; }
+        if (rung == HCDriverRoute.R_SIDE_LEFT) { return "side-left"; }
+        if (rung == HCDriverRoute.R_BACK) { return "back-up"; }
+        if (rung == HCDriverRoute.R_DOOR) { return "door"; }
+        if (rung == HCDriverRoute.R_SKIP) { return "skip"; }
+        return "none";
+    }
+
+    // False when the points list is unusable (the step is then refused route-needs-points).
+    bool Begin(HCDriverStep step)
+    {
+        m_Points = step.points;
+        m_Gait = step.gait;
+        if (m_Gait == "") { m_Gait = "jog"; }
+        m_Arrive = Math.Max(step.arrive_m, 2.0);
+        m_Timeout = Math.Max(step.timeout_s, 10.0);
+        m_Elapsed = 0;
+        m_Waypoint = 0;
+        m_Rung = 0;
+        m_Mode = HCDriverRoute.R_WALK;
+        m_ModeAge = 0;
+        m_StuckAt = 1000000;
+        m_Skipped = false;
+        m_Climbs = 0;
+        m_Doors = 0;
+        m_DoorStarted = false;
+        m_Detail = "";
+        return m_Points && m_Points.Count() >= 4 && m_Points.Count() % 2 == 0;
+    }
+
+    protected int Legs()
+    {
+        return m_Points.Count() / 2;
+    }
+
+    protected float Remaining(PlayerBase player)
+    {
+        vector pos = player.GetPosition();
+        float dx = m_Points[m_Waypoint * 2] - pos[0];
+        float dz = m_Points[m_Waypoint * 2 + 1] - pos[2];
+        return Math.Sqrt(dx * dx + dz * dz);
+    }
+
+    protected void Leg(HCDriverWalker walker)
+    {
+        walker.Begin(m_Points[m_Waypoint * 2], m_Points[m_Waypoint * 2 + 1], m_Gait, m_Arrive, Math.Max(m_Timeout - m_Elapsed, 1.0));
+        walker.HandOverStuck();
+        m_Mode = HCDriverRoute.R_WALK;
+        m_ModeAge = 0;
+    }
+
+    protected string Tail(PlayerBase player)
+    {
+        return " waypoint=" + m_Waypoint.ToString() + "/" + Legs().ToString() + " climbs=" + m_Climbs.ToString() + " doors=" + m_Doors.ToString() + " remaining_m=" + Math.Round(Remaining(player)).ToString();
+    }
+
+    // Strafe or back up relative to the heading toward the current waypoint, for MOVE_SECONDS.
+    protected void Maneuver(PlayerBase player, float offset, float speed)
+    {
+        HumanInputController input = player.GetInputController();
+        if (!input) { return; }
+        vector pos = player.GetPosition();
+        float want = Math.Atan2(m_Points[m_Waypoint * 2] - pos[0], m_Points[m_Waypoint * 2 + 1] - pos[2]) * Math.RAD2DEG;
+        float diff = HCDriverWalker.Wrap180(want - player.GetOrientation()[0]);
+        input.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, speed);
+        input.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, HCDriverWalker.Wrap180(diff + offset));
+        input.OverrideAimChangeX(HumanInputControllerOverrideType.ENABLED, 0);
+    }
+
+    // Next rung after a stuck report; false when the ladder is exhausted.
+    protected bool Climb(PlayerBase player, HCDriverWalker walker)
+    {
+        float remaining = Remaining(player);
+        if (remaining < m_StuckAt - HCDriverRoute.FRESH_PROGRESS) { m_Rung = 0; }
+        m_StuckAt = remaining;
+        m_Rung = m_Rung + 1;
+        if (m_Rung == HCDriverRoute.R_SKIP && (m_Skipped || m_Waypoint + 1 >= Legs())) { return false; }
+        if (m_Rung > HCDriverRoute.R_SKIP) { return false; }
+        m_Climbs = m_Climbs + 1;
+        walker.Release(player);
+        m_Mode = m_Rung;
+        m_ModeAge = 0;
+        m_DoorStarted = false;
+        return true;
+    }
+
+    int Tick(PlayerBase player, float dt, HCDriverWalker walker, HCDriverActions actions)
+    {
+        if (!player || !player.IsAlive() || player.IsUnconscious())
+        {
+            walker.Release(player);
+            m_Detail = "player-unavailable";
+            return HCDriverResult.REFUSED;
+        }
+        if (player.IsRestrained())
+        {
+            walker.Release(player);
+            m_Detail = "restrained";
+            return HCDriverResult.REFUSED;
+        }
+        if (m_Elapsed <= 0 && !walker.IsActive()) { Leg(walker); }
+        m_Elapsed = m_Elapsed + dt;
+        m_ModeAge = m_ModeAge + dt;
+        if (m_Elapsed > m_Timeout)
+        {
+            actions.Abort(player, walker);
+            m_Detail = "route-timeout" + Tail(player);
+            return HCDriverResult.TIMEOUT;
+        }
+        if (m_Mode == HCDriverRoute.R_WALK)
+        {
+            int walked = walker.Update(player, dt);
+            if (walked == HCDriverResult.OK)
+            {
+                m_Rung = 0;
+                m_StuckAt = 1000000;
+                if (m_Waypoint + 1 >= Legs())
+                {
+                    m_Detail = "arrived" + Tail(player);
+                    return HCDriverResult.OK;
+                }
+                m_Waypoint = m_Waypoint + 1;
+                Leg(walker);
+                return HCDriverResult.RUNNING;
+            }
+            if (walked != HCDriverResult.RUNNING)
+            {
+                m_Detail = walker.Detail() + Tail(player);
+                return walked;
+            }
+            if (!walker.TakeStuck()) { return HCDriverResult.RUNNING; }
+            if (!Climb(player, walker))
+            {
+                walker.Release(player);
+                m_Detail = "stuck:" + HCDriverRoute.RungName(m_Rung - 1) + Tail(player);
+                return HCDriverResult.REFUSED;
+            }
+            return HCDriverResult.RUNNING;
+        }
+        if (m_Mode == HCDriverRoute.R_SIDE_RIGHT || m_Mode == HCDriverRoute.R_SIDE_LEFT || m_Mode == HCDriverRoute.R_BACK)
+        {
+            if (m_ModeAge >= HCDriverRoute.MOVE_SECONDS)
+            {
+                walker.Release(player);
+                Leg(walker);
+                return HCDriverResult.RUNNING;
+            }
+            if (m_Mode == HCDriverRoute.R_SIDE_RIGHT) { Maneuver(player, 90.0, 2.0); }
+            if (m_Mode == HCDriverRoute.R_SIDE_LEFT) { Maneuver(player, -90.0, 2.0); }
+            if (m_Mode == HCDriverRoute.R_BACK) { Maneuver(player, 180.0, 1.0); }
+            return HCDriverResult.RUNNING;
+        }
+        if (m_Mode == HCDriverRoute.R_DOOR)
+        {
+            if (!m_DoorStarted)
+            {
+                m_DoorStarted = true;
+                actions.BeginInReach("open_door", HCDriverRoute.DOOR_SECONDS);
+            }
+            int opened = actions.Tick(player, dt, walker);
+            if (opened == HCDriverResult.RUNNING) { return opened; }
+            actions.Abort(player, walker);
+            if (opened == HCDriverResult.OK) { m_Doors = m_Doors + 1; }
+            Leg(walker);
+            return HCDriverResult.RUNNING;
+        }
+        // R_SKIP: the current waypoint is given up once; the next leg is the re-route.
+        m_Skipped = true;
+        m_Waypoint = m_Waypoint + 1;
+        m_Rung = 0;
+        m_StuckAt = 1000000;
+        Leg(walker);
+        return HCDriverResult.RUNNING;
+    }
+}

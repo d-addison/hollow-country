@@ -64,7 +64,10 @@ ADMIN_STEPS = ("status", "snapshot", "scene", "radio", "deaddrop", "loot", "fora
 GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
-KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter")
+KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route")
+# route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
+# stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
+MAX_ROUTE_POINTS = 64
 
 # action kind -> (required args, optional args). Every arg value is a string.
 ACTION_ARGS = {
@@ -73,6 +76,7 @@ ACTION_ARGS = {
     "take": (("type",), ()),
     "mount": (("item", "target"), ()),
     "close_door": ((), ()),
+    "open_door": ((), ()),
     "salvage": ((), ("item",)),
     "melee": ((), ()),
     "fire": ((), ()),
@@ -118,6 +122,7 @@ _STEP_FIELDS = {
     "ping": set(),
     "action": {"name", "args", "timeout_s"},
     "enter": {"zone", "sites", "gait", "hold_s", "timeout_s"},
+    "route": {"points", "gait", "arrive_m", "timeout_s"},
 }
 _TOP_FIELDS = {"version", "run_id", "steps"}
 
@@ -183,6 +188,21 @@ def resolve_waypoint(source):
     raise ScriptError("unknown waypoint source kind %r" % kind)
 
 
+def resolve_route(source):
+    """`site:<id>`: every waypoint of an ai/sites.json site in order (the AI's own patrol line, so it
+    stays on ground the site author walked). Returns [(x, z), ...]."""
+    kind, _, ident = str(source).partition(":")
+    if kind != "site":
+        raise ScriptError("route source must be site:<id>, got %r" % (source,))
+    for site in _load("ai/sites.json").get("Sites", []):
+        if site.get("Id") == ident:
+            points = [_xz(point, source) for point in site.get("Waypoints") or []]
+            if not 2 <= len(points) <= MAX_ROUTE_POINTS:
+                raise ScriptError("site %s needs 2..%d waypoints for a route" % (ident, MAX_ROUTE_POINTS))
+            return points
+    raise ScriptError("no ai site %s" % ident)
+
+
 def _timeout_for(distance, gait):
     speed = {"walk": 1.3, "jog": 2.8, "sprint": 5.0}[gait]
     return int(min(3600, max(120, distance / speed * 2 + 120)))
@@ -211,6 +231,19 @@ class _Builder:
         self.position = (x, z)
         self.add("walk", note=source, to=[x, z], gait=gait, arrive_m=arrive,
                  timeout_s=_timeout_for(distance, gait))
+
+    def route(self, source, gait="jog", arrive=5):
+        points = resolve_route(source)
+        distance = 0.0
+        last = self.position or points[0]
+        for point in points:
+            distance += math.hypot(point[0] - last[0], point[1] - last[1])
+            last = point
+        self.position = points[-1]
+        flat = [value for point in points for value in point]
+        # Each ladder climb costs up to about 14 s (8 s stuck + a 2 s move or a 6 s door scan).
+        self.add("route", note=source, points=flat, gait=gait, arrive_m=arrive,
+                 timeout_s=min(3600, _timeout_for(distance, gait) + 30 * len(points)))
 
     def action(self, name, **overrides):
         args = dict(DEFAULT_ACTION_ARGS.get(name, {}))
@@ -250,6 +283,8 @@ def _phase_walk_zone(b):
 
 def _phase_walk_town(b):
     b.walk(TOWN)
+    # Then the scavenger site's own street line through the town, with the stuck ladder.
+    b.route(TOWN)
     b.add("stand", seconds=60)
 
 
@@ -263,7 +298,8 @@ def _phase_fixtures(b):
 
 
 def _phase_actions(b):
-    for name in ("craft", "search", "close_door"):
+    # open_door reopens the door close_door shut, from where the player stands (in reach).
+    for name in ("craft", "search", "close_door", "open_door"):
         b.action(name)
     b.action("mount")
     b.action("mount", target="TortillaBag")
@@ -347,7 +383,7 @@ def build_plan(phases):
 
 def step_token(step, notes):
     """The reach-map token of a step: wait|stand|sprint|ping, menu:<name>, admin:<cmd>, group:<op>,
-    action:<name>, enter:<zone> or walk:<waypoint source>. A fixture is also reachable as fixture:<cmd>."""
+    action:<name>, enter:<zone>, walk:<waypoint source> or route:<route source>. A fixture is also reachable as fixture:<cmd>."""
     kind = step["kind"]
     if kind == "enter":
         return "enter:" + step["zone"]
@@ -361,6 +397,8 @@ def step_token(step, notes):
         return "action:" + step["name"]
     if kind == "walk":
         return "walk:" + notes.get(step["id"], "")
+    if kind == "route":
+        return "route:" + notes.get(step["id"], "")
     return kind
 
 
@@ -491,6 +529,19 @@ def validate_step(step, label="step"):
             raise ScriptError("%s gait must be one of %s" % (label, GAITS))
         _number(step.get("hold_s"), 10, 540, label + " hold_s")
         _number(step.get("timeout_s"), 30, 3600, label + " timeout_s")
+    elif kind == "route":
+        points = step.get("points")
+        if (not isinstance(points, list) or len(points) % 2
+                or not 4 <= len(points) <= 2 * MAX_ROUTE_POINTS):
+            raise ScriptError("%s points must be a flat [x, z, ...] list of 2..%d waypoints"
+                              % (label, MAX_ROUTE_POINTS))
+        for index in range(0, len(points), 2):
+            _number(points[index], 0, WORLD_SIZE, label + " points.x")
+            _number(points[index + 1], 0, WORLD_SIZE, label + " points.z")
+        if step.get("gait") not in GAITS:
+            raise ScriptError("%s gait must be one of %s" % (label, GAITS))
+        _number(step.get("arrive_m"), 2, 50, label + " arrive_m")
+        _number(step.get("timeout_s"), 10, 3600, label + " timeout_s")
     elif kind == "action":
         name = step.get("name")
         if name not in ACTION_ARGS:
@@ -540,6 +591,11 @@ def describe(step, notes):
             step["zone"], step["gait"], step["hold_s"], step["timeout_s"])
         if "sites" in step:
             detail += " candidates=%d" % (len(step["sites"]) // 3)
+    elif kind == "route":
+        detail = "waypoints=%d gait=%s arrive_m=%s timeout_s=%s" % (
+            len(step["points"]) // 2, step["gait"], step["arrive_m"], step["timeout_s"])
+        if step["id"] in notes:
+            detail += " source=" + notes[step["id"]]
     elif kind == "action":
         detail = "name=%s args=%s timeout_s=%s" % (
             step["name"], json.dumps(step["args"], sort_keys=True), step["timeout_s"])
