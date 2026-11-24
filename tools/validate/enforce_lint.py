@@ -95,6 +95,7 @@ RULES = {
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
+    'HC-E052': 'GunPile and reach fixtures must use config compatibility, never weapon magazine/muzzle/chamber natives',
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
     enforce_json.RULE: enforce_json.DESCRIPTION,
     _handles.RULE: _handles.DESCRIPTION,
@@ -2775,7 +2776,32 @@ def rule_engine_class_modded(project, source):
                            f'modded class {definition.name}: {RULES["HC-E049"]}; use {refused[0]} ({refused[1]})')
 
 
-ALL_RULES = (rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+# Extend the path scopes here when another CE consumer adopts the config-only contract.
+_CONFIG_COMPAT_SCOPES = (
+    re.compile(r'(?:^|/)mods/.*/Loot/HCGunPile[^/]*\.c$'),
+    re.compile(r'(?:^|/)mods/.*/HCTestReachFixtures\.c$'),
+)
+_WEAPON_COMPAT_CALL = re.compile(
+    r'\b(?:Get\w*(?:Magazine|Muzzle|Chamber)\w*|HasInternalMagazine|SpawnAmmo'
+    r'|SpawnAttachedMagazine|FillChamber|GetAmmoMax)\s*\(')
+
+
+def rule_config_only_weapon_compat(project, source):
+    """#338 native null dereference: prohibit the whole query family in CE/fixture scopes.
+
+    Scope by path, independent of receiver spelling/type/alias. The fixture's
+    PushCartridgeToChamber, CanFire, IsChamberEmpty and Fire remain allowed.
+    Comments and literals are masked by enforce_source.
+    """
+    if not any(scope.search(source.path.as_posix()) for scope in _CONFIG_COMPAT_SCOPES):
+        return
+    for method in _all_methods(source):
+        for match in _WEAPON_COMPAT_CALL.finditer(source.code[method.body_start:method.body_end]):
+            yield _finding('HC-E052', source, method.body_start + match.start(), _symbol(method),
+                           RULES['HC-E052'])
+
+
+ALL_RULES = (rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,

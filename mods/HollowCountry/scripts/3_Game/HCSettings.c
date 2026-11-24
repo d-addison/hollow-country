@@ -569,7 +569,7 @@ class HCSettings
     int MaxBindQueriesPerTick = 2;
     bool FortifyUnclaimedBuild = true;
     int FortifyBreachSeconds = 90;
-    // #338: a CE-created gun may get its own magazine and ammo lying beside it (HCGunPile, 4_World/Loot).
+    // #338: config-validated CE/CE-debug gun piles; CE map accounting unverified (HCGunPile, 4_World/Loot).
     bool GunPileEnabled = true;
     float GunPileChance = 0.75;
     int GunPilePerTick = 4;

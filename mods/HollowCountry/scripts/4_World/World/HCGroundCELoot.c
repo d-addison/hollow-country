@@ -163,6 +163,8 @@ class HCGroundCELoot
             if (HCGroundSnap.Settle(item, 12, 0.08)) { s_RestoredSettled++; }
             return;
         }
+        // Transient marker: this CE item has reached its correction pass, even if no support is found.
+        item.m_HCGroundCEHandled = true;
         if (ours && shift != 0)
         {
             pos[1] = pos[1] + shift;
@@ -206,6 +208,7 @@ class HCGroundCELoot
             }
             s_SiteOverflow++;
             HCGroundSnap.Settle(item, 12, 0.08);
+            item.m_HCGroundCEHandled = true;
             return;
         }
         Correct(item, KIND_CE);
@@ -244,6 +247,7 @@ class HCGroundCELoot
                 {
                     s_SiteTimeout++;
                     HCGroundSnap.Settle(held, 12, 0.08);
+                    held.m_HCGroundCEHandled = true;
                 }
                 else
                 {
@@ -348,6 +352,7 @@ class HCGroundCELoot
 
 modded class ItemBase
 {
+    bool m_HCGroundCEHandled;
     // Constructors cannot lose a super chain to a subclass callback override.
     // This starts diagnostics only: admission remains strictly CE/Debug creation.
     void ItemBase()
