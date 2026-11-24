@@ -33,6 +33,7 @@ class PrelandTests(unittest.TestCase):
             return preland.CheckResult((codes or {}).get(key(module, arguments), 0),
                                        outputs.get(key(module, arguments), ''))
         args = list(args) + (['--ce-mission', 'synthetic-mission'] if mission else [])
+        args += ['--overlay-mission', 'synthetic-mission'] if mission and '--overlay-mission' not in args else []
         with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), patch.object(preland, 'asset_lint_runs', return_value=[list(a) for a in assets] if not isinstance(assets, str) else assets), patch.object(preland, 'world_mesh_gap', return_value=mesh_gap), patch.object(preland, 'overlay_vanilla_result', side_effect=lambda mission: run('tools.validate.overlay_vanilla', [str(mission)])), patch.dict(os.environ, {'HC_CE_MISSION': '', 'HC_OVERLAY_MISSION': ''}), contextlib.redirect_stdout(io.StringIO()) as out:
             code = preland.main(args)
         return code, calls, out.getvalue()

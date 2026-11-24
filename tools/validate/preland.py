@@ -280,7 +280,8 @@ def main(argv=None):
     parser.add_argument('--ce-mission', type=Path, default=os.environ.get('HC_CE_MISSION') or None,
                         help='staged mission (stock plus installed overlays) for ce_slot_pressure; default HC_CE_MISSION')
     parser.add_argument('--overlay-mission', type=Path, default=os.environ.get('HC_OVERLAY_MISSION') or None,
-                        help='host mission for overlay_vanilla; default HC_OVERLAY_MISSION, then --ce-mission/HC_CE_MISSION')
+                        help='VANILLA source mission (the friendcycle --mission) for overlay_vanilla; default HC_OVERLAY_MISSION. '
+                             'Never the installed mission: its rows already carry our overlays')
     parser.add_argument('--addons', type=Path, default=ADDONS,
                         help='installed vanilla Addons for world_mesh_audit availability')
     parser.add_argument('--wb', action='store_true', help='also run tools.release.wb_compile when installed')
@@ -288,7 +289,6 @@ def main(argv=None):
     parser.add_argument('--profile', choices=('local', 'ci'), default='local',
                         help='ci: deterministic Windows-free checks with listed installed-input exclusions')
     args = parser.parse_args(argv)
-    args.overlay_mission = args.overlay_mission or args.ce_mission
     if args.profile == 'ci' and (args.wb or args.changed):
         parser.error('--profile ci always runs the full offline tree; --wb/--changed are local only')
     try:
@@ -338,7 +338,7 @@ def execute(args, paths, scratch):
                 gap = 'staged CE mission not provided (--ce-mission or HC_CE_MISSION)'
         elif name == 'overlay_vanilla':
             if not args.overlay_mission:
-                gap = 'host mission not provided (--overlay-mission, HC_OVERLAY_MISSION or HC_CE_MISSION)'
+                gap = 'host mission not provided (--overlay-mission or HC_OVERLAY_MISSION)'
         elif name == 'world_mesh_audit':
             gap = world_mesh_gap(args)
             arguments += ['--report', str(scratch / 'world-mesh-audit.json')]

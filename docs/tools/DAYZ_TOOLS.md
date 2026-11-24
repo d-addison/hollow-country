@@ -126,7 +126,7 @@ lists these rows as explicit exclusions.
 | --- | --- |
 | `cfgconvert_check` | Installed Windows CfgConvert and working WSL interop |
 | `ce_slot_pressure` | Staged mission via `--ce-mission` or `HC_CE_MISSION` |
-| `overlay_vanilla` | Host mission via `--overlay-mission`, then `HC_OVERLAY_MISSION`, then `--ce-mission`/`HC_CE_MISSION` |
+| `overlay_vanilla` | Vanilla source mission (the friendcycle `--mission`) via `--overlay-mission` or `HC_OVERLAY_MISSION`; never the installed mission, which already carries our overlays |
 | `world_mesh_audit` | Installed vanilla Addons via `--addons` |
 | `wb_compile` (opt-in `--wb`) | Installed Workbench; separate lead compile gate |
 
