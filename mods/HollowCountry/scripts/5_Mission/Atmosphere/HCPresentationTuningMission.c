@@ -2,11 +2,13 @@
 // Native scripts-1.30.164289: mission/missionServer.c:85 OnInit,
 // :549/599/633 new/ready/reconnect; missionGameplay.c:102/266 init/finish;
 // 2_GameLib/tools.c:61/65 ScriptCallQueue.CallLater/Remove.
-// One bounded file read/serialization per 30s, one broadcast only on change.
+// Poll the bounded source every 30 s. Decode only when its text changes and
+// broadcast only when the effective tuning changes.
 // No client request path, recipient enumeration, profile write or new module.
 class HCPresentationTuningServer
 {
     protected static string s_Image;
+    protected static string s_SourceImage;
     protected static int s_Revision;
     protected static ref HCUnitBudget s_Units = new HCUnitBudget;
     protected static ref HCWorkBudget s_Work = new HCWorkBudget;
@@ -14,6 +16,7 @@ class HCPresentationTuningServer
     static void HCStart()
     {
         s_Image = "";
+        s_SourceImage = "";
         s_Revision = 0;
         HCRefresh();
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPresentationTuningServer.HCCheckChanges);
@@ -23,7 +26,9 @@ class HCPresentationTuningServer
     protected static bool HCRefresh()
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
-        HCc2PresentationConfig config = HCc2PresentationConfig.HCLoad();
+        string sourceImage = HCc2PresentationConfig.HCReadSource();
+        if (s_Image != "" && sourceImage == s_SourceImage) { return false; }
+        HCc2PresentationConfig config = HCc2PresentationConfig.HCDecode(sourceImage);
         string image;
         string error;
         if (!JsonFileLoader<HCc2PresentationConfig>.MakeData(config, image, error, false))
@@ -36,7 +41,11 @@ class HCPresentationTuningServer
             Print("[HC Config] atmosphere-presentation sync=refused reason=wire_limit last_snapshot_retained runtime=PENDING");
             return false;
         }
-        if (image == s_Image) { return false; }
+        if (image == s_Image)
+        {
+            s_SourceImage = sourceImage;
+            return false;
+        }
         if (s_Revision >= 2000000000)
         {
             Print("[HC Config] atmosphere-presentation sync=refused reason=revision_exhausted last_snapshot_retained runtime=PENDING");
@@ -44,6 +53,7 @@ class HCPresentationTuningServer
         }
         HCc2PresentationConfig.HCSet(config);
         s_Image = image;
+        s_SourceImage = sourceImage;
         s_Revision = s_Revision + 1;
         return true;
     }

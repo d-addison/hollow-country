@@ -192,6 +192,7 @@ class HCc2PresentationConfig
     static const int READ_LIMIT = 8192;
     // One byte past READ_LIMIT so an oversized file is detected instead of truncated.
     static const int PRESENTATION_READ_PROBE = 8193;
+    protected static const string PROFILE_PATH = "$profile:HollowCountry/atmosphere-presentation.json";
     int GradeDefaultPercent = 60;
     float GradeDawnHour = 8;
     float GradeDawnBlendHours = 2;
@@ -246,15 +247,28 @@ class HCc2PresentationConfig
 
     static HCc2PresentationConfig HCLoad()
     {
-        HCc2PresentationConfig defaults = new HCc2PresentationConfig;
+        string image = HCc2PresentationConfig.HCReadSource();
+        return HCc2PresentationConfig.HCDecode(image);
+    }
+
+    static string HCReadSource()
+    {
         // Clients never read their local tuning file, including before receipt.
-        if (!GetGame() || !GetGame().IsServer()) { return defaults; }
-        string path = "$profile:HollowCountry/atmosphere-presentation.json";
-        if (!FileExist(path)) { return defaults; }
+        if (!GetGame() || !GetGame().IsServer()) { return ""; }
+        if (!FileExist(HCc2PresentationConfig.PROFILE_PATH)) { return ""; }
         string image;
+        if (HCc2PresentationConfig.HCReadTuning(HCc2PresentationConfig.PROFILE_PATH, image)) { return image; }
+        Print("[HC Config] atmosphere-presentation reason=read_or_json defaults_retained runtime=PENDING");
+        return "";
+    }
+
+    static HCc2PresentationConfig HCDecode(string image)
+    {
+        HCc2PresentationConfig defaults = new HCc2PresentationConfig;
+        if (image == "") { return defaults; }
         string error;
         HCc2PresentationConfig loaded;
-        if (!HCReadTuning(path, image) || !JsonFileLoader<HCc2PresentationConfig>.LoadData(image, loaded, error) || !loaded)
+        if (!JsonFileLoader<HCc2PresentationConfig>.LoadData(image, loaded, error) || !loaded)
         {
             Print("[HC Config] atmosphere-presentation reason=read_or_json defaults_retained runtime=PENDING");
             return defaults;
