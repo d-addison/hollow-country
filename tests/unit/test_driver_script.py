@@ -287,5 +287,24 @@ class DriverScriptTests(unittest.TestCase):
                 ds.validate_step(step)
 
 
+    def test_playing_phases_run_alone_and_in_the_default_route(self):
+        def tokens_of(phases):
+            script, notes = ds.build_plan(phases)
+            return [ds.step_token(step, notes) for step in script["steps"]]
+        tokens, index = tokens_of(list(ds.PHASES)), ds.phase_index()
+        # The default route plays each kind once, in its own phase, without extra walks or fixtures.
+        self.assertEqual(sorted(index["combat"]), ["combat"])
+        self.assertEqual(sorted(index["loot"]), ["loot"])
+        self.assertEqual(sorted(index["vehicle"]), ["vehicle"])
+        self.assertEqual(sorted(index["survive"]), ["survive"])
+        self.assertLess(tokens.index("action:flip"), tokens.index("vehicle"))
+        self.assertLess(tokens.index("loot"), tokens.index("survive"))
+        alone = tokens_of(["join", "combat", "idle"])
+        self.assertIn("walk:" + ds.TOWN, alone)
+        alone = tokens_of(["join", "vehicle", "idle"])
+        self.assertLess(alone.index("admin:fx_car_side"), alone.index("action:flip"))
+        self.assertLess(alone.index("action:flip"), alone.index("vehicle"))
+
+
 if __name__ == "__main__":
     unittest.main()

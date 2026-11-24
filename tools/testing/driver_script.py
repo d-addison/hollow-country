@@ -22,8 +22,11 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 MISSION = ROOT / "mission" / "hollow-country"
 VERSION = 1
-PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "fixtures", "actions", "scene", "forest",
-          "mission", "idle")
+PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "combat", "loot", "fixtures", "actions",
+          "vehicle", "scene", "forest", "survive", "mission", "idle")
+# A phase that needs a place walks there first unless the route already stands within this of it, so
+# every phase also runs alone (a targeted soak drives join, the phase and idle).
+NEAR_M = 400.0
 DEFAULT_PHASES = list(PHASES)
 MAX_STEPS = 400
 WORLD_SIZE = 15360.0
@@ -239,11 +242,14 @@ class _Builder:
         self.steps = []
         self.notes = {}
         self.position = None
+        self.done = set()
 
     def add(self, kind, note="", **fields):
         step = {"id": "s%02d" % (len(self.steps) + 1), "kind": kind}
         step.update(fields)
         self.steps.append(step)
+        if kind == "action":
+            self.done.add("action:" + fields.get("name", ""))
         if note:
             self.notes[step["id"]] = note
         return step
@@ -270,6 +276,12 @@ class _Builder:
         # Each ladder climb costs up to about 14 s (8 s stuck + a 2 s move or a 6 s door scan).
         self.add("route", note=source, points=flat, gait=gait, arrive_m=arrive,
                  timeout_s=min(3600, _timeout_for(distance, gait) + 30 * len(points)))
+
+    def near(self, source, gait="jog"):
+        """Walk to source unless the route already stands within NEAR_M of it."""
+        x, z = resolve_waypoint(source)
+        if self.position is None or math.hypot(x - self.position[0], z - self.position[1]) > NEAR_M:
+            self.walk(source, gait=gait)
 
     def action(self, name, **overrides):
         args = dict(DEFAULT_ACTION_ARGS.get(name, {}))
@@ -312,9 +324,18 @@ def _phase_walk_town(b):
     # Then the scavenger site's own street line through the town, with the stuck ladder.
     b.route(TOWN)
     b.add("stand", seconds=60)
-    # Town streets carry infected: raise, aim and reload at the nearest visible one.
+
+
+def _phase_combat(b):
+    # Town streets carry infected: raise, aim and reload at the nearest visible one (never fires).
+    b.near(TOWN)
     b.add("combat", range_m=60, timeout_s=180)
-    # Then whatever the streets offer: rifle magazines, food, drink, bandages, a map.
+
+
+def _phase_loot(b):
+    # Whatever the town street offers: rifle magazines and ammunition first, then food, drink,
+    # bandages and a map, each with the vanilla take action.
+    b.near(TOWN)
     b.add("loot", range_m=40, max_items=4, timeout_s=300)
 
 
@@ -333,11 +354,8 @@ def _phase_actions(b):
         b.action(name)
     b.action("mount")
     b.action("mount", target="TortillaBag")
-    for name in ("salvage", "flip"):
+    for name in ("salvage", "flip", "radio"):
         b.action(name)
-    # Drive the car flip just righted (fx_car_side), the vanilla way, then carry on with the radio.
-    b.add("vehicle", range_m=40, seconds=8, throttle=0.5, timeout_s=180)
-    b.action("radio")
     for cmd in ("radio", "loot", "decay", "deaddrop"):
         b.admin(cmd)
 
@@ -357,8 +375,6 @@ def _phase_forest(b):
     b.admin("forage", 20)
     b.action("pickup_forage")
     b.add("stand", seconds=60)
-    # Eat and drink what the town loot and the forage gave; bandage if the town fight left a wound.
-    b.add("survive", mode="always", timeout_s=120)
 
 
 def site_candidates():
@@ -389,14 +405,29 @@ def _phase_mission(b):
     b.add("stand", seconds=20)
 
 
+def _phase_vehicle(b):
+    # Drive the car the actions phase flipped back onto its wheels (fx_car_side), the vanilla way. Run
+    # alone, it places and rights that car first (the same setup-only fixture and the real flip).
+    if "action:flip" not in b.done:
+        b.admin("fx_car_side", FIXTURE_STAND.get("fx_car_side", 3))
+        b.action("flip")
+    b.add("vehicle", range_m=40, seconds=8, throttle=0.5, timeout_s=180)
+
+
+def _phase_survive(b):
+    # Eat and drink what the town loot and the forage gave; bandage if the town fight left a wound.
+    b.add("survive", mode="always", timeout_s=120)
+
+
 def _phase_idle(b):
     b.add("stand", seconds=60)
 
 
 _PHASE_BUILDERS = {
     "join": _phase_join, "group": _phase_group, "walk_ai": _phase_walk_ai,
-    "walk_zone": _phase_walk_zone, "walk_town": _phase_walk_town, "fixtures": _phase_fixtures,
-    "actions": _phase_actions, "scene": _phase_scene, "forest": _phase_forest, "mission": _phase_mission,
+    "walk_zone": _phase_walk_zone, "walk_town": _phase_walk_town, "combat": _phase_combat,
+    "loot": _phase_loot, "fixtures": _phase_fixtures, "actions": _phase_actions, "vehicle": _phase_vehicle,
+    "scene": _phase_scene, "forest": _phase_forest, "survive": _phase_survive, "mission": _phase_mission,
     "idle": _phase_idle,
 }
 
