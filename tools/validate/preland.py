@@ -21,9 +21,10 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 CHECKS = ('enforce_lint', 'enforce_perf', 'layout_lint', 'cfgconvert_check',
           'settings_consistency', 'wiring_audit', 'regenerate_all', 'generated_digests',
-          'mission_sources', 'hygiene', 'hc_events', 'ce_slot_pressure', 'world_mesh_audit',
+          'mission_sources', 'hygiene', 'hc_events', 'ce_slot_pressure', 'overlay_vanilla', 'world_mesh_audit',
           'asset_lint')
-# Checks whose entry point is not tools.validate.<name>. hygiene runs the whole repository
+# Checks whose entry point is not tools.validate.<name>. overlay_vanilla calls the
+# shared friendcycle function in-process; hygiene runs the whole repository
 # scan (secrets, local paths, banned provider text in mods/mission/config); hc_events and
 # ce_slot_pressure use quiet mission_sources summaries instead of 10-20 KB JSON lines.
 COMMANDS = {
@@ -31,9 +32,10 @@ COMMANDS = {
     'hc_events': ('tools.validate.mission_sources', ['--events']),
     'ce_slot_pressure': ('tools.validate.mission_sources', ['--ce-slots']),
     'world_mesh_audit': ('tools.audit.world_mesh_audit', []),
+    'overlay_vanilla': ('tools.release.friendcycle', []),
 }
 # Gates that need installed or staged inputs; the CI profile lists them as exclusions.
-CI_ONLY_EXCLUDED = ('cfgconvert_check', 'wb_compile', 'ce_slot_pressure', 'world_mesh_audit')
+CI_ONLY_EXCLUDED = ('cfgconvert_check', 'wb_compile', 'ce_slot_pressure', 'overlay_vanilla', 'world_mesh_audit')
 # Built assets for asset_lint: <stem>.p3d (or <stem>.ir.json) beside <stem>.model.cfg and
 # <stem>.sources.json; the config is the owned assets addon's config.cpp. assets_src holds
 # only ops recipes today, so the gate reports no applicable inputs until a built asset lands.
@@ -45,6 +47,7 @@ ASSET_CONFIG = ROOT / 'mods/HollowCountryAssets/config.cpp'
 CI_EXCLUSIONS = {
     'cfgconvert_check': 'requires the installed Windows DayZ Tools cfgconvert executable',
     'wb_compile': 'requires installed Windows Workbench; engine compilation is a separate lead gate',
+    'overlay_vanilla': 'requires a host mission with vanilla map rows; pass --overlay-mission locally',
     'ce_slot_pressure': 'requires a staged mission (stock files plus installed overlays); pass --ce-mission locally',
     'world_mesh_audit': 'requires installed vanilla Addons (the in-repo ODOL reader is used)',
     'enforce_lint.native': 'installed native and Workshop APIs are absent; use pinned names with --no-native',
@@ -183,6 +186,13 @@ def run_check(module, arguments):
     return CheckResult(result.returncode, result.stdout + "\n" + result.stderr)
 
 
+def overlay_vanilla_result(mission):
+    from tools.release.friendcycle import overlay_vanilla_check
+    overlay_vanilla_check(None, mission, 'preland', tree=ROOT)
+    print('overlay_vanilla: pass (working-tree overlays against mission vanilla rows)')
+    return CheckResult(0)
+
+
 def anim_lint_step(args, paths):
     """anim_lint gate for changed animation files: ((name, status, scope), failed, incomplete) or None.
 
@@ -269,6 +279,8 @@ def main(argv=None):
     parser.add_argument('--changed', metavar='BASE', help='limit supported gates; others retain full-tree scope')
     parser.add_argument('--ce-mission', type=Path, default=os.environ.get('HC_CE_MISSION') or None,
                         help='staged mission (stock plus installed overlays) for ce_slot_pressure; default HC_CE_MISSION')
+    parser.add_argument('--overlay-mission', type=Path, default=os.environ.get('HC_OVERLAY_MISSION') or None,
+                        help='host mission for overlay_vanilla; default HC_OVERLAY_MISSION, then --ce-mission/HC_CE_MISSION')
     parser.add_argument('--addons', type=Path, default=ADDONS,
                         help='installed vanilla Addons for world_mesh_audit availability')
     parser.add_argument('--wb', action='store_true', help='also run tools.release.wb_compile when installed')
@@ -276,6 +288,7 @@ def main(argv=None):
     parser.add_argument('--profile', choices=('local', 'ci'), default='local',
                         help='ci: deterministic Windows-free checks with listed installed-input exclusions')
     args = parser.parse_args(argv)
+    args.overlay_mission = args.overlay_mission or args.ce_mission
     if args.profile == 'ci' and (args.wb or args.changed):
         parser.error('--profile ci always runs the full offline tree; --wb/--changed are local only')
     try:
@@ -323,6 +336,9 @@ def execute(args, paths, scratch):
                 arguments.append(str(Path(args.ce_mission).expanduser()))
             else:
                 gap = 'staged CE mission not provided (--ce-mission or HC_CE_MISSION)'
+        elif name == 'overlay_vanilla':
+            if not args.overlay_mission:
+                gap = 'host mission not provided (--overlay-mission, HC_OVERLAY_MISSION or HC_CE_MISSION)'
         elif name == 'world_mesh_audit':
             gap = world_mesh_gap(args)
             arguments += ['--report', str(scratch / 'world-mesh-audit.json')]
@@ -369,7 +385,9 @@ def execute(args, paths, scratch):
             scope = 'changed addons (non-mod change: full tree)'
         print(f'preland: running {name} ({scope})', flush=True)
         try:
-            if runs:
+            if name == 'overlay_vanilla':
+                result = overlay_vanilla_result(Path(args.overlay_mission).expanduser())
+            elif runs:
                 results = [run_check(module, run) for run in runs]
                 result = CheckResult(max(r.code for r in results), '\n'.join(r.output for r in results))
             else:
@@ -397,7 +415,7 @@ def execute(args, paths, scratch):
                 status = 'FAIL (skipped/unavailable coverage)'
                 failed = True
             elif name == 'cfgconvert_check' and code == SKIPPED:
-                status = 'needs-host-check: unavailable'
+                status = 'needs-host-check: ' + ('; '.join(gaps[:1]) or 'CfgConvert returned no skip reason')[:160]
                 incomplete = True
             elif not ci and (code == SKIPPED or (code == 0 and gaps)):
                 # Host-only inputs (native cache, Windows tools) are missing: never a pass.
@@ -412,8 +430,13 @@ def execute(args, paths, scratch):
             else:
                 status = 'pass' if code == 0 else f'FAIL ({code})'
                 failed |= code != 0
-        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-            status = 'FAIL (launch/timeout)'
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+            if name == 'overlay_vanilla' and isinstance(error, ValueError):
+                for line in str(error).splitlines():
+                    safe = filtered(line)
+                    if safe:
+                        print(safe)
+            status = 'FAIL (overlay validation)' if name == 'overlay_vanilla' else 'FAIL (launch/timeout)'
             failed = True
         rows.append((name, status, scope))
     animation = anim_lint_step(args, paths)

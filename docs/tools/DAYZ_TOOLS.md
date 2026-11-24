@@ -94,10 +94,16 @@ path conservatively selects all configs.
 
 Both commands return 0 on success, 1 on failed checks, and 3 for unavailable
 native/optional checks (incomplete). Argparse usage errors return 2. Missing
-interop or tool files print `skipped: CfgConvert unavailable`, never a pass.
-Each native process has a 30-second limit; the wrapper terminates only the
-process it starts and cleans its temporary tree. A native timeout fails the check.
-The outer interop call has a 60-second limit. A prior config failure takes precedence over a later skip.
+interop or tool files print `skipped:` with the reason, never a pass. The converter
+wrapper logs and retries one explicit WSL vsock connection failure, where
+PowerShell did not start. The shared `winproc.run` previously collapsed that
+failure, empty replies and timeouts into a generic skip with retries disabled.
+An empty reply now identifies the unknown execution state and is not replayed;
+real compiler refusals and missing/invalid RAP receipts are never retried.
+Each native process has a 30-second limit. A native timeout fails the check;
+the process is left running and its scratch tree retained, without force-killing.
+The outer interop call has a 60-second limit; its timeout also fails without retry.
+A prior config failure takes precedence over a later skip.
 
 Preland runs Enforce lint with the pinned native cache argument, performance lint,
 layout lint, config gate, settings consistency and wiring audit, in that order.
@@ -106,11 +112,41 @@ Missing layout/Workbench modules report `not available`; missing required Python
 gates fail. Other launch failures, timeouts and nonzero exits fail, while config
 unavailability remains incomplete. The summary states each result and scope.
 Changed mode includes committed differences from BASE, staged/unstaged edits and
-untracked files. Performance lint selects existing changed authored `.c` paths;
-config checks select affected addons even for deleted includes. Enforce lint,
-layout, settings and wiring currently retain full-tree scope because their
-observed CLIs do not expose file selection. Preland does not run unit suites,
-start game processes, or replace the native compile/boot gate.
+untracked files. Config checks select affected addons even for deleted includes.
+Performance, Enforce, layout, settings and wiring checks retain full-tree scope.
+Changed Python files also select mapped tooling unit-test modules. Preland does
+not run the full unit suite, start game processes, or replace the native
+compile/boot gate.
+
+Preland's installed-input checks are host-only. Without their inputs a local
+run is incomplete (exit 3); `--strict` fails the missing coverage. The CI profile
+lists these rows as explicit exclusions.
+
+| Check | Host input |
+| --- | --- |
+| `cfgconvert_check` | Installed Windows CfgConvert and working WSL interop |
+| `ce_slot_pressure` | Staged mission via `--ce-mission` or `HC_CE_MISSION` |
+| `overlay_vanilla` | Host mission via `--overlay-mission`, then `HC_OVERLAY_MISSION`, then `--ce-mission`/`HC_CE_MISSION` |
+| `world_mesh_audit` | Installed vanilla Addons via `--addons` |
+| `wb_compile` (opt-in `--wb`) | Installed Workbench; separate lead compile gate |
+
+`overlay_vanilla` reuses `friendcycle.overlay_vanilla_check` against the current
+working tree, including uncommitted overlay edits. It runs the same
+`friend_bundle check-overlays` path as release builds, rolling back installed HC
+overlays on a scratch mission copy before validating against vanilla rows. The
+host mission is read only. The check retains full-tree scope with `--changed`.
+For example:
+
+```sh
+HC_CE_MISSION=/path/to/staged/mission python3 -B -m tools.validate.preland --changed origin/dev
+```
+
+Friendcycle requires the running checkout's HEAD to equal the resolved `--commit`
+and its `tools/release` and `tools/package` directories to have no tracked or
+untracked changes. It refuses before taking the host lock or setting up a build
+with “run friendcycle from a clean worktree at the candidate commit”. This small
+guard keeps the existing clean build worktrees and avoids changing which Python
+driver performs release verification.
 
 Lead follow-up after Windows interop is restored:
 

@@ -33,7 +33,7 @@ class PrelandTests(unittest.TestCase):
             return preland.CheckResult((codes or {}).get(key(module, arguments), 0),
                                        outputs.get(key(module, arguments), ''))
         args = list(args) + (['--ce-mission', 'synthetic-mission'] if mission else [])
-        with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), patch.object(preland, 'asset_lint_runs', return_value=[list(a) for a in assets] if not isinstance(assets, str) else assets), patch.object(preland, 'world_mesh_gap', return_value=mesh_gap), patch.dict(os.environ, {'HC_CE_MISSION': ''}), contextlib.redirect_stdout(io.StringIO()) as out:
+        with patch.object(preland.importlib.util, 'find_spec', side_effect=lambda m: None if m.rsplit('.', 1)[1] in missing else object()), patch.object(preland, 'run_check', side_effect=run), patch.object(preland, 'asset_lint_runs', return_value=[list(a) for a in assets] if not isinstance(assets, str) else assets), patch.object(preland, 'world_mesh_gap', return_value=mesh_gap), patch.object(preland, 'overlay_vanilla_result', side_effect=lambda mission: run('tools.validate.overlay_vanilla', [str(mission)])), patch.dict(os.environ, {'HC_CE_MISSION': '', 'HC_OVERLAY_MISSION': ''}), contextlib.redirect_stdout(io.StringIO()) as out:
             code = preland.main(args)
         return code, calls, out.getvalue()
 
@@ -387,11 +387,23 @@ class PrelandTests(unittest.TestCase):
         code, calls, output = self.invoke(mission=False)
         self.assertEqual(preland.SKIPPED, code)
         self.assertIn('ce_slot_pressure | skipped: staged CE mission not provided', output)
+        self.assertIn('overlay_vanilla | skipped: host mission not provided', output)
         self.assertNotIn('ce_slot_pressure', [key(m, a) for m, a in calls])
         code, _, output = self.invoke(['--strict'], mission=False)
         self.assertEqual(1, code)
         self.assertIn('ce_slot_pressure | FAIL (skipped: ', output)
+        self.assertIn('overlay_vanilla | FAIL (skipped: ', output)
         self.assertEqual(1, self.invoke(codes={'ce_slot_pressure': 1})[0])
+
+    def test_overlay_reuses_friendcycle_checker_without_git_worktree(self):
+        with patch('tools.release.friendcycle.overlay_vanilla_check') as check, \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(0, preland.overlay_vanilla_result(Path('mission')).code)
+        check.assert_called_once_with(None, Path('mission'), 'preland', tree=preland.ROOT)
+        self.assertEqual(1, self.invoke(codes={'overlay_vanilla': 1})[0])
+        code, calls, _ = self.invoke(['--overlay-mission', 'overlay-mission'])
+        self.assertEqual(0, code)
+        self.assertIn(('tools.validate.overlay_vanilla', ['overlay-mission']), calls)
 
     def test_world_mesh_audit_skips_cleanly_and_fails_on_findings(self):
         code, calls, output = self.invoke(mesh_gap='installed vanilla Addons unavailable')
@@ -415,7 +427,7 @@ class PrelandTests(unittest.TestCase):
         names = [key(m, a) for m, a in calls]
         for name in ('hygiene', 'hc_events', 'asset_lint'):
             self.assertIn(name, names)
-        for name in ('ce_slot_pressure', 'world_mesh_audit'):
+        for name in ('ce_slot_pressure', 'overlay_vanilla', 'world_mesh_audit'):
             self.assertNotIn(name, names)
             self.assertIn(name + ' | excluded: ' + preland.CI_EXCLUSIONS[name], output)
 

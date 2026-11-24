@@ -49,19 +49,43 @@ class ConfigGateTests(unittest.TestCase):
         self.assertIn('mods/Test/config.cpp:9:', output)
 
     def test_native_receipt_required_and_failure_output_overrides_it(self):
-        with patch.object(gate, 'windows_path', side_effect=lambda p: str(p)), patch.object(gate.winproc, 'run') as run:
+        with patch.object(gate, 'windows_path', side_effect=lambda p: str(p)), patch.object(gate, 'run_converter_interop') as run:
             for receipt, expected in [('HC_CFG_RESULT=0:True', True),
                                       ('HC_CFG_RESULT=1:True', False),
                                       ('HC_CFG_RESULT=0:False', False), ('', False),
                                       ('syntax error\nHC_CFG_RESULT=0:True', False)]:
                 run.return_value = Result(0, receipt, '', 1)
                 self.assertEqual(expected, gate.convert(self.source, self.tool)[0])
-            script = run.call_args.args[1][0]
+            script = run.call_args.args[0]
             self.assertIn('-bin -dst', script)
             self.assertIn('Copy-Item', script)
             self.assertNotIn('Kill()', script, 'never force-kill a stalled converter')
             self.assertIn('finally', script)
             self.assertIn('$env:TEMP', script)
+
+    def test_interop_retries_only_explicit_prelaunch_failure(self):
+        import subprocess
+        refused = subprocess.CompletedProcess([], 1, b'', b'WSL UtilAcceptVsock: accept4 failed')
+        passed = subprocess.CompletedProcess([], 0, b'HC_CFG_RESULT=0:True', b'')
+        with patch.object(gate.subprocess, 'run', side_effect=[refused, passed]) as run, \
+             patch.object(gate.time, 'sleep'), contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual('HC_CFG_RESULT=0:True', gate.run_converter_interop('script').stdout)
+            self.assertEqual(2, run.call_count)
+            self.assertIn('retrying', out.getvalue())
+        for result in (subprocess.CompletedProcess([], 1, b'syntax error', b''),
+                       subprocess.CompletedProcess([], 1, b'HC_CFG_RESULT=1:False', b''),
+                       subprocess.CompletedProcess([], 1, b'HC_CFG_STARTED', b'UtilAcceptVsock: accept4 failed')):
+            with patch.object(gate.subprocess, 'run', return_value=result) as run:
+                self.assertEqual(1, gate.run_converter_interop('script').returncode)
+                self.assertEqual(1, run.call_count)
+        with patch.object(gate.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'', b'')) as run:
+            with self.assertRaisesRegex(InteropError, 'empty.*no retry'):
+                gate.run_converter_interop('script')
+            self.assertEqual(1, run.call_count)
+        with patch.object(gate.subprocess, 'run', side_effect=subprocess.TimeoutExpired('powershell', 60)) as run:
+            with self.assertRaisesRegex(ValueError, 'timed out.*no retry'):
+                gate.run_converter_interop('script')
+            self.assertEqual(1, run.call_count)
 
     def test_privacy_does_not_change_failure_verdict(self):
         raw = 'Error line 7 C:' + '\\Users\\Example\\secret.cpp\nSteam ID 12345678901234567'
