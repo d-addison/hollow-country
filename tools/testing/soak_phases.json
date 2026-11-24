@@ -131,7 +131,8 @@
   "GunPile": "join",
   "Notes": "scene",
   "NotesCompat": "scene",
-  "VehicleRetire": "idle"
+  "VehicleRetire": "idle",
+  "SitePatrols": "walk_ai"
  },
  "features": {
   "AISelfDefence/threats_applied": "walk_ai",
@@ -190,6 +191,33 @@
   }
  ],
  "reach": {
+  "SitePatrols/death_hold_armed": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "code:HCXAISitePatrols.c"
+   ],
+   "class": "diagnostic",
+   "note": "#334: needs a site patrol member killed; the scripted client does not fight, so this stays zero until a kill fixture lands."
+  },
+  "SitePatrols/death_hold_deferred": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "code:HCXAISitePatrols.c"
+   ],
+   "class": "diagnostic",
+   "note": "#334: needs a site patrol member killed; the scripted client does not fight, so this stays zero until a kill fixture lands."
+  },
+  "SitePatrols/death_hold_released": {
+   "phase": "walk_ai",
+   "how": [
+    "step:walk:site:police-chernogorsk",
+    "code:HCXAISitePatrols.c"
+   ],
+   "class": "diagnostic",
+   "note": "#334: needs a site patrol member killed; the scripted client does not fight, so this stays zero until a kill fixture lands."
+  },
   "AIIncidents/lease_step": {
    "phase": "fixtures",
    "how": [
