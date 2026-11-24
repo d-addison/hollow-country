@@ -179,6 +179,10 @@ def run_check(module, arguments):
     environment = {**os.environ}
     environment.setdefault(source_cache.ENV, str(SOURCE_CACHE_DIR))
     timeout = 600
+    if module == 'tools.package.regenerate_all':
+        # 21 generators outgrew 600 s on the full tree (2026-11-24: launch/timeout
+        # in preland while a direct run passed 21/0/0); match the digest budget.
+        timeout = 1800
     if ('--require-installed' in arguments and '--geometry-addons' not in arguments
             and environment.get('HC_GENERATED_GEOMETRY_ADDONS')):
         if module == 'tools.package.regenerate_all':
