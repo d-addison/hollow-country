@@ -77,7 +77,7 @@ class HCFlipJob
 }
 class HCVehicleFlipModule : HCModule
 {
-    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("requests queued pulses finished refused candidate capacity cooldown duplicate safety expiry mass service");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("requests queued pulses finished refused candidate capacity cooldown duplicate safety expiry mass service");
     protected static HCVehicleFlipModule s_Instance;
     protected ref array<ref HCFlipJob> m_Jobs;
     protected ref array<Man> m_Players;
@@ -154,7 +154,7 @@ class HCVehicleFlipModule : HCModule
     }
     bool HCQueue(PlayerBase actor, CarScript vehicle)
     {
-        m_Activity.HCHit("requests");
+        m_Activity.Add("requests");
         if (s_Instance != this || !GetGame().IsServer()) { m_Activity.HCRefuse("service"); return false; }
         if (!HCCandidate(actor, vehicle)) { m_Activity.HCRefuse("candidate"); return false; }
         if (m_Jobs.Count() >= 4) { m_Activity.HCRefuse("capacity"); return false; }
@@ -172,7 +172,7 @@ class HCVehicleFlipModule : HCModule
         job.Vehicle = vehicle;
         job.Until = now + 12;
         m_Jobs.Insert(job);
-        m_Activity.HCHit("queued");
+        m_Activity.Add("queued");
         vehicle.m_HCFlipAfter = now + 30;
         Print("[HollowCountry] W5 vehicle-flip queued pulses<=3 cooldown=30");
         return true;
@@ -211,10 +211,10 @@ class HCVehicleFlipModule : HCModule
         dBodyApplyTorqueImpulse(job.Vehicle, axis * mass * HCVehicleFlipConfig.Get().TorqueMassScale * direction);
         dBodyApplyImpulse(job.Vehicle, Vector(0, mass * HCVehicleFlipConfig.Get().LiftMassScale, 0));
         job.Pulses++;
-        m_Activity.HCHit("pulses");
+        m_Activity.Add("pulses");
         HCModuleReadiness.HCUse("VehicleFlip", "impulse_applied");
         Print("[HollowCountry] W5 vehicle-flip impulse pulse=" + job.Pulses.ToString());
-        if (job.Pulses >= HCVehicleFlipConfig.Get().Pulses) { m_Activity.HCHit("finished"); m_Jobs.RemoveOrdered(m_Cursor); }
+        if (job.Pulses >= HCVehicleFlipConfig.Get().Pulses) { m_Activity.Add("finished"); m_Jobs.RemoveOrdered(m_Cursor); }
         else { m_Cursor++; }
     }
     override void OnStop()

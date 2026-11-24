@@ -3,11 +3,11 @@
 class HCInteriorRules
 {
     static const float MAX_HOUSE_TILT_DEGREES = 0.5;
-    protected static ref HCActivityWindow s_Activity;
+    protected static ref HCActivityCounters s_Activity;
 
-    static HCActivityWindow HCActivity()
+    static HCActivityCounters HCActivity()
     {
-        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Interiors] rules", "checks admitted refused");
+        if (!s_Activity) s_Activity = new HCActivityCounters("checks admitted refused", "[HC Interiors] rules");
         return s_Activity;
     }
 
@@ -189,54 +189,6 @@ class HCInteriorRules
     {
         // Explicit comparisons also reject NaN and infinities.
         return value[0] >= -limit && value[0] <= limit && value[1] >= -limit && value[1] <= limit && value[2] >= -limit && value[2] <= limit;
-    }
-}
-
-// Fixed metric schemas only: no entity/player keys, queues, scans or timers.
-// Native snapshot: EnString.c Split; EnScript.c array Count/Insert; Game.c GetTickTime.
-// Every total is process-local and saturates; window counts reset only after print.
-class HCActivityWindow
-{
-    protected string m_Tag;
-    protected ref array<string> m_Keys = new array<string>;
-    protected ref array<int> m_Window = new array<int>;
-    protected ref array<int> m_Total = new array<int>;
-    protected float m_Since;
-
-    void HCActivityWindow(string tag, string keys)
-    {
-        m_Tag = tag;
-        keys.Split(" ", m_Keys);
-        for (int i = 0; i < m_Keys.Count() && i < 32; i++)
-        {
-            m_Window.Insert(0);
-            m_Total.Insert(0);
-        }
-        m_Since = GetGame().GetTickTime();
-    }
-
-    void Add(string key)
-    {
-        int index = m_Keys.Find(key);
-        if (index < 0 || index >= m_Total.Count()) return;
-        if (m_Window[index] < 2147483647) m_Window[index] = m_Window[index] + 1;
-        if (m_Total[index] < 2147483647) m_Total[index] = m_Total[index] + 1;
-    }
-
-    void Report(string state = "", bool force = false)
-    {
-        if (!GetGame() || !GetGame().IsServer()) return;
-        float now = GetGame().GetTickTime();
-        if (!force && now - m_Since < 600) return;
-        string line = m_Tag + " summary window_s=" + (now - m_Since).ToString();
-        for (int i = 0; i < m_Total.Count(); i++)
-        {
-            line = line + " " + m_Keys[i] + "=" + m_Window[i].ToString() + " " + m_Keys[i] + "_total=" + m_Total[i].ToString();
-            m_Window[i] = 0;
-        }
-        if (state != "") line = line + " " + state;
-        Print(line + " runtime=PENDING");
-        m_Since = now;
     }
 }
 

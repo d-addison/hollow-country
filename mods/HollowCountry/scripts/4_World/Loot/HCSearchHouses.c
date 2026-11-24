@@ -50,10 +50,10 @@ class HCSearchHouseSession
 
 class HCSearchHouses
 {
-    protected static ref HCActivityWindow s_Activity;
-    static HCActivityWindow HCActivity()
+    protected static ref HCActivityCounters s_Activity;
+    static HCActivityCounters HCActivity()
     {
-        if (!s_Activity) s_Activity = new HCActivityWindow("[HC Search Houses]", "house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted");
+        if (!s_Activity) s_Activity = new HCActivityCounters("house_attempts house_started house_completed house_empty house_refused_begin house_refused_commit house_interrupted", "[HC Search Houses]");
         return s_Activity;
     }
 

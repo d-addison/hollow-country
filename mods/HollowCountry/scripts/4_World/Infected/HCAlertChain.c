@@ -39,7 +39,7 @@ class HCAlertChain
 {
     protected ref array<ref HCAlertRoot> m_Roots = new array<ref HCAlertRoot>;
     protected ref array<ref HCAlertEmission> m_Queue = new array<ref HCAlertEmission>;
-    ref HCActivityWindow HCActivity = new HCActivityWindow("[HC Infected] alerts", "raised propagated capped");
+    ref HCActivityCounters HCActivity = new HCActivityCounters("raised propagated capped", "[HC Infected] alerts");
     protected int m_NextRootId = 1;
     protected int m_RecipientCursor;
 

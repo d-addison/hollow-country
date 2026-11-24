@@ -138,7 +138,7 @@ class HCSituationProfileRow
 
 class HCSituationDirector
 {
-    protected ref HCWorldActivityCounters m_Activity = new HCWorldActivityCounters("steps rows due active started closed unknown refused checkpoint budget clock provider lease pacing begin identity source store");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("steps rows due active started closed unknown refused checkpoint budget clock provider lease pacing begin identity source store");
     protected ref HCSceneChainState m_State;
     protected ref HCSceneChainStore m_Store;
     protected ref array<ref HCSituationProfileRow> m_Rows = new array<ref HCSituationProfileRow>;
@@ -618,8 +618,8 @@ class HCSituationDirector
         slot.Opportunity.Phase = "closed";
         slot.Opportunity.Outcome = outcome;
         if (!HCCommit()) { return false; }
-        m_Activity.HCHit("closed");
-        if (outcome == "unknown") { m_Activity.HCHit("unknown"); }
+        m_Activity.Add("closed");
+        if (outcome == "unknown") { m_Activity.Add("unknown"); }
         slot.EndPending = true;
         return true;
     }
@@ -628,9 +628,9 @@ class HCSituationDirector
     {
         HCSituationState row = slot.Opportunity;
         if (!row || row.Phase == "closed") { return; }
-        m_Activity.HCHit("rows");
-        if (now >= row.DueAt) { m_Activity.HCHit("due"); }
-        if (row.Phase == "active") { m_Activity.HCHit("active"); }
+        m_Activity.Add("rows");
+        if (now >= row.DueAt) { m_Activity.Add("due"); }
+        if (row.Phase == "active") { m_Activity.Add("active"); }
         if (now >= row.EndsAt) { HCFinish(slot, "unknown"); return; }
         if (!slot.Enabled || now < row.DueAt) { return; }
         if (row.Phase == "pending")
@@ -678,7 +678,7 @@ class HCSituationDirector
             if (!slot.Actors || !slot.Actors.HCReady() || !slot.Actors.HCBegin(row)) { m_Activity.HCRefuse("begin"); HCFinish(slot, "unknown"); return; }
             HCSituationPacingReceipt started = HCPacingFind(row.Id);
             if (started) { started.StartedAt = now; }
-            m_Activity.HCHit("started");
+            m_Activity.Add("started");
             HCModuleReadiness.HCUse("Events", "situation_started");
             row.Phase = "active";
             HCCommit();
@@ -721,7 +721,7 @@ class HCSituationDirector
         HCRefreshProvider();
         HCActivityStep(now);
         if (!m_Enabled || !GetGame() || !GetGame().IsServer()) { return; }
-        m_Activity.HCHit("steps");
+        m_Activity.Add("steps");
         m_Store.HCPumpCheckpoint();
         if (!m_Store.HCCheckpointHealthy()) { m_Fault = true; m_Enabled = false; m_Effective = "refused"; m_Reason = "SITUATION_STORE_UNCERTAIN"; HCReport(); return; }
         if (m_Store.HCBarrierPending()) { m_Activity.HCRefuse("checkpoint"); return; }

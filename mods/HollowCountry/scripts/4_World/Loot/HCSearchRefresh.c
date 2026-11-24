@@ -661,7 +661,7 @@ class HCSearchRefreshStore
 
 class HCSearchRefreshModule : HCModule
 {
-    protected ref HCActivityWindow m_Activity = new HCActivityWindow("[HC Search Refresh]", "attempts timer_writes checked waiting refreshed bind_attempts bound bind_refused");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("attempts timer_writes checked waiting refreshed bind_attempts bound bind_refused", "[HC Search Refresh]");
 
     static void HCRecordAttempt()
     {
