@@ -23,8 +23,9 @@ modded class ITEM_StaminaData
 class HCStaminaConfiguration
 {
     // Narrow request only; the response uses native RPC_CFG_GAMEPLAY_SYNC.
-    // 4854011 is reserved here; clients never submit stamina settings.
-    static const int RPC_REQUEST = 4854011;
+    // 4854011 belongs to HCPresentationTuningSync, whose handler consumes it
+    // on both peers. 4854012 is stamina-only; clients never submit settings.
+    static const int RPC_REQUEST = 4854012;
     protected static const int REQUEST_COOLDOWN_MS = 10000;
     protected static ref map<int, int> s_RequestTimes;
     protected static ref HCStaminaSettings s_Candidate;
@@ -254,7 +255,9 @@ class HCStaminaConfiguration
         item.HCContinuousExertionScale = settings.ContinuousExertionScale;
         item.HCRecoveryScale = settings.RecoveryScale;
         item.HCWeightPenaltyScale = settings.WeightPenaltyScale;
-        return Stage(settings, profile.Experimental);
+        bool staged = Stage(settings, profile.Experimental);
+        Print("[HollowCountry] Stamina server profile staged=" + staged + " enabled=" + Enabled() + " runtime=PENDING");
+        return staged;
     }
 
     static void ServerLoaded()
@@ -342,6 +345,7 @@ class HCStaminaConfiguration
         // A wrapped/reset engine clock starts a fresh cooldown.
         s_RequestTimes.Set(connectionId, now);
         CfgGameplayHandler.SyncDataSendEx(sender);
+        Print("[HollowCountry] Stamina client config resent enabled=" + Enabled() + " runtime=PENDING");
     }
 
     static void SessionEvent(EventType eventTypeId, bool server, Param params)

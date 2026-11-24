@@ -165,12 +165,22 @@ class HCInfectedVarietyModule : HCModule
             int tickWoken = infected.HCVarietyTick(m_Players, m_Clock, nightness, rain, m_Scale, m_VarietyWork, m_VarietySteps);
             m_Woken += tickWoken;
             m_WakeRevision += tickWoken;
+            // HCVarietyTick returns successful wakes only (<=32 cap repairs
+            // or <=1 proximity wake). The native callback paths count separately.
+            for (int tickWake = 0; tickWake < tickWoken; tickWake++)
+            {
+                HCModuleReadiness.HCUse("InfectedVariety", "actor_woken");
+            }
             if (m_Shot && m_Clock - m_ShotAt <= 2 && m_VarietyWork.HCContinue())
             {
                 started = TickCount(0);
                 int shotWoken = infected.HCVarietyShot(m_ShotOrigin, nightness, rain, m_VarietyWork);
                 m_Woken += shotWoken;
                 m_WakeRevision += shotWoken;
+                for (int shotWake = 0; shotWake < shotWoken; shotWake++)
+                {
+                    HCModuleReadiness.HCUse("InfectedVariety", "actor_woken");
+                }
                 HCMeasureVariety(4, "gunshot", started);
             }
         }

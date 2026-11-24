@@ -15,6 +15,8 @@ class HCStaminaIntegration
 modded class StaminaHandler
 {
     protected bool m_HCUseStamina;
+    protected bool m_HCStepLogged;
+    protected bool m_HCRejectedLogged;
     override void RecalculateStaminaCap()
     {
         if (!HCStaminaIntegration.Enabled())
@@ -35,6 +37,11 @@ modded class StaminaHandler
 
     override protected void ProcessStaminaChanges(float deltaT, bool isServerOrSingleplayer)
     {
+        if (!m_HCStepLogged)
+        {
+            m_HCStepLogged = true;
+            Print("[HollowCountry] Stamina handler first_step enabled=" + HCStaminaIntegration.Enabled() + " authority=" + isServerOrSingleplayer + " runtime=PENDING");
+        }
         if (!HCStaminaIntegration.Enabled())
         {
             super.ProcessStaminaChanges(deltaT, isServerOrSingleplayer);
@@ -51,6 +58,11 @@ modded class StaminaHandler
         }
         if (proposed < 0)
         {
+            if (!m_HCRejectedLogged)
+            {
+                m_HCRejectedLogged = true;
+                Print("[HollowCountry] Stamina handler passthrough reason=sample_rejected owner=" + simulationOwner + " dt=" + deltaT + " stamina=" + m_Stamina + " cap=" + m_StaminaCap + " rate=" + rate + " runtime=PENDING");
+            }
             super.ProcessStaminaChanges(deltaT, isServerOrSingleplayer);
             return;
         }
@@ -65,9 +77,10 @@ modded class StaminaHandler
         }
         // Native event costs and condition multipliers remain native-owned.
         float useStaminaBefore = m_Stamina;
+        bool scaledRate = m_StaminaDelta != savedRate;
         super.ProcessStaminaChanges(deltaT, isServerOrSingleplayer);
         m_StaminaDelta = savedRate;
-        if (!m_HCUseStamina && m_Stamina != useStaminaBefore)
+        if (!m_HCUseStamina && scaledRate && m_Stamina != useStaminaBefore)
         {
             m_HCUseStamina = true;
             HCModuleReadiness.HCUse("SurvivalAlignment", "stamina_applied");
