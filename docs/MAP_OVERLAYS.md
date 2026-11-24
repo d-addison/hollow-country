@@ -310,3 +310,223 @@ or gameplay acceptance is claimed.
 `docs/MAP_OVERLAYS.md` is still ignored by the repository's `/docs/*` rule.
 The lead must allowlist or explicitly include this assigned document; the
 placement worker does not own `.gitignore` or write git metadata.
+
+## v1-test-16 static mesh review
+
+Reviewed 2026-11-24. Offline measurements classify authoring risks, not engine behaviour.
+
+### Placement paths
+
+All 164 contact findings belong to legacy overlay compositions, not interior templates or
+new site archetypes. `map_overlay.expand_layer` carries each composition `dy` into the
+world position and `_ground_sidecar` copies it to `pivot`. On HC spawner layers,
+`ObjectSpawnerHandler.SpawnObject` calls `HCGroundSnap.Place`: target Y is the lowest
+footprint terrain plus that pivot. It corrects terrain height, preserving the authored
+visible-bottom offset. It refuses non-loot props on excessive slope/height; loot props
+can remain at their authored height when correction exceeds 25 m. None of these 164
+findings can therefore be dismissed as runtime_corrected.
+
+New site-composer output enters the same spawner and deferred `HCSpawnDeferred` path;
+its `site_composer.object_rows` uses surveyed `pieces[id].center_y` (zero if absent),
+not a legacy composition dy. There is no independent runtime composer snap.
+No current contact finding comes from that path. Interior-template `Spawn` calls
+`HCGroundSnap.Snap` after orientation: it uses collision bounds and a downward ray,
+with a bounded higher retry for a buried bottom. Success depends on support and
+correction bounds; merely calling Snap does not prove visible contact. No current
+contact finding comes from an interior template.
+
+### Definite floating fixes
+
+60 `StaticObj_Wreck_MTVR_Cargo` placements used `dy=0.19`. Current full-client visual
+contact is -0.033902 m, so the runtime sidecar leaves a 0.156098 m gap. Setting
+`dy=0.04` leaves 0.006098 m, inside both audit and composer tolerances. This also
+passes the older committed contact reference (-0.187 m, 0.15 m composer tolerance).
+The difference between old contact metadata and the current client is retained as
+a live-review concern, rather than regenerating unrelated reference classes.
+
+Layers store site references to compositions, not expanded prop rows; production
+`map_overlay compose` regenerates the affected spawner rows and their ground sidecars.
+No receipt-bearing layer is hand-edited and no site identity or heading is replanned.
+
+| Layer | Keys (all StaticObj_Wreck_MTVR_Cargo) | dy before → after |
+| --- | --- | --- |
+| overlay:civilian-stories-v2 | s004-p02, s006-p03, s007-p02, s012-p02, s014-p03, s015-p02, s020-p02, s022-p03, s023-p02, s028-p02, s030-p03, s031-p02, s036-p02, s038-p03, s039-p02, s044-p02, s046-p03, s047-p02, s051-p02, s053-p03, s055-p02, s056-p02 | 0.19 → 0.04 |
+| overlay:inland-discoveries-v2 | s004-p04, s007-p03, s009-p03, s010-p02, s012-p01, s016-p04, s019-p03, s021-p03, s022-p02, s024-p01, s028-p04, s031-p03, s033-p03 | 0.19 → 0.04 |
+| overlay:military-zones-v2 | s004-p04, s007-p03, s009-p03, s010-p02, s012-p01, s016-p04, s019-p03, s021-p03, s023-p01, s027-p04, s029-p03, s031-p03, s032-p02, s034-p01, s036-p04, s039-p03, s042-p04, s046-p03, s047-p01, s051-p03, s052-p02, s061-p03, s063-p01, s066-p01 | 0.19 → 0.04 |
+| overlay:supply-dumps-v1 | d08-p03 | 0.19 → 0.04 |
+
+### Sinking placements require a client check
+
+The current full-client minima disagree with the committed contact reference. Tents
+may have buried skirts/pegs or below-floor geometry; police wreck visual minima lie
+well below their collision minima. Raising them mechanically to the lowest vertex
+could float the occupied floor or wheels. There is no authoring evidence that these
+104 loot-bearing placements were intentionally buried, and the runtime sidecar does
+not eliminate the discrepancy. Each remains `needs_live`, never intended or accepted.
+
+For each identity below, inspect it on one client after its site is admitted, record
+`[HC Ground] placement` including legacy/refused counts and the object transform;
+check ground contact on level and sloping sides, floor/wheel/step height, entry and
+loot reach. Distinguish buried non-walkable skirts or debris from a buried usable
+surface. Preserve before/after screenshots and RPT evidence; then classify intended
+with authoring evidence, or correct the measured pivot and rerun the audit.
+
+| Class | Current visible minimum / committed reference (m) | Exact live check |
+| --- | --- | --- |
+| Land_Medical_Tent_Big | -0.831865 / 0.000 | At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy. |
+| Land_Mil_Tent_Big2_3 | -0.233435 / 0.000 | At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy. |
+| Land_Mil_Tent_Big4 | -1.253074 / 0.000 | At this exact site/key after ground placement, inspect tent floor, doorway step, pegs and skirt; enter and reach CE loot. Confirm the usable floor is not buried before changing dy. |
+| Land_Wreck_Caravan_MGreen | -0.159176 / -0.067 | At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy. |
+| Land_Wreck_sed01_aban1_police | -0.806117 / -0.058 | At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy. |
+| Land_Wreck_sed01_aban2_police | -0.531272 / -0.049 | At this exact site/key after ground placement, inspect wheel/body contact, below-ground debris and CE loot reach. Confirm whether the usable wreck is buried before changing dy. |
+
+### Vanilla visual cost review
+
+Counts are triangles in the lowest numeric visual LOD, not a performance measurement.
+The installed class-family comparison below decodes the same client models as the
+audit. Equal-cost aliases, damage skins or different functional shapes are not a
+lighter equivalent. Thirty models have no lighter equivalent in their reviewed
+vanilla family and retain their authored role. Six need visual comparison before
+acceptance or replacement; they remain failing. These decisions do not accept target-load performance.
+
+| Class | Triangles | Verdict and family comparison |
+| --- | ---: | --- |
+| Land_Container_1Mo | 4814 | needs_live: 4814 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Bo (4734). |
+| Land_Container_1Moh | 5244 | needs_live: 5244 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Bo (4734), Land_Container_1Mo (4814). |
+| Land_Medical_Tent_Big | 6994 | triangle_cost_accepted: 6994 triangles. No lighter equivalent in the installed vanilla Medical_Tent_Big family; the family contains only this model. Retain its authored tent silhouette and function. |
+| Land_Medical_Tent_Shower | 15353 | triangle_cost_accepted: 15353 triangles. No lighter equivalent in the installed vanilla Medical_Tent_Shower family; the family contains only this model. Retain its authored tent silhouette and function. |
+| Land_Mil_Fortified_Nest_Small | 8961 | triangle_cost_accepted: 8961 triangles. No lighter equivalent in the installed vanilla Mil_Fortified_Nest_Small family; the family contains only this model. Retain its authored building silhouette and function. |
+| Land_Mil_GuardTower | 6154 | triangle_cost_accepted: 6154 triangles. No lighter equivalent in the installed vanilla Mil_GuardTower family; the family contains only this model. Retain its authored building silhouette and function. |
+| Land_Mil_Tent_Big4 | 7580 | triangle_cost_accepted: 7580 triangles. No lighter equivalent in the installed vanilla Mil_Tent_Big4 family; the family contains only this model. Retain its authored tent silhouette and function. |
+| Land_Wreck_Caravan_MGreen | 17152 | triangle_cost_accepted: 17152 triangles. No lighter equivalent in the installed vanilla Wreck_Caravan_MGreen family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| Land_Wreck_Ikarus | 14622 | triangle_cost_accepted: 14622 triangles. No lighter equivalent in the installed vanilla Wreck_Ikarus family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| Land_Wreck_Lada_Green | 15566 | triangle_cost_accepted: 15566 triangles. No lighter equivalent in the installed vanilla Wreck_Lada_Green family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| Land_Wreck_Uaz | 16595 | triangle_cost_accepted: 16595 triangles. No lighter equivalent in the installed vanilla Wreck_Uaz family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| Land_Wreck_offroad02_aban2 | 27501 | triangle_cost_accepted: 27501 triangles. No lighter equivalent in the installed vanilla Wreck_offroad02_aban2 family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| Land_Wreck_sed01_aban1_police | 34362 | needs_live: 34362 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Wreck_sed01_aban2_police (32180), Land_Wreck_sed01_aban1_black (34260), Land_Wreck_sed01_aban1_white (34260), Land_Wreck_sed01_aban1_wine (34260), Land_Wreck_sed01_aban2_black (32109), Land_Wreck_sed01_aban2_white (32109), Land_Wreck_sed01_aban2_wine (32109). |
+| Land_Wreck_sed01_aban2_police | 32180 | triangle_cost_accepted: 32180 triangles. Lower-count ordinary sedan skins lack police livery; the police damage-2 variant has no lighter police equivalent. Retain the authored police wreck role. |
+| StaticObj_Container_1C | 5770 | needs_live: 5770 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Aoh (5244), Land_Container_1Bo (4734), Land_Container_1Mo (4814), Land_Container_1Moh (5244), StaticObj_Container_1Nr2 (5754). |
+| StaticObj_Container_1D | 5770 | needs_live: 5770 triangles. Lighter family candidates need visual/door/damage equivalence review: Land_Container_1Aoh (5244), Land_Container_1Bo (4734), Land_Container_1Mo (4814), Land_Container_1Moh (5244), StaticObj_Container_1Nr2 (5754). |
+| StaticObj_Dead_MassGrave_8m | 9412 | triangle_cost_accepted: 9412 triangles. No lighter equivalent in the installed vanilla Dead_MassGrave_8m family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Furniture_foldingbed_open | 5800 | triangle_cost_accepted: 5800 triangles. No lighter equivalent in the installed vanilla Furniture_foldingbed_open family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Furniture_hospital_transport_bed | 3498 | triangle_cost_accepted: 3498 triangles. No lighter equivalent in the installed vanilla Furniture_hospital_transport_bed family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Mil_CamoNet_Side_east | 2232 | triangle_cost_accepted: 2232 triangles. No lighter equivalent in the installed vanilla Mil_CamoNet_Side_east family; all decoded aliases/skins have equal or greater cost. Retain its authored prop silhouette and function. |
+| StaticObj_Mil_HBarrier_4m | 5547 | triangle_cost_accepted: 5547 triangles. No lighter equivalent in the installed vanilla Mil_HBarrier_4m family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Mil_HBarrier_6m | 8357 | triangle_cost_accepted: 8357 triangles. No lighter equivalent in the installed vanilla Mil_HBarrier_6m family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Misc_BagFence_3m | 2572 | triangle_cost_accepted: 2572 triangles. No lighter equivalent in the installed vanilla Misc_BagFence_3m family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Misc_BagFence_Round | 6253 | triangle_cost_accepted: 6253 triangles. No lighter equivalent in the installed vanilla Misc_BagFence_Round family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Misc_Razorwire | 7728 | triangle_cost_accepted: 7728 triangles. No lighter equivalent in the installed vanilla Misc_Razorwire family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Misc_RoadBarrier | 2075 | needs_live: 2075 triangles. Lighter family candidates need visual/door/damage equivalence review: StaticObj_Misc_RoadBarrier_2 (182). |
+| StaticObj_Roadblock_Bags_Long | 8542 | triangle_cost_accepted: 8542 triangles. No lighter equivalent in the installed vanilla Roadblock_Bags_Long family; the family contains only this model. Retain its authored prop silhouette and function. |
+| StaticObj_Roadblock_CncBlocks_Long | 2440 | triangle_cost_accepted: 2440 triangles. No lighter equivalent in the installed vanilla Roadblock_CncBlocks_Long family; all decoded aliases/skins have equal or greater cost. Retain its authored prop silhouette and function. |
+| StaticObj_Wreck_BMP2 | 8632 | triangle_cost_accepted: 8632 triangles. No lighter equivalent in the installed vanilla Wreck_BMP2 family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_Digger | 15362 | triangle_cost_accepted: 15362 triangles. No lighter equivalent in the installed vanilla Wreck_Digger family; the family contains only this model. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_MTVR_Cargo | 21039 | triangle_cost_accepted: 21039 triangles. No lighter equivalent in the installed vanilla Wreck_MTVR_Cargo family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_Mi8_Crashed | 14237 | triangle_cost_accepted: 14237 triangles. No lighter equivalent in the installed vanilla Wreck_Mi8_Crashed family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_PowGen | 2704 | triangle_cost_accepted: 2704 triangles. No lighter equivalent in the installed vanilla Wreck_PowGen family; the family contains only this model. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_Stryker | 54896 | triangle_cost_accepted: 54896 triangles. No lighter equivalent in the installed vanilla Wreck_Stryker family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_Trailer_Cistern | 12049 | triangle_cost_accepted: 12049 triangles. No lighter equivalent in the installed vanilla Wreck_Trailer_Cistern family; the family contains only this model. Retain its authored wreck silhouette and function. |
+| StaticObj_Wreck_Ural | 11277 | triangle_cost_accepted: 11277 triangles. No lighter equivalent in the installed vanilla Wreck_Ural family; all decoded aliases/skins have equal or greater cost. Retain its authored wreck silhouette and function. |
+
+### Classification contract
+
+`config/world-mesh-classification.json` contains only outstanding findings. Each row
+binds the exact measurement, reason, class and placement identity, plus repository
+evidence. New/changed findings and stale/duplicate rows fail, as do policy changes.
+`real` and `needs_live` always fail. Fixes disappear from the active classification;
+the table above preserves all 60 original real identities. The original 200 verdicts
+are: real 60 (fixed), needs_live 110, triangle_cost_accepted 30, intended 0,
+runtime_corrected 0. No runtime acceptance or multiplayer claim is made.
+
+### Tower corner
+
+The sole active forward-outpost site is `military-outposts-v1/o02` (heading 0).
+Local tower position moves (-13.25, 0.47, 6.0) → (-13.25, 0.47, 16.0), world
+(4436.75, 341.194792, 9421.0) → (4436.75, 341.194792, 9431.0).
+Its Geometry bounds are x=-17.273586..-11.946311, z=13.304224..25.917276.
+These have no AABB overlap with any other composition piece, including all walls
+and crates; no container is present. They clear the central x=-3.5..3.5 lane.
+The tent bounds end at z=8.004910, leaving 5.299314 m to the tower, beyond
+the audit door sweep plus radius (1.8 m); the tower does not block its entrance apron.
+The tower exposes no decoded door planes or Paths LOD segments, so offline apron
+tests cannot establish entry clearance. Native ladder, door operation and sightline
+along the lane still need the lead client smoke.
+
+### Every pending live identity
+
+Apply the exact check in each classification row; the tables above describe the class-specific checks.
+
+| Group | Class | Keys |
+| --- | --- | --- |
+| class-level | Land_Container_1Mo | class-level |
+| class-level | Land_Container_1Moh | class-level |
+| class-level | Land_Wreck_sed01_aban1_police | class-level |
+| class-level | StaticObj_Container_1C | class-level |
+| class-level | StaticObj_Container_1D | class-level |
+| class-level | StaticObj_Misc_RoadBarrier | class-level |
+| overlay:civilian-stories-v2 | Land_Medical_Tent_Big | s001-p01, s002-p04, s006-p01, s008-p01, s009-p01, s010-p04, s014-p01, s016-p01, s017-p01, s018-p04, s022-p01, s024-p01, s025-p01, s026-p04, s030-p01, s032-p01, s033-p01, s034-p04, s038-p01, s040-p01, s041-p01, s042-p04, s046-p01, s048-p01, s049-p01, s050-p04, s053-p01, s054-p01 |
+| overlay:civilian-stories-v2 | Land_Wreck_Caravan_MGreen | s003-p01, s011-p01, s019-p01, s027-p01, s035-p01, s043-p01 |
+| overlay:civilian-stories-v2 | Land_Wreck_sed01_aban1_police | s005-p01, s013-p01, s021-p01, s029-p01, s037-p01, s045-p01, s052-p01 |
+| overlay:civilian-stories-v2 | Land_Wreck_sed01_aban2_police | s005-p02, s013-p02, s021-p02, s029-p02, s037-p02, s045-p02, s052-p02 |
+| overlay:inland-discoveries-v2 | Land_Medical_Tent_Big | s005-p01, s005-p02, s012-p04, s017-p01, s017-p02, s024-p04, s029-p01, s029-p02, s035-p01, s035-p02 |
+| overlay:inland-discoveries-v2 | Land_Mil_Tent_Big2_3 | s010-p01, s011-p03, s022-p01, s023-p03 |
+| overlay:inland-discoveries-v2 | Land_Mil_Tent_Big4 | s001-p01, s011-p01, s013-p01, s023-p01, s025-p01 |
+| overlay:military-outposts-v1 | Land_Mil_Tent_Big4 | o01-p01, o03-p01 |
+| overlay:military-zones-v2 | Land_Medical_Tent_Big | s005-p01, s005-p02, s012-p04, s017-p01, s017-p02, s023-p04, s034-p04, s037-p01, s037-p02, s043-p01, s043-p02, s047-p04, s054-p01, s054-p02, s063-p04, s066-p04 |
+| overlay:military-zones-v2 | Land_Mil_Tent_Big2_3 | s010-p01, s011-p03, s022-p03, s032-p01, s033-p03, s052-p01, s065-p03 |
+| overlay:military-zones-v2 | Land_Mil_Tent_Big4 | s001-p01, s011-p01, s013-p01, s022-p01, s024-p01, s033-p01, s035-p01, s048-p01, s055-p01, s065-p01 |
+| overlay:supply-dumps-v1 | Land_Medical_Tent_Big | d09-p01, d09-p02 |
+
+### Worker validation snapshot (2026-11-24)
+
+Strict preland against `000c2899` finished with exit 1. Client geometry and staged
+CE mission inputs were supplied via `HC_GENERATED_GEOMETRY_ADDONS` and `HC_CE_MISSION`.
+The supplied original raw audit and original census pointer were absent on this host.
+A fresh client audit reproduced the reported inventory (200 findings: 104 sinking,
+60 floating, 36 visual costs over 37 classes). No exact-hash census copy was found
+locally. `preland --native-census` now forwards an original census to regeneration
+and digest checks when one is provided; the mesh audit itself does not consume it.
+
+Final mesh result: 76 classes, 140 raw findings, 110 blocking `needs_live` rows,
+30 reviewed visual-cost acceptances, 0 unclassified, 0 classification errors.
+The 505 existing static coverage skips remain: incomplete/unavailable door selections,
+missing Geometry LODs and live-terrain shelter retries. These are not native evidence.
+The 60 original floating findings are gone and no new finding was introduced.
+
+Production `map_overlay compose` regenerated all 16 install-time files in scratch,
+including the 60 corrected wreck rows and the moved tower. Layers retain composition
+references, so there is no committed expanded layer to hand-edit. The generator's
+17 available comparisons passed; strict regeneration still fails on four gaps:
+optional weapon verification reports (two), ImageToPAA interop, and the original
+native census for new-building byte reproduction.
+
+Digest receipts remain stale following the known #339 merge. The check reports
+input/source/output drift for `ai_route_precompute`, `admin_world_catalog`,
+`military_loot`, `loot_slack`, `inventory_sizes`, `variety_packs`, `firearms`,
+`loot_point_preserve`, `gui_icons`, `economy`, `gen_modules`, `ai_patrols` and
+`anims_config`; two optional weapon reports and the original `new_buildings` census
+are unavailable. The changed compositions also invalidate the `new_buildings` input
+receipt; without its exact original census, byte reproduction and receipt refresh
+remain blocked. No unrelated receipts or generated outputs were refreshed.
+
+The 74 directly relevant audit/preland tooling tests passed; preland's changed-file
+mapping also passed all 317 selected tooling tests. No native process was started.
+Status: implemented-unverified, with the live checks above and host gaps outstanding.
+
+Check | Result | Scope
+--- | --- | ---
+enforce_lint | pass | full tree
+enforce_perf | pass | full tree
+layout_lint | pass | full tree
+cfgconvert_check | pass | changed addons (non-mod change: full tree)
+settings_consistency | pass | full tree
+wiring_audit | pass | full tree
+regenerate_all | FAIL (skipped/unavailable coverage) | full tree
+generated_digests | FAIL (digest receipt verification) | full tree
+mission_sources | pass | full tree
+hygiene | pass | full tree
+hc_events | pass | full tree
+ce_slot_pressure | pass | full tree
+world_mesh_audit | FAIL (1) | full tree
+asset_lint | no applicable inputs (assets_src holds no built MLOD/IR) | full tree
+unit_tests_changed | pass | changed files

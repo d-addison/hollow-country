@@ -284,6 +284,8 @@ def main(argv=None):
                         help='installed vanilla Addons; HC_GENERATED_GEOMETRY_ADDONS overrides mesh audit input')
     parser.add_argument('--wb', action='store_true', help='also run tools.release.wb_compile when installed')
     parser.add_argument('--strict', action='store_true', help='fail on any unavailable/skipped coverage or missing input')
+    parser.add_argument('--native-census', type=Path, action='append', default=[],
+                        help='original native interior census for regeneration/digests (repeatable, read-only)')
     parser.add_argument('--profile', choices=('local', 'ci'), default='local',
                         help='ci: deterministic Windows-free checks with listed installed-input exclusions')
     args = parser.parse_args(argv)
@@ -359,6 +361,8 @@ def execute(args, paths, scratch):
             arguments = ['--no-native'] if ci else ['--native-scripts', str(args.native_scripts.expanduser())]
         elif name in {'regenerate_all', 'generated_digests'}:
             arguments = ['--check']
+            for census in getattr(args, 'native_census', []):
+                arguments += ['--native-census', str(census.expanduser().resolve())]
             if ci:
                 arguments += ['--addons', str(scratch / 'addons'), '--geometry-addons', str(scratch / 'addons'),
                               '--workshop', str(scratch / 'workshop'), '--source', str(scratch / 'stock'),
