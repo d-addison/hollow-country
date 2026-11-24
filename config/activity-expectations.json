@@ -1590,6 +1590,26 @@
       "scope": "client",
       "release_smoke": true,
       "note": "A server-confirmed approach into the radius of a currently published mission zone."
+    },
+    {
+      "module": "VehicleRetire",
+      "feature": "retired",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=VehicleRetire feature=retired count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleRetire.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Vehicles] retire upgrade_pending",
+      "note": "Upgrade-only. No persisted candidate is NOT_APPLICABLE, never ACTIVE or waived; an observed candidate (including queue overflow) requires a positive retired counter. The seeded upgrade fixture must observe the marker and positive use."
     }
   ]
 }

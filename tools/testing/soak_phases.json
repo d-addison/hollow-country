@@ -130,7 +130,8 @@
   "Pickers": "idle",
   "GunPile": "join",
   "Notes": "scene",
-  "NotesCompat": "scene"
+  "NotesCompat": "scene",
+  "VehicleRetire": "idle"
  },
  "features": {
   "AISelfDefence/threats_applied": "walk_ai",
@@ -1882,6 +1883,14 @@
     "timer:30m",
     "code:HCXStance.c"
    ]
+  },
+  "VehicleRetire/retired": {
+   "phase": "idle",
+   "how": [
+    "boot",
+    "code:HCVehicleRetire.c"
+   ],
+   "note": "Conditional upgrade-only: a disposable upgrade save must contain a persisted vehicle with attached/nested gear. No candidate is NOT_APPLICABLE on a fresh world; seeded upgrade requires upgrade_pending and positive retirement. No fixture or engine acceptance exists yet."
   }
  }
 }

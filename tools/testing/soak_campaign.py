@@ -1292,6 +1292,10 @@ def report_rows(phases, legacy, release, errors=(), selection=None):
                 key = row['module'] + '/' + norm(row['feature'])
                 if row['status'] == 'ACTIVE':
                     result = 'active'
+                elif row['status'] == 'NOT_APPLICABLE':
+                    # Upgrade-only feature without a persisted candidate. Keep
+                    # this visibly unexercised, never active or waived.
+                    result = 'not run'
                 elif judged(selection, phases, key, mapped[1]):
                     result = 'zero'
                 else:

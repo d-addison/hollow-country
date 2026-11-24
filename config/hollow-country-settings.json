@@ -24,6 +24,7 @@
   "EnableCampRespawn": true,
   "EnableTeamPing": true,
   "EnableMelee": true,
+  "VehicleRetireEnabled": true,
   "EnableVehicleFlip": true,
   "EnableForage": true,
   "EnableProgression": true,

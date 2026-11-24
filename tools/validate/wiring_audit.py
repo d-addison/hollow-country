@@ -229,6 +229,7 @@ class Audit:
         self.zeroed_check(routes)
         self.bundle_check()
         self.data_check(script_literals)
+        self.vehicle_retire_check(scripts)
         self.settings_check(scripts, script_classes)
         self.dead_class_check(scripts, script_classes)
         self.module_check(scripts, script_classes)
@@ -1047,6 +1048,23 @@ class Audit:
             for m in register.finditer(t):
                 if m[1] not in modules:
                     self.add('W005', m[1], p, line(t, m.start()), 'Registered constructor does not resolve to an HCModule subclass')
+
+    def vehicle_retire_check(self, scripts):
+        """Bind the string-only retire family to the dropped roster, never vendor code."""
+        path = ROOT / 'mission/hollow-country/vehicles/vehexp-roster.json'
+        source = ROOT / 'mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleRetire.c'
+        if not path.is_file() and source not in scripts:
+            return  # Minimal audit fixtures with no vehicle integration.
+        dropped = json.loads(self.read(path)).get('dropped', {})
+        text = scripts.get(source, '')
+        match = re.search(r'\bconst\s+string\s+FAMILY_BASE\s*=\s*"([^"\n]+)"', text)
+        base = dropped.get('retireBase')
+        vehicles = dropped.get('vehicles', [])
+        if (not match or match[1] != base or not vehicles
+                or any(name != base.removesuffix('_Base') and not name.startswith(base.removesuffix('_Base') + '_')
+                       for name in vehicles)):
+            self.add('W002', 'VehicleRetire.family', path, 1,
+                     'Retire FAMILY_BASE must match dropped.retireBase and its recorded vehicle family')
 
     def rpc_check(self, scripts, script_classes):
         r = self.rules

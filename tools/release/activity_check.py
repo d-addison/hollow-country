@@ -16,7 +16,7 @@ from tools.release.rpt_summary import filtered, lines, HC
 from tools.setup.server_report import _EVENT, _PLAYER_ENABLED
 
 DEFAULT_EXPECTATIONS = Path(__file__).resolve().parents[2] / 'config/activity-expectations.json'
-STATUSES = ('ACTIVE', 'INERT', 'SILENT', 'NO_SIGNAL', 'WAITING')
+STATUSES = ('ACTIVE', 'INERT', 'SILENT', 'NO_SIGNAL', 'WAITING', 'NOT_APPLICABLE')
 SCOPES = ('runtime', 'transport', 'client', 'diagnostic')
 TOKEN = re.compile(r'[A-Za-z0-9_.-]{1,96}\Z')
 CLOCK = re.compile(r'^\s*(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))?\b')
@@ -35,7 +35,7 @@ RELEASE_WAIVERS = {}
 USE_LINE = re.compile(r'\[HC Use\] module=([A-Za-z0-9_.-]{1,64}) '
                       r'feature=([A-Za-z0-9_.-]{1,64}) count=([0-9]{1,10})(?=\s|$)')
 FIXTURE_SUFFIX = re.compile(r' fixture=([0-9]{1,10})(?=\s|$)')
-RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED')
+RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED', 'NOT_APPLICABLE')
 # World P1.3 navigation aggregates (HCModuleReadiness HCNav*): NavInf/NavXai have no
 # [HC Ready] marker of their own, so each row is admitted through the owner modules that
 # produce its member counters. Key: (aggregate module, feature); value: owner modules.
@@ -63,6 +63,9 @@ class UseActivity:
         entries = load_expectations() if entries is None else entries
         self.client_smoke = {(entry['module'], entry['feature']) for entry in entries
                              if entry.get('release_smoke')}
+        self.required_when = {(entry['module'], entry['feature']): entry['required_when']
+                              for entry in entries if entry.get('conditional') == 'upgrade-only'}
+        self.observed_conditions = set()
         self.modules = {}
         self.counts = {}
         self.fixtures = {}
@@ -72,6 +75,10 @@ class UseActivity:
         safe = filtered(raw)
         if not safe:
             return
+        if not client:
+            for key, marker in self.required_when.items():
+                if safe.strip().endswith(marker):
+                    self.observed_conditions.add(key)
         ready = READY_MODULE.search(safe)
         if ready and not client:
             if ready[1] not in self.modules and len(self.modules) >= 256:
@@ -125,7 +132,12 @@ class UseActivity:
             elif not self.modules.get(module, module == 'ClientUI'):
                 continue
             reason = RELEASE_WAIVERS.get((module, feature)) if count == 0 else None
-            status = 'ACTIVE' if count else 'WAIVED' if reason else 'INERT'
+            conditional_idle = ((module, feature) in self.required_when
+                                and (module, feature) not in self.observed_conditions)
+            status = ('ACTIVE' if count else 'NOT_APPLICABLE' if conditional_idle
+                      else 'WAIVED' if reason else 'INERT')
+            if conditional_idle and not count:
+                reason = 'upgrade-only: no persisted retirement candidate observed'
             features.append(dict(module=module, feature=feature, count=count,
                                  status=status, reason=reason, fixture=self.fixtures.get((module, feature), 0)))
         registered = {row['module'] for row in features}
@@ -196,6 +208,15 @@ def parse_expectations(text):
             raise ValueError('expectations scope')
         if 'release_smoke' in entry and (entry['release_smoke'] is not True or entry.get('scope') != 'client'):
             raise ValueError('expectations release smoke scope')
+        if 'conditional' in entry:
+            if entry['conditional'] != 'upgrade-only':
+                raise ValueError('expectations conditional')
+            marker = entry.get('required_when')
+            if (not isinstance(marker, str) or not marker.startswith('[HC ')
+                    or len(marker) > 128 or not filtered(marker) or '\n' in marker):
+                raise ValueError('expectations conditional marker')
+        elif 'required_when' in entry:
+            raise ValueError('expectations conditional marker without condition')
         if 'signal' not in entry:
             raise ValueError('missing signal')
         signal = entry['signal']
@@ -222,7 +243,7 @@ class Activity:
         self.states = []
         self.by_tag = {}
         for entry in self.entries:
-            state = dict(entry=entry, samples=0, value=None)
+            state = dict(entry=entry, samples=0, value=None, condition_observed=False)
             self.states.append(state)
             if entry['signal'] is not None and (entry.get('scope') == 'client') == client:
                 signal = entry['signal']
@@ -271,6 +292,11 @@ class Activity:
         safe = filtered(raw)
         if not safe:
             return
+        if not self.client:
+            for state in self.states:
+                marker = state['entry'].get('required_when')
+                if marker and safe.strip().endswith(marker):
+                    state['condition_observed'] = True
         count = PLAYER_COUNT.search(safe)
         if count and not self.client:
             self.players = min(256, int(count[1] or count[2]))
@@ -338,6 +364,9 @@ class Activity:
             status = 'WAITING'
             if entry['signal'] is None:
                 status = 'NO_SIGNAL'
+            elif (entry.get('conditional') == 'upgrade-only' and not state['condition_observed']
+                  and not state['value']):
+                status = 'NOT_APPLICABLE'
             elif state['value'] is not None and state['value'] >= entry['floor']:
                 status = 'ACTIVE'
             elif elapsed >= entry['window_minutes'] * 60 and self.clock_lines > 1:
