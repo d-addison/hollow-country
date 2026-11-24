@@ -15,8 +15,10 @@ PLAN_NAME = 'interior-resolve-probe.json'
 CLASSES = (
     'Land_Tenement_Small', 'Land_House_2B04', 'Land_Village_Pub',
     'Land_CementWorks_ExpeditionA', 'Land_Mil_Barracks3', 'Land_Mil_Barracks4',
-    'Land_House_2B01', 'Land_City_Stand_News1', 'Land_Shed_Closed2', 'Land_Garage_Row_Big',
+    'Land_House_2B01', 'Land_City_Stand_News1', 'Land_Shed_Closed2',
 )
+# Land_Garage_Row_Big left the set on 2026-11-24: the stair-margin pack regeneration (3e1a6e78) kept no
+# furnished garage rows, so the probe had no instance to resolve.
 # Candidate families and references are documented in INTERIOR_RESOLVE_PROBE.md.
 APIS = ('query2d_small', 'query2d_tile', 'query3d_zero', 'query3d_small', 'query3d_current',
         'ray_geom', 'ray_view', 'ray_proxy', 'box', 'box_geom', 'box_proxy',

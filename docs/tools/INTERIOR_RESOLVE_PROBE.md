@@ -6,7 +6,8 @@ runs the staged mission under DayZDiag, with no owner session active.
 
 The default selects three distinct, evenly spaced furnishing-catalog origins for
 each of the seven heavy classes (Barracks3 and Barracks4 separately), plus
-Land_City_Stand_News1, Land_Shed_Closed2 and Land_Garage_Row_Big. These are provisional
+Land_City_Stand_News1 and Land_Shed_Closed2 (Land_Garage_Row_Big left the set on 2026-11-24:
+the regenerated template pack has no furnished garage rows). These are provisional
 cheap controls, not measured performance claims. `--per-class 1..16` refuses when
 any class has fewer catalog instances; the default includes all three Closed2
 entries. Plans pin furnishing pages, geometry templates, stock init and generated
