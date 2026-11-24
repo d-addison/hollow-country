@@ -545,10 +545,10 @@ class HCXAIFormationController
         for (int i = 0; i < states.Count(); i++)
         {
             HCXAISiteState state = states[i];
-            if (!state || state.Completed || !state.Patrol || !state.Patrol.m_Group) { continue; }
+            if (!state || state.Completed || !state.Patrol || !state.Patrol.HCGroupIfSafe()) { continue; }
             HCXAIGroupStyle style = state.HCStyle;
             if (!style || !style.Styled || style.Foreign) { continue; }
-            if (style.GroupRef != state.Patrol.m_Group) { continue; }
+            if (style.GroupRef != state.Patrol.HCGroupIfSafe()) { continue; }
             live++;
         }
         return live;
@@ -609,7 +609,7 @@ class HCXAIFormationController
     protected bool Due(HCXAISiteState state, int now)
     {
         if (!state || state.Completed || !state.Patrol) { return false; }
-        if (!state.Patrol.m_Group || state.Patrol.m_HCPendingMembers > 0) { return false; }
+        if (!state.Patrol.HCGroupIfSafe() || state.Patrol.m_HCPendingMembers > 0) { return false; }
         if (!state.HCStyle) { return true; }
         return now >= state.HCStyle.NextEvalAt;
     }
@@ -687,7 +687,8 @@ class HCXAIFormationController
 
     protected void StepGroup(HCXAISiteState state, int now)
     {
-        eAIGroup group = state.Patrol.m_Group;
+        eAIGroup group = state.Patrol.HCGroupIfSafe();
+        if (!group) { return; }
         if (HCXExpansionBridge.HCGroupCount(group) < 1)
         {
             ForgetStyle(state);

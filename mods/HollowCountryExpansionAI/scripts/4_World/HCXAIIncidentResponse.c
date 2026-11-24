@@ -324,7 +324,7 @@ class HCXAIIncidentResponse : HCModule
         {
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_INCIDENT_RESPONSE, 1)) { reason = "fixture-budget"; return false; }
             if (!state || !state.Site || !state.Qualified || state.Failed || state.Completed || !state.Patrol || !state.Patrol.m_HCLive || state.HCJourneyWalking) { continue; }
-            eAIGroup group = state.Patrol.m_Group;
+            eAIGroup group = state.Patrol.HCGroupIfSafe();
             if (!group || owner.HCLeaseFor(group) || HCXExpansionBridge.HCGroupIsInCombat(group) || owner.HCAlive(group) < 1) { continue; }
             if (HCBaseRaid.HCOwns(state.ProposalId) || HCAITrade.HCJourneyBusy(state.ProposalId) || HCW38SituationRuntime.HCUsed(state.ProposalId)) { continue; }
             HCXAIAdapter adapter = HCXAIService.Adapter();

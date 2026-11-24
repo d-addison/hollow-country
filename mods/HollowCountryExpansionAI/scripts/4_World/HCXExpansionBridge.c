@@ -141,6 +141,9 @@ class HCXExpansionBridge
     {
         if (!value) { HCRefuse("HCSitePatrolDelete", "RECEIVER_NULL"); return; }
         if (value.IsBeingDestroyed()) { HCRefuse("HCSitePatrolDelete", "ALREADY_DELETING"); return; }
+        value.HCEndPatrol();
+        // Despawned can finish a transient and re-enter Delete synchronously.
+        if (value.IsBeingDestroyed()) { return; }
         value.HCReleaseHold();
         value.Delete();
     }
@@ -162,6 +165,14 @@ class HCXExpansionBridge
         if (!value) { HCRefuse("HCSitePatrolSpawn", "RECEIVER_NULL"); return; }
         if (!HCConfig(value.m_Config, "HCSitePatrolSpawn")) { return; }
         value.Spawn();
+    }
+
+    static void HCSitePatrolSpawnDeferred(HCXAISitePatrol value, int index)
+    {
+        if (!value) { HCRefuse("HCSitePatrolSpawnDeferred", "RECEIVER_NULL"); return; }
+        if (index < 0 || value.IsBeingDestroyed()) { HCRefuse("HCSitePatrolSpawnDeferred", "DEFERRED_SPAWN_TERMINAL"); return; }
+        // Dispatch the HC override, which checks the hold before any provider/config read.
+        value.SpawnAI_Deferred(index);
     }
 
     static void HCSitePatrolStop(HCXAISitePatrol value)
@@ -677,6 +688,47 @@ class HCXExpansionBridge
         return value.IsZombie();
     }
 
+    // Queries only the already-owned strong group. No cached listing result.
+    // DeceasedCount is the observed provider cleanup receipt available through
+    // existing call sites; refuse when it cannot account for every tracked kill.
+    static bool HCHeldDeathClean(HCXAIGroupHold hold, array<DayZPlayerImplement> killed, out bool terminal)
+    {
+        terminal = false;
+        if (!hold || !hold.Group || hold.GroupId <= 0 || !killed || killed.Count() == 0)
+        {
+            HCRefuse("HCHeldDeathClean", "DEATH_HOLD_IDENTITY_MISSING");
+            return false;
+        }
+        if (eAIGroup.GetGroupByID(hold.GroupId, false) != hold.Group)
+        {
+            terminal = true;
+            HCRefuse("HCHeldDeathClean", "DEATH_HOLD_GROUP_UNLISTED");
+            return false;
+        }
+        int live = hold.Group.Count();
+        if (live == 0) { terminal = true; return false; }
+        if (live > 16 || killed.Count() > 16)
+        {
+            HCRefuse("HCHeldDeathClean", "DEATH_HOLD_MEMBER_CAP");
+            return false;
+        }
+        foreach (DayZPlayerImplement dead : killed)
+        {
+            // Deleted weak entries are absent too; deceased accounting below must
+            // still confirm provider cleanup, otherwise defer until terminal.
+            if (dead && hold.Group.GetIndex(dead) >= 0)
+            {
+                HCRefuse("HCHeldDeathClean", "DEATH_HOLD_CLEANUP_PENDING");
+                return false;
+            }
+        }
+        if (hold.Deaths < killed.Count() || hold.Group.DeceasedCount() < hold.Deaths)
+        {
+            HCRefuse("HCHeldDeathClean", "DEATH_HOLD_DECEASED_UNCONFIRMED");
+            return false;
+        }
+        return true;
+    }
     // #334: resolve a stored group id to the live group, or null when it is gone.
     // Group ids are never reused (eAIGroup.s_IDCounter only increments), so a stale id
     // cannot match another group. Use this instead of keeping a raw eAIGroup handle in
@@ -697,6 +749,8 @@ class HCXExpansionBridge
 class HCXAIGroupHold
 {
     ref eAIGroup Group;
+    int GroupId;
+    int Deaths;
     ref array<DayZPlayerImplement> Members;
     int SettledAtMs;
     int SettledSeenMs;
@@ -746,8 +800,7 @@ class HCXAIGroupHold
     }
 }
 
-// Retired holds: bounded scan, two entries per call (each site patrol calls it from
-// its 5 s update, the AI adapter from its tick). A hold is released once its last
+// Retired holds: bounded scan, two entries per site-director owner tick. A hold is released once its last
 // tracked member has been gone for 2 s AND on three distinct frames, so one long
 // hitch cannot release it before the provider's queued group cleanup has run.
 class HCXAIGroupHolds
@@ -792,6 +845,14 @@ class HCXAIGroupHolds
         {
             if (s_Cursor >= s_Retired.Count()) { s_Cursor = 0; }
             HCXAIGroupHold hold = s_Retired[s_Cursor];
+            // Pointer comparisons only: never drop the last ref under a raw live slot.
+            if (hold && HCXAISitePatrol.HCNamesLiveSlot(hold.Group))
+            {
+                hold.SettledAtMs = -1;
+                hold.SettledSeen = 0;
+                s_Cursor++;
+                continue;
+            }
             if (hold && !hold.Settled()) { hold.SettledAtMs = -1; hold.SettledSeen = 0; s_Cursor++; continue; }
             if (hold && hold.SettledSeenMs != nowMs) { hold.SettledSeenMs = nowMs; hold.SettledSeen++; }
             if (hold && hold.SettledAtMs < 0) { hold.SettledAtMs = nowMs; s_Cursor++; continue; }
@@ -986,7 +1047,13 @@ modded class eAIBase
         if (GetGame() && GetGame().IsServer())
         {
             HCXAISiteDirector raidDirector = HCXAISiteDirector.Active();
-            if (raidDirector) { raidDirector.RecordDeath(GetGroup()); }
+            if (raidDirector)
+            {
+                // Arm before virtual RecordDeath (including ZoneGuards), provider
+                // cleanup and the persistent/transient split. Pointer matches only.
+                raidDirector.HCArmDeath(GetGroup(), this);
+                raidDirector.RecordDeath(GetGroup());
+            }
             // Durable betrayal depends on faction relation, not the defence
             // record super.OnKill creates for the bounded survivor response.
             PlayerBase attacker = HCXDefence.AttackerOf(EntityAI.Cast(killer));

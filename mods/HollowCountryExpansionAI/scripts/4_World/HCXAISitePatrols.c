@@ -30,6 +30,102 @@ class HCXAISitePatrol : HCXExpansionPatrol
     protected int m_HCNextBudgetLogMs;
     protected int m_HCNextSkipLogMs;
     static const int HC_SITE_LOG_INTERVAL_MS = 60000;
+    // Weak patrol inventory also covers Delete's deferred provider teardown.
+    protected static ref array<HCXAISitePatrol> s_HCLiveSlots = new array<HCXAISitePatrol>;
+    protected bool m_HCDeathHeld;
+    protected ref array<DayZPlayerImplement> m_HCDeathMembers = new array<DayZPlayerImplement>;
+    protected int m_HCDeathKills;
+    protected bool m_HCDeathOverflow;
+    protected int m_HCDeathFrames;
+    protected int m_HCDeathNextReportMs;
+    protected int m_HCDeferredMember = -1;
+    static const int HC_DEATH_HOLD_CAP_MS = 10000;
+    void HCXAISitePatrol()
+    {
+        s_HCLiveSlots.Insert(this);
+    }
+    void ~HCXAISitePatrol()
+    {
+        this.HCDeathFrameStop();
+        if (s_HCLiveSlots) { s_HCLiveSlots.RemoveItem(this); }
+    }
+    static bool HCNamesLiveSlot(eAIGroup group)
+    {
+        foreach (HCXAISitePatrol patrol : s_HCLiveSlots)
+        {
+            if (patrol && patrol.m_Group == group) { return true; }
+        }
+        return false;
+    }
+    bool HCMatchesGroup(eAIGroup group)
+    {
+        return group && (m_Group == group || (m_HCHold && m_HCHold.Group == group));
+    }
+    eAIGroup HCGroupIfSafe()
+    {
+        if (m_HCDeathHeld) { return null; }
+        return m_Group;
+    }
+    bool HCDeathHeld() { return m_HCDeathHeld; }
+    // No provider call or new strong reference through the raw slot on this path.
+    void HCArmDeath(DayZPlayerImplement killed)
+    {
+        bool first = !m_HCDeathHeld;
+        m_HCDeathHeld = true;
+        m_HCDeathFrames = 0;
+        m_HCDeathNextReportMs = GetGame().GetTime() + HC_DEATH_HOLD_CAP_MS;
+        if (m_HCDeathKills < 2147483647) { m_HCDeathKills++; }
+        if (!killed || m_HCDeathMembers.Count() >= 16) { m_HCDeathOverflow = true; }
+        else { m_HCDeathMembers.Insert(killed); }
+        // Re-arm even when the previous frame callback already removed itself.
+        this.HCDeathFrameStop();
+        GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Insert(HCDeathFrame);
+        if (first)
+        {
+            Print("[HCX SitePatrol] death_hold armed site=" + m_HCSiteId + " kills=" + m_HCDeathKills.ToString());
+        }
+        if (m_HCHold && m_HCHold.Deaths < 2147483647) { m_HCHold.Deaths++; }
+        HCModuleReadiness.HCUse("SitePatrols", "death-hold-armed");
+    }
+    // Two SYSTEM invocations prove a frame boundary even if armed before this
+    // frame's update queue. Native Game.c:1552, DayZGame.c:3027, tools.c:115.
+    protected void HCDeathFrame(float timeslice)
+    {
+        if (m_HCDeathFrames < 2) { m_HCDeathFrames++; }
+        if (m_HCDeathFrames >= 2) { this.HCDeathFrameStop(); }
+    }
+    protected void HCDeathFrameStop()
+    {
+        if (GetGame()) { GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Remove(HCDeathFrame); }
+    }
+    protected void HCDeathHoldStep()
+    {
+        bool terminal = false;
+        bool clean = false;
+        if (m_HCDeathFrames >= 2 && !m_HCDeathOverflow && (!m_HCHold || m_HCHold.Group == m_Group))
+        {
+            clean = HCXExpansionBridge.HCHeldDeathClean(m_HCHold, m_HCDeathMembers, terminal);
+        }
+        if (terminal)
+        {
+            // Never resume a provider-unlisted or emptied group, even with pending spawns.
+            this.HCEndPatrol();
+            return;
+        }
+        if (clean && m_HCHold && m_HCHold.Group == m_Group)
+        {
+            m_HCDeathHeld = false;
+            m_HCDeathMembers.Clear();
+            m_HCDeathKills = 0;
+            HCModuleReadiness.HCUse("SitePatrols", "death-hold-released");
+            return;
+        }
+        int nowMs = GetGame().GetTime();
+        if (nowMs < m_HCDeathNextReportMs) { return; }
+        m_HCDeathNextReportMs = nowMs + HC_DEATH_HOLD_CAP_MS;
+        Print("[HCX SitePatrol] death_hold_deferred reason=DEATH_HOLD_STALE site=" + m_HCSiteId);
+        HCModuleReadiness.HCUse("SitePatrols", "death-hold-deferred");
+    }
     protected void HCLogSkipped(string why)
     {
         int nowMs = GetGame().GetTime();
@@ -51,7 +147,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override bool CanSpawn()
     {
-        if (m_HCFinished) { return false; }
+        if (m_HCFinished || m_HCDeathHeld) { return false; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return false; }
         string problem = director.HCPrepareRingSpawn(this);
@@ -68,6 +164,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     override void Spawn()
     {
         if (m_HCFinished) { return; }
+        if (m_HCDeathHeld) { this.HCLogSkipped("DEATH_HOLD_ACTIVE"); return; }
         if (m_Group)
         {
             this.HCLogSkipped("group already live");
@@ -106,8 +203,9 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override void SpawnAI_Deferred(int i)
     {
-        m_HCPendingMembers = 0;
         if (m_HCFinished) { return; }
+        if (m_HCDeathHeld) { m_HCDeferredMember = i; this.HCLogSkipped("DEATH_HOLD_ACTIVE"); return; }
+        m_HCPendingMembers = 0;
         // An emptied group may already be out of the provider's group list (our hold keeps
         // the object alive); never add members to it.
         if (m_Group && HCXExpansionBridge.HCGroupCount(m_Group) == 0)
@@ -154,16 +252,33 @@ class HCXAISitePatrol : HCXExpansionPatrol
             if (m_Group && m_HCHold.Group == m_Group) { return; }
             this.HCReleaseHold();
         }
-        if (!m_HCHold) { m_HCHold = new HCXAIGroupHold(group); }
+        if (!m_HCHold)
+        {
+            m_HCHold = new HCXAIGroupHold(group);
+            m_HCHold.GroupId = HCXExpansionBridge.HCGroupGetID(m_HCHold.Group);
+        }
         m_HCHold.Track(member);
     }
     protected void HCHoldMembers()
     {
+        if (m_HCDeathHeld) { return; }
         if (!m_Group) { return; }
         m_HCHold = HCXAIGroupHolds.Follow(m_HCHold, m_Group);
+        if (m_HCHold && m_HCHold.GroupId <= 0)
+        {
+            // Spawn/deferred-spawn path: identity comes from the owned ref only.
+            m_HCHold.GroupId = HCXExpansionBridge.HCGroupGetID(m_HCHold.Group);
+        }
     }
     void HCReleaseHold()
     {
+        this.HCDeathFrameStop();
+        if (m_HCDeathHeld) { HCModuleReadiness.HCUse("SitePatrols", "death-hold-released"); }
+        m_HCDeathHeld = false;
+        m_HCDeathMembers.Clear();
+        m_HCDeathKills = 0;
+        m_HCDeathOverflow = false;
+        m_HCDeferredMember = -1;
         if (!m_HCHold) { return; }
         HCXAIGroupHolds.Retire(m_HCHold);
         m_HCHold = null;
@@ -193,6 +308,13 @@ class HCXAISitePatrol : HCXExpansionPatrol
                 memberIndex++;
             }
         }
+        this.HCEndPatrol();
+    }
+    // Delete/retire and empty-group paths bypass the ordinary combat/visibility gate.
+    // Keep persistence -> bodies -> provider despawn -> hold retirement in that order.
+    void HCEndPatrol()
+    {
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
         bool intact = false;
         if (m_Group) { intact = HCXExpansionBridge.HCGroupCount(m_Group) >= m_NumberOfAI && HCXExpansionBridge.HCGroupDeceasedCount(m_Group) == 0; }
         m_HCSurvivors = 0;
@@ -211,8 +333,15 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override void OnUpdate()
     {
-        HCXAIGroupHolds.PruneStep();
         if (m_HCFinished || HCXExpansionBridge.HCSitePatrolBeingDestroyed(this)) { HCXExpansionBridge.HCSitePatrolStop(this); return; }
+        if (m_HCDeathHeld) { this.HCDeathHoldStep(); return; }
+        if (m_HCDeferredMember >= 0)
+        {
+            int deferred = m_HCDeferredMember;
+            m_HCDeferredMember = -1;
+            HCXExpansionBridge.HCSitePatrolSpawnDeferred(this, deferred);
+            return;
+        }
         this.HCHoldMembers();
         this.HCBridgeOnUpdate();
     }
@@ -314,7 +443,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
         {
             HCXAISiteState state = m_States[index];
             if (state.Transient || state.LocalityId == "" || this.HCWithinActivation(state.Site)) { continue; }
-            if (state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0))) { continue; }
+            if (state.Patrol && (state.Patrol.HCDeathHeld() || state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0))) { continue; }
             if (encounters && encounters.SiteBound(state.Site.Id)) { continue; }
             float gap = this.HCPlayerGap(state.Site);
             if (gap <= farthest) { continue; }
@@ -467,8 +596,8 @@ class HCXAISitePatrols : HCXAISiteSurvey
             if (state.LocalityId == "") { m_LocalityCursor++; continue; }
             this.HCRecordRouteState(state);
             bool expired = m_Policy.Sites.Count() > HCXAISiteRules.HCPageSize(m_Localities, HCAILimits.Get().MaxActiveSites) && now >= state.OpportunityAt + HCXAISiteRules.HCOpportunitySeconds(m_Localities);
-            bool live = state.Patrol && (state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0));
-            if (state.Patrol && state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0)
+            bool live = state.Patrol && (state.Patrol.HCDeathHeld() || state.Patrol.m_HCPendingMembers > 0 || (state.Patrol.m_Group && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) > 0));
+            if (state.Patrol && state.Patrol.HCGroupIfSafe() && HCXExpansionBridge.HCGroupCount(state.Patrol.HCGroupIfSafe()) > 0)
             {
                 HCXAILocalityCoverage observed = HCXAISiteRules.HCCoverage(m_LocalitySave.Data, state.LocalityId);
                 if (observed.Pending)
@@ -541,7 +670,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
             if (exceptPatrol && reservation.Patrol == exceptPatrol) { continue; }
             if (!(reservation.Transient && !reservation.Materialized))
             {
-                if (!reservation.Patrol || !reservation.Patrol.m_Group || (HCXExpansionBridge.HCGroupCount(reservation.Patrol.m_Group) == 0 && reservation.Patrol.m_HCPendingMembers <= 0))
+                if (!reservation.Patrol || (!reservation.Patrol.HCDeathHeld() && (!reservation.Patrol.m_Group || (HCXExpansionBridge.HCGroupCount(reservation.Patrol.m_Group) == 0 && reservation.Patrol.m_HCPendingMembers <= 0))))
                 {
                     if (!reservation.Transient) { HCAIBudget.Release("site:" + reservation.Site.Id); }
                     continue;
@@ -683,7 +812,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
         foreach (HCXAISiteState state : m_States)
         {
             if (state.Completed || !state.Patrol || state.Patrol == patrol || !state.Patrol.m_Group) { continue; }
-            if (HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) == 0 && state.Patrol.m_HCPendingMembers <= 0) { continue; }
+            if (!state.Patrol.HCDeathHeld() && HCXExpansionBridge.HCGroupCount(state.Patrol.m_Group) == 0 && state.Patrol.m_HCPendingMembers <= 0) { continue; }
             activeSites++;
             activeAI = activeAI + state.Patrol.m_NumberOfAI;
         }
@@ -794,6 +923,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
     }
     override void HCRefreshDepleted(HCXAISitePatrol patrol)
     {
+        if (patrol.HCDeathHeld()) { return; }
         if (!m_Policy || m_Phase != "run" || !m_OwnedSaved || patrol.m_HCTransient || !patrol.m_Group || patrol.m_HCPendingMembers > 0) { return; }
         if (m_RespawnOff) { return; }
         int surviving = HCXExpansionBridge.HCGroupCount(patrol.m_Group);
