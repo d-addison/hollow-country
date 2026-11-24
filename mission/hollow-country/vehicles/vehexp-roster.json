@@ -103,7 +103,7 @@
   },
   "dropped": {
     "decision": "owner 2026-11-22",
-    "reason": "Land Rover model proxies print 'Wrong inventory shape' (wooden_case/sea_chest) on every creation; model data in a read-only dependency, no config override can fix it. Removed from the VehicleOffroadHatchback event, ce/types.xml and travel-spawnabletypes.xml with their loose parts and repair templates until the dependency model is fixed. Existing objects of these classes in a persisted world are not touched.",
+    "reason": "Land Rover model proxies print 'Wrong inventory shape' (wooden_case/sea_chest) on every creation; model data in a read-only dependency, no config override can fix it. Removed from the VehicleOffroadHatchback event, ce/types.xml and travel-spawnabletypes.xml with their loose parts and repair templates until the dependency model is fixed. Persisted family vehicles are queued after storage load for the bounded upgrade-only retire sweep; cargo and attachments move whole to nearby ground before an empty vehicle is deleted. VehicleRetireEnabled defaults true. Runtime unverified.",
     "vehicles": [
       "Expansion_Landrover",
       "Expansion_Landrover_Green",
@@ -117,6 +117,7 @@
       "Expansion_Landrover_Right",
       "Expansion_Landrover_Trunk",
       "Expansion_Landrover_Wheel"
-    ]
+    ],
+    "retireBase": "Expansion_Landrover_Base"
   }
 }

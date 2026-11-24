@@ -206,6 +206,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableCampRespawn", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableTeamPing", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableMelee", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("VehicleRetireEnabled", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableVehicleFlip", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableForage", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableProgression", "bool", 1, 0, 1, "HCSettings");
@@ -543,6 +544,7 @@ class HCSettings
     bool EnableCampRespawn = true;
     bool EnableTeamPing = true;
     bool EnableMelee = true;
+    bool VehicleRetireEnabled = true;
     bool EnableVehicleFlip = true;
     bool EnableForage = true;
     bool EnableProgression = true;
@@ -604,6 +606,7 @@ class HCSettings
         if (!HCJsonFields.Has(content, "EnableCampRespawn")) { settings.EnableCampRespawn = defaults.EnableCampRespawn; }
         if (!HCJsonFields.Has(content, "EnableTeamPing")) { settings.EnableTeamPing = defaults.EnableTeamPing; }
         if (!HCJsonFields.Has(content, "EnableMelee")) { settings.EnableMelee = defaults.EnableMelee; }
+        if (!HCJsonFields.Has(content, "VehicleRetireEnabled")) { settings.VehicleRetireEnabled = defaults.VehicleRetireEnabled; }
         if (!HCJsonFields.Has(content, "EnableVehicleFlip")) { settings.EnableVehicleFlip = defaults.EnableVehicleFlip; }
         if (!HCJsonFields.Has(content, "EnableForage")) { settings.EnableForage = defaults.EnableForage; }
         if (!HCJsonFields.Has(content, "EnableProgression")) { settings.EnableProgression = defaults.EnableProgression; }
@@ -709,6 +712,7 @@ class HCSettings
         if (HCLogNonDefault("EnableCampRespawn", EnableCampRespawn.ToString(), defaults.EnableCampRespawn.ToString())) { changed++; }
         if (HCLogNonDefault("EnableTeamPing", EnableTeamPing.ToString(), defaults.EnableTeamPing.ToString())) { changed++; }
         if (HCLogNonDefault("EnableMelee", EnableMelee.ToString(), defaults.EnableMelee.ToString())) { changed++; }
+        if (HCLogNonDefault("VehicleRetireEnabled", VehicleRetireEnabled.ToString(), defaults.VehicleRetireEnabled.ToString())) { changed++; }
         if (HCLogNonDefault("EnableVehicleFlip", EnableVehicleFlip.ToString(), defaults.EnableVehicleFlip.ToString())) { changed++; }
         if (HCLogNonDefault("EnableForage", EnableForage.ToString(), defaults.EnableForage.ToString())) { changed++; }
         if (HCLogNonDefault("EnableProgression", EnableProgression.ToString(), defaults.EnableProgression.ToString())) { changed++; }

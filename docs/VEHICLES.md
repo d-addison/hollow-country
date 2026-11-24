@@ -143,3 +143,59 @@ measured limiting part/location rather than declaring the budget accepted.
 Install via the normal stopped-server bundle/receipt workflow. Existing receipts
 must be rolled back through the owning installer before applying changed content;
 do not patch a running mission or delete persistence to force fresh cars.
+
+## Persisted Land Rover retirement (#363)
+
+**Implemented-unverified; upgrade-only.** The economy drop prevents fresh spawns.
+With `VehicleRetireEnabled=true` (default, including existing settings files missing
+this key), a vanilla storage-load hook queues persisted family vehicles; it never
+mutates inventory in the callback. A named family string is tied to the roster's
+`dropped` block by the wiring audit. No dependency API is called.
+
+After module startup and a ten-second grace, each module tick visits one of at
+most 256 queued vehicles. An HCWorkBudget slice permits at most four item moves
+and one empty vehicle retirement per tick. Cargo moves first, attachments next,
+wheels last; attachment selection inspects at most 16 slots per move and yields
+long scans. Direct child containers move whole with all contents. The same items
+move through vanilla server inventory locations to supported ground 1–3 m beside
+the current vehicle position, using HCGroundSnap and a geometry clearance ray.
+There is no item creation or item deletion. `items_moved` counts root transfers,
+including the entire nested inventory of each moved container.
+
+Any seated occupant (including a corpse), running engine or player within 50 m
+holds the vehicle for a later tick. More than 16 connected players also holds it
+rather than truncating safety checks. Placement excludes the chassis and its
+attached doors/wheels from the clearance ray; more than 32 attachments refuses
+placement rather than truncating that exclusion list. A vehicle inside another entity, queue
+overflow, invalid location, blocked move, missing support or failed ground
+verification refuses retirement for this boot. Already moved gear remains on the
+ground; the vehicle and remaining gear stay for next boot. Vanilla ground loot
+lifetimes apply. Disabling the setting stops admission and clears pending jobs.
+
+Deletion is server-only and requires empty cargo and attachments plus a fresh
+occupancy/proximity check. Native storage owns the moved identities and the empty
+vehicle's removal on the next save. No transaction journal or crash-atomic save
+claim is made. A restart resumes only what native storage restores. Dependency
+locks are respected by the native move pre-check; towing/covered/garage vehicles
+and any dependency override that bypasses the vanilla hook remain native checks.
+An overflow is counted and left untouched for the next boot.
+
+Readiness is the shared `[HC Ready] module=VehicleRetire` receipt. Success emits
+`[HC Vehicles] retired class=<type> items_moved=<n>` for the first 16 per boot.
+Refusals emit `[HC Vehicles] retire_refused reason=<reason>` for the first 16;
+HCActivityCounters retains aggregate use/refusal/defer telemetry. Shutdown emits
+one `[HC Vehicles] retire summary retired=<n> items_moved=<n> refused=<n>` covering
+late loads and still-deferred jobs. `[HC Use] module=VehicleRetire feature=retired
+count=<n>` increments only on empty vehicle deletion. The activity expectation is
+`conditional: upgrade-only`: zero without the `retire upgrade_pending` marker is
+NOT_APPLICABLE (never ACTIVE or a waiver). Once any candidate or overflow is seen,
+zero fails the release activity check. A fresh-world soak cannot prove this feature.
+
+Lead acceptance remains pending: native compile to Mission, a disposable upgrade
+save seeded with a known persisted vehicle, cargo plus attached and nested gear,
+identity/quantity comparison before/after, positive queued/retired evidence, locked
+move refusal, nested-vehicle refusal, nearby/seated deferral and later retry, and
+restart mid-sweep with no missing or duplicate gear. Confirm ordinary ground
+lifetimes and supported/accessible placement with one client, and count the RPT
+warning blocks before and after; storage load itself can still print model warnings
+on the retirement boot. No multiplayer or engine acceptance is claimed.
