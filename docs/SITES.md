@@ -190,6 +190,10 @@ A forward outpost on the highest flat ground above the base approach: tent rows 
 - How many: up to 8 on the map, 1500 m apart from the same story and 300 m from any other composed site.
 - Lead note: `outpost-roster`, on the table part.
 
+The `forward-outpost` map overlay composition places its guard tower just outside the west wall in the
+template's local frame. Each placed overlay rotates with its site heading.
+[Overlay compositions](../config/map-overlays/compositions.json)
+
 ### `supply-dump` (Supply dump)
 
 Containers in two rows along the access track, each with pallets and a crate at its door, razor wire round the open sides and a guard tower at the corner covering the lane.

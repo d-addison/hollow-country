@@ -1533,7 +1533,7 @@
           "yaw": 0.0
         }
       ],
-      "purpose": "A walled outpost: HBarrier perimeter with the entrance gap facing the approach, a guard tower at the front corner, sandbag cover lines inside the gate, a tent and camo-net work area at the back, hedgehogs outside the gate.",
+      "purpose": "A walled outpost with an HBarrier perimeter, an entrance gap facing the approach, and a guard tower just outside the west wall in the local layout. Sandbag cover lines sit inside the gate, a tent and camo net shelter the work area at the back, and hedgehogs sit outside the gate.",
       "status": "runtime-unverified",
       "theme": "forward outpost",
       "threat_hint": "exposed military salvage",
