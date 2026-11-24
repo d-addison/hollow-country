@@ -12,7 +12,8 @@
 //            :1299 Pause, :1334 Continue; 3_Game/constants.c:184-197 MENU_INGAME, MENU_INVENTORY,
 //            MENU_MAP; 3_Game/CfgGameplayHandler.c:417 GetUse3DMap, :438 GetMapIgnoreMapOwnership.
 //  admin     HCAdminClient (HCGet, HCListen, HCSend with its 1.1 s spacing, HCTick, Notice, Revision).
-//  group     HCGroupClient (Get, GetSnapshot, IsBusy, GetNotice, Send) with HCGroupRequest
+//  group     HCGroupClient (Get, GetSnapshot, IsBusy, GetNotice, Send) with HCGroupRequest; the M map
+//            HCGroupProtocol.MENU_MAP opened as HCGroupGameplay.c OnUpdate does on UAMapToggle
 //            Op CREATE / TEAM_PING exactly as the vanilla group UI and HCTeamPingInput send them.
 // Per frame: one step update; no allocation beyond the current step; no counter, HCUse or server
 // feature entry is touched; the player's name, id and paths are never printed.
@@ -182,9 +183,17 @@ class HCClientDriver
         if (!ui || !mission) { m_Text = "no-ui-manager"; return HCDriverResult.UNSUPPORTED; }
         if (name == "map")
         {
+            // The M key first (HCGroupGameplay.c OnUpdate runs before the vanilla toggle): with the group
+            // frame enabled it opens the Hollow Country map without a map item. Same checks as that key.
+            if (ui.GetMenu()) { m_Text = "another-menu-open"; return HCDriverResult.REFUSED; }
+            if (GroupMapAllowed())
+            {
+                ui.EnterScriptedMenu(HCGroupProtocol.MENU_MAP, null);
+                return HCDriverResult.RUNNING;
+            }
             if (!CfgGameplayHandler.GetMapIgnoreMapOwnership() || CfgGameplayHandler.GetUse3DMap())
             {
-                m_Text = "map-needs-item-or-3d-map";
+                m_Text = "map-needs-item-or-3d-map-and-group-map-off";
                 return HCDriverResult.UNSUPPORTED;
             }
             ui.CloseAll();
@@ -215,10 +224,22 @@ class HCClientDriver
         return HCDriverResult.REFUSED;
     }
 
+    // HCGroupGameplay.c OnUpdate opens HCGroupProtocol.MENU_MAP on UAMapToggle when the group frame is
+    // enabled, the player is alive and conscious and no menu is open.
+    protected bool GroupMapAllowed()
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player || !player.IsAlive() || player.IsUnconscious()) { return false; }
+        HCGroupClient client = HCGroupClient.Get();
+        if (!client) { return false; }
+        HCGroupSnapshot frame = client.GetSnapshot();
+        return frame && frame.Enabled;
+    }
+
     protected bool MenuIsOpen(string name)
     {
         UIManager ui = GetGame().GetUIManager();
-        if (name == "map") { return ui.IsMenuOpen(MENU_MAP); }
+        if (name == "map") { return ui.IsMenuOpen(MENU_MAP) || ui.IsMenuOpen(HCGroupProtocol.MENU_MAP); }
         if (name == "inventory") { return ui.IsMenuOpen(MENU_INVENTORY); }
         if (name == "admin") { return ui.IsMenuOpen(HCAdminWire.MENU); }
         return GetGame().GetMission().IsPaused();
@@ -230,6 +251,8 @@ class HCClientDriver
         Mission mission = GetGame().GetMission();
         if (name == "map")
         {
+            UIScriptedMenu groupMap = ui.FindMenu(HCGroupProtocol.MENU_MAP);
+            if (groupMap) { groupMap.Close(); }
             MapMenu mapMenu = MapMenu.Cast(ui.FindMenu(MENU_MAP));
             if (mapMenu) { mapMenu.CloseMapMenu(); }
             if (ui.IsMenuOpen(MENU_MAP)) { ui.CloseMenu(MENU_MAP); }
@@ -256,6 +279,9 @@ class HCClientDriver
         }
         if (m_Stage == 1)
         {
+            // HCAdminGameplay.c ticks the admin client only after a real key press; the driver opened it
+            // without one, so it ticks it until the menu is up (soak 185b: s07 menu-never-opened).
+            if (step.name == "admin" && m_Mark != 2) { HCAdminClient.HCGet().HCTick(); }
             if (m_StepAge < 0.5) { return HCDriverResult.RUNNING; }
             // Polled until the hold ends: the admin menu opens only after the server's reply.
             if (m_Mark != 2)
