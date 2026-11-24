@@ -6460,7 +6460,6 @@
       ]
     },
     "explicit_classes": {
-      "HC_ZmbM_Sitter": "ZmbM_HermitSkinny_Beige",
       "HC_ZmbM_Sitter_ZmbM_PatrolNormal_Autumn": "ZmbM_PatrolNormal_Autumn",
       "HC_ZmbM_Sleeper_ZmbM_PatrolNormal_Flat": "ZmbM_PatrolNormal_Flat",
       "HC_ZmbM_Riser_ZmbM_PatrolNormal_PautRev": "ZmbM_PatrolNormal_PautRev",
@@ -6607,13 +6606,10 @@
       "HC_ZmbM_Sitter_ZmbM_JoggerSkinny_Red": "ZmbM_JoggerSkinny_Red",
       "HC_ZmbM_Riser_ZmbM_VillagerOld_Green": "ZmbM_VillagerOld_Green"
     },
-    "constraints": "Only stock preset items; no new armour or occurrence increase; an HC child row copies its parent row (cargo and attachments); a parent without a stock row uses the listed family sibling; all original positive item choices remain positive.",
-    "parent_fallbacks": {
-      "ZmbM_usSoldier_normal_Woodland": "ZmbM_usSoldier_normal_Desert"
-    }
+    "constraints": "Only stock attachment preset items; no new armour or occurrence increase. Each emitted HC child row uses its stock parent's attachments. Children whose parents have no stock row are omitted. All original positive attachment item choices remain positive."
   },
   "infected_kits": {
-    "schema_version": 1,
+    "schema_version": 2,
     "issue": 339,
     "runtime_acceptance": "PENDING",
     "roles": {
@@ -6783,6 +6779,98 @@
         ]
       }
     },
+    "cargo_replacements": {
+      "ZmbM_PatrolNormal_Autumn": {
+        "preset": "foodArmy",
+        "from": "TunaCan",
+        "to": "Mag_STANAG_30Rnd",
+        "cargo_sha256": "6940786638d06a0087228e2f03d99ad6a98013940a9525bb708f29482444a5cf"
+      },
+      "ZmbF_usSoldier_Heavy_Desert": {
+        "preset": "foodArmy",
+        "from": "TunaCan",
+        "to": "Mag_AKM_30Rnd",
+        "cargo_sha256": "cc14ca77cb388d209586cbad3218aefa99959052f4321610073ef8f46d48927b"
+      },
+      "ZmbM_usSoldier_Officer_Desert": {
+        "preset": "foodArmy",
+        "from": "TunaCan",
+        "to": "Mag_CMAG_30Rnd",
+        "cargo_sha256": "cc14ca77cb388d209586cbad3218aefa99959052f4321610073ef8f46d48927b"
+      },
+      "ZmbM_SoldierNormal": {
+        "preset": "foodArmy",
+        "from": "TunaCan",
+        "to": "Mag_AK101_30Rnd",
+        "cargo_sha256": "6940786638d06a0087228e2f03d99ad6a98013940a9525bb708f29482444a5cf"
+      },
+      "ZmbM_usSoldier_normal_Desert": {
+        "preset": "foodArmy",
+        "from": "TunaCan",
+        "to": "AmmoBox_556x45_20Rnd",
+        "cargo_sha256": "6940786638d06a0087228e2f03d99ad6a98013940a9525bb708f29482444a5cf"
+      },
+      "ZmbF_usSoldier_normal_Desert": {
+        "preset": "foodArmy",
+        "from": "TunaCan",
+        "to": "BandageDressing",
+        "cargo_sha256": "6940786638d06a0087228e2f03d99ad6a98013940a9525bb708f29482444a5cf"
+      },
+      "ZmbM_PolicemanFat": {
+        "preset": "toolsPolice",
+        "from": "Roadflare",
+        "to": "Mag_CZ75_15Rnd",
+        "cargo_sha256": "9681f88268d3fe50a183cc11f97fd19d6cd0e0a427315a6a556afebb1217596f"
+      },
+      "ZmbM_PolicemanSpecForce": {
+        "preset": "toolsPolice",
+        "from": "Roadflare",
+        "to": "Mag_Glock_15Rnd",
+        "cargo_sha256": "f60d2da582941e1559ce3160bbed614c29ca16137c908e79a0cdc10abdecea1f"
+      },
+      "ZmbF_PoliceWomanNormal": {
+        "preset": "toolsPolice",
+        "from": "Roadflare",
+        "to": "Mag_FNX45_15Rnd",
+        "cargo_sha256": "9681f88268d3fe50a183cc11f97fd19d6cd0e0a427315a6a556afebb1217596f"
+      },
+      "ZmbM_PolicemanSpecForce_Heavy": {
+        "preset": "toolsPolice",
+        "from": "Roadflare",
+        "to": "Handcuffs",
+        "cargo_sha256": "f60d2da582941e1559ce3160bbed614c29ca16137c908e79a0cdc10abdecea1f"
+      },
+      "ZmbM_HunterOld_Autumn": {
+        "preset": "toolsHermit",
+        "from": "Matchbox",
+        "to": "Ammo_308Win",
+        "cargo_sha256": "853657a7b456e1d47d6a8ef2b02d6f8478b092e01ffc6446a140934a485628cc"
+      },
+      "ZmbM_HunterOld_Spring": {
+        "preset": "toolsHermit",
+        "from": "Matchbox",
+        "to": "Ammo_762x54",
+        "cargo_sha256": "853657a7b456e1d47d6a8ef2b02d6f8478b092e01ffc6446a140934a485628cc"
+      },
+      "ZmbM_HunterOld_Summer": {
+        "preset": "toolsHermit",
+        "from": "Matchbox",
+        "to": "Ammo_762x39",
+        "cargo_sha256": "853657a7b456e1d47d6a8ef2b02d6f8478b092e01ffc6446a140934a485628cc"
+      },
+      "ZmbM_HunterOld_Winter": {
+        "preset": "toolsHermit",
+        "from": "Matchbox",
+        "to": "Ammo_22",
+        "cargo_sha256": "853657a7b456e1d47d6a8ef2b02d6f8478b092e01ffc6446a140934a485628cc"
+      },
+      "ZmbF_DoctorSkinny": {
+        "preset": "toolsMedic",
+        "from": "BloodBagEmpty",
+        "to": "DisinfectantSpray",
+        "cargo_sha256": "a3cb83af177ac3656d7b625d394eba62ee55bc95d4f882038d42eb1fd81186c6"
+      }
+    },
     "worn_gear": {
       "slot_transfers": [
         {
@@ -6818,7 +6906,7 @@
         ]
       }
     },
-    "constraints": "Cargo presets named hc_kit_*, attached by role (class-name segment) to stock Zmb rows; an HC child copies its parent row, so it carries the same kit. Vanilla items only, preset chance 0.10-0.25, at most two kit presets per row, civilians unchanged. Worn gear only moves probability between attachment slots a row already has and between items of a preset the row already names; no new slot, no new item, no weapon slot."
+    "constraints": "Role groups describe eligible vanilla items and weight ceilings. Each selected stock row replaces one existing draw item within its original cargo gate. Shared presets and existing HC child attachment-only rows are retained. Worn gear transfers apply to existing stock slots."
   },
   "ce_pose_coverage": {
     "InfectedArmy": {
