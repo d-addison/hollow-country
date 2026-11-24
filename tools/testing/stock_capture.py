@@ -142,9 +142,13 @@ def stopped(host):
         raise Refused('host busy or process state unknown; all DayZ images must be stopped')
 
 
-def rpt_bytes(profiles):
-    """Size of the single stock RPT, or -1 when there is not exactly one."""
-    logs = sorted(Path(profiles).glob('*.RPT'))
+def rpt_bytes(profiles, before):
+    """Size of the single RPT created after this run's launch, else -1.
+
+    RPTs present before the launch never count, so a stale or foreign log
+    cannot keep a dead server alive; only growth after the start does.
+    """
+    logs = sorted(set(Path(profiles).glob('*.RPT')) - before)
     if len(logs) != 1:
         return -1
     try:
@@ -296,18 +300,19 @@ class Stage:
                   + "; Write-Output 'HC launch acknowledged'")
         data['attempted'] = True
         self.save(data)
+        before = set((work / 'profiles').glob('*.RPT'))
         try:
             host.launch(script, (soak.SERVER_IMAGE,), 'stock server')
             if not host.started((soak.SERVER_IMAGE,), 'stock server'):
                 raise Refused('stock server did not boot; no security bypass will be attempted')
             deadline = time.monotonic() + minutes * 60
             unknown = 0
-            rpt_size = rpt_bytes(work / 'profiles')
+            rpt_size = rpt_bytes(work / 'profiles', before)
             while time.monotonic() < deadline:
                 state = host.state(soak.SERVER_IMAGE)
                 if state == 'gone':
                     raise Refused('stock server stopped; capture incomplete')
-                size = rpt_bytes(work / 'profiles')
+                size = rpt_bytes(work / 'profiles', before)
                 if state == 'running':
                     unknown = 0
                 elif size > rpt_size:
