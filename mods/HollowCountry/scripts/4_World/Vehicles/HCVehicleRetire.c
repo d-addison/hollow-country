@@ -305,7 +305,12 @@ class HCVehicleRetireModule : HCModule
             m_OverflowSeen = overflow;
             Refuse("queue_full");
         }
-        if (jobs.Count() == 0) { return; }
+        if (jobs.Count() == 0)
+        {
+            // Print the summary once the sweep drains, so the boot RPT carries it without a stop.
+            if (m_UpgradeSeen) { Summary(); }
+            return;
+        }
         if (m_Cursor >= jobs.Count()) { m_Cursor = 0; }
         HCVehicleRetireJob job = jobs[m_Cursor];
         if (Visit(job))
