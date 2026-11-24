@@ -600,9 +600,18 @@ class RefreshTests(unittest.TestCase):
         self.assertTrue(any(row['kind'] == 'edited' for row in self.ctx.repair_blocked))
         self.assertIsNone(self.ctx.journal)
 
-    def test_owned_top_level_nonallowlisted_file_blocks(self):
+    def test_owned_top_level_extras_are_ignored_like_first_install(self):
+        # Real Workshop items ship README/LICENSE/types beside addons/ (2026-11-24: 13 of 22 deps).
         self.installer_context()
-        put(self.source, 'no.exe', b'unsupported')
+        put(self.source, 'LICENSE', b'text')
+        put(self.source, 'types/types.xml', b'<types/>')
+        dep = fi.analyze(self.ctx).dependencies[0]
+        self.assertNotEqual(dep['state'], 'blocked')
+        self.assertFalse((self.root / self.item['folder'] / 'LICENSE').exists())
+
+    def test_owned_disallowed_file_inside_addons_blocks(self):
+        self.installer_context()
+        put(self.source, 'addons/no.exe', b'unsupported')
         self.assertEqual(fi.analyze(self.ctx).dependencies[0]['state'], 'blocked')
 
     def test_repaired_receipt_persisted_when_refresh_replan_is_noop(self):
