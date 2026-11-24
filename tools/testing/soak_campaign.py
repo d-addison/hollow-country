@@ -99,6 +99,15 @@ SCRIPT_ERROR = 'SCRIPT    (E)'
 POLL_SECONDS = 30
 SERVER_READY_MINUTES = 20
 JOIN_MINUTES = 10
+# Both peers must prove a join within six minutes of the BattlEye launch, including startup.
+CLIENT_JOIN_SECONDS = 6 * 60
+# CREATED -> CONNECTED precedes authentication and is also emitted for rejected clients.
+SERVER_PLAYER_CONNECTED = re.compile(r"Server: SetClientState .* SELECTED -> PLAYER\s*$")
+# Only our fixed, non-identifying trace grammar may appear in a refusal.
+CONNECT_TRACE = re.compile(
+    r"\[HC Driver\] connect (?:initializ(?:e load=-?\d+ game=-?\d+ cli=(?:0|1|true|false)"
+    r"|ed load=-?\d+ game=-?\d+)|entry load=-?\d+ game=-?\d+|native result=-?\d+"
+    r"|session (?:start|fail|end))\s*$")
 # A targeted run idles this long unless a selected counter waits on a longer timer.
 TARGETED_IDLE_MINUTES = 10
 SELECTION_FILE = 'selection.json'
@@ -1130,11 +1139,13 @@ class Campaign:
                                stager.server, stager.client_root / '!Workshop', self.win)
             args = client_arguments(mods, self.win(stager.client_parent / CLIENT_PROFILE))
             started['client'] = True
+            join_deadline = self.now() + CLIENT_JOIN_SECONDS
             self.host.launch_client(self.win(stager.client_root), args)
             self.appear(CLIENT_IMAGE, 'client')
             self.log('run: client launched through the BattlEye launcher')
             client_dir = stager.client_parent / CLIENT_PROFILE
-            follow = {'path': None, 'offset': 0, 'done': False, 'inert': False, 'steps': 0}
+            follow = {'path': None, 'offset': 0, 'done': False, 'inert': False, 'steps': 0,
+                      'session': False, 'last_connect': 'no connect line', 'player': False}
 
             def driver_progress():
                 path = self.newest(client_dir, '*.RPT')
@@ -1144,6 +1155,11 @@ class Campaign:
                     follow.update(path=path, offset=0)
                 lines, follow['offset'] = tail_lines(path, follow['offset'])
                 for line in lines:
+                    trace = CONNECT_TRACE.search(line)
+                    if trace:
+                        follow['last_connect'] = trace.group(0).strip()
+                        if follow['last_connect'] == '[HC Driver] connect session start':
+                            follow['session'] = True
                     if '[HC Driver] inert' in line:
                         follow['inert'] = True
                     elif '[HC Driver] step=' in line:
@@ -1152,6 +1168,25 @@ class Campaign:
                         follow['done'] = True
                 return follow['done'] or follow['inert']
 
+            def joined():
+                driver_progress()  # Keep driver completion/step evidence read during the join wait.
+                path = self.newest(server_profile, 'DayZServer_x64_*.RPT')
+                if path is not None:
+                    if server_follow['path'] != path:
+                        server_follow.update(path=path, offset=0)
+                    lines, server_follow['offset'] = tail_lines(path, server_follow['offset'])
+                    if any(SERVER_PLAYER_CONNECTED.search(line) for line in lines):
+                        follow['player'] = True
+                return follow['session'] and follow['player']
+
+            try:
+                remaining_minutes = max(0, join_deadline - self.now()) / 60
+                self.wait_for('client join', remaining_minutes, joined, (SERVER_IMAGE, CLIENT_IMAGE))
+            except Refused as error:
+                if str(error).startswith('timed out'):
+                    raise Refused('client never joined: ' + follow['last_connect']) from None
+                raise
+            self.log('run: client session started and server player connect confirmed')
             budget = int(total * 1.5) + JOIN_MINUTES
             try:
                 # The server too: a server crash mid-drive must end the run now, not after the whole budget
