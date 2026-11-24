@@ -38,6 +38,11 @@ class HCDriverWalker
     protected float m_DiffMark;
     protected float m_DiffMarkAge;
     protected string m_Detail;
+    // Route mode: after HANDOVER_SECONDS without progress the walker flags m_Stuck and keeps going;
+    // the route's stuck ladder (HCDriverRoute) decides what to do. Begin turns it off.
+    static const float HANDOVER_SECONDS = 8.0;
+    protected bool m_Handover;
+    protected bool m_Stuck;
 
     bool IsActive()
     {
@@ -67,6 +72,21 @@ class HCDriverWalker
         m_DiffMark = 0;
         m_DiffMarkAge = 0;
         m_Detail = "";
+        m_Handover = false;
+        m_Stuck = false;
+    }
+
+    void HandOverStuck()
+    {
+        m_Handover = true;
+    }
+
+    // True once per stuck spell in route mode.
+    bool TakeStuck()
+    {
+        bool stuck = m_Stuck;
+        m_Stuck = false;
+        return stuck;
     }
 
     // Plain forward movement along the current heading (the sprint step).
@@ -140,6 +160,12 @@ class HCDriverWalker
         else
         {
             m_NoProgress = m_NoProgress + dt;
+        }
+        if (m_Handover && m_NoProgress >= HCDriverWalker.HANDOVER_SECONDS)
+        {
+            m_Stuck = true;
+            m_NoProgress = 0;
+            m_Best = dist;
         }
         if (m_NoProgress >= 20.0)
         {
@@ -219,6 +245,8 @@ class HCDriverActions
     protected ItemBase m_LastTaken;
     protected bool m_Crouched;
     protected bool m_Sent;
+    // Route door rung: scan only what is in reach where the player stands, never walk to a candidate.
+    protected bool m_InReachOnly;
 
     string Detail()
     {
@@ -245,6 +273,15 @@ class HCDriverActions
         m_Target = null;
         m_Action = null;
         m_Sent = false;
+        m_InReachOnly = false;
+    }
+
+    // The route's door rung: open_door on a door in reach of where the player stands (one ray per
+    // frame, RAYS rays), refused no-door-in-reach otherwise. The walker is never started.
+    void BeginInReach(string name, float timeoutSeconds)
+    {
+        Begin(name, null, timeoutSeconds);
+        m_InReachOnly = true;
     }
 
     protected ActionManagerClient Manager(PlayerBase player)
@@ -350,7 +387,7 @@ class HCDriverActions
     {
         if (!object || object.IsPendingDeletion()) { return false; }
         if (kind == "search") { return House.Cast(object) != null; }
-        if (kind == "close_door")
+        if (kind == "close_door" || kind == "open_door")
         {
             BuildingBase building = BuildingBase.Cast(object);
             return building && building.GetDoorCount() > 0;
@@ -455,7 +492,7 @@ class HCDriverActions
         if (m_Name == "pickup_forage") { return TickTake(player, manager, walker, "forage"); }
         if (m_Name == "mount") { return TickMount(player, manager); }
         if (m_Name == "radio") { return TickRadio(player, manager); }
-        if (m_Name == "search" || m_Name == "close_door" || m_Name == "salvage" || m_Name == "flip") { return TickScanned(player, manager, walker); }
+        if (m_Name == "search" || m_Name == "close_door" || m_Name == "open_door" || m_Name == "salvage" || m_Name == "flip") { return TickScanned(player, manager, walker); }
         return Finish(HCDriverResult.REFUSED, "unknown-action-kind");
     }
 
@@ -750,7 +787,7 @@ class HCDriverActions
         return HCDriverResult.RUNNING;
     }
 
-    // search, close_door, salvage, flip: find a real target by raycast (walking toward the
+    // search, close_door, open_door, salvage, flip: find a real target by raycast (walking toward the
     // nearest candidate while scanning), then start the action through the client manager.
     protected int TickScanned(PlayerBase player, ActionManagerClient manager, HCDriverWalker walker)
     {
@@ -771,9 +808,16 @@ class HCDriverActions
             if (m_Name == "flip") { m_Action = ActionManagerBase.GetAction(HCActionFlipVehicle); }
             if (m_Name == "search") { m_Action = ActionManagerBase.GetAction(HCActionSearchInterior); }
             if (m_Name == "close_door") { m_Action = ActionManagerBase.GetAction(ActionCloseDoors); }
+            // ActionOpenDoors.c:1 (ActionCondition :40 GetDoorIndex(target.GetComponentIndex()), :52
+            // CanDoorBeOpened); Building.c:28 GetDoorIndex, :34 IsDoorOpen, :55 IsDoorLocked. A locked or
+            // open door fails Can() and is never forced.
+            if (m_Name == "open_door") { m_Action = ActionManagerBase.GetAction(ActionOpenDoors); }
             if (!m_Action) { return Finish(HCDriverResult.UNSUPPORTED, "action-class-not-registered"); }
-            m_Approach = NearestCandidate(m_Name, player);
-            if (!m_Approach) { return Finish(HCDriverResult.REFUSED, "no-candidate-within-40m"); }
+            if (!m_InReachOnly)
+            {
+                m_Approach = NearestCandidate(m_Name, player);
+                if (!m_Approach) { return Finish(HCDriverResult.REFUSED, "no-candidate-within-40m"); }
+            }
             m_Phase = HCDriverActions.P_FIND;
             m_PhaseAge = 0;
             m_Ray = 0;
@@ -785,6 +829,11 @@ class HCDriverActions
                 walker.Release(player);
                 StartAction(player, m_Action, m_Target, m_Main);
                 return HCDriverResult.RUNNING;
+            }
+            if (m_InReachOnly)
+            {
+                if (m_Ray < HCDriverActions.RAYS) { return HCDriverResult.RUNNING; }
+                return Finish(HCDriverResult.REFUSED, "no-door-in-reach");
             }
             if (!m_Approach) { return Finish(HCDriverResult.REFUSED, "candidate-gone"); }
             if (!walker.IsActive()) { walker.Begin(m_Approach.GetPosition()[0], m_Approach.GetPosition()[2], "walk", 2.0, 60); }

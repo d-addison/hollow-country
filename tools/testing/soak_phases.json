@@ -26,7 +26,17 @@
   {
    "name": "walk_town",
    "minutes": 20,
-   "what": "walk through a town for signs of life, interiors and doors"
+   "what": "walk through a town for signs of life, interiors and doors, then the scavenger street line as a route (stuck ladder: sidestep, back up, open a door, skip once)"
+  },
+  {
+   "name": "combat",
+   "minutes": 5,
+   "what": "in the town street (walks there first when run alone): take the rifle to the hands, reload with the vanilla quick reload, raise and aim at the nearest visible infected or server AI (never fires; at most 3 targets of 20 s), retreat on foot when wounded"
+  },
+  {
+   "name": "loot",
+   "minutes": 6,
+   "what": "in the town street (walks there first when run alone): walk to loose ground items in priority order (magazine, ammunition, food, drink, medical, map) and take up to 4 with the vanilla take action; full pockets drop one junk item"
   },
   {
    "name": "fixtures",
@@ -39,6 +49,11 @@
    "what": "real vanilla and HC actions through the client action manager, plus the radio, loot, decay and dead-drop admin commands"
   },
   {
+   "name": "vehicle",
+   "minutes": 4,
+   "what": "the fx_car_side car the actions phase flipped (placed and flipped first when run alone): walk to the driver door, vanilla get-in, start engine, 8 s at half throttle, brake, stop engine and get out"
+  },
+  {
    "name": "scene",
    "minutes": 12,
    "what": "walk to a scene chain site, place its scene and read, take and write the notes it leaves"
@@ -47,6 +62,16 @@
    "name": "forest",
    "minutes": 8,
    "what": "walk to a woodland barn, run the forage tick, pick forage and stand under the trees for the wind loop"
+  },
+  {
+   "name": "survive",
+   "minutes": 3,
+   "what": "bandage when bleeding, then drink and eat whatever the town loot and the forage gave, each with the item's own vanilla continuous action"
+  },
+  {
+   "name": "mission",
+   "minutes": 30,
+   "what": "on foot into a published mission zone from outside (enter zone=mission: in, out and in again until the server's radius receipt arrives)"
   },
   {
    "name": "idle",
@@ -147,7 +172,8 @@
   "Shelters/regional_props_placed": "idle",
   "optional-expansion-human-ai/convoy_astar": "fixtures",
   "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
-  "optional-expansion-human-ai/stuck_recovery": "fixtures"
+  "optional-expansion-human-ai/stuck_recovery": "fixtures",
+  "Events/mission_radius_entered": "mission"
  },
  "manual": {
   "TeamPing/ping_recipients": {
@@ -554,10 +580,11 @@
    ]
   },
   "Events/mission_radius_entered": {
-   "phase": "walk_zone",
+   "phase": "mission",
    "how": [
-    "step:walk:zone:balota-cf3bbed7",
-    "code:HCMissionBeacon.c"
+    "step:enter:mission",
+    "code:HCMissionBeacon.c",
+    "code:HCUseLifecycle.c"
    ]
   },
   "Events/police_barrel_recreated": {

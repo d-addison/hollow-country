@@ -167,5 +167,144 @@ class DriverScriptTests(unittest.TestCase):
                 self.assertEqual(ds.main(["validate", str(path)]), 1)
 
 
+    def test_r3_route_covers_the_six_smoke_categories_on_foot(self):
+        script, _ = ds.build_r3()
+        ds.validate_script(script)
+        menus = [step["name"] for step in script["steps"] if step["kind"] == "menu"]
+        zones = [step["zone"] for step in script["steps"] if step["kind"] == "enter"]
+        self.assertEqual(menus, ["map", "inventory", "admin"])  # the M map also opens the group controls
+        self.assertEqual(zones, ["site", "mission"])
+        self.assertFalse({"admin", "action", "walk"} & {step["kind"] for step in script["steps"]})
+        self.assertEqual(ds.build_r3(), ds.build_r3())
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "client_driver.json"
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(ds.main(["write", str(path), "--route", "r3"]), 0)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), script)
+
+    def test_site_candidates_are_patrol_anchors_at_the_default_radius(self):
+        sites = ds.site_candidates()
+        self.assertEqual(len(sites) % 3, 0)
+        self.assertLessEqual(len(sites) // 3, ds.MAX_SITE_CANDIDATES)
+        anchors = {ds.resolve_waypoint("site:" + row["Id"]) for row in ds._load("ai/sites.json")["Sites"]
+                   if row.get("Kind") == "patrol" and row.get("Waypoints")}
+        for index in range(0, len(sites), 3):
+            self.assertIn((sites[index], sites[index + 1]), anchors)
+            self.assertGreaterEqual(sites[index + 2], ds.SITE_RADIUS_FLOOR)
+
+    def test_enter_steps_checked(self):
+        good = {"id": "s01", "kind": "enter", "zone": "site", "sites": [6564.47, 2551.96, 1500.0],
+                "gait": "jog", "hold_s": 60, "timeout_s": 600}
+        ds.validate_step(good)
+        bad = [dict(good, zone="town"), dict(good, sites=[1.0, 2.0]), dict(good, sites=[]),
+               dict(good, sites=[1.0, 2.0, 10.0]), dict(good, sites=[99999.0, 2.0, 1500.0]),
+               dict(good, hold_s=5), dict(good, hold_s=600), dict(good, timeout_s=10), dict(good, gait="crawl"),
+               dict(good, zone="mission"), dict(good, to=[1, 2])]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+        mission = {key: value for key, value in good.items() if key != "sites"}
+        ds.validate_step(dict(mission, zone="mission"))
+        with self.assertRaises(ds.ScriptError):
+            ds.validate_step(mission)  # a site step needs its candidates
+        self.assertEqual(ds.step_token(dict(mission, zone="mission"), {}), "enter:mission")
+
+    def test_route_steps_follow_site_waypoints_and_are_checked(self):
+        script, notes = ds.build_plan(["walk_town"])
+        routes = [step for step in script["steps"] if step["kind"] == "route"]
+        self.assertEqual(len(routes), 1)
+        source = notes[routes[0]["id"]]
+        self.assertEqual(ds.step_token(routes[0], notes), "route:" + source)
+        points = ds.resolve_route(source)
+        self.assertEqual(routes[0]["points"], [value for point in points for value in point])
+        good = {"id": "s01", "kind": "route", "points": [6790.0, 2580.0, 6659.0, 2575.0], "gait": "jog",
+                "arrive_m": 5, "timeout_s": 300}
+        ds.validate_step(good)
+        bad = [dict(good, points=[6790.0, 2580.0]), dict(good, points=[6790.0, 2580.0, 1.0]),
+               dict(good, points=[99999.0, 2580.0, 6659.0, 2575.0]), dict(good, points=[1.0] * 130),
+               dict(good, arrive_m=1), dict(good, timeout_s=5), dict(good, gait="crawl"), dict(good, to=[1, 2])]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+        for source in ("zone:balota-cf3bbed7", "site:no-such-site"):
+            with self.assertRaises(ds.ScriptError):
+                ds.resolve_route(source)
+
+    def test_combat_steps_are_bounded_and_never_fire(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        combats = [step for step in script["steps"] if step["kind"] == "combat"]
+        self.assertTrue(combats)
+        self.assertEqual(ds.step_token(combats[0], notes), "combat")
+        self.assertIn("fire=unsupported", ds.describe(combats[0], notes))
+        good = {"id": "s01", "kind": "combat", "range_m": 60, "timeout_s": 180}
+        ds.validate_step(good)
+        bad = [dict(good, range_m=5), dict(good, range_m=500), dict(good, timeout_s=5),
+               dict(good, timeout_s=7200), dict(good, fire=True), dict(good, range_m="60")]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
+    def test_loot_steps_are_bounded(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        loots = [step for step in script["steps"] if step["kind"] == "loot"]
+        self.assertTrue(loots)
+        self.assertEqual(ds.step_token(loots[0], notes), "loot")
+        good = {"id": "s01", "kind": "loot", "range_m": 40, "max_items": 4, "timeout_s": 300}
+        ds.validate_step(good)
+        bad = [dict(good, range_m=2), dict(good, range_m=200), dict(good, max_items=0),
+               dict(good, max_items=11), dict(good, max_items=2.5), dict(good, max_items=True),
+               dict(good, timeout_s=5), dict(good, spawn="Apple")]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
+    def test_survive_steps_have_a_known_mode(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        survives = [step for step in script["steps"] if step["kind"] == "survive"]
+        self.assertTrue(survives)
+        self.assertEqual(ds.step_token(survives[0], notes), "survive")
+        good = {"id": "s01", "kind": "survive", "mode": "need", "timeout_s": 120}
+        ds.validate_step(good)
+        ds.validate_step(dict(good, mode="always"))
+        bad = [dict(good, mode="heal"), dict(good, mode=None), dict(good, timeout_s=5),
+               dict(good, timeout_s=900), dict(good, health=100)]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
+    def test_vehicle_steps_are_bounded(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        vehicles = [step for step in script["steps"] if step["kind"] == "vehicle"]
+        self.assertTrue(vehicles)
+        self.assertEqual(ds.step_token(vehicles[0], notes), "vehicle")
+        good = {"id": "s01", "kind": "vehicle", "range_m": 40, "seconds": 8, "throttle": 0.5, "timeout_s": 180}
+        ds.validate_step(good)
+        bad = [dict(good, range_m=200), dict(good, seconds=0), dict(good, seconds=120),
+               dict(good, throttle=0), dict(good, throttle=1.5), dict(good, throttle=True),
+               dict(good, timeout_s=10), dict(good, fuel=1.0)]
+        for step in bad:
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(step)
+
+
+    def test_playing_phases_run_alone_and_in_the_default_route(self):
+        def tokens_of(phases):
+            script, notes = ds.build_plan(phases)
+            return [ds.step_token(step, notes) for step in script["steps"]]
+        tokens, index = tokens_of(list(ds.PHASES)), ds.phase_index()
+        # The default route plays each kind once, in its own phase, without extra walks or fixtures.
+        self.assertEqual(sorted(index["combat"]), ["combat"])
+        self.assertEqual(sorted(index["loot"]), ["loot"])
+        self.assertEqual(sorted(index["vehicle"]), ["vehicle"])
+        self.assertEqual(sorted(index["survive"]), ["survive"])
+        self.assertLess(tokens.index("action:flip"), tokens.index("vehicle"))
+        self.assertLess(tokens.index("loot"), tokens.index("survive"))
+        alone = tokens_of(["join", "combat", "idle"])
+        self.assertIn("walk:" + ds.TOWN, alone)
+        alone = tokens_of(["join", "vehicle", "idle"])
+        self.assertLess(alone.index("admin:fx_car_side"), alone.index("action:flip"))
+        self.assertLess(alone.index("action:flip"), alone.index("vehicle"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,8 @@
 //            :1299 Pause, :1334 Continue; 3_Game/constants.c:184-197 MENU_INGAME, MENU_INVENTORY,
 //            MENU_MAP; 3_Game/CfgGameplayHandler.c:417 GetUse3DMap, :438 GetMapIgnoreMapOwnership.
 //  admin     HCAdminClient (HCGet, HCListen, HCSend with its 1.1 s spacing, HCTick, Notice, Revision).
-//  group     HCGroupClient (Get, GetSnapshot, IsBusy, GetNotice, Send) with HCGroupRequest
+//  group     HCGroupClient (Get, GetSnapshot, IsBusy, GetNotice, Send) with HCGroupRequest; the M map
+//            HCGroupProtocol.MENU_MAP opened as HCGroupGameplay.c OnUpdate does on UAMapToggle
 //            Op CREATE / TEAM_PING exactly as the vanilla group UI and HCTeamPingInput send them.
 // Per frame: one step update; no allocation beyond the current step; no counter, HCUse or server
 // feature entry is touched; the player's name, id and paths are never printed.
@@ -21,6 +22,12 @@ class HCClientDriver
     protected ref HCDriverScript m_Script;
     protected ref HCDriverWalker m_Walker = new HCDriverWalker;
     protected ref HCDriverActions m_Actions = new HCDriverActions;
+    protected ref HCDriverEnter m_Enter = new HCDriverEnter;
+    protected ref HCDriverRoute m_Route = new HCDriverRoute;
+    protected ref HCDriverCombat m_Combat = new HCDriverCombat;
+    protected ref HCDriverLoot m_Loot = new HCDriverLoot;
+    protected ref HCDriverSurvive m_Survive = new HCDriverSurvive;
+    protected ref HCDriverVehicle m_Vehicle = new HCDriverVehicle;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -53,6 +60,8 @@ class HCClientDriver
         if (!m_Live || m_Finished) { return; }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         m_Actions.Abort(player, m_Walker);
+        m_Combat.Release(player);
+        m_Vehicle.Release();
         Conclude();
     }
 
@@ -65,6 +74,8 @@ class HCClientDriver
     protected void EndStep(HCDriverStep step, int code, string detail, PlayerBase player)
     {
         m_Actions.Abort(player, m_Walker);
+        m_Combat.Release(player);
+        m_Vehicle.Release();
         string stepId = step.id;
         if (stepId == "") { stepId = "s" + (m_Index + 1).ToString(); }
         HCDriverLog.Step(stepId, step.kind, code, detail);
@@ -140,6 +151,38 @@ class HCClientDriver
             code = StepAction(step, player, dt);
             detail = m_Actions.Detail();
         }
+        else if (step.kind == "enter")
+        {
+            code = StepEnter(step, player, dt);
+            detail = m_Text;
+            if (detail == "") { detail = m_Enter.Detail(); }
+        }
+        else if (step.kind == "route")
+        {
+            code = StepRoute(step, player, dt);
+            detail = m_Text;
+            if (detail == "") { detail = m_Route.Detail(); }
+        }
+        else if (step.kind == "combat")
+        {
+            code = StepCombat(step, player, dt);
+            detail = m_Combat.Detail();
+        }
+        else if (step.kind == "loot")
+        {
+            code = StepLoot(step, player, dt);
+            detail = m_Loot.Detail();
+        }
+        else if (step.kind == "survive")
+        {
+            code = StepSurvive(step, player, dt);
+            detail = m_Survive.Detail();
+        }
+        else if (step.kind == "vehicle")
+        {
+            code = StepVehicle(step, player, dt);
+            detail = m_Vehicle.Detail();
+        }
         else
         {
             code = HCDriverResult.UNSUPPORTED;
@@ -182,9 +225,17 @@ class HCClientDriver
         if (!ui || !mission) { m_Text = "no-ui-manager"; return HCDriverResult.UNSUPPORTED; }
         if (name == "map")
         {
+            // The M key first (HCGroupGameplay.c OnUpdate runs before the vanilla toggle): with the group
+            // frame enabled it opens the Hollow Country map without a map item. Same checks as that key.
+            if (ui.GetMenu()) { m_Text = "another-menu-open"; return HCDriverResult.REFUSED; }
+            if (GroupMapAllowed())
+            {
+                ui.EnterScriptedMenu(HCGroupProtocol.MENU_MAP, null);
+                return HCDriverResult.RUNNING;
+            }
             if (!CfgGameplayHandler.GetMapIgnoreMapOwnership() || CfgGameplayHandler.GetUse3DMap())
             {
-                m_Text = "map-needs-item-or-3d-map";
+                m_Text = "map-needs-item-or-3d-map-and-group-map-off";
                 return HCDriverResult.UNSUPPORTED;
             }
             ui.CloseAll();
@@ -215,10 +266,22 @@ class HCClientDriver
         return HCDriverResult.REFUSED;
     }
 
+    // HCGroupGameplay.c OnUpdate opens HCGroupProtocol.MENU_MAP on UAMapToggle when the group frame is
+    // enabled, the player is alive and conscious and no menu is open.
+    protected bool GroupMapAllowed()
+    {
+        PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        if (!player || !player.IsAlive() || player.IsUnconscious()) { return false; }
+        HCGroupClient client = HCGroupClient.Get();
+        if (!client) { return false; }
+        HCGroupSnapshot frame = client.GetSnapshot();
+        return frame && frame.Enabled;
+    }
+
     protected bool MenuIsOpen(string name)
     {
         UIManager ui = GetGame().GetUIManager();
-        if (name == "map") { return ui.IsMenuOpen(MENU_MAP); }
+        if (name == "map") { return ui.IsMenuOpen(MENU_MAP) || ui.IsMenuOpen(HCGroupProtocol.MENU_MAP); }
         if (name == "inventory") { return ui.IsMenuOpen(MENU_INVENTORY); }
         if (name == "admin") { return ui.IsMenuOpen(HCAdminWire.MENU); }
         return GetGame().GetMission().IsPaused();
@@ -230,6 +293,8 @@ class HCClientDriver
         Mission mission = GetGame().GetMission();
         if (name == "map")
         {
+            UIScriptedMenu groupMap = ui.FindMenu(HCGroupProtocol.MENU_MAP);
+            if (groupMap) { groupMap.Close(); }
             MapMenu mapMenu = MapMenu.Cast(ui.FindMenu(MENU_MAP));
             if (mapMenu) { mapMenu.CloseMapMenu(); }
             if (ui.IsMenuOpen(MENU_MAP)) { ui.CloseMenu(MENU_MAP); }
@@ -256,6 +321,9 @@ class HCClientDriver
         }
         if (m_Stage == 1)
         {
+            // HCAdminGameplay.c ticks the admin client only after a real key press; the driver opened it
+            // without one, so it ticks it until the menu is up (soak 185b: s07 menu-never-opened).
+            if (step.name == "admin" && m_Mark != 2) { HCAdminClient.HCGet().HCTick(); }
             if (m_StepAge < 0.5) { return HCDriverResult.RUNNING; }
             // Polled until the hold ends: the admin menu opens only after the server's reply.
             if (m_Mark != 2)
@@ -434,6 +502,84 @@ class HCClientDriver
         return HCDriverResult.RUNNING;
     }
 
+    // The server's own radius answer (HCUseLifecycle.c stores RPC_ENTRY); read-only here.
+    protected bool RadiusObserved(string zone)
+    {
+        MissionGameplay mission = MissionGameplay.Cast(GetGame().GetMission());
+        if (!mission) { return false; }
+        if (zone == "site") { return mission.HCTestRadiusObserved(HCReleaseRadiusWire.AI_SITE); }
+        return mission.HCTestRadiusObserved(HCReleaseRadiusWire.MISSION);
+    }
+
+    protected int StepEnter(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            if (step.zone != "site" && step.zone != "mission")
+            {
+                m_Text = "enter-needs-zone";
+                return HCDriverResult.REFUSED;
+            }
+            m_Enter.Begin(step);
+        }
+        return m_Enter.Tick(player, dt, m_Walker, RadiusObserved(step.zone));
+    }
+
+    protected int StepRoute(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            if (!m_Route.Begin(step))
+            {
+                m_Text = "route-needs-points";
+                return HCDriverResult.REFUSED;
+            }
+        }
+        return m_Route.Tick(player, dt, m_Walker, m_Actions);
+    }
+
+    protected int StepCombat(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Combat.Begin(step);
+        }
+        return m_Combat.Tick(player, dt, m_Walker);
+    }
+
+    protected int StepLoot(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Loot.Begin(step);
+        }
+        return m_Loot.Tick(player, dt, m_Walker);
+    }
+
+    protected int StepSurvive(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Survive.Begin(step);
+        }
+        return m_Survive.Tick(player, dt);
+    }
+
+    protected int StepVehicle(HCDriverStep step, PlayerBase player, float dt)
+    {
+        if (m_Stage == 0)
+        {
+            m_Stage = 1;
+            m_Vehicle.Begin(step);
+        }
+        return m_Vehicle.Tick(player, dt, m_Walker);
+    }
+
     protected int StepAction(HCDriverStep step, PlayerBase player, float dt)
     {
         if (m_Stage == 0)
@@ -461,6 +607,14 @@ modded class MissionGameplay
     {
         super.OnUpdate(timeslice);
         if (m_HCDriver) { m_HCDriver.Tick(timeslice); }
+    }
+
+    // Test-only read of the flags HCUseLifecycle.c sets from the server's RPC_ENTRY answer.
+    bool HCTestRadiusObserved(int observation)
+    {
+        if (observation == HCReleaseRadiusWire.AI_SITE) { return m_HCReleaseAISiteObserved; }
+        if (observation == HCReleaseRadiusWire.MISSION) { return m_HCReleaseMissionObserved; }
+        return false;
     }
 
     override void OnMissionFinish()

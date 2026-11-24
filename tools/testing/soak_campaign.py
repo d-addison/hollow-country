@@ -40,7 +40,8 @@ ROOT = Path(__file__).resolve().parents[2]
 PHASES_FILE = Path(__file__).with_name('soak_phases.json')
 EXPECTATIONS = ROOT / 'config/activity-expectations.json'
 STATE = Path.home() / '.cache/hollow-country/soak-campaign'
-PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_zone', 'walk_town', 'fixtures', 'actions', 'scene', 'forest', 'idle')
+PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_zone', 'walk_town', 'combat', 'loot', 'fixtures', 'actions', 'vehicle',
+               'scene', 'forest', 'survive', 'mission', 'idle')
 # Test-profile settings the staging writes (the shipped defaults stay untouched): the smoke fixtures, and a
 # short Fortify breach window so one scripted barricade can be breached inside the run.
 SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}

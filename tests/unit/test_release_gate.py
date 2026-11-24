@@ -1,5 +1,6 @@
 """Release orchestration fakes every native operation."""
 import contextlib
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -382,6 +383,72 @@ class ReleaseGateTests(unittest.TestCase):
         self.assertTrue(steps.started)
         close.assert_called_once()
 
+    def test_scripted_soak_stages_launches_and_reads_the_staged_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            profiles, staged = Path(tmp, 'profiles'), Path(tmp, 'staged')
+            profiles.mkdir()
+            staged.mkdir()
+            steps = gate.NativeSteps(self.args(client_mode='scripted', bundle=Path('bundle'), profiles=profiles))
+            client = Mock(profile=staged)
+            order = []
+            client.stage.side_effect = lambda: order.append('stage')
+            client.start.side_effect = lambda *a: order.append('start')
+            client.require_launched.side_effect = lambda: order.append('launched')
+
+            def boot(*a):
+                order.append('boot')
+                (staged / 'DayZ_x64_fresh.RPT').write_text('client')
+                return Path('server.RPT')
+            with patch.object(steps, 'scripted_client', return_value=client), \
+                    patch.object(steps, 'install', side_effect=lambda b: order.append('install')), \
+                    patch.object(steps, 'boot', side_effect=boot), patch.object(gate, 'emit') as emit:
+                steps.soak()
+            self.assertEqual(order, ['stage', 'install', 'start', 'boot', 'launched'])
+            self.assertEqual(steps.client_rpt, staged / 'DayZ_x64_fresh.RPT')
+            emit.assert_called_once_with(gate.SCRIPTED_CHECKLIST)
+            self.assertNotIn('tester', gate.SCRIPTED_CHECKLIST.lower())
+
+    def test_stop_closes_the_scripted_client_before_the_server(self):
+        steps = gate.NativeSteps(self.args())
+        order = []
+        steps.scripted = Mock()
+        steps.scripted.stop.side_effect = lambda: order.append('client')
+        with patch.object(steps, 'stop_server', side_effect=lambda: order.append('server')):
+            steps.stop()
+        self.assertEqual(order, ['client', 'server'])
+        failing = Mock()
+        failing.stop.side_effect = gate.Refused('scripted client stop could not be verified')
+        steps.scripted = failing
+        with patch.object(steps, 'stop_server') as server:
+            with self.assertRaisesRegex(gate.Refused, 'scripted client'):
+                steps.stop()
+        server.assert_called_once()  # a failed client close still stops the server
+
+    def test_verdict_names_the_client_mode(self):
+        steps = Mock()
+        with patch.object(gate, 'host_lock', return_value=contextlib.nullcontext()):
+            scripted = gate.run_gate(self.args(client_mode='scripted'), steps)
+            human = gate.run_gate(self.args(), steps)
+        self.assertEqual((scripted['client_mode'], scripted['client']), ('scripted', 'scripted client'))
+        self.assertNotIn('tester', json.dumps(scripted))
+        self.assertEqual((human['client_mode'], human['client']), ('human', 'one tester'))
+
+    def test_client_mode_defaults_to_scripted(self):
+        seen = {}
+
+        def fake(args):
+            seen['mode'] = args.client_mode
+            return dict(passed=False)
+        with tempfile.TemporaryDirectory() as tmp, patch.object(gate, 'run_gate', side_effect=fake), \
+                contextlib.redirect_stdout(io.StringIO()):
+            gate.main(['--commit', 'a' * 40, '--bundle', 'b', '--verdict', str(Path(tmp, 'v.json'))])
+            self.assertEqual(seen['mode'], 'scripted')
+            gate.main(['--commit', 'a' * 40, '--bundle', 'b', '--client-mode', 'human',
+                       '--verdict', str(Path(tmp, 'v.json'))])
+            self.assertEqual(seen['mode'], 'human')
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                gate.main(['--commit', 'a' * 40, '--bundle', 'b', '--client-profiles', 'p'])
+
     def test_unknown_server_refuses_before_install(self):
         steps = gate.NativeSteps(self.args())
         with patch.object(gate.winproc, 'process_state', return_value='unknown'), \
@@ -534,3 +601,103 @@ class AcceptanceTargetsTests(unittest.TestCase):
         with patch.object(gate.checkstart.argparse.ArgumentParser, 'parse_args', capture):
             with self.assertRaises(Parsed):
                 gate.checkstart.main(['--bundle', 'synthetic'])
+
+
+class ScriptedClientTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        base = Path(temporary.name)
+        self.server = base / 'friend-local-1'
+        self.server.mkdir()
+        (self.server / 'start-server.bat').write_bytes(b'bat')
+        self.built = base / 'scratch/@HollowCountryTest'
+        (self.built / 'addons').mkdir(parents=True)
+        (self.built / 'addons/test.pbo').write_bytes(b'pbo')
+        self.profiles = base / 'profiles'
+        self.profiles.mkdir()
+        self.host = Mock()
+        self.host.state.return_value = 'gone'
+        self.campaign = SimpleNamespace(
+            TEST_MOD='@HollowCountryTest', STEP_REL='HollowCountry/acceptance/client_driver.json',
+            CONNECT_ENABLED='Player connect enabled', LAUNCHER_IMAGE='DayZ_BE.exe', CLIENT_IMAGE='DayZ_x64.exe',
+            Refused=type('SoakRefused', (ValueError,), {}),
+            server_mods=Mock(return_value=['@CF', '@HollowCountry']),
+            client_mods=Mock(return_value=[Path('w/@CF'), Path('s/@HollowCountry')]),
+            require_dependency_parity=Mock(),
+            client_arguments=lambda mods, profile: ['-mod=' + ';'.join(mods), '-profiles=' + profile],
+            tail_lines=lambda path, offset: (Path(path).read_text().splitlines(), 1))
+        addon = SimpleNamespace(build=Mock(return_value=dict(path=str(self.built))))
+        self.client = gate.ScriptedClient(self.server, base / 'DayZ', host=self.host, campaign=self.campaign,
+                                          addon=addon, win=str, poll=0)
+
+    def test_stage_writes_the_r3_route_and_the_addon_into_one_marked_folder(self):
+        with patch.object(gate, 'emit'):
+            self.client.stage()
+        folder = self.server.parent / gate.SCRIPTED_FOLDER
+        script = json.loads((folder / 'profile' / self.campaign.STEP_REL).read_text())
+        kinds = [step['kind'] for step in script['steps']]
+        self.assertEqual([step.get('zone') for step in script['steps'] if step['kind'] == 'enter'],
+                         ['site', 'mission'])
+        self.assertEqual([step['name'] for step in script['steps'] if step['kind'] == 'menu'],
+                         ['map', 'inventory', 'admin'])
+        self.assertNotIn('admin', kinds)  # no server command; the R3 route is player input only
+        self.assertTrue((folder / '@HollowCountryTest/addons/test.pbo').is_file())
+        self.assertTrue(self.client.arguments[0].endswith(str(folder / '@HollowCountryTest')))
+        self.campaign.require_dependency_parity.assert_called_once()
+        self.client.restore()
+        self.assertFalse(folder.exists())
+
+    def test_stage_refuses_a_folder_that_is_not_ours(self):
+        (self.server.parent / gate.SCRIPTED_FOLDER).mkdir()
+        with self.assertRaisesRegex(gate.Refused, 'not ours'):
+            self.client.stage()
+        self.assertTrue((self.server.parent / gate.SCRIPTED_FOLDER).is_dir())
+
+    def test_watch_launches_only_after_connect_enabled_in_a_fresh_rpt(self):
+        old = self.profiles / 'old.RPT'
+        old.write_text('Player connect enabled')
+        before = {old}
+        fresh = self.profiles / 'fresh.RPT'
+        fresh.write_text('starting')
+        clock = iter(range(0, 100000, 10))
+        self.client.clock = lambda: next(clock)
+        self.client.arguments = ['-connect']
+        with patch.object(gate, 'SCRIPTED_READY_SECONDS', 30):
+            self.client.watch(self.profiles, before)
+        self.host.launch_client.assert_not_called()
+        self.assertEqual(self.client.error, 'server connect enabled not seen')
+        self.client.error = None
+        fresh.write_text('Player connect enabled')
+        with patch.object(gate, 'emit'):
+            self.client.watch(self.profiles, before)
+        self.host.launch_client.assert_called_once()
+        self.assertTrue(self.client.launched)
+        self.client.require_launched()
+
+    def test_stop_closes_the_client_then_restores(self):
+        with patch.object(gate, 'emit'):
+            self.client.stage()
+        self.client.launched = True
+        self.client.stop()
+        self.host.stop.assert_called_once_with('DayZ_x64.exe')
+        self.assertFalse((self.server.parent / gate.SCRIPTED_FOLDER).exists())
+
+    def test_running_client_keeps_the_folder(self):
+        with patch.object(gate, 'emit'):
+            self.client.stage()
+        self.client.launched = True
+        self.host.state.return_value = 'running'
+        clock = iter(range(0, 100000, gate.STOP_WAIT_SECONDS))
+        self.client.clock = lambda: next(clock)
+        with patch.object(gate.time, 'sleep'), self.assertRaisesRegex(gate.Refused, 'stop DayZ by hand'):
+            self.client.stop()
+        self.assertTrue((self.server.parent / gate.SCRIPTED_FOLDER).is_dir())
+
+    def test_launch_failure_is_reported_without_raw_text(self):
+        self.client.error = 'server connect enabled not seen'
+        with self.assertRaisesRegex(gate.Refused, 'launch failed: server connect enabled not seen'):
+            self.client.require_launched()
+        self.client.error = None
+        with self.assertRaisesRegex(gate.Refused, 'never launched'):
+            self.client.require_launched()

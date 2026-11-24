@@ -6,8 +6,10 @@ import json
 import math
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
+import threading
 import time
 
 from tools.audit import rpt_config_audit
@@ -22,9 +24,22 @@ ROOT = Path(__file__).resolve().parents[2]
 CHECKLIST = ('One tester: join; open the M map with group controls, inventory and admin window; '
              'walk from outside into one reviewed AI site activation radius and one published mission zone. '
              'Keep this client connected through activity validation.')
+# Default client mode (owner, 2026-11-24): the dev-only test addon drives one real client through the R3
+# route, so no person has to play. --client-mode human keeps the one-tester checklist above.
+CLIENT_MODES = ('scripted', 'human')
+SCRIPTED_CHECKLIST = ('Scripted client: the dev-only test addon drives one real client through the R3 route '
+                      '(M map with group controls, inventory, admin window, then on foot from outside into one AI '
+                      'site activation radius and one published mission zone). Nobody has to play; the scripted '
+                      'client stays connected through activity validation.')
 SERVER_IMAGE = 'DayZServer_x64.exe'
 STOP_WAIT_SECONDS = 240
 STOP_POLL_SECONDS = 5
+# Everything the scripted client needs lives in one new folder next to the server root; restore removes
+# only a folder that carries the marker.
+SCRIPTED_FOLDER = 'release-gate-client'
+SCRIPTED_MARKER = '.hc-release-gate-client'
+SCRIPTED_READY_SECONDS = 20 * 60
+SCRIPTED_JOIN_SECONDS = 600
 
 
 class Refused(ValueError):
@@ -176,6 +191,136 @@ def client_profiles():
     return Path('/mnt') / match[1].lower() / match[2].replace('\\', '/')
 
 
+def client_mode(args):
+    return getattr(args, 'client_mode', 'human')
+
+
+class ScriptedClient:
+    """The no-human R3 client: one real DayZ client, the dev-only test addon and the R3 step file.
+
+    Reuses tools.testing.soak_campaign (client_mods, the dependency parity check, client_arguments,
+    WindowsHost.launch_client and its graceful stop) and tools.testing.test_addon (pack and sign). The
+    addon loads on the client only; the server runs the installed candidate unchanged. The addon, the
+    step file and the client profile live in one marked folder next to the server root, which restore
+    removes once both client images are confirmed gone.
+    """
+
+    def __init__(self, server_root, client_root, *, host=None, campaign=None, addon=None, driver=None,
+                 win=None, clock=time.monotonic, poll=5):
+        from tools.testing import driver_script, soak_campaign, test_addon
+        self.campaign = campaign or soak_campaign
+        self.addon = addon or test_addon
+        self.driver = driver or driver_script
+        self.host = host or self.campaign.WindowsHost()
+        self.win = win or self.campaign.default_win
+        self.server = Path(server_root)
+        self.client_root = Path(client_root)
+        self.folder = self.server.parent / SCRIPTED_FOLDER
+        self.profile = self.folder / 'profile'
+        self.clock = clock
+        self.poll = poll
+        self.halt = threading.Event()
+        self.thread = None
+        self.arguments = None
+        self.launched = False
+        self.error = None
+        self.run_id = None
+
+    def ours(self):
+        return (self.folder / SCRIPTED_MARKER).is_file()
+
+    def stage(self):
+        if self.folder.exists():
+            if not self.ours():
+                raise Refused('scripted client folder exists and is not ours; move it away first')
+            self.require_gone()
+            self.restore()
+        script, _ = self.driver.build_r3()
+        self.run_id = script['run_id']
+        mods = self.campaign.server_mods((self.server / 'start-server.bat').read_bytes())
+        paths = self.campaign.client_mods(mods, self.server, self.client_root / '!Workshop', Path)
+        self.campaign.require_dependency_parity(mods, self.server, paths, log=emit)
+        built = self.addon.build()
+        self.folder.mkdir()
+        (self.folder / SCRIPTED_MARKER).write_text('release_gate scripted client\n', encoding='utf-8')
+        addon = self.folder / self.campaign.TEST_MOD
+        shutil.copytree(built['path'], addon)
+        step = self.profile / self.campaign.STEP_REL
+        step.parent.mkdir(parents=True)
+        step.write_text(json.dumps(script, indent=1) + '\n', encoding='utf-8')
+        self.arguments = self.campaign.client_arguments([self.win(path) for path in paths] + [self.win(addon)],
+                                                        self.win(self.profile))
+        emit('scripted client: staged run=%s steps=%d mods=%d' % (self.run_id, len(script['steps']), len(paths) + 1))
+
+    def start(self, profiles, before):
+        """Launch the client from a watcher once the fresh server RPT says connect enabled."""
+        self.thread = threading.Thread(target=self.watch, args=(Path(profiles), set(before)),
+                                       name='hc-scripted-client', daemon=True)
+        self.thread.start()
+
+    def watch(self, profiles, before):
+        deadline = self.clock() + SCRIPTED_READY_SECONDS
+        follow = {'path': None, 'offset': 0}
+        try:
+            while not self.halt.is_set():
+                fresh = sorted(set(profiles.glob('*.RPT')) - before)
+                if fresh:
+                    if follow['path'] != fresh[-1]:
+                        follow.update(path=fresh[-1], offset=0)
+                    lines, follow['offset'] = self.campaign.tail_lines(follow['path'], follow['offset'])
+                    if any(self.campaign.CONNECT_ENABLED in line for line in lines):
+                        # Record ownership first: a lost interop reply may hide a launch that happened.
+                        self.launched = True
+                        self.host.launch_client(self.win(self.client_root), self.arguments)
+                        emit('scripted client: launched after server connect enabled')
+                        return
+                if self.clock() >= deadline:
+                    self.error = 'server connect enabled not seen'
+                    return
+                self.halt.wait(self.poll)
+        except Exception as error:  # the thread reports through self.error; never echo raw text
+            self.error = str(error) if isinstance(error, (Refused, self.campaign.Refused)) else failure_reason(error)
+
+    def require_launched(self):
+        if self.thread is not None:
+            self.thread.join(timeout=SCRIPTED_JOIN_SECONDS)
+        if self.error:
+            raise Refused('scripted client launch failed: ' + self.error)
+        if not self.launched:
+            raise Refused('scripted client was never launched')
+
+    def states(self):
+        return {image: self.host.state(image)
+                for image in (self.campaign.LAUNCHER_IMAGE, self.campaign.CLIENT_IMAGE)}
+
+    def require_gone(self):
+        deadline = self.clock() + STOP_WAIT_SECONDS
+        while True:
+            states = self.states()
+            if all(state == 'gone' for state in states.values()):
+                return
+            if self.clock() >= deadline:
+                raise Refused('scripted client stop could not be verified (%s); stop DayZ by hand' %
+                              ','.join('%s=%s' % row for row in sorted(states.items())))
+            time.sleep(STOP_POLL_SECONDS)
+
+    def stop(self):
+        """Graceful client close (the soak campaign's CloseMainWindow path), then restore."""
+        self.halt.set()
+        if self.thread is not None:
+            self.thread.join(timeout=SCRIPTED_JOIN_SECONDS)
+            if self.thread.is_alive():
+                raise Refused('scripted client launch still in progress; stop DayZ by hand')
+        if self.launched or self.states()[self.campaign.CLIENT_IMAGE] != 'gone':
+            self.host.stop(self.campaign.CLIENT_IMAGE)
+        self.require_gone()
+        self.restore()
+
+    def restore(self):
+        if self.folder.exists() and self.ours():
+            shutil.rmtree(self.folder)
+
+
 class NativeSteps:
     def __init__(self, args, targets=None, entries=None):
         self.args = args
@@ -186,6 +331,17 @@ class NativeSteps:
         self.started = False
         self.client_dir = None
         self.client_before = set()
+        self.scripted = None
+
+    def scripted_client(self):
+        from tools.testing import soak_campaign
+        root = getattr(self.args, 'client_root', None) or soak_campaign.discover_client_root()
+        if root is None:
+            raise Refused('scripted client: no DayZ client install found; pass --client-root')
+        return ScriptedClient(Path(soak_campaign.default_linux(self.args.server_root)), Path(root))
+
+    def checklist(self):
+        return SCRIPTED_CHECKLIST if client_mode(self.args) == 'scripted' else CHECKLIST
 
     def compile(self):
         output = command([sys.executable, '-B', '-m', 'tools.release.compile_gate',
@@ -240,6 +396,19 @@ class NativeSteps:
         return path
 
     def stop(self):
+        # Client first (it would only log a lost connection), then the server; restore follows the client.
+        failure = None
+        if self.scripted is not None:
+            try:
+                self.scripted.stop()
+                self.scripted = None
+            except GATE_ERRORS as error:
+                failure = error
+        self.stop_server()
+        if failure is not None:
+            raise failure
+
+    def stop_server(self):
         if not self.started:
             return
         # Existing native smoke graceful path (CloseMainWindow), without escalation.
@@ -281,11 +450,20 @@ class NativeSteps:
         self.stop()
 
     def soak(self):
-        self.client_dir = self.args.client_profiles or client_profiles()
+        if client_mode(self.args) == 'scripted':
+            self.scripted = self.scripted_client()
+            self.scripted.stage()  # before install: a refused build or dependency mismatch fails early
+            self.client_dir = self.scripted.profile
+        else:
+            self.client_dir = self.args.client_profiles or client_profiles()
         self.client_before = set(self.client_dir.glob('*.RPT'))
         self.install(self.args.bundle)
-        emit(CHECKLIST)
+        emit(self.checklist())
+        if self.scripted is not None:
+            self.scripted.start(self.args.profiles, set(self.args.profiles.glob('*.RPT')))
         self.rpt = self.boot(self.args.bundle, self.targets['soak_minutes'])
+        if self.scripted is not None:
+            self.scripted.require_launched()
         fresh = set(self.client_dir.glob('*.RPT')) - self.client_before
         if len(fresh) == 1:
             self.client_rpt = fresh.pop()
@@ -297,7 +475,7 @@ class NativeSteps:
                 targets=self.targets, entries=self.entries)
 
     def client(self):
-        emit(CHECKLIST)
+        emit(self.checklist())
         required = set()
         categories = set()
         for item in self.args.smoke_use:
@@ -327,7 +505,9 @@ class NativeSteps:
 
 
 def run_gate(args, steps=None):
-    verdict = dict(commit=args.commit, passed=False, steps=[])
+    mode = client_mode(args)
+    verdict = dict(commit=args.commit, passed=False, steps=[], client_mode=mode,
+                   client='scripted client' if mode == 'scripted' else 'one tester')
     current = 'acceptance_targets'
     try:
         targets, entries = candidate_policy(args.commit)
@@ -369,6 +549,8 @@ def main(argv=None):
     parser.add_argument('--profiles', type=Path, default=Path('/mnt/e/HollowCountryLocal/friend-local-1/profiles'))
     parser.add_argument('--server-root', default=r'E:\HollowCountryLocal\friend-local-1')
     parser.add_argument('--workshop-content', default=r'G:\SteamLibrary\steamapps\workshop\content\221100')
+    parser.add_argument('--client-mode', choices=CLIENT_MODES, default='scripted')
+    parser.add_argument('--client-root', type=Path)
     parser.add_argument('--client-profiles', type=Path)
     parser.add_argument('--client-timeout', type=float, default=900)
     parser.add_argument('--smoke-use', action='append', default=[], metavar='CATEGORY=MODULE/FEATURE')
@@ -378,6 +560,10 @@ def main(argv=None):
         parser.error('full commit required')
     if not math.isfinite(args.client_timeout) or not 0 < args.client_timeout <= 3600:
         parser.error('timeout out of bounds')
+    if args.client_mode == 'scripted' and args.client_profiles:
+        parser.error('--client-profiles belongs to --client-mode human')
+    if args.client_mode == 'human' and args.client_root:
+        parser.error('--client-root belongs to --client-mode scripted')
     verdict = run_gate(args)
     try:
         args.verdict.write_text(json.dumps(verdict, indent=2) + '\n')
