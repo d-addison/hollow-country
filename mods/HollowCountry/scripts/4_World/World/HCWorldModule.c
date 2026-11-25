@@ -14,6 +14,8 @@ class HCWorldModule : HCModule
     protected ref HCWorldStore m_Store;
     protected ref HCWorldData m_Data;
     protected bool m_Running;
+    protected bool m_ReadWaiting;
+    protected int m_ReadCallbacks;
     protected bool m_AdmissionPrinted;
     protected bool m_Dirty;
     protected float m_StepSeconds;
@@ -56,6 +58,11 @@ class HCWorldModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (m_Running || !IsEnabled(settings)) { return; }
+        if (m_ReadWaiting) { m_Refusal = m_Store.HCReadReason(); return; }
+        // Installed 1.30.164289: 2_GameLib/tools.c:61/65 CallLater/Remove;
+        // 3_Game/Global/Game.c:1550 GetCallQueue. Cancel old lifecycle callbacks.
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
+        m_ReadCallbacks = 0;
         m_Refusal = "";
         HCPersistenceDisposition.HCStartStore("world");
         if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("world"))
@@ -82,8 +89,47 @@ class HCWorldModule : HCModule
         {
             Print("[HollowCountry] V2 world unavailable: profile or UTC inaccessible");
             m_Refusal = "world_store_unavailable";
+            if (m_Store.HCReadPending())
+            {
+                m_ReadWaiting = true;
+                HCScheduleRead();
+            }
             return;
         }
+        HCFinishLoad();
+    }
+
+    protected void HCScheduleRead()
+    {
+        m_Refusal = m_Store.HCReadReason();
+        if (m_ReadCallbacks < 11)
+        {
+            m_ReadCallbacks++;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryRead, m_Store.HCRetryDelayMs(), false);
+        }
+    }
+
+    protected void HCRetryRead()
+    {
+        if (!m_ReadWaiting || !m_Store || m_Running) { return; }
+        if (!m_Store.HCReadBudget()) { HCScheduleRead(); return; }
+        if (m_Store.Load()) { HCFinishLoad(); return; }
+        if (m_Store.HCReadPending()) { HCScheduleRead(); return; }
+        m_ReadWaiting = false;
+        m_Refusal = "world_store_unavailable";
+    }
+
+    protected void HCFinishLoad()
+    {
+        int now = HCWorldClock.UTC();
+        if (now < 1)
+        {
+            m_ReadWaiting = false;
+            m_Refusal = "utc_clock_unsupported";
+            return;
+        }
+        m_ReadWaiting = false;
+        m_Refusal = "";
         m_Data = m_Store.Data();
         m_Data.Escalation.Day = HCWorldClock.Day(m_Data, now);
         m_Dirty = m_Store.Fresh();
@@ -133,6 +179,8 @@ class HCWorldModule : HCModule
 
     override void OnStop()
     {
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
+        m_ReadWaiting = false;
         if (!m_Running) { HCPersistenceDisposition.HCStopStore("world"); return; }
         s_Instance = null;
         m_Running = false;

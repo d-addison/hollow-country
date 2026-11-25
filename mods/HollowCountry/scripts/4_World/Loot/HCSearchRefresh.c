@@ -482,6 +482,16 @@ class HCSearchRefreshStore
     // the shared large-image barrier (default 33,088), not the 4096 guard.
     static const int MAX_BYTES = 6291456;
     protected bool m_Fault;
+    protected bool m_ReadUnavailable;
+    protected ref HCPersistenceReadRetry m_ReadRetry = new HCPersistenceReadRetry;
+
+    void HCResetRead() { m_ReadRetry.HCReset(); m_Fault = false; m_ReadUnavailable = false; }
+    bool HCReadExhausted() { return m_ReadRetry.HCExhausted(); }
+    string HCReadReason() { return m_ReadRetry.HCReason("intent"); }
+    bool HCReadPending() { return m_ReadRetry.HCPending(); }
+    int HCRetryDelayMs() { return m_ReadRetry.HCDelayMs(); }
+    bool HCReadBudget() { return m_ReadRetry.HCTakeBudget(); }
+    bool HCRefusePendingSave() { return m_ReadRetry.HCRefuseSave("LootRefresh", "intent"); }
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
     protected int m_ImageRevision;
     protected int m_SavedRevision;
@@ -492,6 +502,7 @@ class HCSearchRefreshStore
     // refresh its intent before it can admit an obsolete Ready/revisit snapshot.
     int CheckpointStep(HCSearchRefreshState state, int revision)
     {
+        if (m_ReadRetry.HCRefuseSave("LootRefresh", "intent")) { return HCSaveJob.STEP_FAILED; }
         if (m_Fault || !state) { return HCSaveJob.STEP_FAILED; }
         if (state.LastUtc > HCGroupClock.Utc()) { Fault(); return HCSaveJob.STEP_FAILED; }
         if (!m_Image.Active() || (m_Image.HCReadyToClearIntent() && m_ImageRevision != revision))
@@ -514,11 +525,12 @@ class HCSearchRefreshStore
     }
 
 
-    bool Healthy() { return !m_Fault; }
+    bool Healthy() { return !m_Fault && !HCReadPending(); }
 
     bool Fault()
     {
         m_Fault = true;
+        m_ReadRetry.HCCancel();
         Print("[HollowCountry] V2 loot refresh inactive: preserve search-refresh.json, .tmp and .bak; recovery required");
         return false;
     }
@@ -551,7 +563,6 @@ class HCSearchRefreshStore
         return state;
     }
 
-    protected static bool s_RecoveryUnavailablePrinted;
 
     // EnSystem.c:397/417/425. An existing file that cannot be opened or read is
     // unavailable, never empty: HCReadRaw folds both into false/"" and an
@@ -562,11 +573,11 @@ class HCSearchRefreshStore
         text = "";
         if (!FileExist(path)) { return true; }
         FileHandle handle = OpenFile(path, FileMode.READ);
-        if (!handle) { return false; }
+        if (!handle) { m_ReadUnavailable = true; m_ReadRetry.HCRetain("LootRefresh", "intent"); return false; }
         int count = ReadFile(handle, text, MAX_BYTES + 1);
         CloseFile(handle);
-        if (count < 0) { text = ""; return false; }
-        if (count < 1 || count > MAX_BYTES || text.Length() < 1 || text.Length() > MAX_BYTES) { text = ""; }
+        if (count < 0) { text = ""; m_ReadUnavailable = true; m_ReadRetry.HCRetain("LootRefresh", "intent"); return false; }
+        if (count < 1 || count > MAX_BYTES || count != text.Length()) { text = ""; }
         return true;
     }
 
@@ -578,14 +589,10 @@ class HCSearchRefreshStore
         string intentText;
         if (!ReadRecoveryFile(PATH, primaryText) || !ReadRecoveryFile(PATH + ".tmp", intentText))
         {
-            // Keep primary, intent and backup untouched; Open() faults and the next boot retries.
-            if (!s_RecoveryUnavailablePrinted)
-            {
-                s_RecoveryUnavailablePrinted = true;
-                Print("[HC Search Refresh] intent_read_unavailable file=search-refresh.json action=retain_retry_next_boot");
-            }
             return false;
         }
+        string backupText;
+        if (FileExist(PATH + ".bak") && !ReadRecoveryFile(PATH + ".bak", backupText)) { return false; }
         HCSearchRefreshState primary = Decode(primaryText);
         HCSearchRefreshState intent = Decode(intentText);
         if (!primary) { primaryText = ""; }
@@ -595,8 +602,6 @@ class HCSearchRefreshStore
         if (primary && intent && intent.LastUtc < primary.LastUtc) { intentText = ""; }
         if (!primary && intent && FileExist(PATH + ".bak"))
         {
-            string backupText;
-            if (!ReadRecoveryFile(PATH + ".bak", backupText)) { return false; }
             HCSearchRefreshState backup = Decode(backupText);
             if (!backup || backup.LastUtc > intent.LastUtc) { return false; }
         }
@@ -605,6 +610,8 @@ class HCSearchRefreshStore
 
     HCSearchRefreshState Open()
     {
+        if (m_Fault || !m_ReadRetry.HCBegin()) { return null; }
+        m_ReadUnavailable = false;
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry"))
         {
             Fault();
@@ -612,6 +619,7 @@ class HCSearchRefreshStore
         }
         bool recovered = true;
         if (FileExist(PATH + ".tmp")) { recovered = RecoverIntent(); }
+        if (!recovered && m_ReadUnavailable) { return null; }
         if (!recovered || (!FileExist(PATH) && FileExist(PATH + ".bak")))
         {
             Fault();
@@ -620,18 +628,26 @@ class HCSearchRefreshStore
         HCSearchRefreshState state;
         if (FileExist(PATH))
         {
-            if (!HCSearchJson<HCSearchRefreshState>.Load(PATH, MAX_BYTES, state)) Fault();
-            if (m_Fault) return null;
+            // Same JSON parser as HCSearchJson.Load, but preserve unavailable
+            // separately from parse failure. EnSystem.c:417/425/443 inspected.
+            string text;
+            if (!ReadRecoveryFile(PATH, text)) { return null; }
+            string error;
+            if (text == "" || !JsonFileLoader<HCSearchRefreshState>.LoadData(text, state, error)) { Fault(); return null; }
+            m_ReadRetry.HCLoaded("LootRefresh", "intent");
             return state;
         }
         state = new HCSearchRefreshState;
         state.LastUtc = HCGroupClock.Utc();
-        if (state.LastUtc < 1 || !Save(state)) return null;
+        if (state.LastUtc < 1) { Fault(); return null; }
+        m_ReadRetry.HCLoaded("LootRefresh", "intent");
+        if (!Save(state)) return null;
         return state;
     }
 
     bool Save(HCSearchRefreshState state)
     {
+        if (m_ReadRetry.HCRefuseSave("LootRefresh", "intent")) { return false; }
         if (m_Fault || !state) return false;
         if (state.LastUtc > HCGroupClock.Utc()) return Fault();
         // Poison before the first write: even partial temp writes remain evidence.
@@ -681,6 +697,7 @@ class HCSearchRefreshModule : HCModule
     protected static HCSearchRefreshModule s_Instance;
     protected HCSettings m_Settings;
     protected ref HCSearchRefreshStore m_Store;
+    protected int m_ReadCallbacks;
     protected ref HCSearchRefreshSaveJob m_SaveJob;
     protected int m_CheckpointRevision;
     // Session-only authorization: reset cooldown must commit before fresh binding.
@@ -688,6 +705,7 @@ class HCSearchRefreshModule : HCModule
 
     bool HCRequestCheckpoint(bool barrier = false)
     {
+        if (m_Store && m_Store.HCRefusePendingSave()) { return false; }
         if (!Active() || !m_SaveJob) { return false; }
         m_CheckpointRevision++;
         m_SaveJob.HCDirty = true;
@@ -699,6 +717,7 @@ class HCSearchRefreshModule : HCModule
 
     int HCCheckpointStep()
     {
+        if (m_Store && m_Store.HCRefusePendingSave()) { return HCSaveJob.STEP_FAILED; }
         if (!Active()) { return HCSaveJob.STEP_FAILED; }
         return m_Store.CheckpointStep(m_State, m_CheckpointRevision);
     }
@@ -736,15 +755,23 @@ class HCSearchRefreshModule : HCModule
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "LootRefresh"; }
+    override void RegisterUses()
+    {
+        super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse(GetName(), "intent_read_ok");
+        HCModuleReadiness.HCRegisterUse(GetName(), "intent_read_recovered");
+        HCModuleReadiness.HCRegisterUse(GetName(), "intent_save_read_pending");
+    }
 
-    // Wave 16: started = this module is the registered instance (state loaded and valid); a store that
-    // faulted after start is a real degradation, an invalid state at start is a refusal.
+    // Registered while loading as well as while active. An unavailable read is
+    // degraded, and Active() prevents gameplay until the real state is loaded.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         bool started = false;
         string fault = "";
         if (s_Instance == this) { started = true; }
         if (started && m_Store && !m_Store.Healthy()) { fault = "refresh_store_fault"; }
+        if (started && m_Store && m_Store.HCReadPending()) { fault = m_Store.HCReadReason(); }
         HCModuleReadiness.HCDerive(m_Operational, started, m_Refusal, fault, "refresh_state_loaded");
         return m_Operational;
     }
@@ -792,18 +819,52 @@ class HCSearchRefreshModule : HCModule
         m_Refusal = "";
         Print(HCV2Admission.Line("LootRefresh", true, "search_refresh", false) + " runtime=PENDING");
         Print("[HC Search Refresh] bounded refresh and alternating journal maintenance scheduled runtime=PENDING");
-        m_Store = new HCSearchRefreshStore;
+        if (!m_Store) { m_Store = new HCSearchRefreshStore; }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
+        m_ReadCallbacks = 0;
+        m_Store.HCResetRead();
         m_State = m_Store.Open();
+        // Registered and degraded while waiting; all gameplay remains gated by Active().
+        s_Instance = this;
+        if (m_Store.HCReadPending()) { HCScheduleRead(); return; }
+        HCFinishOpen();
+    }
+
+    // Native 2_GameLib/tools.c:61/65 CallLater/Remove and
+    // 3_Game/Global/Game.c:1550 GetCallQueue (installed 1.30.164289).
+    // Eleven callbacks plus initial Open = at most twelve boot attempts.
+    protected void HCScheduleRead()
+    {
+        if (m_ReadCallbacks < 11)
+        {
+            m_ReadCallbacks++;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryRead, m_Store.HCRetryDelayMs(), false);
+        }
+    }
+
+    protected void HCRetryRead()
+    {
+        if (s_Instance != this || !m_Settings || !m_Store || !m_Store.HCReadPending()) { return; }
+        if (!m_Store.HCReadBudget()) { HCScheduleRead(); return; }
+        m_State = m_Store.Open();
+        if (m_Store.HCReadPending()) { HCScheduleRead(); return; }
+        HCFinishOpen();
+    }
+
+    protected void HCFinishOpen()
+    {
+        m_Index.Clear();
+        m_Pending = 0;
         if (!Valid(HCGroupClock.Utc()))
         {
             m_Refusal = "refresh_state_invalid";
             m_Store.Fault();
+            if (s_Instance == this) { s_Instance = null; }
             return;
         }
         m_SaveJob = new HCSearchRefreshSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
-        s_Instance = this;
     }
 
     // Called only on server search intent or lazy legacy-state enrollment. Legacy
@@ -964,6 +1025,7 @@ class HCSearchRefreshModule : HCModule
 
     override void OnStop()
     {
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
         HCReportActivity(true);
         if (m_SaveJob)
         {

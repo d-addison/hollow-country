@@ -27,6 +27,83 @@ class HCWorldClock
     }
 }
 
+// A boot-local retry transaction, admitted by a running owner's bounded
+// delayed callback. Attempts include the initial load; Stop removes callbacks.
+// HCWorkBudget bounds admission to one transaction per callback;
+// native IO/JSON inside a load remains a cooperative, non-preemptible operation.
+class HCPersistenceReadRetry
+{
+    protected int m_Attempts;
+    protected float m_Wait;
+    protected bool m_Pending;
+    protected int m_SaveRefused;
+    protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+
+    void HCReset()
+    {
+        m_Attempts = 0;
+        m_Wait = 0;
+        m_Pending = false;
+        m_SaveRefused = 0;
+    }
+    bool HCExhausted() { return m_Attempts >= 12; }
+    string HCReason(string store)
+    {
+        if (HCExhausted()) { return store + "_read_exhausted"; }
+        return store + "_read_retrying";
+    }
+    bool HCPending() { return m_Pending; }
+    void HCCancel() { m_Pending = false; }
+    int HCAttempts() { return m_Attempts; }
+    bool HCBegin()
+    {
+        if (m_Attempts >= 12) { return false; }
+        m_Attempts++;
+        return true;
+    }
+    void HCRetain(string module, string store, bool nextBootOnly = false)
+    {
+        if (!m_Pending) { Print("[HC Persistence] store=" + store + " read_unavailable"); }
+        m_Pending = true;
+        m_Wait = 300;
+        if (m_Attempts == 1) { m_Wait = 5; }
+        if (m_Attempts == 2) { m_Wait = 15; }
+        if (m_Attempts == 3) { m_Wait = 45; }
+        if (m_Attempts == 4) { m_Wait = 120; }
+        string action = "retry_in_session";
+        if (m_Attempts >= 12 || nextBootOnly) { action = "retain_retry_next_boot"; }
+        string reason = HCReason(store);
+        if (nextBootOnly) { reason = store + "_read_unavailable"; }
+        Print("[HC Persistence] store=" + store + " reason=" + reason + " attempt=" + m_Attempts.ToString() + " action=" + action);
+    }
+    int HCDelayMs() { return m_Wait * 1000; }
+    bool HCTakeBudget()
+    {
+        m_Budget.HCReset(1);
+        return m_Budget.HCContinue();
+    }
+    void HCLoaded(string module, string store)
+    {
+        // Owner-requested startup read evidence, not gameplay: only an attempted,
+        // successfully loaded store reaches this completion hook.
+        if (m_Attempts > 0) { HCModuleReadiness.HCUse(module, store + "_read_ok"); }
+        if (m_Pending)
+        {
+            Print("[HC Persistence] store=" + store + " read_recovered attempt=" + m_Attempts.ToString());
+            HCModuleReadiness.HCUse(module, store + "_read_recovered");
+        }
+        m_Pending = false;
+    }
+    bool HCRefuseSave(string module, string store)
+    {
+        if (!m_Pending) { return false; }
+        m_SaveRefused++;
+        HCModuleReadiness.HCUse(module, store + "_save_read_pending");
+        if (m_SaveRefused == 1) { Print("[HC Persistence] store=" + store + " save_refused reason=read_pending count=1"); }
+        return true;
+    }
+}
+
 class HCWorldStore
 {
     static const int MAX_BYTES = 1048576;
@@ -38,11 +115,18 @@ class HCWorldStore
     protected bool m_Fresh;
     protected bool m_Fault;
     protected bool m_ReadUnavailable;
+    protected ref HCPersistenceReadRetry m_ReadRetry = new HCPersistenceReadRetry;
     protected string m_VerifiedText;
     protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected int m_SaveStage;
     protected string m_PendText;
     protected string m_PendPrior;
+
+    bool HCReadPending() { return m_ReadUnavailable && m_ReadRetry.HCPending(); }
+    bool HCReadExhausted() { return m_ReadRetry.HCExhausted(); }
+    string HCReadReason() { return m_ReadRetry.HCReason("world"); }
+    int HCRetryDelayMs() { return m_ReadRetry.HCDelayMs(); }
+    bool HCReadBudget() { return m_ReadRetry.HCTakeBudget(); }
 
     bool Prepare()
     {
@@ -70,6 +154,23 @@ class HCWorldStore
         int count = ReadFile(handle, text, MAX_BYTES + 1);
         CloseFile(handle);
         return count >= 0 && count <= MAX_BYTES + 1 && count == text.Length();
+    }
+
+    // Native 1_Core/proto/EnSystem.c:417/425/443 inspected. Only an
+    // open failure or negative read count is unavailable. Positive bytes that
+    // cannot be represented as a complete bounded string fail verification
+    // (empty DTO input), rather than taking the unavailable retry forever.
+    // ReadChecked retains its stricter equality contract for raw-copy callers.
+    static bool ReadAvailable(string path, out string text)
+    {
+        text = "";
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return false; }
+        int count = ReadFile(handle, text, MAX_BYTES + 1);
+        CloseFile(handle);
+        if (count < 0) { text = ""; return false; }
+        if (count > MAX_BYTES + 1 || count != text.Length()) { text = ""; }
+        return true;
     }
 
     protected static bool s_RawTested;
@@ -346,7 +447,7 @@ class HCWorldStore
     {
         text = "";
         if (!FileExist(path)) { return true; }
-        if (ReadChecked(path, text)) { return true; }
+        if (ReadAvailable(path, text)) { return true; }
         text = "";
         m_ReadUnavailable = true;
         return false;
@@ -382,6 +483,9 @@ class HCWorldStore
         string intent;
         if (!ReadExisting(m_Temp, intent)) { return false; }
         HCWorldData next = Decode(intent);
+        // Inspect every transaction target before recovery can replace it.
+        string backupAtOpen;
+        if (!ReadExisting(m_Backup, backupAtOpen)) { return false; }
         string primaryText;
         if (!ReadExisting(m_Path, primaryText)) { return false; }
         HCWorldData primary = Decode(primaryText);
@@ -401,7 +505,7 @@ class HCWorldStore
                 if (FileExist(m_Backup) && !DeleteFile(m_Backup)) { return false; }
                 if (!CopyFile(m_Path, m_Backup)) { return false; }
                 string copiedBackup;
-                if (!ReadChecked(m_Backup, copiedBackup)) { m_ReadUnavailable = true; return false; }
+                if (!ReadAvailable(m_Backup, copiedBackup)) { m_ReadUnavailable = true; return false; }
                 if (copiedBackup != primaryText) { return false; }
                 if (!DeleteFile(m_Path) || !CopyFile(m_Temp, m_Path)) { return false; }
             }
@@ -419,7 +523,7 @@ class HCWorldStore
             if (!CopyFile(m_Temp, m_Path)) { return false; }
         }
         string promotedText;
-        if (!ReadChecked(m_Path, promotedText)) { m_ReadUnavailable = true; return false; }
+        if (!ReadAvailable(m_Path, promotedText)) { m_ReadUnavailable = true; return false; }
         if (promotedText != intent || !DeleteFile(m_Temp)) { return false; }
         Print("[HollowCountry] V2 world interrupted save recovered action=promoted_intent");
         return true;
@@ -427,18 +531,22 @@ class HCWorldStore
 
     bool Load()
     {
+        HCModuleReadiness.HCRegisterUse("World", "world_read_ok");
+        HCModuleReadiness.HCRegisterUse("World", "world_read_recovered");
+        HCModuleReadiness.HCRegisterUse("World", "world_save_read_pending");
+        if (!m_ReadRetry.HCBegin()) { return false; }
         m_Data = null;
         m_Fresh = false;
+        m_ReadUnavailable = false;
         HCStagedSaveImage.HCForget(m_Path);
         m_SaveImage.HCForgetVerified();
         if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
         m_Fault = false;
-        m_ReadUnavailable = false;
         if (!Prepare()) { return Fault(); }
         if (FileExist(m_Temp) && !RecoverIntent())
         {
             m_Fault = true;
-            if (m_ReadUnavailable) { return HCPersistenceDisposition.HCQuarantine("world", "world_read_unavailable"); }
+            if (m_ReadUnavailable) { return HCReadUnavailable(); }
             return HCPersistenceDisposition.HCQuarantine("world", "world_interrupted_pair");
         }
         if (!FileExist(m_Path) && FileExist(m_Backup))
@@ -450,13 +558,15 @@ class HCWorldStore
         {
             m_Data = HCWorldData.Fresh(HCWorldClock.UTC());
             m_Fresh = true;
-            return m_Data != null;
+            if (!m_Data) { return false; }
+            m_ReadRetry.HCLoaded("World", "world");
+            return true;
         }
         if (!ReadCurrent())
         {
             m_Data = null;
             m_Fault = true;
-            if (m_ReadUnavailable) { return HCPersistenceDisposition.HCQuarantine("world", "world_read_unavailable"); }
+            if (m_ReadUnavailable) { return HCReadUnavailable(); }
             return HCPersistenceDisposition.HCQuarantine("world", "world_parse_or_schema_failure");
         }
         if (FileExist(m_Backup))
@@ -466,7 +576,7 @@ class HCWorldStore
             {
                 m_Data = null;
                 m_Fault = true;
-                return HCPersistenceDisposition.HCQuarantine("world", "world_read_unavailable");
+                return HCReadUnavailable();
             }
             HCWorldData previous = Decode(backupText);
             if (!previous || previous.Meta.Epoch != m_Data.Meta.Epoch || previous.Meta.LastTick > m_Data.Meta.LastTick)
@@ -476,7 +586,16 @@ class HCWorldStore
                 return HCPersistenceDisposition.HCQuarantine("world", "world_backup_damage_or_revision_regression");
             }
         }
+        m_ReadRetry.HCLoaded("World", "world");
         return true;
+    }
+
+    // Unavailable is not damage; the owner retains this store for bounded retries.
+    protected bool HCReadUnavailable()
+    {
+        m_ReadUnavailable = true;
+        m_ReadRetry.HCRetain("World", "world");
+        return false;
     }
 
     HCWorldData Data() { return m_Data; }
@@ -518,6 +637,7 @@ class HCWorldStore
     // retain new primary, old backup and intent; clear_intent admits new primary.
     int SaveStep(HCWorldData data)
     {
+        if (m_ReadRetry.HCRefuseSave("World", "world")) { return HCSaveJob.STEP_FAILED; }
         if (m_Fault)
         {
             m_SaveStage = 0;
@@ -566,6 +686,7 @@ class HCWorldStore
     // Synchronous whole save: the same stages back to back (shutdown and barrier callers).
     bool Save(HCWorldData data)
     {
+        if (m_ReadRetry.HCRefuseSave("World", "world")) { return false; }
         if (m_Fault) { return false; }
         // Finish an older snapshot before serializing current barrier state.
         int remainingStages;

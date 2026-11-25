@@ -1666,6 +1666,180 @@
       "source": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c",
       "scope": "runtime",
       "note": "A real dormant infected woke via proximity, cap repair, shot, native callback or damage. Stand within 6 m with clear geometry of an eligible dormant actor; a quiet join without dormant infected cannot exercise this. Town traversal or a controlled dormant encounter is required; forest alone is not sufficient."
+    },
+    {
+      "module": "World",
+      "feature": "world_read_ok",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=World feature=world_read_ok count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "scope": "runtime",
+      "note": "A healthy initial read (including a verified fresh store) or recovered read completed; runtime validation remains required."
+    },
+    {
+      "module": "World",
+      "feature": "world_read_recovered",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=World feature=world_read_recovered count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Persistence] store=world read_unavailable",
+      "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
+    },
+    {
+      "module": "World",
+      "feature": "world_save_read_pending",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=World feature=world_save_read_pending count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Persistence] store=world save_refused reason=read_pending count=1",
+      "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
+    },
+    {
+      "module": "Materializer",
+      "feature": "custody_read_ok",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Materializer feature=custody_read_ok count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "scope": "runtime",
+      "note": "A healthy initial read (including a verified fresh store) or recovered read completed; runtime validation remains required."
+    },
+    {
+      "module": "Materializer",
+      "feature": "custody_read_recovered",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Materializer feature=custody_read_recovered count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Persistence] store=custody read_unavailable",
+      "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
+    },
+    {
+      "module": "Materializer",
+      "feature": "custody_save_read_pending",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Materializer feature=custody_save_read_pending count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Persistence] store=custody save_refused reason=read_pending count=1",
+      "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "intent_read_ok",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=LootRefresh feature=intent_read_ok count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "scope": "runtime",
+      "note": "A healthy initial read (including a verified fresh store) or recovered read completed; runtime validation remains required."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "intent_read_recovered",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=LootRefresh feature=intent_read_recovered count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Persistence] store=intent read_unavailable",
+      "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "intent_save_read_pending",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=LootRefresh feature=intent_save_read_pending count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Persistence] store=intent save_refused reason=read_pending count=1",
+      "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
     }
   ]
 }
