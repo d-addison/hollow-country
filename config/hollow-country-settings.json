@@ -3,6 +3,7 @@
   "EnableInteriors": true,
   "EnableSearch": true,
   "EnableCrafting": true,
+  "EnableTinCanLantern": true,
   "EnableInfected": true,
   "EnableHordes": true,
   "EnableAlertChains": true,

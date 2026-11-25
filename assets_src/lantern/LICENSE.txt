@@ -1,0 +1,8 @@
+Original Hollow Country lantern recipes and procedurally generated texture images.
+No downloaded pixels, meshes or generative-model outputs are used.
+
+To the extent possible under law, Hollow Country dedicates these original asset
+sources and generated images to the public domain under CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+This dedication does not cover Blender, DayZ, vanilla data or other tool code.

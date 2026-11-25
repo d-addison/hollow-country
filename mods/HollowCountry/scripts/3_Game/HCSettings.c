@@ -185,6 +185,7 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableInteriors", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableSearch", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableCrafting", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("EnableTinCanLantern", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableInfected", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableHordes", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableAlertChains", "bool", 1, 0, 1, "HCSettings");
@@ -519,6 +520,7 @@ class HCSettings
     bool EnableInteriors = true;
     bool EnableSearch = true;
     bool EnableCrafting = true;
+    bool EnableTinCanLantern = true;
     bool EnableInfected = true;
     bool EnableHordes = true;
     bool EnableAlertChains = true;
@@ -589,6 +591,7 @@ class HCSettings
     static void HCApplyLegacy(string content, HCSettings settings)
     {
         HCSettings defaults = new HCSettings;
+        if (!HCJsonFields.Has(content, "EnableTinCanLantern")) { settings.EnableTinCanLantern = defaults.EnableTinCanLantern; }
         HCRetiredKey(content, "EnableMealBuffs");
         if (!HCJsonFields.Has(content, "EnableGrade")) { settings.EnableGrade = defaults.EnableGrade; }
         if (!HCJsonFields.Has(content, "ClientPresentationMask")) { settings.ClientPresentationMask = defaults.ClientPresentationMask; }
@@ -690,6 +693,7 @@ class HCSettings
         if (HCLogNonDefault("SchemaVersion", SchemaVersion.ToString(), defaults.SchemaVersion.ToString())) { changed++; }
         if (HCLogNonDefault("EnableInteriors", EnableInteriors.ToString(), defaults.EnableInteriors.ToString())) { changed++; }
         if (HCLogNonDefault("EnableSearch", EnableSearch.ToString(), defaults.EnableSearch.ToString())) { changed++; }
+        if (HCLogNonDefault("EnableTinCanLantern", EnableTinCanLantern.ToString(), defaults.EnableTinCanLantern.ToString())) { changed++; }
         if (HCLogNonDefault("EnableCrafting", EnableCrafting.ToString(), defaults.EnableCrafting.ToString())) { changed++; }
         if (HCLogNonDefault("EnableInfected", EnableInfected.ToString(), defaults.EnableInfected.ToString())) { changed++; }
         if (HCLogNonDefault("EnableHordes", EnableHordes.ToString(), defaults.EnableHordes.ToString())) { changed++; }

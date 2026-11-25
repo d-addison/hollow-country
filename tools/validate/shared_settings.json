@@ -32,6 +32,14 @@
     "owner": "HCSettings"
   },
   {
+    "key": "EnableTinCanLantern",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
     "key": "EnableInfected",
     "type": "bool",
     "default": true,
