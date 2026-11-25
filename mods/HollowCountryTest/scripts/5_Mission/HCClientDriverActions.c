@@ -5,7 +5,7 @@
 //            OverrideMovementAngle (degrees, -180..180 per :459), :259 OverrideAimChangeX
 //            (radians per tick per :30); :1458 Human.GetInputController; Object.c:305
 //            GetOrientation (yaw degrees). The local player's own controller is the only one used;
-//            collisions stay engine-owned. HCDriverMovement applies ONE_FRAME at CommandHandler;
+//            collisions stay engine-owned. HCDriverMovement applies the calibrated variant at CommandHandler;
 //            navigation uses the measured camera frame and angle sign, with no aim feedback.
 //  actions   4_World/Classes/UserActionsComponent/ActionManagerClient.c:804 PerformActionStart
 //            (public), :1335 SetIgnoreAutomaticInputEnd, :286 EndActionInput;

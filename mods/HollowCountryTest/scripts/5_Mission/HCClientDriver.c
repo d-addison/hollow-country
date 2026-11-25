@@ -41,6 +41,15 @@ class HCClientDriver
     protected int m_CalibCommand;
     protected int m_CalibApplied;
     protected int m_CalibForwardFrames;
+    protected int m_CalibRightFrames;
+    protected PlayerBase m_ReadyPlayer;
+    protected int m_CalibRuns;
+    protected int m_CalibAttempts;
+    protected float m_ReadyAge;
+    protected float m_CalibWait;
+    protected float m_CalibRetryWait;
+    protected bool m_CalibOnDemand;
+    protected bool m_StepCalibRetried;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -73,6 +82,7 @@ class HCClientDriver
 
     void Shutdown()
     {
+        HCDriverMovement.Stop();
         if (!m_Live || m_Finished) { return; }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         m_Walker.Release(player);
@@ -84,12 +94,14 @@ class HCClientDriver
 
     protected void Conclude()
     {
+        HCDriverMovement.Stop();
         m_Finished = true;
         HCDriverLog.Done(m_Script.run_id, m_Script.steps.Count(), m_Ok, m_Refused, m_Unsupported, m_Timeout);
     }
 
     protected void EndStep(HCDriverStep step, int code, string detail, PlayerBase player)
     {
+        m_Walker.Release(player);
         m_Actions.Abort(player, m_Walker);
         m_Combat.Release(player);
         m_Vehicle.Release();
@@ -111,16 +123,33 @@ class HCClientDriver
         if (code == HCDriverResult.TIMEOUT) { m_Timeout++; }
         m_Index++;
         m_StepOpen = false;
+        m_StepCalibRetried = false;
         if (m_Index >= m_Script.steps.Count()) { Conclude(); }
     }
 
     // One call per client frame from the MissionGameplay hook.
     void Tick(float timeslice)
     {
-        if (!m_Live || m_Finished) { return; }
+        if (!m_Live || m_Finished) { HCDriverMovement.Stop(); return; }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-        if (!player || !player.IsPlayerLoaded()) { return; }
+        if (!player || !player.IsPlayerLoaded())
+        {
+            HCDriverMovement.Stop();
+            HCDriverMovement.Calibrated = false;
+            m_ReadyAge = 0;
+            m_ReadyPlayer = null;
+            return;
+        }
+        if (m_ReadyPlayer != player)
+        {
+            HCDriverMovement.Stop();
+            HCDriverMovement.Calibrated = false;
+            m_ReadyAge = 0;
+            m_ReadyPlayer = player;
+        }
         float dt = Math.Clamp(timeslice, 0.001, 0.25);
+        if (MovementReady(player)) { m_ReadyAge = m_ReadyAge + dt; }
+        else { m_ReadyAge = 0; HCDriverMovement.Stop(); }
         if (!m_CalibDone)
         {
             Calibrate(player, dt);
@@ -132,6 +161,17 @@ class HCClientDriver
             m_Index++;
             if (m_Index >= m_Script.steps.Count()) { Conclude(); }
             return;
+        }
+        if (!m_StepOpen && !HCDriverMovement.Calibrated && !m_StepCalibRetried && (step.kind == "walk" || step.kind == "route" || step.kind == "sprint"))
+        {
+            m_StepCalibRetried = true;
+            if (m_CalibRuns < 4)
+            {
+                m_CalibOnDemand = true;
+                m_CalibDone = false;
+                m_CalibRetryWait = 0;
+                return;
+            }
         }
         if (!m_StepOpen)
         {
@@ -225,31 +265,91 @@ class HCClientDriver
         if (code != HCDriverResult.RUNNING) { EndStep(step, code, detail, player); }
     }
 
-    // One five-second calibration before the first scripted step; no per-frame logs.
+    protected bool MovementReady(PlayerBase player)
+    {
+        Mission mission = GetGame().GetMission();
+        return player.IsAlive() && !player.IsUnconscious() && player.GetCommand_Move() && player.GetInputController() && mission && !mission.IsControlDisabled();
+    }
+
+    protected void BeginCalibProbe(PlayerBase player)
+    {
+        HCDriverMovement.Stop();
+        m_CalibStage = 1;
+        m_CalibAge = 0;
+        m_CalibStart = player.GetPosition();
+        m_CalibYaw = player.GetOrientation()[0];
+        m_CalibCamera = HCDriverWalker.CameraYaw();
+        m_CalibCommand = HCDriverMovement.CommandId;
+        m_CalibApplied = HCDriverMovement.AppliedFrames;
+        m_CalibRightFrames = 0;
+        m_CalibAttempts++;
+    }
+
+    protected void LogCalibAttempt(PlayerBase player)
+    {
+        m_CalibForward = player.GetPosition() - m_CalibStart;
+        m_CalibForwardFrames = HCDriverMovement.AppliedFrames - m_CalibApplied;
+        Print("[HC Driver] calib attempt=" + m_CalibAttempts.ToString() + " variant=" + HCDriverMovement.VariantName() + " moved_m=" + HCDriverWalker.FlatLength(m_CalibForward).ToString() + " frames=" + m_CalibForwardFrames.ToString() + " cmd=" + HCDriverMovement.CommandId.ToString());
+    }
+
+    protected void FinishCalib(PlayerBase player, vector right, string reason)
+    {
+        if (m_CalibStage == 2) { m_CalibRightFrames = HCDriverMovement.AppliedFrames - m_CalibApplied; }
+        m_Walker.Release(player);
+        string result = "refused";
+        string applied = "refused";
+        if (HCDriverMovement.Calibrated) { result = "ok"; applied = "measured-camera-frame"; }
+        string calibration = "[HC Driver] calib result=" + result + " variant=" + HCDriverMovement.VariantName() + " run=" + m_CalibRuns.ToString() + " reason=" + reason;
+        calibration = calibration + " forward=<" + HCDriverWalker.XZ(m_CalibForward) + "> right=<" + HCDriverWalker.XZ(right) + ">";
+        calibration = calibration + " facing=" + Math.Round(m_CalibCamera).ToString() + " yaw=" + Math.Round(m_CalibYaw).ToString() + "," + Math.Round(m_CalibMidYaw).ToString() + "," + Math.Round(player.GetOrientation()[0]).ToString();
+        calibration = calibration + " cmd=" + m_CalibCommand.ToString() + "," + HCDriverMovement.CommandId.ToString() + " applied_frames=" + m_CalibForwardFrames.ToString() + "," + m_CalibRightFrames.ToString();
+        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + Math.Round(HCDriverMovement.HeadingOffset).ToString() + " apply=" + applied + " aim=disabled";
+        int controls = 0;
+        Mission mission = GetGame().GetMission();
+        if (mission && mission.IsControlDisabled()) { controls = 1; }
+        Print(calibration + " controls=" + controls.ToString());
+        m_CalibStage = 0;
+        m_CalibWait = 0;
+        m_CalibDone = true;
+        if (!HCDriverMovement.Calibrated && !m_CalibOnDemand && m_CalibRuns < 3)
+        {
+            m_CalibDone = false;
+            m_CalibRetryWait = 15.0;
+        }
+    }
+
+    // Up to three startup runs; step retries share the four-run session cap. No per-frame logs.
     protected void Calibrate(PlayerBase player, float dt)
     {
-        m_CalibAge = m_CalibAge + dt;
+        if (m_CalibRetryWait > 0)
+        {
+            m_CalibRetryWait = m_CalibRetryWait - dt;
+            return;
+        }
         if (m_CalibStage == 0)
         {
-            // Loading can precede movement and the end of the spawn input restriction.
-            Mission loadingMission = GetGame().GetMission();
-            bool ready = player.IsAlive() && !player.IsUnconscious() && player.GetCommand_Move() && player.GetInputController();
-            if (loadingMission && loadingMission.IsControlDisabled()) { ready = false; }
-            if (!ready)
+            m_CalibWait = m_CalibWait + dt;
+            m_CalibForward = vector.Zero;
+            m_CalibForwardFrames = 0;
+            m_CalibRightFrames = 0;
+            // Require ten continuous ready seconds, not ten seconds since loading began.
+            if (m_ReadyAge < 10.0)
             {
-                if (m_CalibAge < 10.0) { return; }
-                m_Walker.Release(player);
-                Print("[HC Driver] calib result=refused reason=movement-or-controls-not-ready apply=refused aim=disabled");
-                m_CalibDone = true;
+                if (m_CalibWait < 60.0) { return; }
+                m_CalibRuns++;
+                FinishCalib(player, vector.Zero, "movement-or-controls-not-ready");
                 return;
             }
-            m_CalibStage = 1;
-            m_CalibAge = 0;
-            m_CalibStart = player.GetPosition();
-            m_CalibYaw = player.GetOrientation()[0];
-            m_CalibCamera = HCDriverWalker.CameraYaw();
-            m_CalibCommand = HCDriverMovement.CommandId;
-            m_CalibApplied = HCDriverMovement.AppliedFrames;
+            m_CalibRuns++;
+            HCDriverMovement.Variant = HCDriverMovement.POST_SUPER;
+            BeginCalibProbe(player);
+        }
+        m_CalibAge = m_CalibAge + dt;
+        if (!MovementReady(player) || m_ReadyAge < 10.0)
+        {
+            if (m_CalibStage == 1) { LogCalibAttempt(player); }
+            FinishCalib(player, vector.Zero, "readiness-lost");
+            return;
         }
         if (m_CalibStage == 1)
         {
@@ -258,8 +358,20 @@ class HCClientDriver
                 HCDriverMovement.Request(2.0, 0);
                 return;
             }
-            m_CalibForward = player.GetPosition() - m_CalibStart;
-            m_CalibForwardFrames = HCDriverMovement.AppliedFrames - m_CalibApplied;
+            LogCalibAttempt(player);
+            HCDriverMovement.Stop();
+            if (HCDriverWalker.FlatLength(m_CalibForward) <= 0.5 || m_CalibForwardFrames == 0)
+            {
+                if (HCDriverMovement.Variant < HCDriverMovement.PRE_SUPER)
+                {
+                    HCDriverMovement.Variant++;
+                    BeginCalibProbe(player);
+                    return;
+                }
+                FinishCalib(player, vector.Zero, "no-moving-variant");
+                return;
+            }
+            // First moving variant wins. Measure its angle/frame; never infer from its name.
             m_CalibApplied = HCDriverMovement.AppliedFrames;
             m_CalibRightStart = player.GetPosition();
             m_CalibMidYaw = player.GetOrientation()[0];
@@ -268,10 +380,10 @@ class HCClientDriver
         }
         if (m_CalibAge < 2.5)
         {
+            // Native human.c:459-463 documents input angles -180..180, not radians.
             HCDriverMovement.Request(2.0, 90.0);
             return;
         }
-        m_Walker.Release(player);
         vector right = player.GetPosition() - m_CalibRightStart;
         float forwardBearing = Math.Atan2(m_CalibForward[0], m_CalibForward[2]) * Math.RAD2DEG;
         float rightBearing = Math.Atan2(right[0], right[2]) * Math.RAD2DEG;
@@ -280,20 +392,8 @@ class HCClientDriver
         HCDriverMovement.AngleSign = 1.0;
         if (turn < 0) { HCDriverMovement.AngleSign = -1.0; }
         int rightFrames = HCDriverMovement.AppliedFrames - m_CalibApplied;
-        HCDriverMovement.Calibrated = m_CalibForwardFrames > 0 && rightFrames > 0 && HCDriverWalker.FlatLength(m_CalibForward) > 0.5 && HCDriverWalker.FlatLength(right) > 0.5 && Math.AbsFloat(turn) > 45 && Math.AbsFloat(turn) < 135 && player.GetCommand_Move() != null;
-        string result = "refused";
-        string applied = "refused";
-        if (HCDriverMovement.Calibrated) { result = "ok"; applied = "measured-camera-frame"; }
-        string calibration = "[HC Driver] calib result=" + result + " forward=<" + HCDriverWalker.XZ(m_CalibForward) + "> right=<" + HCDriverWalker.XZ(right) + ">";
-        calibration = calibration + " facing=" + Math.Round(m_CalibCamera).ToString() + " yaw=" + Math.Round(m_CalibYaw).ToString() + "," + Math.Round(m_CalibMidYaw).ToString() + "," + Math.Round(player.GetOrientation()[0]).ToString();
-        calibration = calibration + " cmd=" + m_CalibCommand.ToString() + "," + HCDriverMovement.CommandId.ToString() + " applied_frames=" + m_CalibForwardFrames.ToString() + "," + rightFrames.ToString();
-        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + Math.Round(HCDriverMovement.HeadingOffset).ToString() + " apply=" + applied + " aim=disabled";
-        int controls = 0;
-        Mission mission = GetGame().GetMission();
-        if (mission && mission.IsControlDisabled()) { controls = 1; }
-        calibration = calibration + " controls=" + controls.ToString();
-        Print("" + calibration);
-        m_CalibDone = true;
+        HCDriverMovement.Calibrated = rightFrames > 0 && HCDriverWalker.FlatLength(right) > 0.5 && Math.AbsFloat(turn) > 45 && Math.AbsFloat(turn) < 135;
+        FinishCalib(player, right, "frame-probe");
     }
 
     protected int StepSprint(HCDriverStep step, PlayerBase player)
