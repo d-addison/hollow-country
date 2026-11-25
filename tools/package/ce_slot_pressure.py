@@ -7,7 +7,11 @@ category/tag filters and actual placed tier sets, without splitting shared
 capacity evenly between usages. It is an optimistic upper bound: dimensions,
 point range/height, collisions and native selection remain unobserved.
 
-CLI: ``MISSION --feasibility`` (alias ``--all-categories``) emits one JSON
+CLI: ``MISSION --calibrate-rpt RUN.RPT`` compares per-class retry rates with
+static bounds (repeat the flag for multiple runs; output omits input paths).
+``--initial-fill-seconds`` separates initial fill from later activity (default 120).
+
+``MISSION --feasibility`` (alias ``--all-categories``) emits one JSON
 report and exits 0 for a static pass, 1 for a capacity deficit, or 2 for invalid
 inputs/options. A static pass is never native placement acceptance.
 """
@@ -15,6 +19,7 @@ import argparse
 from collections import Counter
 import json
 import math
+import re
 from pathlib import Path
 import struct
 import sys
@@ -380,13 +385,121 @@ def feasibility(mission, military_weapons=False, limit=LIMIT, slack=False):
             for target in matches:
                 per_group[container_caps[target][0]] += graph[target][0][1]
             spare = sum(min(have, graph[group][0][1]) for group, have in per_group.items())
+            compatible = Counter()
+            for target in matches:
+                group, cap = container_caps[target]
+                compatible[group] += cap
+            # A row can use this union, but cannot claim it independently of its competitors.
+            compatible_capacity = sum(min(have, group_limits[group]) for group, have in compatible.items())
             usages, tiers, cats, tags = demand_keys[ident]
             unassigned_here = next((r for t, r, _ in graph[0] if t == ident), 0)
             result['bucket_slack'].append(dict(
                 usages=sorted(usages), tiers=sorted(tiers), categories=sorted(cats), tags=sorted(tags),
-                nominal=demands[usages, tiers, cats, tags], slack=0 if unassigned_here else spare,
+                nominal=demands[usages, tiers, cats, tags], compatible_capacity=compatible_capacity,
+                slack=0 if unassigned_here else spare,
                 unassigned=unassigned_here, classes=sorted(name for name, _ in route_names[usages, tiers, cats, tags])))
     return result
+
+
+def rpt_placement_counts(path, initial_fill_seconds=120):
+    """Stream one RPT, separating initial fill from later warnings; never return paths or raw lines.
+
+    Rates use the complete timestamp window, including quiet time. Clock wrap is
+    handled; a backwards clock change other than midnight refuses calibration.
+    The initial window is an explicit reporting convention, not engine readiness.
+    """
+    counts, later = Counter(), Counter()
+    first = previous = None
+    offset = 0
+    with Path(path).open(encoding='utf-8', errors='replace') as stream:
+        for line in stream:
+            timestamp = re.match(r'\s*(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))?\s', line)
+            if not timestamp:
+                continue
+            h, m, sec = map(int, timestamp.groups()[:3])
+            if h > 23 or m > 59 or sec > 59:
+                continue
+            # DayZ prints unpadded millisecond integers: .40 means 40 ms, not 400 ms.
+            clock = h * 3600 + m * 60 + sec + int(timestamp[4] or '0') / 1000
+            stamp = clock + offset
+            if previous is not None and stamp < previous:
+                if previous - stamp > 12 * 3600:
+                    offset += 86400
+                    stamp += 86400
+                else:
+                    raise ValueError('RPT clock moved backwards; elapsed rate unavailable')
+            first = stamp if first is None else first
+            previous = stamp
+            warning = re.search(r'\[LootRespawner\].*hard to place, performance drops: "([A-Za-z0-9_]+)"', line)
+            if warning:
+                counts[warning[1]] += 1
+                if stamp - first >= initial_fill_seconds:
+                    later[warning[1]] += 1
+    if first is None:
+        raise ValueError('RPT has no clock window')
+    duration = previous - first
+    later_duration = max(0, duration - initial_fill_seconds)
+    return dict(duration_seconds=round(duration, 3), initial_fill_seconds=initial_fill_seconds,
+                later_seconds=round(later_duration, 3), counts=dict(counts), later_counts=dict(later))
+
+
+def calibration(mission, rpts, initial_fill_seconds=120):
+    """Join observed retry rates to static bounds. This never certifies an engine capacity or chooses cuts.
+
+    RPTs need the corresponding mission snapshot to attribute a failure. A current
+    snapshot can be compared, but cannot reconstruct historical item/point state.
+    """
+    mission = Path(mission)
+    runs = [rpt_placement_counts(path, initial_fill_seconds) for path in rpts]
+    static = feasibility(mission, slack=True)
+    buckets = {name.lower(): b for b in static['bucket_slack'] for name in b['classes']}
+    rows = _types(mission)
+    # Reproduce the floor allocator's prototype-only point count. It omits
+    # placed multiplicity, actual tiers and the shared group limit.
+    from tools.package import loot_floor_policy, loot_boost
+    proto = (mission / 'mapgroupproto.xml').read_bytes()
+    text = proto.decode('utf-8-sig')
+    root = ET.fromstring(proto)
+    default = loot_floor_policy._default(root)
+    containers = [c for _, limit, cs in loot_floor_policy._scan(text, loot_boost._mask(text), default)
+                  if limit > 0 for c in cs if 'shelves' in c['tags']]
+    # Include zero-warning controls, not just the classes that retried.
+    names = sorted({n for run in runs for n in run['counts']}
+                   | {n for b in static['bucket_slack'] for n in b['classes']})
+    result = []
+    for name in names:
+        entry = rows.get(name.lower())
+        row = entry[1] if entry else None
+        bucket = buckets.get(name.lower())
+        prototype_points = None
+        if row is not None:
+            cats = frozenset(n.get('name') for n in row.findall('category'))
+            tags = frozenset(n.get('name') for n in row.findall('tag'))
+            usages = frozenset(n.get('name') for n in row.findall('usage'))
+            nominal = int(row.findtext('nominal', '0'))
+            match_row = (cats, tags, tags, nominal, usages)
+            prototype_points = sum(min(c['lootmax'], len(c['ys'])) for c in containers
+                                   if loot_floor_policy._matches(match_row, c, 'after'))
+        observations = []
+        for run in runs:
+            count = run['counts'].get(name, 0)
+            later = run['later_counts'].get(name, 0)
+            observations.append(dict(count=count, per_hour=round(count * 3600 / run['duration_seconds'], 3)
+                                     if run['duration_seconds'] else None,
+                                     later_count=later, later_per_hour=round(later * 3600 / run['later_seconds'], 3)
+                                     if run['later_seconds'] else None))
+        result.append(dict(name=name, nominal=int(row.findtext('nominal', '0')) if row is not None else None,
+                           minimum=int(row.findtext('min', '0')) if row is not None else None,
+                           prototype_shelf_points=prototype_points,
+                           placed_compatible_upper_bound=bucket['compatible_capacity'] if bucket else None,
+                           shared_route_nominal=bucket['nominal'] if bucket else None,
+                           shared_route_unassigned=bucket['unassigned'] if bucket else None,
+                           shared_route_slack=bucket['slack'] if bucket else None, observations=observations))
+    return dict(status='unverified', runs=[{k: v for k, v in run.items() if k not in {'counts', 'later_counts'}}
+                                          for run in runs], classes=result,
+                limitation='Static bounds omit physical fit and occupancy. RPT order is input order; '
+                           'mission snapshot identity at each run is unverified. Retry counts are not missing item counts. '
+                           'No calibrated engine capacity or expected post-fix rate is established.')
 
 
 def problems(mission, category='weapons', limit=LIMIT):
@@ -407,10 +520,22 @@ def main(argv=None):
     modes.add_argument('--military-weapons', action='store_true', help='joint Military/Police/Prison weapon bound with LIMIT headroom and named unrouted types')
     modes.add_argument('--all-categories', '--feasibility', action='store_true', help='joint shared-capacity bound across all building-routed categories; exit 1 on deficit')
     modes.add_argument('--coverage', action='store_true', help='report modded usage/container eligibility')
+    modes.add_argument('--calibrate-rpt', type=Path, action='append', help='read-only RPT comparison; repeat in run order')
+    parser.add_argument('--initial-fill-seconds', type=int, default=120)
     parser.add_argument('--top', type=int, default=10)
     args = parser.parse_args(argv)
     if not math.isfinite(args.limit) or not 0 < args.limit <= 1:
         parser.error('--limit must be greater than zero and at most one')
+    if args.initial_fill_seconds < 0:
+        parser.error('--initial-fill-seconds must be nonnegative')
+    if args.calibrate_rpt:
+        try:
+            report = calibration(args.mission, args.calibrate_rpt, args.initial_fill_seconds)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, struct.error, ET.ParseError):
+            print(json.dumps({'status': 'error', 'reason': 'calibration inputs unreadable or invalid'}))
+            return 2
+        print(json.dumps(report, sort_keys=True))
+        return 0  # A completed comparison, explicitly unverified; never a capacity gate pass.
     if args.top < 0:
         parser.error('--top must be nonnegative')
     if args.all_categories or args.military_weapons:

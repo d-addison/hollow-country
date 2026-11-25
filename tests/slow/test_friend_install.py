@@ -2162,10 +2162,10 @@ GLOBALS_STOCK = (b'\xef\xbb\xbf<?xml version="1.0" encoding="UTF-8" standalone="
                  b'</variables>\r\n')
 
 
-def install_loot(mission, stock, multiplier):
+def install_loot(mission, stock, multiplier, respawn_factor=1.0):
     """Synthetic loot boost state for db/globals.xml only, in the real receipt layout and with the real scaler."""
     managed = mission / fi.loot_boost.MANAGED
-    after, report = fi.loot_boost.scale_globals(stock, multiplier)
+    after, report = fi.loot_boost.scale_globals(stock, multiplier, respawn_factor=respawn_factor)
     row = {'name': 'db/globals.xml', 'before': sha(stock), 'after': sha(after), 'backup': '00.backup'}
     receipt = {'schema': 1, 'kind': 'hollow-country-loot-boost', 'multiplier': multiplier, 'files': [row],
                'counts': {'globals': report}, 'runtime_acceptance': 'pending'}
@@ -2175,7 +2175,7 @@ def install_loot(mission, stock, multiplier):
     return after
 
 
-def loot_overlay(calls, multiplier):
+def loot_overlay(calls, multiplier, respawn_factor=1.0):
     """The synthetic bundle overlay plus a globals-only loot boost that uses the real rollback."""
     base = fake_overlay(calls)
 
@@ -2189,7 +2189,7 @@ def loot_overlay(calls, multiplier):
                 return 1
         code = base(argv)
         if argv[0] == 'bundle-apply':
-            install_loot(mission, (mission / 'db/globals.xml').read_bytes(), multiplier)
+            install_loot(mission, (mission / 'db/globals.xml').read_bytes(), multiplier, respawn_factor)
         return code
     return main
 
@@ -2285,6 +2285,22 @@ class SelfHealingTests(InstallerCase):
         self.assertEqual(code, 0, out + err)
         self.assertEqual(snapshot(self.tmp), before)
         self.assertIn('nothing to repair', out)
+
+    def test_respawn_32_upgrade_is_stock_derived_receipted_and_second_run_is_noop(self):
+        path = self.tuned_server([])  # old receipt: stock 12 -> 24
+        newer = self.upgraded_bundle()
+        factor = fi.loot_boost.default_knobs()['refill']['RespawnTypesFactor']
+        with mock.patch.object(fi.overlays, 'main', side_effect=loot_overlay(self.overlay_calls, 2.0, factor)):
+            code, out, err = self.apply(bundle=newer)
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(var_values(path)['RespawnTypes'], '32')
+            receipt = json.loads((self.mission / fi.loot_boost.MANAGED / 'receipt.json').read_bytes())
+            self.assertEqual(receipt['counts']['globals']['RespawnTypes'], '12->32')
+            before = snapshot(self.tmp)
+            code, out, err = self.apply(bundle=newer)
+            self.assertEqual(code, 0, out + err)
+            self.assertEqual(snapshot(self.tmp), before)
+            self.assertIn('nothing to repair', out)
 
     def test_an_operator_respawn_types_value_wins_over_the_new_scale(self):
         path = self.tuned_server([(b'<var name="RespawnTypes" type="0" value="24"/>',

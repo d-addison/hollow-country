@@ -135,6 +135,51 @@ class SlotPressure(unittest.TestCase):
         (self.mission / 'db/types.xml').unlink()
         self.assertEqual(self.cli('--feasibility')[0], 2)
 
+    def test_route_upper_bound_counts_placed_groups_once_and_shares_their_cap(self):
+        self.types(self.row('Pants', nominal=2), self.row('Coat', nominal=2))
+        self.proto(group_cap=1, containers='<container lootmax="4"><category name="clothes"/>'
+                   '<tag name="shelves"/><point/><point/><point/><point/></container>')
+        self.write('mapgrouppos.xml', '<map><group name="Cabin" pos="5 0 5"/>'
+                   '<group name="Cabin" pos="5 0 5"/></map>')
+        bucket = pressure.feasibility(self.mission, slack=True)['bucket_slack'][0]
+        self.assertEqual(bucket['compatible_capacity'], 2)
+        self.assertEqual(bucket['nominal'], 4)
+        self.assertEqual(bucket['unassigned'], 2)
+
+    def test_calibration_reports_missing_rows_and_elapsed_windows_without_paths(self):
+        self.proto(containers='<container lootmax="1"><category name="clothes"/>'
+                   '<tag name="shelves"/><point pos="0 0 0"/></container>')
+        rpt = self.mission / 'private-input.RPT'
+        rpt.write_text('12:00:00.000 boot\n'
+                       '12:00:01.000 [CE][LootRespawner] hard to place, performance drops: "Pants"\n'
+                       '12:03:00.000 [CE][LootRespawner] hard to place, performance drops: "Missing"\n'
+                       '12:04:00.000 quiet\n')
+        code, result = self.cli('--calibrate-rpt', str(rpt))
+        self.assertEqual(code, 0)
+        self.assertEqual(result['status'], 'unverified')
+        self.assertNotIn(str(rpt), json.dumps(result))
+        rows = {r['name']: r for r in result['classes']}
+        self.assertEqual(rows['Pants']['prototype_shelf_points'], 1)
+        self.assertEqual(rows['Pants']['placed_compatible_upper_bound'], 1)
+        self.assertEqual(rows['Pants']['observations'][0]['later_count'], 0)
+        self.assertEqual(rows['Missing']['observations'][0]['later_per_hour'], 30)
+        self.assertIsNone(rows['Missing']['nominal'])
+
+    def test_rpt_windows_include_quiet_time_and_midnight(self):
+        rpt = self.mission / 'midnight.RPT'
+        rpt.write_text('23:59:00.40 boot\n'
+                       '23:59:00.100 later\n'
+                       '00:01:00.40 [CE][LootRespawner] hard to place, performance drops: "Pants"\n'
+                       '00:03:00.40 quiet\n')
+        result = pressure.rpt_placement_counts(rpt)
+        self.assertEqual(result['duration_seconds'], 240)
+        self.assertEqual(result['later_counts'], {'Pants': 1})
+        rpt.write_text('12:00:00 boot\n11:59:00 backwards\n')
+        with self.assertRaises(ValueError):
+            pressure.rpt_placement_counts(rpt)
+        rpt.write_text('no timestamp\n')
+        self.assertEqual(self.cli('--calibrate-rpt', str(rpt))[0], 2)
+
     def test_invalid_options_are_rejected(self):
         for args in [('--limit', 'nan'), ('--limit', '0'), ('--limit', '1.1'),
                      ('--top', '-1'), ('--all-categories', '--military-weapons')]:

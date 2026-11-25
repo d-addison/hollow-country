@@ -41,7 +41,7 @@
   "LootDamageMax": 0.6,
   "Refill": {
     "RestockMin": 0,
-    "RespawnTypesFactor": 1.0
+    "RespawnTypesFactor": 1.3333333333333333
   },
   "CapacityMultiplier": {
     "Farm": 3.0,

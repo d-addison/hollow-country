@@ -561,7 +561,7 @@ class SupplyKnobs(unittest.TestCase):
         for usage in ('Village', 'Farm', 'Town', 'Military', 'Police', 'Prison', 'Hunting', 'Medic', 'Firefighter',
                       'Industrial', 'School'):
             self.assertIn(usage, knobs['usage'])
-        self.assertEqual(knobs['refill'], {'RestockMin': 0, 'RespawnTypesFactor': 1.0})  # today's behaviour
+        self.assertEqual(knobs['refill'], {'RestockMin': 0, 'RespawnTypesFactor': 4 / 3})  # #343
         for usage in ('Town', 'Military', 'Police', 'Prison', 'Medic', 'School'):
             self.assertGreater(knobs['group_cap'][usage], boost.GROUP_CAPACITY_CAP)
 
@@ -585,6 +585,14 @@ class GlobalsKnobs(unittest.TestCase):
     def test_respawn_types_factor(self):
         self.assertEqual(self.values(boost.scale_globals(self.STOCK, 2, None, 0.5)[0])['RespawnTypes'], '12')
         self.assertEqual(self.values(boost.scale_globals(self.STOCK, 2, None, 4.0)[0])['RespawnTypes'], '64')
+
+    def test_shipped_respawn_target_is_receipt_backed_and_capped(self):
+        factor = boost.default_knobs()['refill']['RespawnTypesFactor']
+        output, report = boost.scale_globals(self.STOCK, boost.default_multiplier(), None, factor)
+        self.assertEqual(self.values(output)['RespawnTypes'], '32')
+        self.assertEqual(report['RespawnTypes'], '12->32')
+        self.assertEqual(boost.globals_from_report(self.STOCK, report), output)
+        self.assertEqual(self.values(boost.scale_globals(self.STOCK, 4, None, factor)[0])['RespawnTypes'], '64')
 
     def test_the_receipt_report_rebuilds_the_written_bytes(self):
         output, report = boost.scale_globals(self.STOCK, 2, 0.6, 1.25)
@@ -665,6 +673,29 @@ class PlanSupply(unittest.TestCase):
             self.assertEqual(rows_of((mission / 'db/types.xml').read_bytes())['Hammer'], (30, 18))
             boost.rollback(mission)
             self.assertEqual((mission / 'db/globals.xml').read_bytes(), GlobalsKnobs.STOCK)
+
+    def test_respawn_upgrade_restores_stock_reapplies_and_refuses_operator_drift(self):
+        # Exercise the existing receipt rollback path used by friend_install. No receipt format change.
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = stock_mission(tmp)
+            original = (mission / 'db/globals.xml').read_bytes()
+            with settings_file(SUPPLY_A):
+                boost.install(mission, None, None, floor_policy=None)
+            self.assertEqual(GlobalsKnobs().values((mission / 'db/globals.xml').read_bytes())['RespawnTypes'], '24')
+            boost.rollback(mission)
+            self.assertEqual((mission / 'db/globals.xml').read_bytes(), original)
+            receipt = boost.install(mission, None, None, floor_policy=None)
+            self.assertEqual(receipt['counts']['globals']['RespawnTypes'], '12->32')
+            installed = (mission / 'db/globals.xml').read_bytes()
+            boost.rollback(mission)
+            boost.install(mission, None, None, floor_policy=None)
+            self.assertEqual((mission / 'db/globals.xml').read_bytes(), installed)
+            # Direct rollback refuses drift; friend_install handles operator carry-forward separately.
+            edited = installed.replace(b'value="32"', b'value="40"')
+            (mission / 'db/globals.xml').write_bytes(edited)
+            with self.assertRaises(ValueError):
+                boost.rollback(mission)
+            self.assertEqual((mission / 'db/globals.xml').read_bytes(), edited)
 
     def test_supply_settings_b_does_not_depend_on_supply_settings_a(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as fresh:

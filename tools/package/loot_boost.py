@@ -65,7 +65,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 5  # 5: count_in_hoarder=1 on guns, magazines and ammo (#347); 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
+LOOT_BOOST_VERSION = 6  # #343: derive RespawnTypes=32 from stock via the receipt-backed refill factor
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
