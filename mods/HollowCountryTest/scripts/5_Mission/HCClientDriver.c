@@ -27,6 +27,7 @@ class HCClientDriver
     protected ref HCDriverCombat m_Combat = new HCDriverCombat;
     protected ref HCDriverLoot m_Loot = new HCDriverLoot;
     protected ref HCDriverSurvive m_Survive = new HCDriverSurvive;
+    protected ref HCDriverClimb m_Climb = new HCDriverClimb;
     protected ref HCDriverVehicle m_Vehicle = new HCDriverVehicle;
     protected ref HCDriverStepHold m_Hold = new HCDriverStepHold;
     protected vector m_Start;
@@ -223,7 +224,12 @@ class HCClientDriver
         }
         HCDriverMovement.StepLabel = step.id;
         if (HCDriverMovement.StepLabel == "") { HCDriverMovement.StepLabel = "s" + (m_Index + 1).ToString(); }
-        int availability = m_Hold.Check(player, HCDriverMovement.StepLabel);
+        int availability = HCDriverResult.OK;
+        // Native human.c:1512: ladder commands replace move; keep ticking their
+        // input/drain through the ground-movement availability and lease gates.
+        bool onClimb = step.kind == "climb" && (player.GetCommand_Ladder() || m_Climb.AwaitingEntry());
+        if (!onClimb) { availability = m_Hold.Check(player, HCDriverMovement.StepLabel); }
+        else { HCDriverMovement.ClosedReason = ""; }
         if (availability != HCDriverResult.OK)
         {
             m_Walker.Pause();
@@ -337,6 +343,8 @@ class HCClientDriver
             code = HCDriverExtra.Run(step, player, dt, m_Stage == 0, detail);
             m_Stage = 1;
         }
+        else if (step.kind == "climb") { code = m_Climb.Run(step, player, dt, m_Walker, m_Stage == 0, detail); m_Stage = 1; }
+        else if (step.kind == "cellar") { code = HCDriverCellar.Run(step, player, dt, m_Walker, m_Stage == 0, detail); m_Stage = 1; }
         else if (step.kind == "vehicle")
         {
             code = StepVehicle(step, player, dt);
