@@ -148,11 +148,14 @@ modded class ZombieBase
 
 modded class HCInfectedModule
 {
+    // Native geometry chain: HCAlertChain.c:153-165, Global/DayZPhysics.c:199
+    // RaycastRV. Each clear test uses <=2 rays; this override plus the base
+    // can use <=4 rays in total, with no object or room query.
     // Rotates the first observer tested so one blocked player cannot starve
-    // a clear crouched player in reach; still one ray per visit.
+    // a clear crouched player in reach; one extra two-ray test per visit.
     protected int m_HCPoseObserverCursor;
 
-    override protected bool HCVarietyNearStanding(array<Man> players, HCInfectedActor actor, ZombieBase candidate, bool checkGeometry)
+    override protected bool HCVarietyNearStanding(array<Man> players, HCInfectedActor actor, ZombieBase candidate, bool checkGeometry, bool preserveObserver = false)
     {
         // Expiry only shortens a calm hold; never postpones the existing wake
         // test. This runs in the same bounded spatial work slice as before.
@@ -161,7 +164,7 @@ modded class HCInfectedModule
         {
             // Any stance in reach qualifies, including a crouched client. Use
             // the existing shared player sample and clear-geometry service;
-            // at most 32 distances and one extra ray in the owner's one spatial
+            // at most 32 distances and one extra two-ray test in the owner's spatial
             // candidate slice. Overlarge observer sets release conservatively.
             if (players.Count() > 32) { return true; }
             int observers = players.Count();
@@ -172,13 +175,13 @@ modded class HCInfectedModule
                 if (!observer || !observer.IsAlive()) { continue; }
                 if (vector.DistanceSq(observer.GetPosition(), candidate.GetPosition()) > 9) { continue; }
                 if (!checkGeometry) { return true; }
-                // One ray at most: a blocked observer falls through to the
+                // One two-ray test: a blocked observer falls through to the
                 // existing standing test; the next visit starts after it.
                 m_HCPoseObserverCursor = (index + 1) % observers;
                 if (m_AlertChain.HCVarietyClear(observer.GetPosition(), candidate)) { return true; }
                 break;
             }
         }
-        return super.HCVarietyNearStanding(players, actor, candidate, checkGeometry);
+        return super.HCVarietyNearStanding(players, actor, candidate, checkGeometry, preserveObserver);
     }
 }

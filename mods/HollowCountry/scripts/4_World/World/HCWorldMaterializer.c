@@ -286,7 +286,7 @@ class HCWorldMaterializer : HCModule
     protected void HCRetryCustodyLoad()
     {
         if (!m_Running || m_CustodyReady || !m_CustodyRetryRead) { return; }
-        if (!m_CustodyReadRetry.HCTakeBudget())
+        if (m_CustodyReadRetry.HCExhausted())
         {
             m_CustodyLoadFault = m_CustodyReadRetry.HCReason("custody");
             this.HCScheduleCustodyRead();
