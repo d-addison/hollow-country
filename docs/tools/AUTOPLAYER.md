@@ -586,6 +586,24 @@ against `HCAdminCatalog` registrations (HC-E055), catching rejection before prov
 This command catalog does not feed `tools.package.admin_world_catalog`'s map-anchor outputs;
 its generated artifacts and digests need no regeneration for this row.
 
+### Round 10b: step kinds for unreachable counters (#368)
+These kinds are in `HCClientDriverExtra.c` and the builder in `tools/testing/driver_script.py`. A client `result=ok` is never evidence on its own. The server `[HC Use]` counter is the evidence.
+
+| Kind | Fields | What it does | Server evidence |
+|---|---|---|---|
+| `search_site` | `site, timeout_s` | Walks to the named site's nearest building with doors, goes in to previewed storage, then runs the existing six-second search action | `Interiors/house_search_completed`, `SearchBinding/house_bound` |
+| `take_lead` | `timeout_s` | Takes nearby Paper through the real take action, then `write use=taken` | `NotesCompat/notes_lead_tracked`, `notes_lead_protected` |
+| `raise` | `range_min_m, range_max_m, seconds, timeout_s` | Approaches a non-hostile HC faction of another group to 40-80 m, then aims and raises through native input; never fires | `v2-expansion-living-world/caution_warn` |
+| `hold_ring` | `to, hold_s, timeout_s` | Walks to a materializer ring point and holds within its drift limit | `Materializer/actors_materialized`, `MaterializerBridge/party_materialized`, `Pickers/trip_started` |
+| `respawn` | `timeout_s` | After `fx_die`, calls vanilla `InGameMenu.GameRespawn(true)` (5_Mission/GUI/InGameMenu.c:339-365) and waits for movement readiness; the server picks the camp | `CampRespawn/respawn_reserved` |
+
+Example client lines: `[HC Driver] step=s16 kind=raise result=ok detail=reason=raised-neutral fire=none`, `... kind=search_site result=ok detail=reason=search-site-completed-client-side`, `... kind=hold_ring result=ok detail=reason=ring-held`, `... kind=respawn result=ok detail=reason=respawn-movement-ready`, `... kind=take_lead result=ok detail=reason=lead-candidate-write-action-started-rpc-sent`.
+
+Known limits, unverified in DayZ:
+- Lead identity is not replicated to the client, so `take_lead` picks Paper and only the server counters prove it was a lead.
+- The ring point is fixed from mission data (1300 m west of the police site anchor). A live eligible row there is not guaranteed.
+- `search_site` needs reachable admitted storage and available CE supply.
+
 ### Initial creation and loadout fixtures
 
 Reason: a random coastal spawn can be 10 km from the route and consume the soak without reaching a
