@@ -164,7 +164,7 @@
   "AISelfDefence/threats_applied": "walk_ai",
   "Infected/actor_bound": "join",
   "Infected/actor_sampled": "join",
-  "InfectedDoors/door_action": "walk_town",
+  "InfectedDoors/door_action": "fixtures",
   "Interiors/house_search_completed": "actions",
   "Interiors/props_placed": "idle",
   "Materializer/materialized_operations": "fixtures",
@@ -174,17 +174,17 @@
   "optional-expansion-human-ai/convoy_astar": "fixtures",
   "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
   "optional-expansion-human-ai/stuck_recovery": "fixtures",
-  "Events/mission_radius_entered": "mission"
+  "Events/mission_radius_entered": "mission",
+  "BodyStories/death_checked": "fixtures",
+  "BodyStories/body_observed": "fixtures",
+  "InfectedReach/vehicle_battered": "fixtures",
+  "InfectedReach/strike_landed": "fixtures",
+  "InfectedReach/reach_actions": "fixtures",
+  "HordeMigration/nav_route_advance": "walk_zone",
+  "InfectedDoors/nav_door_action": "fixtures",
+  "InfectedReach/nav_vault_started": "walk_town"
  },
  "manual": {
-  "TeamPing/ping_recipients": {
-   "kind": "friend_playtest",
-   "reason": "delivery of a team ping to another player needs a second player; one client has no recipient"
-  },
-  "TeamPing/ping_delivered": {
-   "kind": "friend_playtest",
-   "reason": "delivery of a team ping to another player needs a second player; one client has no recipient"
-  },
   "Cellars/visual_applied": {
    "kind": "owner_check",
    "reason": "needs the client more than 2 m below terrain inside a building (HCCellarsClient); no repo data names a cellar and a player may not be teleported, so the owner walks into one cellar the sampler measured"
@@ -253,14 +253,18 @@
    "how": [
     "fixture:fx_incident",
     "code:HCXAIIncidentResponse.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_incident. No synthetic counter increments."
   },
   "AIIncidents/response_started": {
    "phase": "fixtures",
    "how": [
     "fixture:fx_incident",
     "code:HCXAIIncidentResponse.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_incident. No synthetic counter increments."
   },
   "AIRoles/activity_started": {
    "phase": "walk_ai",
@@ -284,14 +288,18 @@
     "step:walk:site:police-chernogorsk",
     "timer:30m",
     "code:HCXAIRoleActivities.c"
-   ]
+   ],
+   "class": "diagnostic",
+   "note": "Diagnostic: HCXAIRoleActivities.c:568-573 counts bind/qualify/create route work; HC-18 skips those phases (HCXAISites.c:632-640). Zero is normal."
   },
   "AISelfDefence/hit_reaction": {
    "phase": "fixtures",
    "how": [
-    "fixture:fx_shoot",
+    "fixture:fx_shoot_held",
     "code:HCXDefence.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_shoot_held. No synthetic counter increments."
   },
   "AISelfDefence/threats_applied": {
    "phase": "walk_ai",
@@ -304,23 +312,32 @@
   "AITactics/fire_events": {
    "phase": "fixtures",
    "how": [
-    "fixture:fx_shoot",
+    "fixture:fx_shoot_held",
+    "step:raise",
     "code:HCXAITactics.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_shoot_held, step:raise. No synthetic counter increments."
   },
   "AITactics/tactic_chosen": {
    "phase": "fixtures",
    "how": [
     "fixture:fx_tactic",
+    "step:raise",
+    "step:hold_ring",
     "code:HCXAITactics.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_tactic, step:raise, step:hold_ring. No synthetic counter increments."
   },
   "AITrade/trade_completed": {
    "phase": "fixtures",
    "how": [
     "fixture:fx_trade",
     "code:HCAITrade.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_trade. No synthetic counter increments."
   },
   "AdminMap/catalog_auto_refresh": {
    "phase": "join",
@@ -354,42 +371,53 @@
    ]
   },
   "BodyStories/body_observed": {
-   "phase": "walk_town",
+   "phase": "fixtures",
    "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
+    "fixture:fx_die",
     "code:HCBodyStories.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_die. No synthetic counter increments."
   },
   "BodyStories/death_checked": {
-   "phase": "walk_town",
+   "phase": "fixtures",
    "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
+    "fixture:fx_die",
     "code:HCBodyStories.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_die. No synthetic counter increments."
   },
   "CampRespawn/respawn_reserved": {
    "phase": "fixtures",
    "how": [
     "fixture:fx_camp_setup",
-    "timer:10m",
+    "fixture:fx_die",
+    "step:respawn",
     "code:HCCampRespawn.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_camp_setup, fixture:fx_die, step:respawn. No synthetic counter increments."
   },
   "Camps/camp_recognised": {
    "phase": "fixtures",
    "how": [
     "fixture:fx_camp_setup",
+    "fixture:fx_hearth",
     "code:HCCampModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_camp_setup, fixture:fx_hearth. No synthetic counter increments."
   },
   "Camps/maintenance_step": {
    "phase": "fixtures",
    "how": [
     "fixture:fx_camp_setup",
+    "fixture:fx_hearth",
     "code:HCCampModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_camp_setup, fixture:fx_hearth. No synthetic counter increments."
   },
   "Camps/pathgraph_refresh": {
    "phase": "fixtures",
@@ -413,7 +441,9 @@
     "marker:measure-cellars",
     "timer:60m",
     "code:HCCellarSampler.c"
-   ]
+   ],
+   "class": "diagnostic",
+   "note": "Diagnostic: HCCellarSampler.c:437 emits only after the whole-map survey completes; a bounded soak need not finish it."
   },
   "Cellars/cellars_measured": {
    "phase": "idle",
@@ -456,9 +486,12 @@
   "CookingCompat/cooking_dish_cooked": {
    "phase": "fixtures",
    "how": [
+    "fixture:fx_hearth",
     "fixture:fx_cooking",
     "code:HCFoodCompat.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_hearth, fixture:fx_cooking. No synthetic counter increments."
   },
   "Crafting/completed_operations": {
    "phase": "actions",
@@ -772,8 +805,9 @@
    "how": [
     "step:walk:zone:balota-cf3bbed7",
     "timer:60m",
-    "code:HCModuleReadiness.c"
-   ]
+    "code:HCHordeMigration.c"
+   ],
+   "note": "HCModuleReadiness.c:183-204 alias; exercise member HordeMigration/route_advanced. "
   },
   "HordeMigration/route_advanced": {
    "phase": "walk_zone",
@@ -899,28 +933,32 @@
    "class": "diagnostic"
   },
   "InfectedDoors/door_action": {
-   "phase": "walk_town",
+   "phase": "fixtures",
    "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
+    "fixture:fx_door_press",
     "code:HCInfectedDoors.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press. No synthetic counter increments."
   },
   "InfectedDoors/door_pressure": {
    "phase": "actions",
    "how": [
-    "step:action:close_door",
+    "fixture:fx_door_press",
     "fixture:fx_barricade",
     "code:HCInfectedDoors.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press, fixture:fx_barricade. No synthetic counter increments."
   },
   "InfectedDoors/nav_door_action": {
-   "phase": "actions",
+   "phase": "fixtures",
    "how": [
-    "step:action:close_door",
-    "step:action:search",
-    "code:HCModuleReadiness.c"
-   ]
+    "fixture:fx_door_press",
+    "code:HCInfectedDoors.c"
+   ],
+   "status": "pending-driver",
+   "note": "HCModuleReadiness.c:183-204 alias; exercise member InfectedDoors/door_action. Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press. No synthetic counter increments."
   },
   "InfectedLOD/herd_materialized": {
    "phase": "join",
@@ -949,16 +987,20 @@
   "InfectedMemory/heat_recorded": {
    "phase": "fixtures",
    "how": [
-    "fixture:fx_shoot",
+    "fixture:fx_shoot_held",
     "code:HCInfectedMemory.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_shoot_held. No synthetic counter increments."
   },
   "InfectedMemory/memory_cells": {
    "phase": "fixtures",
    "how": [
-    "fixture:fx_shoot",
+    "fixture:fx_shoot_held",
     "code:HCInfectedMemory.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_shoot_held. No synthetic counter increments."
   },
   "InfectedReach/backoff_started": {
    "phase": "walk_town",
@@ -967,31 +1009,38 @@
     "timer:20m",
     "code:HCInfectedReachModule.c"
    ],
-   "class": "diagnostic"
+   "class": "diagnostic",
+   "note": "Diagnostic: depends on an eligible infected reaching its refusal/backoff path; successful reach actions need not back off."
   },
   "InfectedReach/nav_vault_started": {
    "phase": "walk_town",
    "how": [
     "step:walk:site:scav-chernogorsk",
     "timer:20m",
-    "code:HCModuleReadiness.c"
-   ]
+    "code:HCInfectedReachModule.c"
+   ],
+   "note": "HCModuleReadiness.c:183-204 alias; exercise member InfectedReach/vault_started. "
   },
   "InfectedReach/reach_actions": {
-   "phase": "walk_town",
+   "phase": "fixtures",
    "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
+    "fixture:fx_door_press",
+    "fixture:fx_car_zeds",
+    "step:hold_ring",
     "code:HCInfectedReachModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press, fixture:fx_car_zeds, step:hold_ring. No synthetic counter increments."
   },
   "InfectedReach/strike_landed": {
-   "phase": "walk_town",
+   "phase": "fixtures",
    "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
+    "fixture:fx_door_press",
+    "step:hold_ring",
     "code:HCInfectedReachModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press, step:hold_ring. No synthetic counter increments."
   },
   "InfectedReach/vault_started": {
    "phase": "walk_town",
@@ -1002,12 +1051,14 @@
    ]
   },
   "InfectedReach/vehicle_battered": {
-   "phase": "walk_town",
+   "phase": "fixtures",
    "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
+    "fixture:fx_car_zeds",
+    "step:hold_ring",
     "code:HCInfectedReachModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_car_zeds, step:hold_ring. No synthetic counter increments."
   },
   "InfectedSiege/siege_noise": {
    "phase": "walk_zone",
@@ -1044,9 +1095,11 @@
   "Interiors/house_search_completed": {
    "phase": "actions",
    "how": [
-    "step:action:search",
+    "step:search_site",
     "code:HCSearchHouses.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through step:search_site. No synthetic counter increments."
   },
   "Interiors/inspect_native_skipped": {
    "phase": "walk_town",
@@ -1200,19 +1253,21 @@
    "phase": "scene",
    "how": [
     "step:admin:scene",
-    "step:admin:radio",
-    "step:action:read",
+    "step:take_lead",
     "code:HCLeadModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through step:admin:scene, step:take_lead. No synthetic counter increments."
   },
   "Leads/lead_received": {
    "phase": "scene",
    "how": [
     "step:admin:scene",
-    "step:admin:radio",
-    "step:action:read",
+    "step:take_lead",
     "code:HCLeadModule.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through step:admin:scene, step:take_lead. No synthetic counter increments."
   },
   "Lighting/blend_applied": {
    "phase": "join",
@@ -1532,9 +1587,11 @@
   "SearchBinding/house_bound": {
    "phase": "actions",
    "how": [
-    "step:action:search",
+    "step:search_site",
     "code:HCSearchBinding.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through step:search_site. No synthetic counter increments."
   },
   "SettlementDecay/changed_operations": {
    "phase": "actions",
@@ -1863,7 +1920,9 @@
    "how": [
     "fixture:fx_convoy_stuck",
     "code:HCXUseRegistry.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_convoy_stuck. No synthetic counter increments."
   },
   "optional-expansion-human-ai/nav_routes": {
    "phase": "walk_ai",
@@ -1877,8 +1936,10 @@
    "phase": "fixtures",
    "how": [
     "fixture:fx_convoy_stuck",
-    "code:HCModuleReadiness.c"
-   ]
+    "code:HCXUseRegistry.c"
+   ],
+   "status": "pending-driver",
+   "note": "HCModuleReadiness.c:183-204 alias; exercise member optional-expansion-human-ai/stuck_recovery. Pending driver/fixture worker: exercise the real feature through fixture:fx_convoy_stuck. No synthetic counter increments."
   },
   "optional-expansion-human-ai/regional_road_site_binding": {
    "phase": "walk_ai",
@@ -1917,7 +1978,9 @@
    "how": [
     "fixture:fx_convoy_stuck",
     "code:HCXUseRegistry.c"
-   ]
+   ],
+   "status": "pending-driver",
+   "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_convoy_stuck. No synthetic counter increments."
   },
   "v2-expansion-living-world/actor_admitted": {
    "phase": "walk_ai",
@@ -1950,6 +2013,113 @@
     "code:HCVehicleRetire.c"
    ],
    "note": "Conditional upgrade-only: a disposable upgrade save must contain a persisted vehicle with attached/nested gear. No candidate is NOT_APPLICABLE on a fresh world; seeded upgrade requires upgrade_pending and positive retirement. No fixture or engine acceptance exists yet."
+  },
+  "TeamPing/ping_recipients": {
+   "phase": "group",
+   "how": [
+    "step:group:create_solo",
+    "step:ping",
+    "code:HCTeamPing.c"
+   ],
+   "note": "The group phase sends a real ping. Positive delivery still requires a connected eligible group recipient; a solo group may report zero."
+  },
+  "TeamPing/ping_delivered": {
+   "phase": "group",
+   "how": [
+    "step:group:create_solo",
+    "step:ping",
+    "code:HCTeamPing.c"
+   ],
+   "note": "The group phase sends a real ping. Positive delivery still requires a connected eligible group recipient; a solo group may report zero."
+  },
+  "World/world_read_ok": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "code:HCWorldStore.c"
+   ],
+   "class": "required",
+   "note": "Healthy read includes a verified fresh store."
+  },
+  "World/world_read_recovered": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "code:HCWorldStore.c"
+   ],
+   "class": "diagnostic",
+   "note": "Fault/recovery-only diagnostic; healthy runs need not exercise this path."
+  },
+  "World/world_save_read_pending": {
+   "phase": "join",
+   "how": [
+    "boot",
+    "code:HCWorldStore.c"
+   ],
+   "class": "diagnostic",
+   "note": "Fault/recovery-only diagnostic; healthy runs need not exercise this path."
+  },
+  "Materializer/custody_read_ok": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "code:HCWorldMaterializer.c"
+   ],
+   "class": "required",
+   "note": "Healthy read includes a verified fresh store."
+  },
+  "Materializer/custody_read_recovered": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "code:HCWorldMaterializer.c"
+   ],
+   "class": "diagnostic",
+   "note": "Fault/recovery-only diagnostic; healthy runs need not exercise this path."
+  },
+  "Materializer/custody_save_read_pending": {
+   "phase": "walk_ai",
+   "how": [
+    "boot",
+    "code:HCWorldMaterializer.c"
+   ],
+   "class": "diagnostic",
+   "note": "Fault/recovery-only diagnostic; healthy runs need not exercise this path."
+  },
+  "LootRefresh/intent_read_ok": {
+   "phase": "actions",
+   "how": [
+    "boot",
+    "code:HCSearchRefresh.c"
+   ],
+   "class": "required",
+   "note": "Healthy read includes a verified fresh store."
+  },
+  "LootRefresh/intent_read_recovered": {
+   "phase": "actions",
+   "how": [
+    "boot",
+    "code:HCSearchRefresh.c"
+   ],
+   "class": "diagnostic",
+   "note": "Fault/recovery-only diagnostic; healthy runs need not exercise this path."
+  },
+  "LootRefresh/intent_save_read_pending": {
+   "phase": "actions",
+   "how": [
+    "boot",
+    "code:HCSearchRefresh.c"
+   ],
+   "class": "diagnostic",
+   "note": "Fault/recovery-only diagnostic; healthy runs need not exercise this path."
+  },
+  "Holdouts/holdout_reconcile": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_materialize",
+    "code:HCHoldouts.c"
+   ],
+   "note": "Reconcile director holdouts through the materialization fixture and normal module tick."
   }
  }
 }

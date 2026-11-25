@@ -2,15 +2,16 @@
 
   python3 -B -m tools.testing.soak_campaign plan      # default: phases, counter map, what would be staged; writes nothing
   python3 -B -m tools.testing.soak_campaign stage     # build the test addon and stage the test profile (reversible)
-  python3 -B -m tools.testing.soak_campaign run --yes # LEAD ONLY: stage, boot, drive, idle >= 125 min, audit, stop, restore
+  python3 -B -m tools.testing.soak_campaign run --yes # LEAD ONLY: stage, boot, drive, grace/minimum, audit, stop, restore
   python3 -B -m tools.testing.soak_campaign restore   # put every staged byte back; a no-op when nothing is staged
   python3 -B -m tools.testing.soak_campaign report    # works/broken table of the last run
 
 Targeted runs (plan and run): --changed <git ref> maps the changed mods/**/*.c files to their counters through
 the reach map's code: tokens; --modules A,B and --only-phases a,b select directly. Only the phases those counters
-need (plus join, and every earlier phase that holds one of their steps or fixtures) are driven, and the idle lasts
-max(10, the longest selected timer) minutes. A targeted run is never release evidence: its report says so and
-marks the counters of phases it did not drive "not run". The full campaign stays the release-candidate run.
+need (plus join, and every earlier phase that holds one of their steps or fixtures) are driven. Without a
+final driver receipt the idle lasts max(10, the longest selected timer) minutes. A final receipt ends the
+campaign after 120 seconds, subject to --min-duration-minutes (use 30 for R3); the driver itself includes its
+planned idle. A targeted run is never release evidence: its report says so and marks the counters of phases it did not drive "not run". The full campaign stays the release-candidate run.
 
 The campaign uses the dev-only test addon (mods/HollowCountryTest, never shipped) on the local server and the
 owner's local client. Everything it adds is a COPY or a new file: the server runs from a copy of the profile
@@ -47,8 +48,8 @@ PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_town', 'combat', 'loot', 'fixtu
 SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}
 RESULTS = ('active', 'zero', 'owner check', 'friend playtest', 'not run')
 MANUAL_KINDS = {'owner_check': 'owner check', 'friend_playtest': 'friend playtest'}
-# Only the two-player and subjective items of the shared contract may be a manual row.
-ALLOWED_MANUAL = frozenset({'TeamPing/ping_recipients', 'TeamPing/ping_delivered', 'Cellars/visual_applied'})
+# Only subjective cellar visual counter remains manual; TeamPing is driven in the group phase.
+ALLOWED_MANUAL = frozenset({'Cellars/visual_applied'})
 ALLOWED_LOOKS = {'lighting_look': 'owner_check', 'grade_look': 'owner_check', 'audio': 'owner_check',
                  'group_sharing': 'friend_playtest', 'team_ping_delivery': 'friend_playtest'}
 # GetName() of a base class that no feature reports under.
@@ -73,6 +74,14 @@ CLIENT_PROFILE = 'soak-client-profile'
 STEP_REL = 'HollowCountry/acceptance/client_driver.json'
 SPAWN_MARKER_REL = 'HollowCountry/autoplayer-initial-spawn'
 CELLAR_MARKER_REL = 'HollowCountry/measure-cellars'
+# Complete store images only: HCEventJournal.c:6,452-464 (empty event director),
+# HCSceneChains.c:339,357-398 (fresh catalog/stories/situations), HCInfectedState.c:549,656-676
+# (empty horde slots). Never remove just the primary and leave a recovery image.
+FRESH_WORLD_STORES = ('HollowCountry/Events/state', 'HollowCountry/scene-chains.json',
+                      'HollowCountry/Infected/hordes-a.json', 'HollowCountry/Infected/hordes-b.json')
+FRESH_WORLD_SKIP = frozenset(
+    path.lower() + suffix for path in FRESH_WORLD_STORES
+    for suffix in (('', '.tmp', '.bak') if path.endswith('.json') else ('',)))
 # Receipt rows are only ever removed or restored for these names; a tampered receipt is refused.
 CREATED_ALLOWED = {('server', PROFILE_COPY), ('server', TEST_MOD), ('server', CFG_COPY), ('server', BAT_COPY),
                    ('client', CLIENT_PROFILE), ('mission', GEAR_REL), ('mission', 'storage_' + INSTANCE_ID),
@@ -98,6 +107,10 @@ CONNECT_ENABLED = 'Player connect enabled'
 # addon, so its compile errors first show here (2026-11-23 soak 178: Unknown operator '%' in the test addon,
 # then an access violation). Stop at the first one and name it.
 SCRIPT_ERROR = 'SCRIPT    (E)'
+DRIVER_GRACE_SECONDS = 120
+# HCClientDriverSteps.c:101: the final receipt, not an individual step result.
+DRIVER_DONE = re.compile(
+    r'\[HC Driver\] done run=([A-Za-z0-9_-]+) steps=\d+ ok=\d+ refused=\d+ unsupported=\d+ timeout=\d+\s*$')
 POLL_SECONDS = 30
 SERVER_READY_MINUTES = 20
 JOIN_MINUTES = 10
@@ -306,6 +319,8 @@ def reach_rows(phases, root=ROOT, context=None):
                 reason = reach_token_problem(token, phase, phases, context)
                 if reason:
                     problems.append(reason)
+            if row.get('status') == 'pending-driver':
+                problems = ['pending-driver: ' + problem for problem in problems]
             if how and not any(t.startswith('code:') for t in how):
                 problems.append('how needs a code: token naming the counter call site')
             if how and not any(t.split(':', 1)[0] in ('boot', 'timer', 'step', 'fixture', 'setting', 'marker')
@@ -881,7 +896,7 @@ class Stager:
         target.write_bytes(after)
 
     # -- stage
-    def stage(self, addon_dir, step_script):
+    def stage(self, addon_dir, step_script, *, fresh_world_state=False, log=print):
         """addon_dir: built scratch @HollowCountryTest; step_script: the driver step file (dict)."""
         if self.load() is not None:
             raise Refused('a staged test profile exists; run restore first')
@@ -901,13 +916,32 @@ class Stager:
         self.state.mkdir(parents=True, exist_ok=True)
         shutil.rmtree(self.state / 'last-run', ignore_errors=True)
         self.receipt = {'schema': 1, 'staged_at': time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime()),
-                        'roots': {k: str(v) for k, v in self.roots().items()}, 'created': [], 'edited': []}
+                        'roots': {k: str(v) for k, v in self.roots().items()}, 'created': [], 'edited': [],
+                        'fresh_world_state': fresh_world_state, 'skipped': []}
         self.save()
         # server side
         copy = self._created('server', PROFILE_COPY, True)
         copy.mkdir()
+
+        def ignore(directory, names):
+            skipped = []
+            for name in names:
+                relative = (Path(directory) / name).relative_to(profiles).as_posix()
+                if name.lower() == 'admin-tour.json':
+                    log('staged: skipped admin-tour.json')
+                elif fresh_world_state and relative.lower() in FRESH_WORLD_SKIP:
+                    log('staged: skipped ' + relative + ' reason=fresh_world_state')
+                else:
+                    continue
+                skipped.append(name)
+                self.receipt['skipped'].append(relative)
+            return skipped
+
         for folder in sorted(p for p in profiles.iterdir() if p.is_dir()):
-            shutil.copytree(folder, copy / folder.name, symlinks=True)
+            # Materialize links into the disposable copy; subsequent settings writes must never follow
+            # a copied link back into the source profile. ignore also runs inside linked directories.
+            shutil.copytree(folder, copy / folder.name, ignore=ignore)
+        self.save()
         settings = copy / 'HollowCountry/settings.json'
         settings.write_bytes(settings_with_fixtures(settings.read_bytes()))
         (copy / CELLAR_MARKER_REL).write_bytes(b'')
@@ -984,6 +1018,10 @@ class Stager:
         """Copy the run's RPT/ADM files out of the folders restore removes, so report can read them later."""
         roots = self.roots()
         keep = self.state / 'last-run'
+        keep.mkdir(parents=True, exist_ok=True)
+        (keep / 'staging.json').write_text(json.dumps({
+            'fresh_world_state': self.receipt.get('fresh_world_state', False),
+            'skipped': self.receipt.get('skipped', [])}, indent=1) + '\n', encoding='utf-8')
         for kind, rel in (('server', PROFILE_COPY), ('client', CLIENT_PROFILE)):
             source = roots[kind] / rel
             if not source.is_dir():
@@ -1078,9 +1116,11 @@ class Campaign:
     """The lead's run. Every process and clock interaction goes through host/clock so tests never start DayZ."""
 
     def __init__(self, stager, host, phases, *, addon_build, step_script, sleep=time.sleep, now=time.monotonic,
-                 log=print, win=default_win, selection=None):
+                 log=print, win=default_win, selection=None, fresh_world_state=False, min_duration_minutes=0):
         self.stager, self.host, self.phases, self.selection = stager, host, phases, selection
         self.addon_build, self.step_script = addon_build, step_script
+        self.fresh_world_state = fresh_world_state
+        self.min_duration_seconds = min_duration_minutes * 60
         self.sleep, self.now, self.log, self.win = sleep, now, log, win
 
     def preflight(self):
@@ -1165,7 +1205,7 @@ class Campaign:
             require_dependency_parity(mod_names, stager.server, mod_paths, self.log)
             addon = self.addon_build()
             self.log('run: test addon built and signed')
-            stager.stage(addon, self.step_script)
+            stager.stage(addon, self.step_script, fresh_world_state=self.fresh_world_state, log=self.log)
             self.log('run: test profile staged')
             self.record_selection()  # after staging, which clears last-run
             server_win = self.win(stager.server)
@@ -1206,7 +1246,7 @@ class Campaign:
             self.log('run: client launched through the BattlEye launcher')
             client_dir = stager.client_parent / CLIENT_PROFILE
             follow = {'path': None, 'offset': 0, 'done': False, 'inert': False, 'steps': 0,
-                      'session': False, 'last_connect': 'no connect line', 'player': False}
+                      'done_at': None, 'session': False, 'last_connect': 'no connect line', 'player': False}
 
             def driver_progress():
                 path = self.newest(client_dir, '*.RPT')
@@ -1231,8 +1271,12 @@ class Campaign:
                         follow['inert'] = True
                     elif '[HC Driver] step=' in line:
                         follow['steps'] += 1
-                    elif '[HC Driver] done' in line:
-                        follow['done'] = True
+                    elif DRIVER_DONE.search(line):
+                        match = DRIVER_DONE.search(line)
+                        if match.group(1) == self.step_script.get('run_id', match.group(1)):
+                            follow['done'] = True
+                            if follow['done_at'] is None:
+                                follow['done_at'] = self.now()
                 return follow['done'] or follow['inert']
 
             def joined():
@@ -1258,6 +1302,7 @@ class Campaign:
                     raise Refused('client never joined: ' + follow['last_connect']) from None
                 raise
             self.log('run: client session started and server player connect confirmed')
+            phase_start = self.now()
             budget = int(total * 1.5) + JOIN_MINUTES
             try:
                 # The server too: a server crash mid-drive must end the run now, not after the whole budget
@@ -1271,13 +1316,23 @@ class Campaign:
             if follow['inert']:
                 raise Refused('the client driver found no step file (inert); nothing was driven')
             self.log('run: driver steps seen=%d done=%s' % (follow['steps'], follow['done']))
-            end = self.now() + idle_minutes * 60
+            fallback_end = self.now() + idle_minutes * 60
+            minimum_end = phase_start + self.min_duration_seconds
             unknown = {SERVER_IMAGE: 0, CLIENT_IMAGE: 0}
-            while self.now() < end:
+            while True:
+                driver_progress()  # Completion can arrive after the initial driver budget expired.
+                end = max(minimum_end, follow['done_at'] + DRIVER_GRACE_SECONDS
+                          if follow['done_at'] is not None else fallback_end)
+                if self.now() >= end:
+                    break
                 for image in (SERVER_IMAGE, CLIENT_IMAGE):
                     unknown[image] = self.still_running(image, unknown[image], 'stopped during the idle phase')
-                self.sleep(min(POLL_SECONDS * 4, max(1, end - self.now())))
-            self.log('run: idle window of %d minutes complete' % idle_minutes)
+                self.sleep(min(POLL_SECONDS, end - self.now()))
+            if follow['done']:
+                self.log('run: driver complete reason=done_receipt grace=120 minimum_duration_s=%g' %
+                         self.min_duration_seconds)
+            else:
+                self.log('run: idle window of %d minutes complete' % idle_minutes)
         except BaseException as error:  # restore must always run; the error is re-raised below
             failure = error
         finally:
@@ -1397,6 +1452,8 @@ def report_rows(phases, legacy, release, errors=(), selection=None):
                 key = row['module'] + '/' + norm(row['feature'])
                 if row['status'] == 'ACTIVE':
                     result = 'active'
+                elif phases.get('reach', {}).get(key, {}).get('class') == 'diagnostic':
+                    result, seen = 'not run', 'diagnostic (zero allowed): ' + seen
                 elif row['status'] == 'NOT_APPLICABLE':
                     # Upgrade-only feature without a persisted candidate. Keep
                     # this visibly unexercised, never active or waived.
@@ -1439,6 +1496,15 @@ def render_report(rows, drivers, release_summary, selection=None):
     return '\n'.join(lines) + '\n', totals
 
 
+def admin_tour_failure(server_rpt):
+    """Return a fixed reason, never echo arbitrary server log contents."""
+    from tools.release import rpt_summary
+    for line in rpt_summary.lines(server_rpt):
+        if '[HC Tour] state=armed' in line or '[HC Tour] stop=' in line:
+            return 'admin_tour_detected: server armed or ran the admin teleport tour; no-teleport rule violated'
+    return None
+
+
 def build_report(phases, server_rpt, client_rpt, selection=None):
     legacy, release, errors = activity_results(server_rpt, client_rpt)
     rows = report_rows(phases, legacy, release, errors, selection)
@@ -1447,6 +1513,9 @@ def build_report(phases, server_rpt, client_rpt, selection=None):
     rows.append(('audit', 'client_compile', 'join',
                  'active' if compile_result['passed'] else 'zero',
                  client_compile_check.verdict_line(compile_result)))
+    tour = admin_tour_failure(server_rpt)
+    rows.append(('audit', 'admin_tour', 'join', 'zero' if tour else 'active',
+                 tour or 'admin_tour_absent'))
     drivers = driver_lines(client_rpt) if client_rpt else []
     summary = None
     if release:
@@ -1468,6 +1537,17 @@ def command_report(phases, state, out):
     marker = Path(state) / 'last-run' / SELECTION_FILE
     selection = json.loads(marker.read_text(encoding='utf-8')) if marker.is_file() else None
     text, totals = build_report(phases, server, client, selection)
+    staging = Path(state) / 'last-run' / 'staging.json'
+    if staging.is_file():
+        staged = json.loads(staging.read_text(encoding='utf-8'))
+        # Emit only the fixed owned paths, never arbitrary receipt strings.
+        skipped = [path for path in staged.get('skipped', [])
+                   if path.lower() in FRESH_WORLD_SKIP or path == 'HollowCountry/admin-tour.json']
+        text += '\nProfile: fresh-world-state=%s; skipped: %s.\n' % (
+            bool(staged.get('fresh_world_state')), ', '.join(skipped) or 'none present')
+        text += ('Retained world.json, custody, groups, recovery receipts and all other stores. '
+                 'The fresh option resets only director/situations, scene/story history and horde slots; '
+                 'each has an explicit fresh-start path.\n')
     (Path(state) / 'last-run' / 'report.md').write_text(text, encoding='utf-8')
     out.write(text)
     return 8 if totals['zero'] else 0
@@ -1556,6 +1636,8 @@ def plan_text(phases, root=ROOT):
     problems += ['unreached counters: %d' % unreached] if unreached else []
     out += ['', 'would stage (copies and new files; the real profile folders are never edited):']
     out += ['  [%s] %s' % row for row in Stager('x', None).summary()]
+    out.append('  always omit admin-tour.json; --fresh-world-state also omits: ' + ', '.join(FRESH_WORLD_STORES))
+    out.append('  fresh stores include .tmp/.bak; retain world.json, custody, groups and recovery receipts')
     out.append('  receipt with byte backups; restore puts every byte back and is a no-op when nothing is staged')
     return out, problems
 
@@ -1595,12 +1677,18 @@ def main(argv=None, *, host=None, out=None):
     parser.add_argument('--client-root', default=None, help='WSL path of the DayZ client install (default: discover)')
     parser.add_argument('--state-dir', type=Path, default=STATE)
     parser.add_argument('--phases', type=Path, default=PHASES_FILE)
+    parser.add_argument('--fresh-world-state', action='store_true',
+                        help='omit director/situation, scene/story and horde stores from the copy only')
+    parser.add_argument('--min-duration-minutes', type=float, default=0,
+                        help='minimum campaign duration after join, including driver time (R3: 30)')
     parser.add_argument('--yes', action='store_true', help='run only: the lead confirms the owner is not playing')
     parser.add_argument('--changed', metavar='REF', help='targeted: counters of the mods/**/*.c files changed since REF')
     parser.add_argument('--modules', default='', help='targeted: comma-separated modules to drive')
     parser.add_argument('--only-phases', default='', help='targeted: comma-separated phases to drive')
     args = parser.parse_args(argv)
     try:
+        if not 0 <= args.min_duration_minutes < float('inf'):
+            raise Refused('--min-duration-minutes must be finite and nonnegative')
         phases = load_phases(args.phases)
         listed = lambda text: [x.strip() for x in text.split(',') if x.strip()]
         selection = select_targets(phases, changed=changed_files(args.changed) if args.changed else None,
@@ -1636,14 +1724,16 @@ def main(argv=None, *, host=None, out=None):
             with host_lock('soak_campaign'):
                 require_processes_stopped(host, 'stage')
                 addon = Path(test_addon.build()['path'])
-                for line in stager.stage(addon, script):
+                for line in stager.stage(addon, script, fresh_world_state=args.fresh_world_state,
+                                         log=lambda text: print(text, file=out)):
                     print('staged [%s] %s' % line, file=out)
             return 0
         if not args.yes:
-            raise Refused('run is lead-only and idles at least %d minutes; pass --yes' % (
-                selection['idle_minutes'] if selection else phases['min_idle_minutes']))
+            raise Refused('run is lead-only; pass --yes')
         with host_lock('soak_campaign'):
             campaign = Campaign(stager, host, phases, step_script=script, selection=selection,
+                                fresh_world_state=args.fresh_world_state,
+                                min_duration_minutes=args.min_duration_minutes,
                                 addon_build=lambda: Path(test_addon.build()['path']),
                                 log=lambda text: print(text, file=out, flush=True))
             campaign.run()
