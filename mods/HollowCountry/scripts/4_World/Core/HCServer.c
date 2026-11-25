@@ -16,12 +16,13 @@ class HCServer
 
     static bool HCMissionFinishing() { return s_HCMissionFinishing; }
     // Mission finish only: Stop also serves clock jumps, retries and live module stops.
-    static void HCBeginMissionFinish() { s_HCMissionFinishing = true; }
+    static void HCBeginMissionFinish() { s_HCMissionFinishing = true; HCPathgraphRefresh.s_HCFinishing = true; }
     static void HCReportTeardown()
     {
         if (!s_HCMissionFinishing || s_HCTeardownReported) { return; }
         s_HCTeardownReported = true;
-        Print("[HC Teardown] shelters_skipped=" + HCTeardownSheltersSkipped.ToString() + " pathgraph_skipped=" + HCTeardownPathgraphSkipped.ToString() + " callbacks_removed=" + HCTeardownCallbacksRemoved.ToString() + " packs_released=" + HCTeardownPacksReleased.ToString() + " rpc_skipped=" + HCTeardownRPCSkipped.ToString());
+        int pathgraphSkipped = HCTeardownPathgraphSkipped + HCPathgraphRefresh.s_HCFinishSkipped;
+        Print("[HC Teardown] shelters_skipped=" + HCTeardownSheltersSkipped.ToString() + " pathgraph_skipped=" + pathgraphSkipped.ToString() + " callbacks_removed=" + HCTeardownCallbacksRemoved.ToString() + " packs_released=" + HCTeardownPacksReleased.ToString() + " rpc_skipped=" + HCTeardownRPCSkipped.ToString());
     }
 
     // Idle budget for callers outside a core tick; allocated once on first use, never per tick.

@@ -121,9 +121,16 @@ class HCPathgraphRefresh
         return true;
     }
 
+    // Latched by HCServer.HCBeginMissionFinish (4_World cannot be read from 3_Game). Every
+    // domain's deferred or drained region refuses the native rebuild during mission
+    // destruction (Global/Game.c:1206), not only shelters (#375).
+    static bool s_HCFinishing;
+    static int s_HCFinishSkipped;
+
     void Update()
     {
         if (!HasBounds || !g_Game) { return; }
+        if (s_HCFinishing) { s_HCFinishSkipped++; return; }
         g_Game.UpdatePathgraphRegion(Minimum, Maximum);
     }
 }
