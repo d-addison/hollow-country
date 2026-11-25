@@ -57,7 +57,7 @@ class HCInfectedModule : HCModule
     protected int m_PacingHordeTarget;
     protected float m_PacingHordeDeadline;
     protected ref HCHordeRouteSurvey m_PacingHordePatrol;
-    protected ref HCActivityCounters m_HCHordeActivity = new HCActivityCounters("offers retries budget_deferred offers_closed no_seed no_route paced_wait started failed reinforcement_retired", "[HC Hordes]");
+    protected ref HCActivityCounters m_HCHordeActivity = new HCActivityCounters("offers retries budget_deferred offers_closed no_seed no_route paced_wait started failed reinforcement_retired refused work_cap adoption_disabled checkpoint_failed state_blocked cap_full slots_full retire_checkpoint reuse_wait cohort_ineligible cohort_position cohort_range cohort_changed defaults_missing capacity_changed reserve_full recovery_conflict prepare_checkpoint offer_expired", "[HC Hordes]");
     protected bool m_PacingHordeWaiting;
     protected bool m_Chains;
     protected bool m_Dirty;
@@ -791,6 +791,7 @@ class HCInfectedModule : HCModule
         m_PacingHordeWaiting = false;
         m_HCHordeActivity.Add("offers");
         if (m_PacingHordeId == "" || m_Now < m_PacingHordeDeadline) { HCTryAdoptPaced(nowUtc); }
+        else { m_HCHordeActivity.HCRefuse("offer_expired"); }
         if (!m_PacingHordeWaiting && m_PacingHordeId != "")
         {
             // Includes early eligibility/prepare failures; no native start is
@@ -809,14 +810,15 @@ class HCInfectedModule : HCModule
 
     protected void HCTryAdoptPaced(int nowUtc)
     {
-        if (!HCInfectedPolicy.AdoptionWorkReady(m_WorkCap)) return;
+        if (!HCInfectedPolicy.AdoptionWorkReady(m_WorkCap)) { m_HCHordeActivity.HCRefuse("work_cap"); return; }
         if (!m_Hordes || !m_Admission.CEAdoption)
         {
+            m_HCHordeActivity.HCRefuse("adoption_disabled");
             return;
         }
         if (m_SaveJob && (m_SaveJob.HCDirty || m_SaveJob.HCInFlight))
         {
-            if (!HCSaveScheduler.HCFlush(m_SaveJob)) { HCCheckpointFailed(); return; }
+            if (!HCSaveScheduler.HCFlush(m_SaveJob)) { m_HCHordeActivity.HCRefuse("checkpoint_failed"); HCCheckpointFailed(); return; }
         }
         int activeGroups = 0;
         int reusableSlot = -1;
@@ -832,6 +834,7 @@ class HCInfectedModule : HCModule
                 {
                     if (!m_FailedCohorts.Contains(pending.Id))
                     {
+                        m_HCHordeActivity.HCRefuse("state_blocked");
                         return;
                     }
                 }
@@ -846,10 +849,12 @@ class HCInfectedModule : HCModule
         }
         if (activeGroups >= m_GroupCap)
         {
+            m_HCHordeActivity.HCRefuse("cap_full");
             return;
         }
         if (reusableSlot < 0 && m_State.Groups.Count() >= m_GroupCap)
         {
+            m_HCHordeActivity.HCRefuse("slots_full");
             return;
         }
         if (reusableSlot >= 0 && m_State.Groups[reusableSlot].RetiredUtc > m_State.SavedUtc)
@@ -857,11 +862,13 @@ class HCInfectedModule : HCModule
             // Land terminal refund in the preceding generation before reuse.
             if (!SaveAdoptionBoundary("retire"))
             {
+                m_HCHordeActivity.HCRefuse("retire_checkpoint");
                 return;
             }
         }
         if (reusableSlot >= 0 && nowUtc <= m_State.SavedUtc)
         {
+            m_HCHordeActivity.HCRefuse("reuse_wait");
             return;
         }
         bool retryOffer = m_PacingHordeId != "";
@@ -877,8 +884,8 @@ class HCInfectedModule : HCModule
             if (retryOffer)
             {
                 m_PacingHordeWaiting = true;
-                m_HCHordeActivity.Add("budget_deferred");
             }
+            m_HCHordeActivity.HCRefuse("budget_deferred");
             return;
         }
         for (int scanned = 0; scanned < scanCount; scanned++)
@@ -888,7 +895,7 @@ class HCInfectedModule : HCModule
                 if (retryOffer)
                 {
                     m_PacingHordeWaiting = true;
-                    m_HCHordeActivity.Add("budget_deferred");
+                    m_HCHordeActivity.HCRefuse("budget_deferred");
                     return;
                 }
                 break;
@@ -912,13 +919,13 @@ class HCInfectedModule : HCModule
             }
             if (!eligible)
             {
-                if (retryOffer) { return; }
+                if (retryOffer) { m_HCHordeActivity.HCRefuse("cohort_ineligible"); return; }
                 continue;
             }
             vector position = actor.InfectedEntity.GetPosition();
             if (!HCInfectedStore.ValidPosition(position))
             {
-                if (retryOffer) { return; }
+                if (retryOffer) { m_HCHordeActivity.HCRefuse("cohort_position"); return; }
                 continue;
             }
             if (!retryOffer && candidates.Count() == 0)
@@ -928,25 +935,28 @@ class HCInfectedModule : HCModule
             }
             if (vector.DistanceSq(position, anchor) <= 10000)
                 candidates.Insert(actor);
-            else if (retryOffer) { return; }
+            else if (retryOffer) { m_HCHordeActivity.HCRefuse("cohort_range"); return; }
             if (candidates.Count() >= Math.Min(HCHordeLimits.MAX_PACK, m_MemberCap - m_State.Reserved))
                 break;
         }
         // A retained cohort is all-or-nothing; never replace members or move its
         // anchor while waiting for the director's durable reservation barrier.
-        if (retryOffer && candidates.Count() != m_PacingHordeCandidates.Count()) { return; }
+        if (retryOffer && candidates.Count() != m_PacingHordeCandidates.Count()) { m_HCHordeActivity.HCRefuse("cohort_changed"); return; }
         int requested = candidates.Count();
         HCHordeRouteDefaults limits = HCHordeRoutes.Defaults();
-        if (!limits) { return; }
+        if (!limits) { m_HCHordeActivity.HCRefuse("defaults_missing"); return; }
         int capacity = Math.Min(HCHordeLimits.MAX_PACK, Math.Min(limits.MaxMembers, m_MemberCap - m_State.Reserved));
         if (capacity < HCHordeLimits.MIN_PATROL || requested < 3) { m_HCHordeActivity.Add("no_seed"); return; }
         int target = m_PacingHordeTarget;
         if (!retryOffer) { target = Math.Clamp(HCInfectedMemory.CohortSize(anchor, capacity), HCHordeLimits.MIN_PATROL, capacity); }
-        if (target > capacity) { return; }
+        if (target > capacity) { m_HCHordeActivity.HCRefuse("capacity_changed"); return; }
         while (candidates.Count() > target) { candidates.Remove(candidates.Count() - 1); }
         requested = candidates.Count();
         if (requested < 1 || !HCInfectedPolicy.CanReserve(activeGroups, m_GroupCap, m_State.Reserved, m_MemberCap, target))
+        {
+            m_HCHordeActivity.HCRefuse("reserve_full");
             return;
+        }
         HCInfectedClue adoptionClue;
         foreach (HCInfectedActor observer : candidates)
         {
@@ -974,7 +984,10 @@ class HCInfectedModule : HCModule
         HCHordeRecord record = new HCHordeRecord;
         HCHordeRecovery.Capture(candidates, record);
         if (record.RecoveryConflicted)
+        {
+            m_HCHordeActivity.HCRefuse("recovery_conflict");
             return;
+        }
         if (!retryOffer)
         {
             m_PacingHordeId = "horde:" + nowUtc.ToString();
@@ -1035,7 +1048,10 @@ class HCInfectedModule : HCModule
         }
         m_Dirty = true;
         if (!SaveAdoptionBoundary("prepare"))
+        {
+            m_HCHordeActivity.HCRefuse("prepare_checkpoint");
             return;
+        }
         int used = activeGroups + 1;
         Print("[HollowCountry] infected horde budget used=" + used.ToString() + "/" + m_GroupCap.ToString());
         foreach (HCInfectedActor candidate : candidates)
