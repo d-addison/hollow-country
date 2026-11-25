@@ -65,7 +65,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 6  # #343: derive RespawnTypes=32 from stock via the receipt-backed refill factor
+LOOT_BOOST_VERSION = 7  # #372: engine-evidenced caps re-derived from receipt-backed pre-boost quantities
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
@@ -192,7 +192,7 @@ def _multiplier(value):
 def _settings(repo):
     doc = json.loads((Path(repo) / SETTINGS).read_bytes())
     optional = {MILITARY_KEY, CAPACITY_KEY, CATEGORY_KEY, USAGE_KEY, TIER_KEY, FIREARMS_KEY, DAMAGE_KEY, REFILL_KEY,
-                GROUP_CAP_KEY, BALANCE_KEY}
+                GROUP_CAP_KEY, BALANCE_KEY, 'ce_engine_caps'}
     if (not isinstance(doc, dict) or not {'schema', 'kind', 'Multiplier'} <= set(doc)
             or set(doc) - {'schema', 'kind', 'Multiplier'} - optional or doc['schema'] != 1
             or doc['kind'] != SETTINGS_KIND):
@@ -201,6 +201,58 @@ def _settings(repo):
     if MILITARY_KEY in doc and CAPACITY_KEY in doc:
         raise ValueError('loot-points/settings.json: %s and %s are mutually exclusive' % (MILITARY_KEY, CAPACITY_KEY))
     return doc
+
+
+def engine_caps(root=REPO_ROOT):
+    """Measured engine retries select caps; quantities always come from the source mission."""
+    table = _settings(root).get('ce_engine_caps', {'steady_per_hour_threshold': 50, 'rows': []})
+    threshold = table['steady_per_hour_threshold']
+    if type(threshold) is not int or threshold != 50:
+        raise ValueError('ce_engine_caps threshold must be 50 per hour')
+    selected, seen = {}, set()
+    for row in table['rows']:
+        name, rate = row['class'], row['steady_per_hour']
+        if (not isinstance(name, str) or not NAME.fullmatch(name) or name.lower() in seen
+                or type(rate) is not int or rate < 0 or row['cap_rule'] != 'pre_boost'
+                or type(row['soak']) is not int or type(row['build']) is not int
+                or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', row['date'])):
+            raise ValueError('invalid ce_engine_caps evidence row')
+        seen.add(name.lower())
+        if rate >= threshold:
+            selected[name.lower()] = row
+    return selected
+
+
+def cap_engine_types(before, after, selected):
+    """Final quantity-only edit after balance: no freed nominal enters either reinvestment pass.
+
+    Match each layer to its own source bytes, including optional rows. Keep every other byte unchanged,
+    even a min whose nominal did not move; proportional rounding is deliberately not used here.
+    """
+    stock = {n.get('name', '').lower(): n for n in economy.xml(before, 'types').findall('type')}
+    text = after.decode('utf-8-sig')
+    masked, edits, report = _mask(text), [], []
+    for opening in re.finditer(r'<type\b[^>]*>', masked):
+        name = _attr(opening.group(0), 'name') or ''
+        low = name.lower()
+        if low not in selected or low not in stock or opening.group(0).endswith('/>'):
+            continue
+        close = masked.find('</type>', opening.end())
+        if close < 0:
+            raise ValueError('unclosed type row')
+        entry = {'class': name}
+        for field in ('nominal', 'min'):
+            value = stock[low].findtext(field)
+            hit = re.search(r'(<%s>\s*)(\d+)(\s*</%s>)' % (field, field), masked[opening.end():close])
+            if value is None or hit is None:
+                raise ValueError('engine cap needs source nominal and min')
+            entry[field + '_before'] = int(hit.group(2))
+            entry[field] = int(value)
+            start = opening.end() + hit.start(2)
+            edits.append((start, start + len(hit.group(2)), str(int(value))))
+        entry['freed_nominal'] = max(0, entry['nominal_before'] - entry['nominal'])
+        report.append(entry)
+    return _encode(_apply(text, edits), after), report
 
 
 def default_multiplier(repo=REPO_ROOT):
@@ -1815,7 +1867,19 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
             after, changed = military_loot.spread_types(after)
             counts['spread_types'][name] = changed
         spread_outputs.append((name, before, after))
-    outputs = spread_outputs
+    # #372: run last, after all supply allocation. Other classes retain byte-identical output;
+    # caps cannot receive or donate nominal through counts.balance reinvestment.
+    selected = engine_caps(root or REPO_ROOT)
+    cap_rows, outputs = [], []
+    for name, before, after in spread_outputs:
+        if name in counts['types']:
+            after, rows = cap_engine_types(before, after, selected)
+            cap_rows.extend(dict(row, file=name) for row in rows)
+        outputs.append((name, before, after))
+    effective_caps = {row['class'].lower(): row for row in cap_rows}  # CE load order: last layer wins
+    counts['engine_caps'] = {'rows': cap_rows, 'freed_nominal': sum(r['freed_nominal'] for r in effective_caps.values()),
+                             'reinvested_nominal': 0}
+    # Shelf-limit decisions retain the pre-cap demand, so no other class's generated bytes change.
     outputs.append((PROTO, proto_before, proto_after))
     if pos_after is not None:
         outputs.append(('mapgrouppos.xml', pos_before, pos_after))
@@ -2095,6 +2159,8 @@ def describe(result):
              % result['multiplier']]
     for name, count in counts['types'].items():
         lines.append('  types %s scaled_rows=%d' % (name, count))
+    caps = counts.get('engine_caps', {})
+    lines.append('  engine caps freed_nominal=%d reinvested_nominal=0' % caps.get('freed_nominal', 0))
     knobs = counts['globals']
     lines.append('  globals RespawnTypes=%s InitialSpawn=%s RespawnLimit=%s RespawnAttempt=%s LootDamageMax=%s'
                  % tuple(knobs.get(k, '?') for k in ('RespawnTypes', 'InitialSpawn', 'RespawnLimit', 'RespawnAttempt',

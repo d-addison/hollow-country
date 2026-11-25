@@ -214,3 +214,64 @@ class VillageItems(unittest.TestCase):
         self.assertEqual(result['fill'], 0.5)
         self.assertEqual(result['kinds']['house'], {'groups': 1, 'buildings': 2, 'median': 5.0, 'p90': 5.0})
         self.assertEqual(result['kinds']['wreck']['median'], 1.0)
+
+
+class EngineCapReceipt(unittest.TestCase):
+    def test_old_receipt_above_cap_fails_and_capped_reinstall_passes(self):
+        from unittest import mock
+        from tools.package import loot_boost as boost
+        from tests.unit.test_loot_boost import EngineEvidenceCaps
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = EngineEvidenceCaps().fixture(tmp)
+            with mock.patch.object(boost, 'engine_caps', return_value={}):
+                boost.install(mission, None, None, floor_policy=None)
+            old = pressure.engine_cap_check(mission)
+            self.assertEqual(old['status'], 'fail')
+            self.assertIn('Pipe', {r['class'] for r in old['violations']})
+            (mission / 'cfglimitsdefinition.xml').write_text('<lists><valueflags><value name="Tier1"/></valueflags></lists>')
+            (mission / 'areaflags.map').write_bytes(struct.pack('<6I', 1, 1, 10, 10, 32, 0) + b'\0\0\0\0\1')
+            gate = pressure.feasibility(mission, True)
+            self.assertEqual(gate['engine_caps']['status'], 'fail')
+            from tools.validate.mission_sources import ce_slots_main
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(ce_slots_main(mission), 1)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(pressure.main([str(mission), '--engine-caps']), 1)
+            boost.rollback(mission)
+            boost.install(mission, None, None, floor_policy=None)
+            self.assertEqual(pressure.engine_cap_check(mission), {'status': 'pass', 'violations': []})
+            # A minimum-only violation is also rejected, even if nominal equals its cap.
+            path = mission / 'db/types.xml'
+            path.write_bytes(path.read_bytes().replace(b'<min>60</min>', b'<min>61</min>'))
+            self.assertEqual(pressure.engine_cap_check(mission)['status'], 'fail')
+
+    def test_missing_or_drifted_backup_is_not_a_pass(self):
+        from tools.package import loot_boost as boost
+        from tests.unit.test_loot_boost import EngineEvidenceCaps
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = EngineEvidenceCaps().fixture(tmp)
+            with self.assertRaises(ValueError):
+                pressure.engine_cap_check(mission)
+            receipt = boost.install(mission, None, None, floor_policy=None)
+            row = next(r for r in receipt['files'] if r['name'] == 'db/types.xml')
+            (mission / boost.MANAGED / row['backup']).write_bytes(b'<types/>')
+            with self.assertRaisesRegex(ValueError, 'backup drifted'):
+                pressure.engine_cap_check(mission)
+
+    def test_unchanged_registered_layer_uses_receipted_source_cap(self):
+        from tools.package import loot_boost as boost
+        from tests.unit.test_loot_boost import EngineEvidenceCaps, type_row
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = EngineEvidenceCaps().fixture(tmp)
+            (mission / 'custom').mkdir()
+            path = mission / 'custom/types.xml'
+            path.write_text('<types>' + type_row('geb_SmallTackle', ['Coast'], 1, 0, 'weapons') + '</types>')
+            (mission / 'cfgeconomycore.xml').write_text('<economycore><ce folder="custom">'
+                '<file name="types.xml" type="types"/></ce></economycore>')
+            receipt = boost.install(mission, None, None, floor_policy=None)
+            self.assertNotIn('custom/types.xml', [r['name'] for r in receipt['files']])
+            path.write_bytes(path.read_bytes().replace(b'<nominal>1</nominal>', b'<nominal>2</nominal>'))
+            result = pressure.engine_cap_check(mission)
+            self.assertEqual(result['status'], 'fail')
+            self.assertIn({'class': 'geb_SmallTackle', 'field': 'nominal', 'actual': 2, 'cap': 1}, result['violations'])
