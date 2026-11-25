@@ -1554,7 +1554,8 @@ class HCXAIGroupHolds
         int nowMs = 0;
         if (GetGame()) { nowMs = GetGame().GetTime(); }
         // One shutdown pass over the existing retired list; never walk live owners.
-        // Identical release evidence to PruneStep: no live slot/member, 2 s and 3 frames.
+        // Identical release evidence to PruneStep: no live slot/member, 2 s and 3 frames; finish
+        // also keeps any group that still lists a member, tracked or not (Opus review, #375).
         if (s_Retired)
         {
             for (int at = s_Retired.Count() - 1; at >= 0; at--)
@@ -1562,7 +1563,7 @@ class HCXAIGroupHolds
                 HCXAIGroupHold held = s_Retired[at];
                 if (held)
                 {
-                    if (!GetGame() || held.HCNamesLiveSlot() || !held.Settled() || held.SettledAtMs < 0 || nowMs - held.SettledAtMs < HC_SETTLE_MS || held.SettledSeen < 3)
+                    if (!GetGame() || held.HCNamesLiveSlot() || !held.Settled() || (held.Group && held.Group.Count() > 0) || held.SettledAtMs < 0 || nowMs - held.SettledAtMs < HC_SETTLE_MS || held.SettledSeen < 3)
                     {
                         retained++;
                         continue;
