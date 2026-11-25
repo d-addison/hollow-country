@@ -297,7 +297,10 @@ modded class PlayerBase
     override void CommandHandler(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
     {
 #ifndef SERVER
-        bool localDriver = this == GetGame().GetPlayer() || this == HCDriverMovement.Owner;
+        // Native scripts-1.30.164289: gameplay.c:375 GetPlayer returns Man;
+        // 1_Core/proto/EnScript.c:94 Cast returns null for an unrelated type.
+        PlayerBase localPlayer = PlayerBase.Cast(GetGame().GetPlayer());
+        bool localDriver = (localPlayer && this == localPlayer) || this == HCDriverMovement.Owner;
         if (localDriver) { HCDriverMovement.CommandId = pCurrentCommandID; }
 #endif
         super.CommandHandler(pDt, pCurrentCommandID, pCurrentCommandFinished);

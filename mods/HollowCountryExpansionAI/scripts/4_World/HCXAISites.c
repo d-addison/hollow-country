@@ -198,6 +198,10 @@ class HCXAISiteBase : Managed
     protected int m_ScanNearSite = -1;
     protected float m_ScanNearGap = 1000000000;
     protected int m_NextSummaryMs;
+    protected ref HCWorkBudget m_SummaryWork = new HCWorkBudget;
+    protected int m_SummaryCursor;
+    protected int m_SummarySites;
+    protected int m_SummaryActors;
     protected int m_LocalityNextAttemptAt;
     protected int m_LocalityNextPendingLogAt;
     protected bool m_LocalityRefused;
@@ -269,6 +273,7 @@ class HCXAISiteBase : Managed
     protected HCXAISiteState HCNearbySurveyState() { return null; }
     protected void HCStepSurvey() {  }
     protected void HCRecordRouteState(HCXAISiteState state) {  }
+    protected string HCRefusedBy() { return "none"; }
     protected void HCMakeNearbyRoom() {  }
     protected void HCTryLocality(int now) {  }
     protected void HCStepLocalities() {  }
@@ -793,18 +798,31 @@ class HCXAISiteBase : Managed
         if (m_Diagnostic) { this.StepDiagnostic(); }
         int nowMs = GetGame().GetTime();
         if (nowMs < m_NextSummaryMs) { return; }
-        m_NextSummaryMs = nowMs + 300000;
-        int sites = 0;
-        int actors = 0;
-        foreach (HCXAISiteState counted : m_States)
+        // Anonymous roster observations resume across summary turns (one per eight
+        // run calls). At least one row advances per positive slice: worst case
+        // 8*N run calls for N stable rows (16*N ticks while survey takes alternate
+        // ticks), plus budget/save waits. Native calls remain atomic.
+        m_SummaryWork.HCReset(8, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+        while (m_SummaryCursor < m_States.Count() && m_SummaryWork.HCContinue())
         {
+            HCXAISiteState counted = m_States[m_SummaryCursor];
+            m_SummaryCursor++;
             this.HCRecordRouteState(counted);
-            if (!counted.Patrol || counted.Patrol.HCDeathHeld() || HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold()) == 0) { continue; }
-            sites++;
-            actors = actors + HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold());
+            if (!counted.Patrol || counted.Patrol.HCDeathHeld()) { continue; }
+            int members = HCXExpansionBridge.HCHoldCount(counted.Patrol.HCGroupHold());
+            if (members == 0) { continue; }
+            m_SummarySites++;
+            m_SummaryActors += members;
         }
+        if (m_SummaryCursor < m_States.Count()) { return; }
+        int sites = m_SummarySites;
+        int actors = m_SummaryActors;
+        m_SummaryCursor = 0;
+        m_SummarySites = 0;
+        m_SummaryActors = 0;
+        m_NextSummaryMs = nowMs + 300000;
         int pending = m_Policy.Sites.Count() - m_QualifiedCount - m_RefusedCount;
-        string summary = "[HC Expansion AI] sites summary: qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " pending=" + pending.ToString();
+        string summary = "[HC Expansion AI] sites summary: qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " pending=" + pending.ToString() + " refused_by=" + this.HCRefusedBy();
         string spawnStatusLine = "[HC Expansion AI] spawn summary admitted=" + m_AdmittedTotal.ToString() + " spawned=" + m_SpawnedTotal.ToString() + " relocated=" + m_RelocatedTotal.ToString() + " runtime=PENDING";
         float spawnStatusLineNow = GetGame().GetTickTime();
         if (spawnStatusLine != m_SpawnLogLine || spawnStatusLineNow < m_SpawnLogAt || spawnStatusLineNow - m_SpawnLogAt >= 1800)

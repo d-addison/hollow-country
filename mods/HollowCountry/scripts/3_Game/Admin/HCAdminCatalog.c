@@ -99,14 +99,14 @@ class HCAdminCatalog
         HCAdd("list", "overview", "State near me", "Inspect nearby infected, heat, drops, forage and decaying towns.", true, true, false, 0, 0, 0, "");
         HCAdd("snapshot", "overview", "Request snapshot", "Capture debug map layers over several ticks; five-second cooldown.", true, false, false, 0, 0, 0, "");
         HCAdd("sitter", "infected", "Place sitter", "Admit one sitter eight metres ahead; one body including its corpse.", false, true, false, 0, 0, 0, "");
-        HCAdd("dormant", "infected", "Dormant admission", "Reports missing fresh-body rest transition hook; no body is created.", false, true, false, 0, 0, 0, "");
+        HCAdd("dormant", "infected", "Dormant admission", "Queue a fresh dormant body near you through normal placement and infected budgets.", false, true, false, 0, 0, 0, "");
         HCAdd("horde", "infected", "Adopt native horde", "Adopt an eligible native cohort within 100 m using normal budgets.", false, true, false, 0, 0, 0, "");
         HCAdd("clear", "infected", "Clear admin sitter", "Delete only the admin sitter; other infected remain untouched.", false, false, false, 0, 0, 0, "");
         HCAdd("memory", "infected", "Infected memory", "Record heat shots in your 500 m cell; zero clears this cell.", false, true, true, 0, 3, 1, "shots");
         HCAdd("camp", "ai", "Evaluate camp", "Evaluate the nearest recognised camp within 100 m; no forced age.", false, true, false, 0, 0, 0, "");
         HCAdd("camptier", "ai", "Force camp tier", "Persist nearest camp tier; next normal scan reclassifies.", false, true, true, 0, 3, 1, "tier");
-        HCAdd("campvisit", "ai", "Request camp visit", "Reports missing physical visitor request hook.", false, true, false, 0, 0, 0, "");
-        HCAdd("campraid", "ai", "Request camp raid", "Reports missing physical raid request hook.", false, true, false, 0, 0, 0, "");
+        HCAdd("campvisit", "ai", "Request camp visit", "Request a physical visit to the nearest eligible camp; normal attendance and cooldown guards apply.", false, true, false, 0, 0, 0, "");
+        HCAdd("campraid", "ai", "Request camp raid", "Request a raid on the nearest eligible camp; normal warning and cooldown guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_holdout_due", "ai", "Smoke: due funded holdout", "Lead-only R3: select an existing naturally due funded row; no aging or supplies.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_conflict", "ai", "Smoke: distant conflict", "Lead-only R3: prioritize an existing eligible distant opposed cell; normal guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_materialize", "ai", "Smoke: offered proposal", "Lead-only R3: prioritize an existing unclaimed proposal; real provider outcome required.", false, true, false, 0, 0, 0, "");

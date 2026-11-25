@@ -1,6 +1,60 @@
 // HC site survey: implementation behind the director's virtual seams.
 class HCXAISiteSurvey : HCXAISiteStorage
 {
+    // Fixed reason vocabulary (at most 15 buckets), never raw geometry/identity
+    // text. Native scripts-1.30.164289: EnString.c:240 IndexOf;
+    // EnScript.c:853/867/887/897/902/917 map Count/Get/GetElement/GetKey/Set/Contains;
+    // EnDebug.c:96 Print; EnConvert.c:30 ToString. Output: at most six buckets.
+    protected ref map<string, int> m_SurveyRefusals = new map<string, int>;
+    protected ref map<string, bool> m_SurveyRefusalLogged = new map<string, bool>;
+    // Same policy-only bound as m_RouteResults. Key by route rather than state
+    // object: a requalification can replace the state that recorded the failure.
+    protected ref map<string, string> m_SurveyRefusalCodes = new map<string, string>;
+
+    protected string HCRefusalBucket(string reason)
+    {
+        if (reason.IndexOf("checkpoint encounters disabled") >= 0) { return "checkpoint_disabled"; }
+        if (reason.IndexOf("house ") == 0) { return "house_missing"; }
+        if (reason.IndexOf("navmesh unavailable") >= 0) { return "navmesh_unavailable"; }
+        if (reason.IndexOf("chain upgrade") >= 0) { return "upgrade_deferred"; }
+        if (reason.IndexOf("navmesh sample failed") >= 0) { return "navmesh_sample"; }
+        if (reason.IndexOf("no path") >= 0) { return "no_path"; }
+        if (reason.IndexOf("detour too long") >= 0) { return "detour"; }
+        if (reason.IndexOf("path chain stalled") >= 0) { return "chain_stalled"; }
+        if (reason.IndexOf("path chain step limit") >= 0) { return "chain_limit"; }
+        if (reason.IndexOf("ends short") >= 0) { return "path_short"; }
+        if (reason.IndexOf("route minimum") >= 0) { return "route_minimum"; }
+        if (reason.IndexOf("authored waypoints") >= 0) { return "waypoints"; }
+        if (reason.IndexOf("geometry exceeds cache cap") >= 0) { return "geometry_cap"; }
+        if (reason.IndexOf("route search budget") >= 0) { return "search_budget"; }
+        return "other";
+    }
+
+    override protected string HCRefusedBy()
+    {
+        string result;
+        map<string, bool> selected = new map<string, bool>;
+        for (int rank = 0; rank < 6; rank++)
+        {
+            string best;
+            int highest = 0;
+            for (int bucket = 0; bucket < m_SurveyRefusals.Count(); bucket++)
+            {
+                string key = m_SurveyRefusals.GetKey(bucket);
+                int count = m_SurveyRefusals.GetElement(bucket);
+                if (count <= highest || selected.Contains(key)) { continue; }
+                best = key;
+                highest = count;
+            }
+            if (highest == 0) { break; }
+            if (result != "") { result += ","; }
+            result += best + ":" + highest.ToString();
+            selected.Set(best, true);
+        }
+        if (result == "") { return "none"; }
+        return result;
+    }
+
     override protected vector HCSiteAnchor(HCXAISite site)
     {
         if (site.Kind == "holdout") { return site.HousePosition; }
@@ -100,7 +154,6 @@ class HCXAISiteSurvey : HCXAISiteStorage
             Print("[HC Expansion AI] survey continuing in background; pending geometry retains qualification gate runtime=PENDING");
         }
         if (!this.HCSurveyReady()) { return; }
-        string refusedSites;
         m_SurveyWork.HCReset(64, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
         HCXAISiteState nearby = this.HCNearbySurveyState();
         while (m_SurveyCursor < m_Policy.Sites.Count() && m_SurveyWork.HCContinue())
@@ -118,7 +171,6 @@ class HCXAISiteSurvey : HCXAISiteStorage
             {
                 state.Failed = true;
                 state.Reason = "checkpoint encounters disabled";
-                refusedSites += " " + state.Site.Id;
                 continue;
             }
             if (!state.Bound) { this.Bind(state); continue; }
@@ -126,14 +178,10 @@ class HCXAISiteSurvey : HCXAISiteStorage
             this.QualifyStep(state);
             if (state.PathCalls > calls) { break; }
         }
-        if (refusedSites != "")
-        {
-            Print("[HC Expansion AI] survey refused sites=" + refusedSites + " reason=checkpoint encounters disabled runtime=PENDING");
-        }
         if (m_SurveyCursor >= m_Policy.Sites.Count())
         {
             this.HCRoutesWarm();
-            Print("[HC Expansion AI] survey complete qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " elapsed_ms=" + (nowMs - m_SurveyStartedMs).ToString() + " runtime=PENDING");
+            Print("[HC Expansion AI] survey complete qualified=" + m_QualifiedCount.ToString() + " refused=" + m_RefusedCount.ToString() + " refused_by=" + this.HCRefusedBy() + " elapsed_ms=" + (nowMs - m_SurveyStartedMs).ToString() + " runtime=PENDING");
         }
     }
     override protected void HCRecordRouteState(HCXAISiteState state)
@@ -147,9 +195,27 @@ class HCXAISiteSurvey : HCXAISiteStorage
         int previous = m_RouteResults.Get(state.Site.Id);
         if (previous == result) { return; }
         if (previous == 1) { m_QualifiedCount--; }
-        if (previous == 2) { m_RefusedCount--; }
+        if (previous == 2)
+        {
+            m_RefusedCount--;
+            string previousCode = m_SurveyRefusalCodes.Get(state.Site.Id);
+            m_SurveyRefusals.Set(previousCode, Math.Max(0, m_SurveyRefusals.Get(previousCode) - 1));
+        }
         if (result == 1) { m_QualifiedCount++; }
-        else { m_RefusedCount++; }
+        else
+        {
+            m_RefusedCount++;
+            string refusalCode = this.HCRefusalBucket(state.Reason);
+            m_SurveyRefusalCodes.Set(state.Site.Id, refusalCode);
+            m_SurveyRefusals.Set(refusalCode, m_SurveyRefusals.Get(refusalCode) + 1);
+            // Includes cached, bind and geometry failures; formerly only disabled
+            // checkpoints reached the survey-refused line. Once per reason/owner.
+            if (!m_SurveyRefusalLogged.Contains(refusalCode))
+            {
+                m_SurveyRefusalLogged.Set(refusalCode, true);
+                Print("[HC Expansion AI] survey refused sites=1 reason=" + refusalCode + " runtime=PENDING");
+            }
+        }
         m_RouteResults.Set(state.Site.Id, result);
     }
     override protected void HCRoutesWarm()
