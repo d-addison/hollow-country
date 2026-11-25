@@ -26,8 +26,13 @@ unexpected ceiling read count (`reason=unexpected_count`), prints one latched
 `[HC WorldStore] custody_raw_compare_disabled reason=<reason> raw_compare=disabled string_fallback=true`;
 the ceiling count anomaly itself prints one shared `custody_ceiling_read reason=unexpected_count` line.
 World store: an existing `world.json`, `.tmp` or `.bak` that cannot be opened or read is
-`world_read_unavailable` (this boot refuses the store, files kept, retry next boot), never
-`world_parse_or_schema_failure` and never an empty start.
+`world_read_unavailable`, never `world_parse_or_schema_failure` and never an empty start.
+`world_read_unavailable` no longer goes through the quarantine gate (lead decision
+2026-11-25, matching the original design). Unavailable reads retry in-session and
+never quarantine; parse, schema and interrupted-pair damage still quarantine. The
+in-session policy is implemented below for custody and search-refresh; World still
+needs its out-of-scope owner lifecycle wired before it meets that policy (currently
+`action=retain_retry_next_boot`, files retained and saves refused).
 
 Lead-only diag evidence (pending; use a fresh disposable, CE-disabled runtime,
 shared host lock and 180-second external watchdog; never a live profile):
@@ -58,6 +63,70 @@ shared host lock and 180-second external watchdog; never a live profile):
 These checks remain planned diag evidence. Lead native compile to Mission,
 retail boot/use evidence, crash/upgrade checks and persistence cross-model review
 are still required; no engine experiment is accepted here.
+
+Persistence #353 / #360 items 3–4 (partial, implemented-unverified, 2026-11-25):
+`HCPersistenceReadRetry` in `World/HCWorldStore.c` shares a boot-local twelve-attempt
+bound (initial load included), delays 5/15/45/120 seconds then 300 seconds, a
+one-unit `HCWorkBudget`, save refusal latch and counters. Materializer and
+LootRefresh use bounded, nonrepeating native call-queue callbacks; Stop removes
+them, and callbacks check the running owner before loading. Each callback admits
+one load transaction, not a loop of retries; native reads/JSON within recovery
+remain synchronous and non-preemptible, with the existing image/scan caps.
+Custody open/read failure always returns before preservation/relocation, including
+attempt twelve; retained-source selection also propagates unreadable primary,
+intent and backup images. Search-refresh unavailable reads no longer poison its
+store; it stays degraded with `intent_read_retrying`, loads and validates the real
+state before enabling gameplay, then registers its normal save job. Custody stays
+degraded with `custody_read_retrying` and holds the AI reservation until load
+succeeds. Both store save entry points refuse pending reads with
+`save_refused reason=read_pending count=1` once per store object/boot and registered
+`custody_save_read_pending` / `intent_save_read_pending` counters counting refusals.
+Successful retries count `custody_read_recovered` / `intent_read_recovered`.
+World and search intent recovery preflight their backup before replacing it.
+
+Remaining #353 work (not accepted): `HCWorldModule.c:81–86` returns after a failed
+Load, and `:115` prevents ticking while not running; its owner lifecycle and
+readiness changes are outside this worker's explicit file scope. World therefore
+retains next-boot recovery, now without quarantine, with explicit save protection.
+Legacy custody marker cleanup and depth-cap compaction are also deferred: in
+`HCSelectRetainedCustody`, `.unverified_read` is a durable route to a deeper active
+`.bak` store that can contain newer committed saves. A verified original file is
+not sufficient to remove that route. `HCCustodyDepthAllowed` counts this active
+path depth, not merely rejected archive generations. The lead must specify how to
+reconcile/promote the newest active checkpoint and move its entire sibling graph
+with crash-safe routing before deleting a marker or flattening the chain. Existing
+depth-cap refusal and rejected-slot retention behaviour remain unchanged; no
+`custody_relocation_archived` implementation/counter or depth acceptance is claimed.
+New unavailable reads do not create markers or enter that chain.
+
+#360 item 4 journal audit: materializer ids cannot alias a stale entry in the
+specified Expansion encounter journal. `HCXMaterializerBridge.c:74` passes custody
+ids only to `HCXAISiteDirector.AdmitTransient`; `HCXAISites.c:286–289,314–320` keeps
+the proposal id on the process-local transient state, without an `HCXAIJournal`
+write. `HCXAIEncounters.c:78,173,222` opens the journal for event encounter ids,
+not custody ids. Its caller `HCXAIAdapter.c:300` receives leases constructed in
+`Events/HCEventRuntime.c:796,885–886`: event session + event number + generation.
+Sessions contain `events-` (`HCEventModule.c:390`, prefixed by a lifecycle
+generation in `HCEventDirector.c:603–604`); custody ids are `lease:<integer>`
+(`HCWorldMaterializer.InterestRing`). These namespaces are disjoint even after a
+custody backup rollback. `HCXAIJournal.c:107–109` does key on id alone and refuses
+duplicates; world-session reconciliation alone is not a general uniqueness proof.
+No Expansion changes are needed for these two consumers. This does not prove that
+finite +1024/+2048 reseeds protect every other custody-id consumer or a whole-profile
+rollback: the existing F2 residual below remains planned/unverified.
+
+Lead native evidence still required: on a disposable retail server profile preserve
+all custody/world/search siblings and hash them; hold an exclusive Windows file
+lock on `ai-custody.json` for about 60 seconds across boot, then release. Repeat
+for `world.json` after its owner wiring lands and for `search-refresh.json.tmp`
+with a valid pending intent. Expect `read_retrying`, no new marker/relocation, then
+`read_recovered` and real loaded readiness. With the stated delays a 60-second
+lock normally releases before attempt four at about 65 seconds. Retain a lock
+through all twelve attempts (about 2285 seconds) to prove exhaustion and unchanged
+bytes; request saves while locked to prove refusal counters. Stop a module with
+a pending callback, release the lock, and confirm no callback IO after Stop. Run
+parse/schema/hash damage controls separately. No lock, stop, depth, rollback,
+compile-to-Mission or boot/use evidence has been collected by this worker.
 
 Persistence F1 (implemented-unverified): global custody relocation faults once with `custody_relocation_depth_exceeded` at depth >=8 (L <=8); per-boot reads remain approximately (L+3) x 21 MiB + 514 MiB plus bounded lease-mark reads (independent custody and rejection budgets of 128 comparisons each, at most 1 MiB plus a 4 KiB EOF probe per side per comparison; text rejection verification additionally reads at most seven rotation pairs and one final copy pair per call, each side bounded by the caller’s file limit plus one 4 KiB probe); only a provably fresh depth-0 store with no committed image or deeper intent may reject a torn first intent and start empty loudly (`custody_fresh_tmp_rejected`), including retained-marker recovery; native depth/crash checks pending.
 Persistence F2 (implemented-unverified): v1-test-14 custody V1/V2 JSON is unchanged; absent ceilings reseed NextLease+1024, or +2048 with `custody_lease_ceiling_missing_after_restore` when rollback safety survives from disk (saturating at signed-int max). Before base-backup promotion, an existence-only `.restore_pending` witness is copied without overwrite and retained across boots until the required ceiling bound and a new custody checkpoint verify (the ceiling is rewritten only when absent, damaged or below the requested checkpoint) (then retired in a separate scheduler stage); retained-source relocation to an older image without active `.bak`/`.tmp` also forbids torn-ceiling reseeding, independently of the this-boot-only `custody_restored_older` print. A forwarded newer depth-1 image without prior backup remains reseed-safe; a retained older image prints `custody_lease_ceiling_invalid reason=retained_custody_without_active_history`. Interrupted backup promotion with invalid ceiling prints `custody_lease_ceiling_invalid reason=restore_pending_before_ceiling_commit`; invalid ceilings plus older custody stay blocked, while a raw-readable first-seed torn intent (including NUL/oversize bytes) with no primary/backup retires loudly and uses the appropriate margin. Ceiling reads first qualify native raw IO; the bounded string fallback rejects NUL/length/grammar damage as content-invalid, while open/negative-read failures retain authority for retry. Unexpected raw counts print `[HC WorldStore] custody_ceiling_read reason=unexpected_count action=string_fallback raw_compare=disabled` once and switch to string IO; unexpected string counts independently print `action=retain_retry` once, so the fallback warning cannot hide a subsequent read refusal. Open/read failures retain the primary or intent and print `custody_lease_ceiling_primary_unreadable action=retain_retry` or `custody_lease_ceiling_intent_unreadable action=retain_retry` once; callers report that load failure instead of a misleading unsafe-reseed reason; prior rejected-primary evidence changes the reseed reason to `custody_lease_ceiling_torn_after_primary_rejection`. Torn ceilings with safe custody reseed above max(custody+1024, decodable ceiling backup); that backup lower bound survives until verified ceiling promotion. Rejections use eight slots without overwriting occupied targets, their own 128-call raw comparison budget and a loud non-authoritative-copy warning when comparison cannot qualify; rotation first uses caller-bounded text equality (including empty and refresh-sized archives), then qualified raw equality. Only definite byte differences stop rotation with `staged_rejection file=<filename> reason=rotation_copy_mismatch action=retain_source_retry_next_boot`; unavailable comparison continues with `reason=rotation_copy_unverified_non_authoritative` once per source, plus distinct `reason=rotation_compare_budget_exhausted action=continue_non_authoritative` on budget exhaustion. Definite final-copy mismatch removes only the new copy and prints `reason=copy_mismatch`; failed cleanup retains the source with `reason=copy_mismatch_cleanup_failed`. Rotation mismatch retains its old source with `reason=rotation_copy_mismatch`. Missing destinations print `reason=copy_missing`/`reason=rotation_copy_missing`; ceiling rejection/promotion/verification IO failures report `custody_lease_ceiling_recovery_io_failed file=ai-custody.lease-ceiling action=retain_retry`. Unreadable ceiling backups report `custody_lease_ceiling_backup_unreadable` and retain the lower bound for retry. Copy/delete failures retain the source and print `reason=rotation_copy_failed`/`reason=rotation_delete_failed` with `action=retain_source_retry_next_boot`, once per source (64-source log caps). All staged-rejection prints identify only the filename. Missing operator-removed ceiling backups/restore witnesses do not fail cleanup. Build-171 disk schemas and retained siblings are reused without reset; native crash/upgrade validation is pending. Two-fault residual: losing both the durable ceiling history and a newer custody checkpoint can exceed either finite reseed margin; whole-profile rollback, historical pre-mark reuse and downgrade remain unverified. Operator remedy for `custody_lease_ceiling_invalid`: stop server, preserve all custody/ceiling siblings, restore witnesses and consumer journals, then restore a verified exclusive ceiling at least as high as every historically issued/reserved lease (or reconstruct that bound from complete retained evidence); never delete safety witnesses or reset the server, and keep AI blocked when the bound cannot be proven. B-09 (implemented-unverified): a failed delete of the ceiling `.bak` or the `.restore_pending` witness after a verified commit no longer fails the save job or blocks AI; the file is kept with one latched `custody_lease_ceiling_backup_retire_failed file=ai-custody.lease-ceiling.bak action=retain_retry_next_commit` or `custody_restore_witness_retire_failed file=ai-custody.json.restore_pending action=retain_retry_next_checkpoint` line plus a counter of the same name, and is retried at the next ceiling commit or checkpoint (the unsafe-reseed flag stays set while the witness exists). An unopenable copy during world intent recovery reports `world_read_unavailable` instead of `world_interrupted_pair`. Custody and recovery log lines carry `file=<basename>` and `relocation_depth`, never a `$profile:` path. Rows stay unverified until the lock experiment. Opus re-review, native crash/upgrade checks and boot/use evidence remain pending.

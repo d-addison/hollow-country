@@ -150,7 +150,8 @@ class HCWorldMaterializer : HCModule
     protected bool m_AdmissionPrinted;
     protected bool m_StartedOnce;
     protected int m_CustodyNextLeaseSeen = 1;
-    protected int m_CustodyReadRetries;
+    protected int m_CustodyReadCallbacks;
+    protected ref HCPersistenceReadRetry m_CustodyReadRetry = new HCPersistenceReadRetry;
     protected bool m_CustodyRetryRead;
     protected string m_CustodyLoadFault;
     protected string m_CustodyRetainedSource;
@@ -167,6 +168,12 @@ class HCWorldMaterializer : HCModule
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Materializer"; }
+    override void RegisterUses()
+    {
+        super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse(GetName(), "custody_read_recovered");
+        HCModuleReadiness.HCRegisterUse(GetName(), "custody_save_read_pending");
+    }
     // World is a feature phase owner. Reverse shutdown must resolve custody
     // before World's final flush; readiness is captured after all start hooks.
     override int StartupPhase() { return HC_PHASE_ADDON; }
@@ -207,7 +214,6 @@ class HCWorldMaterializer : HCModule
         m_RingSeconds = 0;
         m_LogSeconds = 0;
         m_CustodyRestoredOlder = false;
-        m_CustodyReadRetries = 0;
         m_CustodyArchiveScans = 0;
         HCWorldStore.HCResetCompareBudget();
         m_CustodyRetryRead = false;
@@ -221,7 +227,7 @@ class HCWorldMaterializer : HCModule
         m_CustodyJob = new HCWorldCustodySaveJob;
         m_CustodyJob.Owner = this;
         HCSaveScheduler.HCRegister(m_CustodyJob);
-        m_CustodyReady = this.HCLoadCustody();
+        m_CustodyReady = m_CustodyReadRetry.HCBegin() && this.HCLoadCustody();
         if (m_CustodyReady) { this.HCAcceptCustodyLoad(); }
         else if (!m_CustodyRetryRead) { HCAIBudget.Block(); }
         m_Running = true;
@@ -232,6 +238,7 @@ class HCWorldMaterializer : HCModule
     // Shared completion for initial load and bounded transient-read retries.
     protected void HCAcceptCustodyLoad()
     {
+        m_CustodyReadRetry.HCLoaded(GetName(), "custody");
         if (!m_StartedOnce) { this.HCRestoreCustody(); }
         else
         {
@@ -269,14 +276,14 @@ class HCWorldMaterializer : HCModule
         }
     }
 
-    // A failed startup read retries initialization at most three times, outside
-    // routine OnTick/save dispatch. Recovery is the same one-time synchronous boot
-    // transaction, not a periodic store reader. Native queue API inspected in
-    // 2_GameLib/tools.c (ScriptCallQueue.CallLater/Remove), Game.c:1550.
+    // Installed native 2_GameLib/tools.c:61/65 CallLater/Remove;
+    // 3_Game/Global/Game.c:1550 GetCallQueue. One budgeted boot transaction
+    // per callback, no loop; OnStop cancels the pending callback.
     protected void HCRetryCustodyLoad()
     {
         if (!m_Running || m_CustodyReady || !m_CustodyRetryRead) { return; }
-        m_CustodyReady = this.HCLoadCustody();
+        if (!m_CustodyReadRetry.HCTakeBudget()) { return; }
+        m_CustodyReady = m_CustodyReadRetry.HCBegin() && this.HCLoadCustody();
         if (m_CustodyReady) { this.HCAcceptCustodyLoad(); }
         else if (!m_CustodyRetryRead) { HCAIBudget.Block(); }
     }
@@ -324,6 +331,7 @@ class HCWorldMaterializer : HCModule
         // Mission shutdown owns provider cleanup. Unreported body outcomes are
         // not invented or replayed after restart; ledger facts remain durable.
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryCustodyLoad);
+        m_CustodyRetryRead = false;
         if (m_CustodyReady)
         {
             if (!HCSaveScheduler.HCFlush(m_CustodyJob, true)) { this.HCCustodySaveFailed(); }
@@ -409,24 +417,17 @@ class HCWorldMaterializer : HCModule
         return loaded;
     }
 
-    // Read failures never authorize deletion without preservation. The materializer's
-    // readiness/debt queries refuse admission during three delayed startup retries;
-    // exhaustion permits raw preservation and selection of a valid copy.
+    // Unavailable never enters damage preservation, even at retry exhaustion.
     protected bool HCReadCustody(string path, out string text)
     {
-        if (HCWorldStore.ReadChecked(path, text)) { return true; }
-        m_CustodyLoadFault = "custody_read_failed";
-        if (m_CustodyReadRetries < 3)
-        {
-            m_CustodyReadRetries++;
-            // A temporary reservation blocks all providers without latching
-            // the irreversible process-wide Block on a transient file error.
-            HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
-            m_CustodyRetryRead = true;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryCustodyLoad, 1000, false);
-            Print("[HC " + GetName() + "] custody_read_failed retry=" + m_CustodyReadRetries.ToString());
-        }
-        else { Print("[HC " + GetName() + "] custody_read_failed reason=retry_exhausted"); }
+        text = "";
+        if (!FileExist(path)) { return true; }
+        if (HCWorldStore.ReadAvailable(path, text)) { return true; }
+        m_CustodyLoadFault = "custody_read_retrying";
+        HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
+        m_CustodyRetryRead = true;
+        m_CustodyReadRetry.HCRetain(GetName(), "custody");
+        this.HCScheduleCustodyRead();
         return false;
     }
 
@@ -434,15 +435,22 @@ class HCWorldMaterializer : HCModule
     {
         m_CustodyLoadFault = reason;
         Print("[HC " + GetName() + "] " + reason);
-        // IO faults are retryable boot transactions, not an irreversible latch.
-        if (m_CustodyReadRetries < 3)
-        {
-            m_CustodyReadRetries++;
-            HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
-            m_CustodyRetryRead = true;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryCustodyLoad, 1000, false);
-        }
+        // Preserve existing retryability for recovery IO faults. Content damage
+        // still takes its existing recovery path, never an empty-state save.
+        HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
+        m_CustodyRetryRead = true;
+        m_CustodyReadRetry.HCRetain(GetName(), "custody");
+        this.HCScheduleCustodyRead();
         return false;
+    }
+
+    protected void HCScheduleCustodyRead()
+    {
+        if (m_CustodyReadCallbacks < 11)
+        {
+            m_CustodyReadCallbacks++;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryCustodyLoad, m_CustodyReadRetry.HCDelayMs(), false);
+        }
     }
 
     protected string HCRejectedSlot(int slot)
@@ -509,7 +517,8 @@ class HCWorldMaterializer : HCModule
     protected bool HCKeepUnverifiedCustody(string source, string faultReason = "")
     {
         string text;
-        bool read = HCWorldStore.ReadChecked(source, text);
+        bool read = this.HCReadCustody(source, text);
+        if (!read) { return false; }
         string reason = "unverified_read";
         if (read && text.Length() > HCWorldStore.MAX_BYTES) { reason = "unverified_oversize"; }
         string copy = source + "." + reason;
@@ -621,52 +630,18 @@ class HCWorldMaterializer : HCModule
         if (!this.HCCustodyDepthAllowed()) { return false; }
         string temporary = m_CustodyPath + ".tmp";
         string intent;
-        if (!this.HCReadCustody(temporary, intent))
-        {
-            if (m_CustodyRetryRead) { return false; }
-            if (this.HCFreshCustodyOnly()) { return this.HCRetireFreshCustodyTmp(); }
-            // Exhausted string reads (including NUL conversion) are not a
-            // permanent refusal when another fully valid checkpoint survives.
-            string survivor;
-            bool read = HCWorldStore.ReadChecked(m_CustodyPath, survivor);
-            bool valid;
-            if (read) { valid = this.HCDecodeCustody(survivor) != null; }
-            if (!valid)
-            {
-                read = HCWorldStore.ReadChecked(m_CustodyPath + ".bak", survivor);
-                if (read) { valid = this.HCDecodeCustody(survivor) != null; }
-            }
-            bool fresh = !FileExist(m_CustodyPath);
-            if (FileExist(m_CustodyPath + ".bak")) { fresh = false; }
-            if (!valid && !fresh) { return false; }
-            if (!this.HCPreserveCustodyFile(temporary)) { return false; }
-            if (m_CustodyRetainedSource == temporary)
-            {
-                m_CustodyKeepTmp = true;
-                Print("[HC " + GetName() + "] custody_tmp_kept reason=read_failed_unverified");
-                return true;
-            }
-            else if (!DeleteFile(temporary)) { return this.HCCustodyFault("custody_tmp_retire_delete_failed"); }
-            HCModuleReadiness.HCUse(GetName(), "custody_tmp_retired");
-            Print("[HC " + GetName() + "] custody_tmp_retired reason=read_failed_preserved");
-            return true;
-        }
+        if (!this.HCReadCustody(temporary, intent)) { return false; }
         HCAIPartyCustodyData next = this.HCDecodeCustody(intent);
         string primaryText;
-        if (FileExist(m_CustodyPath) && !this.HCReadCustody(m_CustodyPath, primaryText))
-        {
-            if (m_CustodyRetryRead) { return false; }
-            if (!this.HCPreserveCustodyFile(m_CustodyPath)) { return false; }
-            // Preserve arbitrary torn bytes before selecting a valid intent.
-            primaryText = "";
-        }
+        if (FileExist(m_CustodyPath) && !this.HCReadCustody(m_CustodyPath, primaryText)) { return false; }
         HCAIPartyCustodyData primary = this.HCDecodeCustody(primaryText);
         // Keep committed checkpoints and process-local proposals nondecreasing.
         // Merely decoding an uncommitted intent must not poison fallback.
         if (primary && primary.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = primary.NextLease; }
         string backupImage;
         HCAIPartyCustodyData backupFloor;
-        bool backupRead = HCWorldStore.ReadChecked(m_CustodyPath + ".bak", backupImage);
+        bool backupRead = this.HCReadCustody(m_CustodyPath + ".bak", backupImage);
+        if (!backupRead) { return false; }
         if (backupRead) { backupFloor = this.HCDecodeCustody(backupImage); }
         if (backupFloor && backupFloor.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = backupFloor.NextLease; }
         string reason = "invalid";
@@ -768,24 +743,28 @@ class HCWorldMaterializer : HCModule
             string selectedText = carryText;
             HCAIPartyCustodyData selected = carry;
             string text;
-            bool read = HCWorldStore.ReadChecked(m_CustodyPath, text);
+            bool read = this.HCReadCustody(m_CustodyPath, text);
+            if (!read) { return false; }
             HCAIPartyCustodyData current;
             if (read) { current = this.HCDecodeCustody(text); }
             if (current && current.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = current.NextLease; }
             if (current && (!selected || current.NextLease >= selected.NextLease)) { selected = current; selectedText = text; }
             string intent;
             HCAIPartyCustodyData proposed;
-            read = HCWorldStore.ReadChecked(m_CustodyPath + ".tmp", intent);
+            read = this.HCReadCustody(m_CustodyPath + ".tmp", intent);
+            if (!read) { return false; }
             if (read) { proposed = this.HCDecodeCustody(intent); }
             if (proposed && (!selected || proposed.NextLease >= selected.NextLease)) { selected = proposed; selectedText = intent; }
             string backupText;
             HCAIPartyCustodyData prior;
-            read = HCWorldStore.ReadChecked(backup, backupText);
+            read = this.HCReadCustody(backup, backupText);
+            if (!read) { return false; }
             if (read) { prior = this.HCDecodeCustody(backupText); }
             if (prior && prior.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = prior.NextLease; }
             string pendingText;
             HCAIPartyCustodyData pending;
-            read = HCWorldStore.ReadChecked(backup + ".tmp", pendingText);
+            read = this.HCReadCustody(backup + ".tmp", pendingText);
+            if (!read) { return false; }
             if (read) { pending = this.HCDecodeCustody(pendingText); }
             // Existing backup intent wins ties; it may include newer results.
             if (pending && (!selected || pending.NextLease >= selected.NextLease)) { selected = pending; selectedText = pendingText; }
@@ -850,7 +829,8 @@ class HCWorldMaterializer : HCModule
                 }
                 CloseFile(handle);
                 string verified;
-                if (!HCWorldStore.ReadChecked(backup + ".tmp", verified) || verified != selectedText) { return this.HCCustodyFault("custody_retained_verify_failed"); }
+                if (!this.HCReadCustody(backup + ".tmp", verified)) { return false; }
+                if (verified != selectedText) { return this.HCCustodyFault("custody_retained_verify_failed"); }
             }
             if (!this.HCCleanupCustodyWitness(m_CustodyPath)) { return false; }
             // A persisted relocation marker already makes backup the active
@@ -934,11 +914,7 @@ class HCWorldMaterializer : HCModule
         bool primaryExists = FileExist(m_CustodyPath);
         if (primaryExists)
         {
-            if (!this.HCReadCustody(m_CustodyPath, text))
-            {
-                if (m_CustodyRetryRead || m_StartedOnce) { return false; }
-                if (!this.HCPreserveCustodyFile(m_CustodyPath)) { return false; }
-            }
+            if (!this.HCReadCustody(m_CustodyPath, text)) { return false; }
             loaded = this.HCDecodeCustody(text);
             if (loaded && loaded.NextLease > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = loaded.NextLease; }
         }
@@ -1112,11 +1088,6 @@ class HCWorldMaterializer : HCModule
         m_CustodyCommitted = m_CustodyRevision;
         if (m_CustodyCommitted > m_CustodyNextLeaseSeen) { m_CustodyNextLeaseSeen = m_CustodyCommitted; }
         m_CustodyLoadFault = "";
-        if (m_CustodyReadRetries > 0)
-        {
-            Print("[HC " + GetName() + "] custody_read_recovered retry=" + m_CustodyReadRetries.ToString());
-            m_CustodyReadRetries = 0;
-        }
         return true;
     }
 
@@ -1176,6 +1147,7 @@ class HCWorldMaterializer : HCModule
     // No disk calls are made by Next/Result/Expire.
     protected bool HCSaveCustody()
     {
+        if (m_CustodyReadRetry.HCRefuseSave(GetName(), "custody")) { return false; }
         if (!m_CustodyReady || !this.HCValidCustody(m_Custody) || m_Custody.NextLease >= 2147483647)
         {
             // Refused before any stage ran: record the state machine's real position, never a stale one.
@@ -1226,6 +1198,7 @@ class HCWorldMaterializer : HCModule
     // retained handles (one close per stage) and the final call reports STEP_FAILED.
     int HCStepCustody()
     {
+        if (m_CustodyReadRetry.HCRefuseSave(GetName(), "custody")) { return HCSaveJob.STEP_FAILED; }
         if (!m_CustodyReady) { return this.HCAbortCustody(); }
         int result = this.HCWriteCustody();
         if (result == HCSaveJob.STEP_FAILED)
