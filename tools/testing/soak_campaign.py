@@ -40,8 +40,8 @@ ROOT = Path(__file__).resolve().parents[2]
 PHASES_FILE = Path(__file__).with_name('soak_phases.json')
 EXPECTATIONS = ROOT / 'config/activity-expectations.json'
 STATE = Path.home() / '.cache/hollow-country/soak-campaign'
-PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_zone', 'walk_town', 'combat', 'loot', 'fixtures', 'actions', 'vehicle',
-               'scene', 'forest', 'survive', 'mission', 'idle')
+PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_town', 'combat', 'loot', 'fixtures', 'actions', 'vehicle',
+               'walk_zone', 'scene', 'forest', 'survive', 'mission', 'idle')
 # Test-profile settings the staging writes (the shipped defaults stay untouched): the smoke fixtures, and a
 # short Fortify breach window so one scripted barricade can be breached inside the run.
 SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}
@@ -71,6 +71,7 @@ CFG_COPY = 'hc-soak.cfg'
 BAT_COPY = 'start-server-soak.bat'
 CLIENT_PROFILE = 'soak-client-profile'
 STEP_REL = 'HollowCountry/acceptance/client_driver.json'
+SPAWN_MARKER_REL = 'HollowCountry/autoplayer-initial-spawn'
 CELLAR_MARKER_REL = 'HollowCountry/measure-cellars'
 # Receipt rows are only ever removed or restored for these names; a tampered receipt is refused.
 CREATED_ALLOWED = {('server', PROFILE_COPY), ('server', TEST_MOD), ('server', CFG_COPY), ('server', BAT_COPY),
@@ -485,9 +486,10 @@ def selection_lines(selection, phases):
 # What the actions need, one entry per item: craft (CamoNet + KitchenKnife), the radio (PersonalRadio and a
 # battery), two light mounts (a UniversalLight and DuctTape each, onto Mich2001Helmet and TortillaBag), salvage
 # (Pliers), flip (Crowbar), the note actions (Paper, Pen_Black), a spare Rag and clothing.
-GEAR_CARRIED = ('KitchenKnife', 'CamoNet', 'PersonalRadio', 'Battery9V', 'Mich2001Helmet', 'TortillaBag',
+GEAR_CARRIED = ('ChernarusMap', 'BakedBeansCan_Opened', 'WaterBottle', 'Paper', 'Pen_Black',
+                'KitchenKnife', 'CamoNet', 'PersonalRadio', 'Battery9V', 'Mich2001Helmet', 'TortillaBag',
                 'UniversalLight', 'UniversalLight', 'Battery9V', 'Flashlight', 'Battery9V', 'DuctTape', 'DuctTape',
-                'Crowbar', 'Wrench', 'Pliers', 'Rag', 'Paper', 'Pen_Black', 'LeatherJacket_Beige',
+                'Crowbar', 'Wrench', 'Pliers', 'Rag',
                 'Mag_AKM_30Rnd', 'Ammo_762x39')
 
 
@@ -508,7 +510,7 @@ def gear_preset():
     carried = list(GEAR_CARRIED)
     return {'name': 'SoakTest', 'spawnWeight': 1,
             'characterTypes': ['SurvivorM_Mirek', 'SurvivorF_Eva'],
-            'attachmentSlotItemSets': [slot('Body', 'TShirt_Black'), slot('Legs', 'Jeans_Black'),
+            'attachmentSlotItemSets': [slot('Body', 'LeatherJacket_Beige'), slot('Legs', 'CargoPants_Black'),
                                        slot('Feet', 'Sneakers_Black'), slot('Back', 'AliceBag_Camo'), rifle],
             'discreteUnsortedItemSets': [{'name': 'soak-kit', 'spawnWeight': 1,
                                           'simpleChildrenTypes': carried, 'simpleChildrenUseDefaultAttributes': True}]}
@@ -520,6 +522,8 @@ def gameplay_with_preset(raw):
     if not isinstance(player, dict):
         raise Refused('mission cfggameplay.json has no PlayerData')
     player['spawnGearPresetFiles'] = [GEAR_REL]
+    data.setdefault('UIData', {})['use3DMap'] = False
+    data.setdefault('MapData', {})['ignoreMapOwnership'] = True
     return (json.dumps(data, indent=2) + '\n').encode('utf-8')
 
 
@@ -907,6 +911,7 @@ class Stager:
         settings = copy / 'HollowCountry/settings.json'
         settings.write_bytes(settings_with_fixtures(settings.read_bytes()))
         (copy / CELLAR_MARKER_REL).write_bytes(b'')
+        (copy / SPAWN_MARKER_REL).write_bytes(b'')
         self._write_new('mission', GEAR_REL, (json.dumps(gear_preset(), indent=2) + '\n').encode('utf-8'))
         self._edit('mission', GAMEPLAY, gameplay_with_preset)
         self._write_new('server', CFG_COPY, text_cfg)
@@ -924,12 +929,12 @@ class Stager:
         return self.summary()
 
     def summary(self):
-        rows = [('server', 'profile folders copied to ' + PROFILE_COPY + ' (EnableSmokeFixtures=true, FortifyBreachSeconds=20, cellar marker)'),
+        rows = [('server', 'profile folders copied to ' + PROFILE_COPY + ' (smoke fixtures, cellar marker, initial-spawn marker)'),
                 ('server', 'test config ' + CFG_COPY + ' (forage-season date, daytime, own storage instance)'),
                 ('server', 'start file ' + BAT_COPY + ' (test config, profile copy, ' + TEST_MOD + ')'),
                 ('server', TEST_MOD + ' (built and signed test addon)'),
                 ('mission', GEAR_REL + ' (test spawn gear)'),
-                ('mission', GAMEPLAY + ' edited in place (spawnGearPresetFiles), byte backup in the receipt'),
+                ('mission', GAMEPLAY + ' edited in place (spawnGearPresetFiles, vanilla 2D map), byte backup in the receipt'),
                 ('client', CLIENT_PROFILE + ' with the driver step file')]
         return rows
 
@@ -1462,13 +1467,13 @@ def command_report(phases, state, out):
 def _campaign_driver_plan(route):
     """Keep campaign-only kill plumbing and the audited step index in the same builder."""
     from tools.testing import driver_script
-    original, notes = driver_script.build_plan(list(route))
-    steps, index, offset = [], {}, 0
+    ranges = {}
+    original, notes = driver_script.build_plan(list(route), phase_ranges=ranges)
+    steps, index = [], {}
     for phase in route:
         # Preserve the full route's distance-based walk timeouts and waypoint notes.
-        length = len(driver_script.build_route([phase])['steps'])
-        phase_steps = original['steps'][offset:offset + length]
-        offset += length
+        start, end = ranges[phase]
+        phase_steps = original['steps'][start:end]
         if phase == 'walk_ai':
             phase_steps += [dict(kind='admin', cmd='fx_site_patrol_kill', value=''),
                             dict(kind='stand', seconds=20)]

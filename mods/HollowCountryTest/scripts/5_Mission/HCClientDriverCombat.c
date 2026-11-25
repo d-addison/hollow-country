@@ -88,6 +88,7 @@ class HCDriverCombat
     protected Weapon_Base m_Weapon;
     protected Magazine m_MagBefore;
     protected bool m_Begun;
+    protected float m_HandsRetry;
     protected EntityAI m_Target;
     protected float m_ScanAge;
     protected float m_LosAge;
@@ -129,6 +130,7 @@ class HCDriverCombat
         m_Weapon = null;
         m_MagBefore = null;
         m_Begun = false;
+        m_HandsRetry = 0;
         m_Target = null;
         m_ScanAge = 1.0;
         m_LosAge = 0;
@@ -282,7 +284,7 @@ class HCDriverCombat
         float errYaw = HCDriverWalker.Wrap180(wantYaw - lookYaw);
         float errPitch = wantPitch - lookPitch;
         // The override's sign convention is unobserved on retail: an error that does not shrink in a
-        // second flips that axis, as the walker does for turning.
+        // second flips that axis, for camera aiming only; navigation does not use this loop.
         m_MarkAge = m_MarkAge + dt;
         if (m_MarkAge >= 1.0)
         {
@@ -362,10 +364,16 @@ class HCDriverCombat
             {
                 m_Begun = true;
                 m_Weapon = FindWeapon(player);
-                if (m_Weapon && player.GetItemInHands() != m_Weapon) { player.PredictiveTakeEntityToHands(m_Weapon); }
+                HCDriverActions.RequestHands(player, m_Weapon);
+                m_HandsRetry = m_PhaseAge + 1.0;
             }
             if (m_Weapon && player.GetItemInHands() != m_Weapon)
             {
+                if (m_PhaseAge >= m_HandsRetry && m_PhaseAge < 8.0)
+                {
+                    m_HandsRetry = m_PhaseAge + 1.0;
+                    HCDriverActions.RequestHands(player, m_Weapon);
+                }
                 if (m_PhaseAge < 8.0) { return HCDriverResult.RUNNING; }
                 m_Weapon = null;  // could not take it to the hands: fight with what is held (fists)
             }

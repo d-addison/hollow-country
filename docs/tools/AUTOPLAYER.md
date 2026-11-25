@@ -18,10 +18,10 @@ verification order").
   `SetPosition` and never spawns an item server-side instead of looting. It has no god mode, never
   increments a counter itself, and never reads anything that only the server knows.
 - Setup fixtures (`HCTestSetupFixtures`, `HCTestReachFixtures`) stay admin-gated, server-side and
-  `fixture=1`. The autoplayer adds no new fixture. The vehicle phase drives the car that the
+  `fixture=1`. Round 2 adds only the initial-creation fixture documented below. The vehicle phase drives the car that the
   existing `fx_car_side` fixture already places.
 - The driver logs one `[HC Driver] step=<id> kind=<kind> result=<ok|refused|unsupported|timeout>
-  detail=<text>` line per step (the detail is capped at 160 characters), plus one `done` line.
+  detail=<text>` line per step (the detail is capped at 240 characters), plus one `done` line.
   It never prints a name, an id, an address or a path.
 - Work per frame is bounded. Each frame runs one step update, casts at most one raycast and makes
   at most one object query per scan period, and reuses its arrays.
@@ -274,21 +274,21 @@ All new steps have the same contract as the old ones: one `[HC Driver]` line, an
 kind; each one also runs alone (a targeted soak drives join, the phase and idle): `combat` and
 `loot` walk to the `scav-chernogorsk` site first unless the route already stands within 400 m of
 it, and `vehicle` places and flips the `fx_car_side` car first when no earlier `flip` ran (the
-same setup-only fixture and the real flip action). No reach row moved: the new phases are proven
-by their `[HC Driver]` lines, and no product counter is claimed for them.
+same setup-only fixture and the real flip action). Reach rows retain their phase names; the route order changes in round 2.
+Native `[HC Driver]` lines are required to prove each step.
 
 | # | Phase | Minutes | Steps |
 |---|---|---|---|
-| 1 | join | 5 | wait, stand, sprint, the four menus, admin status and snapshot, earplugs |
+| 1 | join | 5 | calibration, wait, stand, sprint, the four menus, admin status and snapshot, earplugs |
 | 2 | group | 2 | create a solo group, team ping |
 | 3 | walk_ai | 30 | walk to police-chernogorsk, stand |
-| 4 | walk_zone | 45 | walk into the balota zone, stand |
-| 5 | walk_town | 20 | walk to scav-chernogorsk, its street line as a `route`, stand |
-| 6 | combat | 5 | `combat range_m=60 timeout_s=180` |
-| 7 | loot | 6 | `loot range_m=40 max_items=4 timeout_s=300` |
-| 8 | fixtures | 10 | the setup-only fixtures (fx_car_side first) |
-| 9 | actions | 15 | craft, search, close and open a door, mount x2, salvage, flip, radio; admin radio, loot, decay, deaddrop |
-| 10 | vehicle | 4 | `vehicle range_m=40 seconds=8 throttle=0.5 timeout_s=180` |
+| 4 | walk_town | 20 | walk to scav-chernogorsk, its street line as a `route`, stand |
+| 5 | combat | 5 | `combat range_m=60 timeout_s=180` |
+| 6 | loot | 6 | `loot range_m=40 max_items=4 timeout_s=300` |
+| 7 | fixtures | 10 | the setup-only fixtures (fx_car_side first) |
+| 8 | actions | 15 | craft, search, close and open a door, mount x2, salvage, flip, radio; admin radio, loot, decay, deaddrop |
+| 9 | vehicle | 4 | `vehicle range_m=40 seconds=8 throttle=0.5 timeout_s=180` |
+| 10 | walk_zone | 45 | walk west into the Balota zone, stand |
 | 11 | scene | 12 | walk to scene-kamenka, scene, take, read, write x2 |
 | 12 | forest | 8 | walk to Bor South Rest, forage, pick forage, stand |
 | 13 | survive | 3 | `survive mode=always timeout_s=120` |
@@ -302,7 +302,7 @@ by their `[HC Driver]` lines, and no product counter is claimed for them.
 | `combat` | `range_m` (10..150), `timeout_s` | `HCDriverCombat` (HCClientDriverCombat.c). Takes the first rifle from the inventory to the hands (`PredictiveTakeEntityToHands`, 8 s), then reloads once with the vanilla reload key path `PlayerBase.QuickReloadWeapon` when `GetMagazineToReload` finds a magazine (Unjam, AttachMagazine, SwapMagazine or the bullet action, with the WeaponManager checks). Scans every second (`GetObjectsAtPosition3D`, reused arrays) for the nearest live `DayZInfected` or identity-less `PlayerBase` (a server AI) that one `RaycastRV` from the head can see. Raises with `OverrideRaise` and turns and pitches the camera onto it with `OverrideAimChangeX/Y` (an axis whose error does not shrink in a second flips its sign). On target for 0.5 s counts `engaged`. A target that dies while tracked counts `dead_seen`; 3 s out of sight or beyond 1.2 x range counts `lost`; 20 s per target; at most 3 targets and 3 reloads (re-reload when the magazine and chamber are empty). Bleeding, a falling health tendency or a critical health level lowers the weapon and sprints 40 m away from the threat (`retreated=1`). Fire and melee are never attempted. OK with `engaged` > 0 or after a retreat; refused `no-target-within-<range>m` when nothing was in sight; timeout `not-aimed` otherwise. Default route: the `combat` phase, right after walk_town (`range_m` 60, 180 s). | `engaged=<n> lost=<n> dead_seen=<n> reloads=<n> armed=<0\|1> retreated=<0\|1> fire=unsupported` |
 | `loot` | `range_m` (5..80), `max_items` (1..10), `timeout_s` | `HCDriverLoot` (HCClientDriverLoot.c). One `GetObjectsAtPosition3D` query per pick (reused arrays, at most 512 objects read) for loose items (`GetHierarchyParent` null, not ruined, within 2.5 m of the player's height). Picks the lowest tier, then the nearest: 0 a magazine the carried rifle takes (`WeaponManager.CanAttachMagazine`/`CanSwapMagazine`), 1 ammunition, 2 food (`Edible_Base`), 3 drink (`Bottle_Base`, `SodaCan_ColorBase`), 4 medical (bandage, rag, disinfectant, tablets, morphine, epinephrine), 5 a map (`ItemMap`); everything else is left lying. Walks to it and takes it with `ActionTakeItem` through `Can` and `PerformActionStart` (the F key). A take counts only once the synced hierarchy puts the item under the player (`GetHierarchyRootPlayer`). When `Can` fails (pockets full) it drops one junk item with `PredictiveDropEntity` and tries once more; junk is a carried cargo item that is not worn, held, attached, a weapon, magazine, food, drink, medical, map or part of the test kit. A failed walk or take skips that item (64-entry skip map). OK with `taken` > 0; refused `no-loot-within-<range>m` when nothing wanted lies in range, `could-not-take` when nothing could be taken; timeout `nothing-taken`. Default route: the `loot` phase, after `combat` (40 m, 4 items, 300 s). | `taken=<n> dropped=<n> seen=<n> skipped=<n> mag/ammo/food/drink/med/map=<a/b/c/d/e/f>` |
 | `survive` | `mode` (need or always), `timeout_s` (10..600) | `HCDriverSurvive` (HCClientDriverSurvive.c). Three tasks in order: bandage when `IsBleeding()` (a `BandageDressing` or `Rag`), drink (`Bottle_Base`/`SodaCan_ColorBase` with quantity), eat (`Edible_Base` that is not a medical edible). Mode `need` drinks or eats only when the HUD's water or energy tendency falls or its level is at least WARNING (VirtualHud, the client's own display state); `always` drinks and eats whatever it carries. Each task takes the item to the hands (`PredictiveTakeEntityToHands`, 8 s), then starts the first of the item's own `ContinuousDefaultActionInput` actions whose `Can` passes (`ActionBandageSelf`, `ActionDrink`, `ActionEat*`) through `PerformActionStart`, the hold-left-mouse path. Eating and drinking release the button (`EndActionInput`) after 8 s; a bandage runs until the bleeding stops (30 s cap). Credit comes from synced state only: bleeding stopped, or the item's quantity dropped or the item was used up. OK when any task was credited or nothing was needed; refused `none-done` otherwise; the reasons are listed (`no-bandage`, `no-drink`, `no-food`, `<task>-not-allowed`, `<task>-not-consumed`, `still-bleeding`). Default route: the `survive` phase after forest, mode `always` (after the town loot and the forage pickup). | `bandaged=<0\|1> ate=<0\|1> drank=<0\|1> missing=<reasons\|none>` |
-| `vehicle` | `range_m` (5..80), `seconds` (2..60), `throttle` (0.1..1.0), `timeout_s` (30..600) | `HCDriverVehicle` (HCClientDriverVehicle.c) and the pedal holder `HCDriverCarInput` (4_World/HCDriverCarInput.c). One `GetObjectsAtPosition3D` query for the nearest intact `CarScript` whose driver seat (the crew index with `GetSeatAnimationType` == `VEHICLESEAT_DRIVER`) is empty; the default route runs it right after `flip`, so it is the `fx_car_side` car flipped back onto its wheels. Walks to `CrewEntryWS` of the driver seat, then casts one `RaycastRV` per frame from the head through the door (a 5 x 6 grid, at most 30 rays) until the nearest hit is the car, its component maps to the driver seat (`CrewPositionIndex`) and `ActionGetInTransport.Can` passes, and starts the get-in with `PerformActionStart`. Seated once `GetCommand_Vehicle` is not getting in and `CrewDriver` is the player (12 s). Starts the engine with `ActionStartEngine` when `Can` passes (the car's own battery, plugs, fuel and engine decide; nothing is repaired or refuelled; a refusal is `note=engine-did-not-start`). With the engine on, the modded `CarScript.OnInput` (after super, client only, only for the car the local player drives) sets `SetThrottle`, `SetSteering` 0, `SetBrake` and `SetHandbrake` 0 for `seconds`, shifting a manual box to first as the DIAG drive does; then brakes to below 1 km/h (8 s cap), stops the engine with `ActionStopEngine` and gets out with `ActionGetOutTransport`. Out of time while seated still brakes and gets out. OK once the player stands outside again (engine and distance reported as they were); refused `no-free-car-within-<range>m`, `driver-door-not-usable`, `get-in-not-completed`, `left-the-car`, `get-out-not-allowed` or `get-out-not-completed`. | `seated=<0\|1> engine=<0\|1> drove_m=<n> top_kmh=<n> out=<0\|1>` and `note=` when set |
+| `vehicle` | `range_m` (5..80), `seconds` (2..60), `throttle` (0.1..1.0), `timeout_s` (30..600) | `HCDriverVehicle` (HCClientDriverVehicle.c) and the pedal holder `HCDriverCarInput` (4_World/HCDriverCarInput.c). One `GetObjectsAtPosition3D` query for the nearest intact `CarScript` whose driver seat (the crew index with `GetSeatAnimationType` == `VEHICLESEAT_DRIVER`) is empty; the default route runs it right after `flip`, so it is the `fx_car_side` car flipped back onto its wheels. Walks to `CrewEntryWS` of the driver seat, then casts one `RaycastRV` per frame from the head through the door (a 5 x 6 grid, at most 30 rays) until the nearest hit is the car, its component maps to the driver seat (`CrewPositionIndex`) and `ActionGetInTransport.Can` passes, and starts the get-in with `PerformActionStart`. Seated once `GetCommand_Vehicle` is not getting in and `CrewDriver` is the player (12 s). Starts the engine with `ActionStartEngine` when `Can` passes (the car's own battery, plugs, fuel and engine decide; nothing is repaired or refuelled; a refusal is `note=engine-did-not-start`). With the engine on, the modded `CarScript.OnInput` (after super, client only, only for the car the local player drives) sets `SetThrottle`, `SetSteering` 0, `SetBrake` and `SetHandbrake` 0 for `seconds`, shifting a manual box to first as the DIAG drive does; then brakes to below 1 km/h (8 s cap), stops the engine with `ActionStopEngine` and gets out with `ActionGetOutTransport`. Out of time while seated still brakes and gets out. OK once the player stands outside again after the engine ran and the car displaced at least 1 m; refused `no-free-car-within-<range>m`, `driver-door-not-usable`, `get-in-not-completed`, `left-the-car`, `get-out-not-allowed` or `get-out-not-completed`. | `seated=<0\|1> engine=<0\|1> drove_m=<n> top_kmh=<n> out=<0\|1>` and `note=` when set |
 | action `open_door` | none | Same raycast scan as `close_door`, with `ActionOpenDoors` (Can() fails for a locked or open door; never forced). The actions phase runs it right after `close_door`. | `completed-client-side` |
 
 ## Failure handling (no cheating)
@@ -361,20 +361,122 @@ same dev key as the local build, so it is in the server's keys. This is unverifi
 ## Unsettled native risks
 
 - Whether a retail client turns the character with `OverrideAimChangeX`, and whether the server
-  sees overrides as real input. The walker's aim-sign adaptation and the no-progress timeout keep
-  a failure visible.
+  sees overrides as real input. Navigation now avoids aim overrides; calibration and no-progress timeouts keep failures visible.
 - Whether the server accepts a client running the test mod when the server does not load it.
   The key is shared, but the effect of the script difference is unknown.
 - Whether `Car.SetThrottle` / `SetSteering` called from `OnInput` on the driver's client drive a
   retail car. Vanilla only does this under DIAG.
 - VirtualHud levels arrive through `RPC_SYNC_DISPLAY_STATUS` (`PlayerBase.c:5740`). Their client
   cadence is unobserved.
-- The map step needs the group frame to be enabled when it runs. The admin step needs the client
+- The map uses the test profile's vanilla 2D configuration when no group frame is available. The admin step needs the client
   on the admin allowlist of the local server.
 - The server samples the site radius around `HCSiteAnchor` (not the first waypoint), scaled by
   `ActivationRadiusScale` and the perception-ring clamp. The `enter` step uses
   `max(600, ActivationRadius)` from repo data and holds well inside it (radius minus 60 m).
 - A published mission must exist during the R3 window. With none, `enter zone=mission` refuses
-  with `no-published-mission` after its timeout.
+  with `no-usable-candidates zone=mission published=0` after 15 s.
 - R3 duration: soak minutes plus the client timeout must cover the walk-in. The R3 route stays
   near the spawn: it uses the nearest site candidate and the nearest mission row.
+
+## Round 2: native movement diagnosis and setup (build 186 follow-up)
+
+Round 1 has **no native successful walk**. Build 186 completed 95 steps with all five walks timing
+out. The following changes require a new native run; offline tests prove planning only.
+
+Native evidence below is relative to `scripts-1.30.164289`:
+
+- `1_Core/proto/EnConvert.c:341-368` documents vector `(1,0,1)` as yaw 45 degrees and yaw 45 as
+  `(0.707107,0,0.707107)`. Thus `atan2(dx,dz)` is consistent with engine yaw; swapping its
+  arguments or blindly negating body yaw is not justified.
+- `3_Game/human.c:25-31` distinguishes local movement direction from the **camera** heading,
+  which `GetHeadingAngle()` returns in radians. Body `GetOrientation()[0]` need not equal that
+  input frame. `human.c:253-262` declares the overrides but does not document their sign or frame;
+  `:459-467` documents movement angles in degrees and speeds 0 idle, 1 walk, 2 run, 3 sprint.
+  Round 1's speed values were valid.
+- `4_World/Systems/Bot/Bot_MovementRandomizer.c:26-39` reapplies `ONE_FRAME` movement from the bot
+  update. `5_Mission/GUI/CameraTools/CTEvent.c:50-51` and
+  `4_World/Plugins/PluginBase/PluginDayzPlayerDebug_Ctrl.c:124-135` also demonstrate persistent
+  enabled overrides. Persistent mode alone is therefore not proof of the failure.
+- `4_World/Entities/ManBase/PlayerBase.c:3206-3211` supplies the exact script `CommandHandler`
+  signature used by the new client-only hook, which calls super. The mission queues one input
+  request per frame; the local player's command callback consumes it once with `ONE_FRAME`, only
+  in `HumanCommandMove`. It never starts a movement command or replaces an engine method.
+- The native implementation of `OverrideAimChangeX` is opaque. Scripts establish per-tick radians
+  (`human.c:30`), not that it turns the body during movement. Round 1 flipped the aim sign every
+  second if heading error failed to shrink; that can oscillate indefinitely when aim does not turn
+  the body. Navigation now makes no aim-change requests.
+
+Ranked hypotheses: (1) body yaw differs from the movement input frame, compounded by oscillating
+look steering; (2) override timing/consumption; (3) a reversed movement-angle sign. The native cache
+cannot establish which caused the observed failure. Calibration measures the actual outcome:
+
+1. Before the first step, wait at most 10 s for a conscious, living player in `HumanCommandMove`
+   with input controls available; otherwise refuse `movement-or-controls-not-ready`. Then request angle 0 at run
+   speed for 2.5 s and angle +90 for 2.5 s.
+2. Emit **one** `[HC Driver] calib` line with forward/right displacement vectors, initial camera
+   facing, body yaw before/between/after, command id before/after, applied callback frames for each probe, and mission input restriction state (`controls`). It prints
+   `angle_sign`, `frame_offset`, `apply=measured-camera-frame aim=disabled`.
+3. Derive the movement-angle sign and forward offset relative to the camera from those measured
+   vectors. Every walk and route maneuver uses that frame at runtime. Do not infer a sign from
+   the word "right": the +90 probe may measure left. A probe with no consumed callback frames, displacement below 0.5 m, or a non-orthogonal
+   result (outside 45..135 degrees) refuse calibration. Walks then refuse `movement-uncalibrated`.
+   Calibration on obstructed ground is inconclusive; the lead must inspect its vectors.
+4. Every walk/route/sprint result begins its detail with `start=<x,z> end=<x,z> moved_m=N` (net
+   horizontal displacement, rounded metres), plus current `cmd` and `controls`, ahead of the arrival/stuck detail. Sprint also
+   requires displacement before it may succeed. No per-frame logging is added.
+
+### Initial creation and loadout fixtures
+
+Reason: a random coastal spawn can be 10 km from the route and consume the soak without reaching a
+feature. The isolated soak profile now contains `HollowCountry/autoplayer-initial-spawn`; only
+that marker enables `HCDriverInitialSpawn`. It passes `(6500, terrain height, 2500)` to
+`super.OnClientNewEvent`, before the entity exists. It never moves a living character.
+Native hook: `5_Mission/mission/missionServer.c:549` is the exact new-character signature;
+`:573-575` passes its position to character creation before native preset equipment processing,
+and `:589` does so for default equipment. `:499-509` supplies the base creation implementation.
+The cached stock Chernarus mission init overrides `CreateCharacter` without calling super; the
+earlier `OnClientNewEvent` hook therefore avoids a bypassed base `CreateCharacter` fixture. Persistence reconnects are unaffected. This fixture is for
+the isolated, single-client soak profile with fresh storage; do not use its marker on a shared
+server. The first log is `[HC Driver] spawn fixture=1 initial=1 at=<6500,2500>`.
+
+The route starts at that point, walks police Chernogorsk (~83 m), scavenger Chernogorsk (~228 m),
+then its street route. Combat/loot/fixtures/actions/vehicle stay there before the westbound walk to
+Balota and Kamenka, then the Bor shelter. Walk timeouts use actual planned leg lengths at 2.8 m/s
+for jogging, with 2x travel allowance plus 120 s. Calibration and the initial sprint can displace
+the start; that allowance covers their short distance. Each targeted phase still adds its own
+approach walk. Campaign phase indices use actual route boundaries, never standalone step counts.
+
+The existing **vanilla spawn-gear preset** (not a runtime spawn RPC) now prioritizes a ChernarusMap,
+opened beans, water, Paper and Pen_Black; worn leather jacket and cargo trousers increase capacity.
+Native `4_World/Classes/PlayerGearSpawn/CfgPlayerSpawnHandler.c:72-170` processes starting slots
+and cargo; `:270-313` uses inventory capacity checks. Failure to fit a kit item remains a native
+risk, reported as missing by the relevant step. This gear is selected only by the temporary soak
+`cfggameplay.json` and fresh character creation. That test configuration also selects the vanilla
+2D map (`UIData.use3DMap=false`, `MapData.ignoreMapOwnership=true`; accessors at
+`3_Game/CfgGameplayHandler.c:417-440`), so the keyboard map path can open without the group service.
+The staging receipt restores the original gameplay configuration and removes the copied profile.
+
+### Other build 186 failures
+
+| Build 186 steps | Round 2 handling (native verification pending) |
+|---|---|
+| s14/s18/s20/s79/s87 walk, s21 route | Measured frame/sign, command callback, no aim oscillation, nearby initial spawn, distance-based budgets and result displacement. |
+| s03 sprint | Same callback; time alone cannot pass without displacement. |
+| s08/s09 and 25 later admin commands | When `HCValid()` expires, send status, wait for its reply and authorization, then retry the original command. Tick pending requests during send retries too. Success records `session=refreshed`. A driver-only observer counts validated correlated replies; UI Revision expiry cannot complete a step. A refused reply remains refused with its server reason. Product `HCAdminClient.c:169-181,204` is unchanged. |
+| s04 map | Vanilla 2D-map test configuration plus starting map. |
+| s12 group | Explicit idempotent `Start` and `Update` drive the same handshake as `HCGroupGameplay.c:7-22`; wait up to 30 s. Distinguish absent snapshot, disabled server, pending transaction and server reply. No menu is required by `HCGroupClient.c:174-183,572-590`. A test-only observer adds `listening`, `session`, `sync_pending`, `frames`, `rejected` to readiness failures, distinguishing no reply from rejected snapshots. Build 186's generic reason cannot distinguish these; no group transport repair is claimed. |
+| s13 ping | Solo request only after group readiness; delivery/recipient counters still need a second player. |
+| s61 craft, s65/s66 mount, s67 salvage, s68 flip, s69 radio, s84 read, s86 write | P_PREP made one take-to-hands request and never retried or handled occupied hands. Native `3_Game/Entities/Man.c:178-189` can refuse busy input; `:422-437` supplies predictive swaps. Retry at 1 s intervals, swap occupied hands or stow the held item through inventory requests; refuse after 8 s with `hands-request-not-confirmed:inventory-busy-or-no-room`. |
+| s62/s63/s64 search/doors | Still refuse `no-candidate-within-40m` when no local candidate exists; improved movement may reach real candidates. |
+| s23 combat | Still refuses `no-target-within-60m` when no visible hostile is present; client firing remains unsupported. No weapon or target is created for this step. |
+| s24 loot | Native inventory/action constraints still decide; refuses `could-not-take` when no observed item is taken. No loot replacement. |
+| s83/s90 take/forage, s85 write taken | Still refuse no nearby item or `paper-missing:taken` if no world note was acquired. Starting paper supports the gear write; it does not pretend to be a scene note. |
+| s78 vehicle | Closed door attachments were rejected as non-car hits. Now open the real driver door with `ActionOpenCarDoorsOutside`, confirm `CrewCanGetThrough`, and rescan for get-in. A rejected body hit does not end the scan before a later door hit can offer opening. Action waits start when the action is requested. Refuse explicitly for heavy hands, `CanGetIn`, door-open/get-in condition rejection, or an unconfirmed open. Failed scans include door/car/driver-seat hit counts. After normal get-out cleanup, an engine that never started or displacement below 1 m returns refused. Native outside-door conditions (`Interact/Vehicles/ActionCarDoorsOutside.c:21-65`) and get-in conditions (`ActionGetInTransport.c:34-80`) stay authoritative. |
+| s92 survive | Starting food and drink address missing supplies; bounded hands retries also apply to survival and combat. Consumption still requires real actions and quantity change. Missing/blocked supplies remain refused. |
+| s93 enter | Search client-published rows only, refuse after 15 s if none usable; reject a candidate beyond the remaining walk budget with distance. Reachable entries still walk out/in and await the real server receipt. |
+
+The next client log order is `calib`, then s01 wait, s02 stand, s03 sprint (with displacement), s04
+map, s08 status, s09 snapshot, s12 group, s13 ping, s14 walk, s18 walk and s19 route in the **campaign**
+(the campaign inserts the patrol kill fixture after walk_ai). Later IDs are regenerated; consult
+`soak_campaign plan` for them. The final `done` must follow all result lines. Calibration is a
+separate startup probe and does not inflate the scripted step count or result totals.

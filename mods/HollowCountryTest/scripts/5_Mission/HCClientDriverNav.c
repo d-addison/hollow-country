@@ -244,7 +244,26 @@ class HCDriverEnter
             // Mission rows arrive over RPC after join; re-check once a second until the timeout.
             if (m_StageAge < 1.0 && m_Elapsed > dt) { return HCDriverResult.RUNNING; }
             m_StageAge = 0;
-            if (!Pick(player)) { return HCDriverResult.RUNNING; }
+            if (!Pick(player))
+            {
+                if (m_Elapsed >= 15.0)
+                {
+                    m_Detail = "no-usable-candidates zone=" + m_Zone + " published=" + Count().ToString();
+                    return HCDriverResult.REFUSED;
+                }
+                return HCDriverResult.RUNNING;
+            }
+            float leg = Math.AbsFloat(Distance(player) - InsideDistance());
+            if (Distance(player) < m_R)
+            {
+                float outside = m_R + HCDriverEnter.OUT_MARGIN * m_Margin;
+                leg = outside - Distance(player) + outside - InsideDistance();
+            }
+            if (leg > Math.Max(m_Timeout - m_Elapsed - m_Hold, 0) * 2.8)
+            {
+                m_Detail = "candidate-out-of-walk-budget distance_m=" + Math.Round(leg).ToString() + Tail();
+                return HCDriverResult.REFUSED;
+            }
             if (Distance(player) < m_R) { BeginOut(player, walker); }
             else { BeginIn(walker); }
             return HCDriverResult.RUNNING;
@@ -300,8 +319,8 @@ class HCDriverEnter
 // Multi-waypoint walk with a stuck ladder (kind route). points = flat x,z pairs from driver_script.py.
 // Each leg is an HCDriverWalker leg in hand-over mode: after HANDOVER_SECONDS without 1 m of progress
 // the walker reports stuck and the route climbs one rung:
-//   1 side-right  2 s strafe to the right of the heading  (human.c:256 OverrideMovementAngle +90)
-//   2 side-left   2 s strafe to the left                  (-90)
+//   1 side-right  2 s strafe to the right of the target heading (calibrated angle sign)
+//   2 side-left   2 s strafe to the left (calibrated angle sign)
 //   3 back-up     2 s walking backwards                    (180, speed 1 per human.c:467)
 //   4 door        ActionOpenDoors on a door in reach of where the player stands, through the
 //                 client action manager (HCDriverActions.BeginInReach; ActionOpenDoors.c:1); a
@@ -409,10 +428,9 @@ class HCDriverRoute
         if (!input) { return; }
         vector pos = player.GetPosition();
         float want = Math.Atan2(m_Points[m_Waypoint * 2] - pos[0], m_Points[m_Waypoint * 2 + 1] - pos[2]) * Math.RAD2DEG;
-        float diff = HCDriverWalker.Wrap180(want - player.GetOrientation()[0]);
-        input.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, speed);
-        input.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, HCDriverWalker.Wrap180(diff + offset));
-        input.OverrideAimChangeX(HumanInputControllerOverrideType.ENABLED, 0);
+        float frame = HCDriverWalker.CameraYaw() + HCDriverMovement.HeadingOffset;
+        float diff = HCDriverWalker.Wrap180(want - frame + offset);
+        HCDriverMovement.Request(speed, diff * HCDriverMovement.AngleSign);
     }
 
     // Next rung after a stuck report; false when the ladder is exhausted.

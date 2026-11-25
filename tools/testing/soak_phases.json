@@ -19,11 +19,6 @@
    "what": "walk to police-chernogorsk on foot, wait 30 s, fx_site_patrol_kill once, observe 20 s"
   },
   {
-   "name": "walk_zone",
-   "minutes": 45,
-   "what": "walk into a zone with guards and an event radius"
-  },
-  {
    "name": "walk_town",
    "minutes": 20,
    "what": "walk through a town for signs of life, interiors and doors, then the scavenger street line as a route (stuck ladder: sidestep, back up, open a door, skip once)"
@@ -52,6 +47,11 @@
    "name": "vehicle",
    "minutes": 4,
    "what": "the fx_car_side car the actions phase flipped (placed and flipped first when run alone): walk to the driver door, vanilla get-in, start engine, 8 s at half throttle, brake, stop engine and get out"
+  },
+  {
+   "name": "walk_zone",
+   "minutes": 45,
+   "what": "walk into a zone with guards and an event radius"
   },
   {
    "name": "scene",

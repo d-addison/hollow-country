@@ -28,6 +28,19 @@ class HCClientDriver
     protected ref HCDriverLoot m_Loot = new HCDriverLoot;
     protected ref HCDriverSurvive m_Survive = new HCDriverSurvive;
     protected ref HCDriverVehicle m_Vehicle = new HCDriverVehicle;
+    protected vector m_Start;
+    protected bool m_CalibDone;
+    protected int m_CalibStage;
+    protected float m_CalibAge;
+    protected vector m_CalibStart;
+    protected vector m_CalibForward;
+    protected vector m_CalibRightStart;
+    protected float m_CalibYaw;
+    protected float m_CalibCamera;
+    protected float m_CalibMidYaw;
+    protected int m_CalibCommand;
+    protected int m_CalibApplied;
+    protected int m_CalibForwardFrames;
     protected bool m_Live;
     protected bool m_Finished;
     protected int m_Index;
@@ -35,6 +48,7 @@ class HCClientDriver
     protected float m_StepAge;
     protected int m_Stage;
     protected int m_Mark;
+    protected bool m_AdminRefreshed;
     protected string m_Text;
     protected int m_Ok;
     protected int m_Refused;
@@ -43,6 +57,8 @@ class HCClientDriver
 
     void Init()
     {
+        HCDriverMovement.Stop();
+        HCDriverMovement.Calibrated = false;
         HCDriverScript script;
         string reason = HCDriverFile.Load(script);
         if (reason != "")
@@ -59,6 +75,7 @@ class HCClientDriver
     {
         if (!m_Live || m_Finished) { return; }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+        m_Walker.Release(player);
         m_Actions.Abort(player, m_Walker);
         m_Combat.Release(player);
         m_Vehicle.Release();
@@ -78,6 +95,15 @@ class HCClientDriver
         m_Vehicle.Release();
         string stepId = step.id;
         if (stepId == "") { stepId = "s" + (m_Index + 1).ToString(); }
+        if (step.kind == "walk" || step.kind == "route" || step.kind == "sprint")
+        {
+            vector end = player.GetPosition();
+            string travel = "start=<" + HCDriverWalker.XZ(m_Start) + "> end=<" + HCDriverWalker.XZ(end) + "> moved_m=" + Math.Round(HCDriverWalker.FlatLength(end - m_Start)).ToString();
+            int controls = 0;
+            Mission mission = GetGame().GetMission();
+            if (mission && mission.IsControlDisabled()) { controls = 1; }
+            detail = travel + " cmd=" + HCDriverMovement.CommandId.ToString() + " controls=" + controls.ToString() + " " + detail;
+        }
         HCDriverLog.Step(stepId, step.kind, code, detail);
         if (code == HCDriverResult.OK) { m_Ok++; }
         if (code == HCDriverResult.REFUSED) { m_Refused++; }
@@ -95,6 +121,11 @@ class HCClientDriver
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !player.IsPlayerLoaded()) { return; }
         float dt = Math.Clamp(timeslice, 0.001, 0.25);
+        if (!m_CalibDone)
+        {
+            Calibrate(player, dt);
+            return;
+        }
         HCDriverStep step = m_Script.steps[m_Index];
         if (!step)
         {
@@ -104,10 +135,12 @@ class HCClientDriver
         }
         if (!m_StepOpen)
         {
+            m_Start = player.GetPosition();
             m_StepOpen = true;
             m_StepAge = 0;
             m_Stage = 0;
             m_Mark = 0;
+            m_AdminRefreshed = false;
             m_Text = "";
         }
         m_StepAge = m_StepAge + dt;
@@ -125,6 +158,7 @@ class HCClientDriver
         {
             code = StepSprint(step, player);
             detail = "sprinted-" + Math.Round(step.seconds).ToString() + "s";
+            if (code == HCDriverResult.REFUSED) { detail = "sprint-no-movement-or-command"; }
         }
         else if (step.kind == "walk")
         {
@@ -191,13 +225,86 @@ class HCClientDriver
         if (code != HCDriverResult.RUNNING) { EndStep(step, code, detail, player); }
     }
 
+    // One five-second calibration before the first scripted step; no per-frame logs.
+    protected void Calibrate(PlayerBase player, float dt)
+    {
+        m_CalibAge = m_CalibAge + dt;
+        if (m_CalibStage == 0)
+        {
+            // Loading can precede movement and the end of the spawn input restriction.
+            Mission loadingMission = GetGame().GetMission();
+            bool ready = player.IsAlive() && !player.IsUnconscious() && player.GetCommand_Move() && player.GetInputController();
+            if (loadingMission && loadingMission.IsControlDisabled()) { ready = false; }
+            if (!ready)
+            {
+                if (m_CalibAge < 10.0) { return; }
+                m_Walker.Release(player);
+                Print("[HC Driver] calib result=refused reason=movement-or-controls-not-ready apply=refused aim=disabled");
+                m_CalibDone = true;
+                return;
+            }
+            m_CalibStage = 1;
+            m_CalibAge = 0;
+            m_CalibStart = player.GetPosition();
+            m_CalibYaw = player.GetOrientation()[0];
+            m_CalibCamera = HCDriverWalker.CameraYaw();
+            m_CalibCommand = HCDriverMovement.CommandId;
+            m_CalibApplied = HCDriverMovement.AppliedFrames;
+        }
+        if (m_CalibStage == 1)
+        {
+            if (m_CalibAge < 2.5)
+            {
+                HCDriverMovement.Request(2.0, 0);
+                return;
+            }
+            m_CalibForward = player.GetPosition() - m_CalibStart;
+            m_CalibForwardFrames = HCDriverMovement.AppliedFrames - m_CalibApplied;
+            m_CalibApplied = HCDriverMovement.AppliedFrames;
+            m_CalibRightStart = player.GetPosition();
+            m_CalibMidYaw = player.GetOrientation()[0];
+            m_CalibAge = 0;
+            m_CalibStage = 2;
+        }
+        if (m_CalibAge < 2.5)
+        {
+            HCDriverMovement.Request(2.0, 90.0);
+            return;
+        }
+        m_Walker.Release(player);
+        vector right = player.GetPosition() - m_CalibRightStart;
+        float forwardBearing = Math.Atan2(m_CalibForward[0], m_CalibForward[2]) * Math.RAD2DEG;
+        float rightBearing = Math.Atan2(right[0], right[2]) * Math.RAD2DEG;
+        HCDriverMovement.HeadingOffset = HCDriverWalker.Wrap180(forwardBearing - m_CalibCamera);
+        float turn = HCDriverWalker.Wrap180(rightBearing - HCDriverWalker.CameraYaw() - HCDriverMovement.HeadingOffset);
+        HCDriverMovement.AngleSign = 1.0;
+        if (turn < 0) { HCDriverMovement.AngleSign = -1.0; }
+        int rightFrames = HCDriverMovement.AppliedFrames - m_CalibApplied;
+        HCDriverMovement.Calibrated = m_CalibForwardFrames > 0 && rightFrames > 0 && HCDriverWalker.FlatLength(m_CalibForward) > 0.5 && HCDriverWalker.FlatLength(right) > 0.5 && Math.AbsFloat(turn) > 45 && Math.AbsFloat(turn) < 135 && player.GetCommand_Move() != null;
+        string result = "refused";
+        string applied = "refused";
+        if (HCDriverMovement.Calibrated) { result = "ok"; applied = "measured-camera-frame"; }
+        string calibration = "[HC Driver] calib result=" + result + " forward=<" + HCDriverWalker.XZ(m_CalibForward) + "> right=<" + HCDriverWalker.XZ(right) + ">";
+        calibration = calibration + " facing=" + Math.Round(m_CalibCamera).ToString() + " yaw=" + Math.Round(m_CalibYaw).ToString() + "," + Math.Round(m_CalibMidYaw).ToString() + "," + Math.Round(player.GetOrientation()[0]).ToString();
+        calibration = calibration + " cmd=" + m_CalibCommand.ToString() + "," + HCDriverMovement.CommandId.ToString() + " applied_frames=" + m_CalibForwardFrames.ToString() + "," + rightFrames.ToString();
+        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + Math.Round(HCDriverMovement.HeadingOffset).ToString() + " apply=" + applied + " aim=disabled";
+        int controls = 0;
+        Mission mission = GetGame().GetMission();
+        if (mission && mission.IsControlDisabled()) { controls = 1; }
+        calibration = calibration + " controls=" + controls.ToString();
+        Print("" + calibration);
+        m_CalibDone = true;
+    }
+
     protected int StepSprint(HCDriverStep step, PlayerBase player)
     {
         if (m_StepAge >= step.seconds)
         {
             m_Walker.Release(player);
+            if (HCDriverWalker.FlatLength(player.GetPosition() - m_Start) < 0.5) { return HCDriverResult.REFUSED; }
             return HCDriverResult.OK;
         }
+        if (!HCDriverMovement.Calibrated || !player.GetCommand_Move()) { return HCDriverResult.REFUSED; }
         if (!player.GetInputController()) { return HCDriverResult.UNSUPPORTED; }
         m_Walker.Forward(player, 3.0);
         return HCDriverResult.RUNNING;
@@ -274,6 +381,9 @@ class HCClientDriver
         if (!player || !player.IsAlive() || player.IsUnconscious()) { return false; }
         HCGroupClient client = HCGroupClient.Get();
         if (!client) { return false; }
+        // Same Start/Update entry points as HCGroupGameplay, including its initial SYNC.
+        client.Start();
+        client.Update();
         HCGroupSnapshot frame = client.GetSnapshot();
         return frame && frame.Enabled;
     }
@@ -372,28 +482,51 @@ class HCClientDriver
             return HCDriverResult.REFUSED;
         }
         if (step.value != "") { amount = step.value.ToInt(); }
-        if (m_Stage == 0)
+        admin.HCListen();
+        admin.HCTick();
+        // HCTick expires a stale authorized session by calling HCStop (removes its listener).
+        admin.HCListen();
+        if (m_Stage == 0 && step.cmd != "status" && !admin.HCValid())
         {
-            admin.HCListen();
+            if (admin.HCSend("status"))
+            {
+                m_Stage = 2;
+                m_StepAge = 0;
+                m_Mark = admin.HCDriverReplySerial();
+            }
+            else if (m_StepAge > 12.0)
+            {
+                m_Text = "session-refresh-not-sendable";
+                return HCDriverResult.REFUSED;
+            }
+            return HCDriverResult.RUNNING;
+        }
+        if (m_Stage == 0 || m_Stage == 3)
+        {
             if (admin.HCSend(step.cmd, amount))
             {
                 m_Stage = 1;
                 m_StepAge = 0;
-                m_Mark = admin.Revision;
+                m_Mark = admin.HCDriverReplySerial();
                 return HCDriverResult.RUNNING;
             }
             if (m_StepAge > 8.0)
             {
-                m_Text = "not-sendable:" + admin.Notice;
+                m_Text = "not-sendable:pending-or-send-spacing";
                 return HCDriverResult.REFUSED;
             }
             return HCDriverResult.RUNNING;
         }
         admin.HCTick();
-        if (admin.Revision != m_Mark && admin.Notice.IndexOf("Request sent") != 0)
+        if (admin.Notice.IndexOf("No server reply") >= 0)
         {
-            m_Mark = admin.Revision;
-            string notice = admin.Notice;
+            m_Text = "no-server-reply";
+            return HCDriverResult.TIMEOUT;
+        }
+        if (admin.HCDriverReplySerial() != m_Mark)
+        {
+            m_Mark = admin.HCDriverReplySerial();
+            string notice = admin.HCDriverReplyNotice();
             if (notice.IndexOf("No server reply") >= 0)
             {
                 m_Text = "no-server-reply";
@@ -406,7 +539,16 @@ class HCClientDriver
                 if (at >= 0) { m_Text = "refused reason=" + notice.Substring(at + 7, notice.Length() - at - 7); }
                 return HCDriverResult.REFUSED;
             }
+            if (m_Stage == 2)
+            {
+                if (!admin.HCValid()) { m_Text = "status-session-not-authorized"; return HCDriverResult.REFUSED; }
+                m_AdminRefreshed = true;
+                m_Stage = 3;
+                m_StepAge = 0;
+                return HCDriverResult.RUNNING;
+            }
             m_Text = "cmd=" + step.cmd;
+            if (m_AdminRefreshed) { m_Text = m_Text + " session=refreshed"; }
             if (notice.IndexOf("fixture=1") >= 0) { m_Text = m_Text + " fixture=1"; }
             return HCDriverResult.OK;
         }
@@ -434,6 +576,9 @@ class HCClientDriver
             m_Text = "no-group-client";
             return HCDriverResult.UNSUPPORTED;
         }
+        // Same Start/Update entry points as HCGroupGameplay, including its initial SYNC.
+        client.Start();
+        client.Update();
         HCGroupSnapshot frame = client.GetSnapshot();
         if (m_Stage == 0)
         {
@@ -472,10 +617,13 @@ class HCClientDriver
                     return HCDriverResult.RUNNING;
                 }
             }
-            if (m_StepAge > 15.0)
+            if (m_StepAge > 30.0)
             {
-                m_Text = "client-not-ready";
+                m_Text = "group-no-snapshot-after-sync";
+                if ((frame && !frame.Enabled) || client.HCDriverServiceDisabled()) { m_Text = "group-disabled-by-server"; }
+                if (client.IsBusy()) { m_Text = "group-transaction-pending"; }
                 if (step.kind == "ping") { m_Text = "not-in-group-or-ping-disabled"; }
+                m_Text = m_Text + client.HCDriverReadiness();
                 return HCDriverResult.REFUSED;
             }
             return HCDriverResult.RUNNING;

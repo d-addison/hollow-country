@@ -27,6 +27,29 @@ class DriverScriptTests(unittest.TestCase):
         names = {step["name"] for step in script["steps"] if step["kind"] == "action"}
         self.assertEqual(names, set(ds.ACTION_ARGS) - set(ds.UNSUPPORTED_ACTIONS))
 
+    def test_initial_spawn_route_uses_nearest_legs_and_measured_lengths(self):
+        script, notes = ds.build_plan(list(ds.PHASES))
+        walks = [step for step in script["steps"] if step["kind"] == "walk"]
+        self.assertEqual([notes[s["id"]] for s in walks],
+                         [ds.AI_SITE, ds.TOWN, ds.ZONE, ds.SCENE, ds.FOREST])
+        first = walks[0]
+        import math
+        distance = math.dist(ds.SPAWN_XZ, first["to"])
+        self.assertLess(distance, 100)
+        self.assertEqual(first["timeout_s"], ds._timeout_for(distance, first["gait"]))
+
+    def test_phase_ranges_describe_combined_route_not_standalone_lengths(self):
+        ranges = {}
+        script, _ = ds.build_plan(list(ds.PHASES), phase_ranges=ranges)
+        self.assertEqual(ranges["join"][0], 0)
+        self.assertEqual(ranges["idle"][1], len(script["steps"]))
+        for previous, following in zip(ds.PHASES, ds.PHASES[1:]):
+            self.assertEqual(ranges[previous][1], ranges[following][0])
+        start, end = ranges["combat"]
+        self.assertEqual([s["kind"] for s in script["steps"][start:end]], ["combat"])
+        alone = ds.build_route(["combat"])
+        self.assertEqual([s["kind"] for s in alone["steps"]], ["walk", "combat"])
+
     def test_every_phase_builds_alone(self):
         for phase in ds.PHASES:
             script = ds.build_route([phase])

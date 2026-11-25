@@ -105,7 +105,7 @@ class HCDriverLog
     // the detail tail, bounded length.
     static string Clean(string text)
     {
-        if (text.Length() > 160) { text = text.Substring(0, 160); }
+        if (text.Length() > 240) { text = text.Substring(0, 240); }
         return text;
     }
 }
