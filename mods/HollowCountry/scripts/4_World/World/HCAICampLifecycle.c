@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // HC-16 / #143 -> LC-T408/413/416. Finite logical logistics, never native
 // inventory. Schema 3 returns unspent logical allocations once and slowly
 // replenishes capped logical reserves. No CE items or fake action receipts.
@@ -234,8 +235,9 @@ class HCAICampDebug : HCDebugContributor
     {
         if (!Owner || HCHoldouts.Get() != Owner || Owner.Count() == 0) { return; }
         int count = Math.Min(16, Owner.Count());
-        for (int pointIndex = 0; pointIndex < count; pointIndex++)
+        for (int pointIndex = snapshot.HCRow; pointIndex < count; pointIndex++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             m_Cursor = m_Cursor % Owner.Count();
             Owner.HCDescribeCamp(snapshot, m_Cursor);
             m_Cursor++;

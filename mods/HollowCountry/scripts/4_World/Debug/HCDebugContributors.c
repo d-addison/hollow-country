@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // W5 #122, READ ONLY. Native scripts-1.30.164289 evidence:
 // 3_Game/Global/Game.c:945 GetPlayers (once per capture, cached for leads);
 // Entities/Object.c:287 GetPosition, :517 IsAlive; Entities/Man.c:21 GetIdentity;
@@ -20,13 +21,18 @@ class HCDebugPlayersContributor : HCDebugContributor
 
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
-        m_Roster.Clear();
-        Players.Clear();
-        GetGame().GetPlayers(m_Roster);
+        if (!snapshot.HCStarted)
+        {
+            snapshot.HCStarted = true;
+            m_Roster.Clear();
+            Players.Clear();
+            GetGame().GetPlayers(m_Roster);
+        }
         int work = m_Roster.Count();
         if (work > 64) { work = 64; }
-        for (int index = 0; index < work; index++)
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             if (m_Cursor >= m_Roster.Count()) { m_Cursor = 0; }
             int slot = m_Cursor;
             m_Cursor++;
@@ -47,8 +53,9 @@ class HCDebugHoldoutsContributor : HCDebugContributor
         if (!holdouts) { return; }
         int work = holdouts.Count();
         if (work > 24) { work = 24; }
-        for (int index = 0; index < work; index++)
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCWorldHoldout row = holdouts.Snapshot(index);
             if (!row) { continue; }
             snapshot.AddPoint("holdouts", row.Id, row.HousePos, row.PlaceId, row.State + " / " + row.Routine + " occupants=" + row.Occupants.ToString());
@@ -64,8 +71,9 @@ class HCDebugDeadDropsContributor : HCDebugContributor
         if (!drops) { return; }
         int work = drops.Count();
         if (work > 8) { work = 8; }
-        for (int index = 0; index < work; index++)
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             EntityAI cache = drops.Cache(index);
             if (!cache) { continue; }
             snapshot.AddPoint("dead_drops", drops.CacheId(index), cache.GetPosition(), drops.CacheId(index), "Live bound cache; no inventory content exported");
@@ -79,8 +87,9 @@ class HCDebugSheltersContributor : HCDebugContributor
     {
         int work = HCShelterCatalog.Count();
         if (work > 64) { work = 64; }
-        for (int index = 0; index < work; index++)
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCShelterEntry shelter = HCShelterCatalog.Get(index);
             if (!shelter) { continue; }
             string state = "Catalog site; not placed. ";
@@ -92,16 +101,23 @@ class HCDebugSheltersContributor : HCDebugContributor
 
 class HCDebugEventsContributor : HCDebugContributor
 {
+    protected ref HCEventRuntimeState m_CaptureState;
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
         HCEventModule events = HCEventModule.Get();
         if (!events || !events.Runtime()) { return; }
-        HCEventRuntimeState state = events.Runtime().Snapshot();
+        if (!snapshot.HCStarted)
+        {
+            snapshot.HCStarted = true;
+            m_CaptureState = events.Runtime().Snapshot();
+        }
+        HCEventRuntimeState state = m_CaptureState;
         if (!state || !state.Runs) { return; }
         int work = state.Runs.Count();
         if (work > 32) { work = 32; }
-        for (int index = 0; index < work; index++)
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCEventRun run = state.Runs[index];
             if (!run || !run.Objective || run.Phase == HCEventRunPhase.CLOSED) { continue; }
             HCEventMission objective = run.Objective;
@@ -125,6 +141,7 @@ class HCDebugEventsContributor : HCDebugContributor
 class HCDebugLeadsContributor : HCDebugContributor
 {
     protected ref HCDebugPlayersContributor m_Players;
+    protected ref array<ref HCWorldLead> m_Received;
     protected int m_Cursor;
     // Native EnScript.c:857,902,917 map Clear/Set/Contains.
     protected ref map<string, bool> m_SeenGroups = new map<string, bool>;
@@ -136,33 +153,47 @@ class HCDebugLeadsContributor : HCDebugContributor
         HCLeadModule leads = HCLeadModule.Get();
         HCGroupService groups = HCGroupService.Get();
         if (!leads || !m_Players || !m_Players.Players) { return; }
-        m_SeenGroups.Clear();
+        if (!snapshot.HCStarted)
+        {
+            snapshot.HCStarted = true;
+            m_SeenGroups.Clear();
+            m_Received = null;
+        }
         int work = m_Players.Players.Count();
         if (work > 8) { work = 8; }
-        int emitted;
-        for (int index = 0; index < work; index++)
+        while (snapshot.HCSubRow < work || m_Received)
         {
-            if (m_Cursor >= m_Players.Players.Count()) { m_Cursor = 0; }
-            PlayerBase player = PlayerBase.Cast(m_Players.Players[m_Cursor]);
-            m_Cursor++;
-            if (!player || !player.GetIdentity()) { continue; }
-            string groupId = HCLeadPolicy.SoloGroup(player.GetIdentity().GetId());
-            if (groups) { groupId = groups.HCLeadGroup(player); }
-            if (groupId == "" || m_SeenGroups.Contains(groupId)) { continue; }
-            m_SeenGroups.Set(groupId, true);
-            array<ref HCWorldLead> received;
-            leads.GroupLeads(groupId, received);
-            if (!received) { continue; }
-            for (int leadIndex = 0; leadIndex < received.Count(); leadIndex++)
+            if (!m_Received)
             {
-                if (emitted >= 64) { return; }
-                emitted++;
-                HCWorldLead lead = received[leadIndex];
+                // A recipient lookup is a bounded work unit even with no rows.
+                if (!snapshot.HCRowStep()) { return; }
+                snapshot.HCRow = 0;
+                if (m_Cursor >= m_Players.Players.Count()) { m_Cursor = 0; }
+                PlayerBase player = PlayerBase.Cast(m_Players.Players[m_Cursor]);
+                m_Cursor++;
+                snapshot.HCSubRow++;
+                if (!player || !player.GetIdentity()) { continue; }
+                string groupId = HCLeadPolicy.SoloGroup(player.GetIdentity().GetId());
+                if (groups) { groupId = groups.HCLeadGroup(player); }
+                if (groupId == "" || m_SeenGroups.Contains(groupId)) { continue; }
+                m_SeenGroups.Set(groupId, true);
+                leads.GroupLeads(groupId, m_Received);
+                if (!m_Received) { continue; }
+            }
+            while (snapshot.HCRow < m_Received.Count())
+            {
+                if (snapshot.HCShown >= 64) { m_Received = null; return; }
+                int leadIndex = snapshot.HCRow;
+                if (!snapshot.HCRowStep()) { return; }
+                snapshot.HCShown++;
+                HCWorldLead lead = m_Received[leadIndex];
                 if (!lead) { continue; }
                 HCWorldPlace place = HCLeadPolicy.Place(lead.TargetPlaceId);
                 if (!place) { continue; }
                 snapshot.AddPoint("leads", lead.Id, place.Position, place.Name, HCLeadPolicy.Text(lead));
             }
+            m_Received = null;
+            snapshot.HCRow = 0;
         }
     }
 }
@@ -175,8 +206,9 @@ class HCDebugMaterializerCandidatesContributor : HCDebugContributor
         if (!world) { return; }
         int work = HCWorldLimits.HOLDOUTS + HCWorldLimits.PARTIES;
         if (work > 64) { work = 64; }
-        for (int index = 0; index < work; index++)
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCWorldProposal row = world.MaterializerRow(index);
             if (!row) { continue; }
             snapshot.AddPoint("materializer_candidates", row.Id, row.Position, row.Kind + " / " + row.PlaceId, "Eligible ledger candidate only; not a queued proposal or live body. Actor cap=" + row.ActorCap.ToString());

@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // W5 #122: shared snapshot contributor; no tick or player enumeration. Describe
 // visits <=66 site states, <=64 member slots, and <=2 routes of <=128 points.
 // No allocations when stopped or snapshot preference is off (shared caller).
@@ -13,37 +14,52 @@ class HCXAIPatrolDebug : HCDebugContributor
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director || director.Phase() != "run" || !snapshot) { return; }
         array<ref HCXAISiteState> states = director.States();
-        int visited = 0;
-        int memberSlots = 0;
-        int routes = 0;
-        foreach (HCXAISiteState state : states)
+        while (snapshot.HCRow < states.Count())
         {
-            if (visited >= 66 || memberSlots >= 64 || routes >= 2) { break; }
-            visited++;
-            if (!state || !state.Qualified || !state.Patrol) { continue; }
+            if (snapshot.HCRow >= 66 || (snapshot.HCShown >= 64 && snapshot.HCSubRow == 0) || snapshot.HCTotal >= 2) { break; }
+            HCXAISiteState state = states[snapshot.HCRow];
+            if (!state || !state.Qualified || !state.Patrol)
+            {
+                if (!snapshot.HCRowStep()) { return; }
+                snapshot.HCSubRow = 0;
+                continue;
+            }
             eAIGroup group = HCXExpansionBridge.HCHoldResolve(state.Patrol.HCGroupHold());
-            if (!group || HCXExpansionBridge.HCGroupCount(group) == 0) { continue; }
+            if (!group || HCXExpansionBridge.HCGroupCount(group) == 0)
+            {
+                if (!snapshot.HCRowStep()) { return; }
+                snapshot.HCSubRow = 0;
+                continue;
+            }
             string faction = HCXFactions.Id(HCXExpansionBridge.HCGroupGetFaction(group));
             if (faction == "") { faction = state.Site.Faction; }
             string activity = "patrol";
             if (HCXExpansionBridge.HCGroupIsInCombat(group)) { activity = "combat"; }
             string detail = "faction=" + faction + " state=" + activity + " kind=" + state.Site.Kind;
-            int memberIndex = 0;
-            while (memberIndex < HCXExpansionBridge.HCGroupCount(group) && memberSlots < 64)
+            int memberIndex = snapshot.HCSubRow;
+            while (memberIndex < HCXExpansionBridge.HCGroupCount(group) && snapshot.HCShown < 64)
             {
+                // RowStep advances the outer index; keep it until this group ends.
+                if (!snapshot.HCRowStep()) { return; }
+                snapshot.HCRow--;
+                snapshot.HCShown++;
                 DayZPlayerImplement member = HCXExpansionBridge.HCGroupGetMember(group, memberIndex);
-                memberSlots++;
                 if (member && member.IsAlive())
                 {
                     snapshot.AddPoint("ai", state.Site.Id + ":" + memberIndex.ToString(), member.GetPosition(), state.Site.Id, detail);
                 }
                 memberIndex++;
+                snapshot.HCSubRow = memberIndex;
             }
+            if (!snapshot.HCRowStep()) { return; }
+            snapshot.HCRow--;
             if (state.PatrolPoints.Count() > 0 && state.PatrolPoints.Count() <= 128)
             {
                 snapshot.AddRoute("ai", state.Site.Id, state.PatrolPoints, state.Site.Id + " " + detail);
             }
-            routes++;
+            snapshot.HCRow++;
+            snapshot.HCSubRow = 0;
+            snapshot.HCTotal++;
         }
     }
 }

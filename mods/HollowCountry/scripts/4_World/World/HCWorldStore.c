@@ -34,6 +34,9 @@ class HCWorldClock
 class HCPersistenceReadRetry
 {
     protected int m_Attempts;
+    protected int m_Deferred;
+    protected bool m_Terminal;
+    protected string m_Store;
     protected float m_Wait;
     protected bool m_Pending;
     protected int m_SaveRefused;
@@ -42,11 +45,14 @@ class HCPersistenceReadRetry
     void HCReset()
     {
         m_Attempts = 0;
+        m_Deferred = 0;
+        m_Terminal = false;
+        m_Store = "";
         m_Wait = 0;
         m_Pending = false;
         m_SaveRefused = 0;
     }
-    bool HCExhausted() { return m_Attempts >= 12; }
+    bool HCExhausted() { return m_Terminal || m_Attempts >= 12; }
     string HCReason(string store)
     {
         if (HCExhausted()) { return store + "_read_exhausted"; }
@@ -57,12 +63,13 @@ class HCPersistenceReadRetry
     int HCAttempts() { return m_Attempts; }
     bool HCBegin()
     {
-        if (m_Attempts >= 12) { return false; }
+        if (HCExhausted()) { return false; }
         m_Attempts++;
         return true;
     }
     void HCRetain(string module, string store, bool nextBootOnly = false)
     {
+        m_Store = store;
         if (!m_Pending) { Print("[HC Persistence] store=" + store + " read_unavailable"); }
         m_Pending = true;
         m_Wait = 300;
@@ -76,11 +83,30 @@ class HCPersistenceReadRetry
         if (nextBootOnly) { reason = store + "_read_unavailable"; }
         Print("[HC Persistence] store=" + store + " reason=" + reason + " attempt=" + m_Attempts.ToString() + " action=" + action);
     }
+    // Refusals consume no attempt and retain the delay chosen by HCRetain.
+    // Terminal exhaustion preserves pending so unread files still refuse saves.
+    void HCDeferred(string store)
+    {
+        if (HCExhausted()) { return; }
+        m_Deferred++;
+        Print("[HC Persistence] store=" + store + " reason=" + store + "_read_deferred deferred=" + m_Deferred.ToString() + " attempt=" + m_Attempts.ToString() + " action=retry_in_session");
+        if (m_Deferred >= 11) { HCDeferExhausted(store); }
+    }
+    protected void HCDeferExhausted(string store)
+    {
+        if (m_Terminal) { return; }
+        m_Terminal = true;
+        m_Pending = true;
+        Print("[HC Persistence] store=" + store + " reason=" + store + "_read_exhausted attempt=" + m_Attempts.ToString() + " deferred=" + m_Deferred.ToString() + " action=retain_retry_next_boot");
+    }
     int HCDelayMs() { return m_Wait * 1000; }
     bool HCTakeBudget()
     {
+        if (HCExhausted()) { return false; }
         m_Budget.HCReset(1);
-        return m_Budget.HCContinue();
+        if (m_Budget.HCContinue()) { return true; }
+        HCDeferred(m_Store);
+        return false;
     }
     void HCLoaded(string module, string store)
     {

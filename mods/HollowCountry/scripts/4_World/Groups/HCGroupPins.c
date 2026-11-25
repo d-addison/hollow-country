@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // LC-T207 / LC-T305. EXP-T5 is diagnostic only (owner 2026-11-17).
 // Native snapshot scripts-1.30.164289: 3_Game/Entities/Object.c:287,517
 // (GetPosition/IsAlive), 4_World/Entities/ManBase/PlayerBase.c:3925
@@ -318,54 +319,59 @@ modded class HCDebugGroupPinsContributor
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
         HCGroupService groups = HCGroupService.Get();
-        // Do not retain another owner's sample across disable/restart.
-        if (!groups || groups != m_GroupOwner)
-        {
-            m_GroupOwner = groups;
-            m_Cursor = 0;
-            m_Total = 0;
-            m_PublishedTotal = 0;
-            m_Rows.Clear();
-            m_PublishedRows.Clear();
-        }
-        if (!groups) { return; }
-        int groupCount = groups.HCDebugPinGroupCount();
-        if (groupCount == 0)
-        {
-            m_Cursor = 0;
-            m_Total = 0;
-            m_Rows.Clear();
-            m_PublishedRows.Clear();
-            m_PublishedTotal = 0;
-            snapshot.HCNoteLayer("group-pins", 0, 0);
-            return;
-        }
-        // One group per capture; keep the last complete rolling sample visible
-        // until the next sweep completes. No whole-catalogue Collect call.
         HCGCCampGroupConfig limits = HCGCCampGroupConfig.Get();
-        int groupWork = groupCount - m_Cursor;
-        if (groupWork > limits.DebugGroups) { groupWork = limits.DebugGroups; }
-        m_Total += groups.HCDebugPins(m_Cursor, groupWork, limits.DebugPins, m_Rows);
-        m_Cursor += groupWork;
-        if (m_Cursor >= groupCount)
+        if (!snapshot.HCStarted)
         {
-            m_PublishedRows = m_Rows;
-            m_PublishedTotal = m_Total;
-            m_Rows = new array<ref HCDebugGroupPinRow>;
-            m_Cursor = 0;
-            m_Total = 0;
+            snapshot.HCStarted = true;
+            // Do not retain another owner's sample across disable/restart.
+            if (!groups || groups != m_GroupOwner)
+            {
+                m_GroupOwner = groups;
+                m_Cursor = 0;
+                m_Total = 0;
+                m_PublishedTotal = 0;
+                m_Rows.Clear();
+                m_PublishedRows.Clear();
+            }
+            if (!groups) { return; }
+            int groupCount = groups.HCDebugPinGroupCount();
+            if (groupCount == 0)
+            {
+                m_Cursor = 0;
+                m_Total = 0;
+                m_Rows.Clear();
+                m_PublishedRows.Clear();
+                m_PublishedTotal = 0;
+                snapshot.HCNoteLayer("group-pins", 0, 0);
+                return;
+            }
+            // One group per capture; keep the last complete rolling sample visible
+            // until the next sweep completes. No whole-catalogue Collect call.
+            int groupWork = groupCount - m_Cursor;
+            if (groupWork > limits.DebugGroups) { groupWork = limits.DebugGroups; }
+            m_Total += groups.HCDebugPins(m_Cursor, groupWork, limits.DebugPins, m_Rows);
+            m_Cursor += groupWork;
+            if (m_Cursor >= groupCount)
+            {
+                m_PublishedRows = m_Rows;
+                m_PublishedTotal = m_Total;
+                m_Rows = new array<ref HCDebugGroupPinRow>;
+                m_Cursor = 0;
+                m_Total = 0;
+            }
+            if (m_Cursor > 0 && m_PublishedRows.Count() == 0 && m_PublishedTotal == 0) { return; }
         }
-        if (m_Cursor > 0 && m_PublishedRows.Count() == 0 && m_PublishedTotal == 0) { return; }
-        int shown = 0;
+
         int emitCount = m_PublishedRows.Count();
         if (emitCount > limits.DebugPins) { emitCount = limits.DebugPins; }
-        for (int index = 0; index < emitCount; index++)
+        for (int index = snapshot.HCRow; index < emitCount; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCDebugGroupPinRow row = m_PublishedRows[index];
             string detail = "kind=" + row.Kind + "; expires=" + row.ExpiresUtc.ToString() + "; rolling sample; group, player and name withheld";
-            if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("group-pins", m_PublishedTotal, shown);
+        snapshot.HCNoteLayer("group-pins", m_PublishedTotal, snapshot.HCShown);
     }
 }
 

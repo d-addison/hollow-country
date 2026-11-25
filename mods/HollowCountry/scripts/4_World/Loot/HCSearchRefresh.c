@@ -697,7 +697,6 @@ class HCSearchRefreshModule : HCModule
     protected static HCSearchRefreshModule s_Instance;
     protected HCSettings m_Settings;
     protected ref HCSearchRefreshStore m_Store;
-    protected int m_ReadCallbacks;
     protected ref HCSearchRefreshSaveJob m_SaveJob;
     protected int m_CheckpointRevision;
     // Session-only authorization: reset cooldown must commit before fresh binding.
@@ -821,7 +820,6 @@ class HCSearchRefreshModule : HCModule
         Print("[HC Search Refresh] bounded refresh and alternating journal maintenance scheduled runtime=PENDING");
         if (!m_Store) { m_Store = new HCSearchRefreshStore; }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
-        m_ReadCallbacks = 0;
         m_Store.HCResetRead();
         m_State = m_Store.Open();
         // Registered and degraded while waiting; all gameplay remains gated by Active().
@@ -832,12 +830,11 @@ class HCSearchRefreshModule : HCModule
 
     // Native 2_GameLib/tools.c:61/65 CallLater/Remove and
     // 3_Game/Global/Game.c:1550 GetCallQueue (installed 1.30.164289).
-    // Eleven callbacks plus initial Open = at most twelve boot attempts.
+    // Eleven attempt callbacks plus at most eleven shared-budget deferrals.
     protected void HCScheduleRead()
     {
-        if (m_ReadCallbacks < 11)
+        if (!m_Store.HCReadExhausted())
         {
-            m_ReadCallbacks++;
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryRead, m_Store.HCRetryDelayMs(), false);
         }
     }

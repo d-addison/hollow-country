@@ -60,7 +60,9 @@ type. It only filters targets and never adds an edge.
 Capped retry (capped_retry): a CallLater scheduled in the then-branch of
 `if (counter < N)` (int field of the scheduling class, N a literal or static const int
 <= TRIP_LOOP_CAP, counter incremented before the call, no callback assigning it other than
-by increment) is a finite retry sequence and does not make the callback a tick root.
+by increment), or under the exact typed HCPersistenceReadRetry.HCExhausted cap
+(and HCWorldStore/HCSearchRefreshStore.HCReadExhausted delegates), is a finite retry
+sequence and does not make the callback a tick root.
 Single I/O operations are candidates too: the tool cannot infer their latency.
 Baseline entries acknowledge candidates, not native acceptance. P002 is omitted
 because source-only configured-float bounds have too much ambiguity.
@@ -1869,6 +1871,19 @@ def capped_retry(model, i, offset, callbacks):
         if not pos < offset < end or '||' in code[opening:closing]:
             continue
         for term in code[opening + 1:closing].split('&&'):
+            # The production shared retry owns both finite attempt and deferral
+            # caps. Recognize only its exact typed seam (including the two store
+            # delegates), never an arbitrary method named HCExhausted.
+            shared = re.fullmatch(rf'\s*!\s*({_CHAIN})\s*\(\s*\)\s*', term)
+            if shared:
+                targets = model.targets(i, re.sub(r'\s+', '', shared.group(1)))
+                known = {('HCPersistenceReadRetry', 'HCExhausted'),
+                         ('HCWorldStore', 'HCReadExhausted'),
+                         ('HCSearchRefreshStore', 'HCReadExhausted')}
+                if targets and all(model.nodes[t][1].owner
+                                   and (model.nodes[t][1].owner.name, model.nodes[t][1].name) in known
+                                   for t in targets):
+                    return True
             bound = re.fullmatch(rf'\s*({_IDENT})\s*(<|<=)\s*({_CHAIN}|\d+)\s*', term)
             if not bound:
                 continue

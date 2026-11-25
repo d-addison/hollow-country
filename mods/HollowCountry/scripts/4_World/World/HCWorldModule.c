@@ -15,7 +15,6 @@ class HCWorldModule : HCModule
     protected ref HCWorldData m_Data;
     protected bool m_Running;
     protected bool m_ReadWaiting;
-    protected int m_ReadCallbacks;
     protected bool m_AdmissionPrinted;
     protected bool m_Dirty;
     protected float m_StepSeconds;
@@ -68,7 +67,6 @@ class HCWorldModule : HCModule
         // Installed 1.30.164289: 2_GameLib/tools.c:61/65 CallLater/Remove;
         // 3_Game/Global/Game.c:1550 GetCallQueue. Cancel old lifecycle callbacks.
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
-        m_ReadCallbacks = 0;
         m_Refusal = "";
         HCPersistenceDisposition.HCStartStore("world");
         if (!HCPersistenceDisposition.HCLoad(settings.EnableWorld) || !HCPersistenceDisposition.HCAdmitStore("world"))
@@ -108,9 +106,8 @@ class HCWorldModule : HCModule
     protected void HCScheduleRead()
     {
         m_Refusal = m_Store.HCReadReason();
-        if (m_ReadCallbacks < 11)
+        if (!m_Store.HCReadExhausted())
         {
-            m_ReadCallbacks++;
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryRead, m_Store.HCRetryDelayMs(), false);
         }
     }

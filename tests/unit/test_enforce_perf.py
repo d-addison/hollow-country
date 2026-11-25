@@ -451,6 +451,46 @@ class M
         self.assertEqual(['OpenFile#1'], self.keys('if (m_Tries < 3) { m_Tries++; %s }' % self.LATER, 'm_Tries = 0;'))
 
 
+class SharedReadRetryTests(unittest.TestCase):
+    TEXT = '''
+class %s
+{
+    bool HCExhausted() { return true; }
+}
+class M
+{
+    ref %s m_Retry;
+    void Start() { GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000, false); }
+    void Work() { FileHandle h = OpenFile("$profile:x.json", FileMode.READ); CloseFile(h); Schedule(); }
+    void Schedule() { %s }
+}
+'''
+    LATER = 'GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Work, 1000, false);'
+
+    def keys(self, condition, owner='HCPersistenceReadRetry'):
+        rearm = self.LATER if condition is None else 'if (%s) { %s }' % (condition, self.LATER)
+        return [f.key for f in findings(self.TEXT % (owner, owner, rearm), 'HC-P003')]
+
+    def test_exact_shared_cap_guards_rearm(self):
+        self.assertEqual([], self.keys('!m_Retry.HCExhausted()'))
+
+    def test_unguarded_retry_still_flags(self):
+        self.assertEqual(['OpenFile#1'], self.keys(None))
+
+    def test_same_method_on_unrelated_class_still_flags(self):
+        self.assertEqual(['OpenFile#1'], self.keys('!m_Retry.HCExhausted()', 'OtherRetry'))
+
+    def test_positive_cap_or_disjunction_still_flags(self):
+        self.assertEqual(['OpenFile#1'], self.keys('m_Retry.HCExhausted()'))
+        self.assertEqual(['OpenFile#1'], self.keys('!m_Retry.HCExhausted() || true'))
+
+    def test_store_delegate_names_are_typed(self):
+        for owner in ('HCWorldStore', 'HCSearchRefreshStore'):
+            text = self.TEXT.replace('HCExhausted', 'HCReadExhausted') % (
+                owner, owner, 'if (!m_Retry.HCReadExhausted()) { %s }' % self.LATER)
+            self.assertEqual([], findings(text, 'HC-P003'))
+
+
 class ShutdownResetTests(unittest.TestCase):
     """A latch reset reachable only from OnStop is not a tick-path reset."""
     TEXT = '''

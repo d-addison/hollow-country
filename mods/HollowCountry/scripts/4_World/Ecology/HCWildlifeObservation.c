@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:902/917 map Set/Contains (hash lookup).
 // HC-15 / #149: native wildlife baseline, not a movement/feeding controller.
 // Spec -> plan -> task: HC-15 in the consolidated coverage brief; trace owner
@@ -86,6 +87,7 @@ class HCWildlifeDebugContributor : HCDebugContributor
 // No module/registry/config.cpp edits, population search, timer, save or RPC.
 class HCWildlifeObservation
 {
+    protected ref array<ref HCWildlifeFact> m_DebugFacts;
     protected static ref HCWildlifeObservation s_Instance;
     protected ref array<ref HCWildlifeBinding> m_Bindings = new array<ref HCWildlifeBinding>;
     protected ref HCWildlifeConfig m_Config;
@@ -400,9 +402,16 @@ class HCWildlifeObservation
 
     void HCDescribe(HCDebugSnapshot snapshot)
     {
-        array<ref HCWildlifeFact> facts = HCFacts(GetGame().GetTime());
-        foreach (HCWildlifeFact fact : facts)
+        if (!snapshot.HCStarted)
         {
+            snapshot.HCStarted = true;
+            m_DebugFacts = HCFacts(GetGame().GetTime());
+        }
+        array<ref HCWildlifeFact> facts = m_DebugFacts;
+        for (int debugIndex = snapshot.HCRow; debugIndex < facts.Count(); debugIndex++)
+        {
+            if (!snapshot.HCRowStep()) { return; }
+            HCWildlifeFact fact = facts[debugIndex];
             string activity = HCWildlifeProviders.HCActivity(fact.BehaviourSlot);
             string detail = "native activity=" + activity + "; resource identity and targets unknown; runtime=PENDING";
             if (fact.Carcass) { detail = "native dead/skinnable sample; inventory unclaimed; runtime=PENDING"; }
