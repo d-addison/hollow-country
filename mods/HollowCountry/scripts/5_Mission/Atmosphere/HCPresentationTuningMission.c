@@ -1,9 +1,10 @@
 // #303: numeric companion to HCClientPresentationMission's feature-bit sync.
 // Native scripts-1.30.164289: mission/missionServer.c:85 OnInit,
 // :549/599/633 new/ready/reconnect; missionGameplay.c:102/266 init/finish;
-// 2_GameLib/tools.c:61/65 ScriptCallQueue.CallLater/Remove.
-// Poll the bounded source every 30 s. Decode only when its text changes and
-// broadcast only when the effective tuning changes.
+// 2_GameLib/tools.c:61/65 ScriptCallQueue.CallLater/Remove;
+// 3_Game/Global/Game.c:914 GetTickTime, :1550 GetCallQueue.
+// Poll through the shared scheduler every 30 s, one file operation per stage.
+// Decode only when source bytes change; broadcast only effective tuning changes.
 // No client request path, recipient enumeration, profile write or new module.
 class HCPresentationTuningServer
 {
@@ -11,24 +12,31 @@ class HCPresentationTuningServer
     protected static string s_SourceImage;
     protected static ref HCc2PresentationConfig s_Config;
     protected static int s_Revision;
+    protected static ref HCPresentationTuningReadJob s_ReadJob;
     protected static ref HCUnitBudget s_Units = new HCUnitBudget;
     protected static ref HCWorkBudget s_Work = new HCWorkBudget;
 
     static void HCStart()
     {
+        HCStop();
         s_Image = "";
         s_SourceImage = "";
         s_Config = null;
         s_Revision = 0;
-        HCRefresh();
+        HCRefresh(HCc2PresentationConfig.HCReadSource());
+        s_ReadJob = new HCPresentationTuningReadJob;
+        HCSaveScheduler.HCRegister(s_ReadJob);
+        // EnSystem.c:397-531 exposes no file size/mtime query in this snapshot.
+        // Stage the poll instead; source bytes remain the change detector.
+        Print("[HC Config] atmosphere-presentation poll=staged reason=native_file_metadata_unavailable runtime=PENDING");
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCPresentationTuningServer.HCPumpRead, 1000, true);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPresentationTuningServer.HCCheckChanges);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCPresentationTuningServer.HCCheckChanges, 30000, true);
     }
 
-    protected static bool HCRefresh()
+    protected static bool HCRefresh(string sourceImage)
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
-        string sourceImage = HCc2PresentationConfig.HCReadSource();
         if (s_Image != "" && sourceImage == s_SourceImage) { return false; }
         HCc2PresentationConfig config = HCc2PresentationConfig.HCDecode(sourceImage);
         string image;
@@ -85,15 +93,120 @@ class HCPresentationTuningServer
         Print("[HC Config] atmosphere-presentation sync=sent reason=" + reason + " revision=" + s_Revision.ToString() + " chars=" + s_Image.Length().ToString() + " runtime=PENDING");
     }
 
-    // Scheduled separately from per-frame mission updates: a fixed-size file
-    // read remains synchronous and must still be measured in the native run.
     static void HCCheckChanges()
     {
-        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (!GetGame() || !GetGame().IsServer() || !s_ReadJob) { return; }
         s_Units.HCReset(1);
         s_Work.HCReset(1);
         if (!s_Units.HCTake(1) || !s_Work.HCContinue()) { return; }
-        if (HCRefresh()) { HCSend(null, "changed_broadcast"); }
+        s_ReadJob.HCRequest();
+    }
+
+    // One fallback stage per second if shared saves are disabled or capacity
+    // refused registration. Registered urgent work uses the scheduler frame budget.
+    static void HCPumpRead()
+    {
+        HCSaveScheduler.HCPumpFallback(s_ReadJob);
+    }
+
+    static void HCReadComplete(string sourceImage)
+    {
+        if (HCRefresh(sourceImage)) { HCSend(null, "changed_broadcast"); }
+    }
+
+    static void HCStop()
+    {
+        if (GetGame())
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPresentationTuningServer.HCCheckChanges);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPresentationTuningServer.HCPumpRead);
+        }
+        if (!s_ReadJob) { return; }
+        HCSaveScheduler.HCUnregister(s_ReadJob);
+        s_ReadJob.HCCancel();
+        s_ReadJob = null;
+    }
+}
+
+// Native scripts-1.30.164289/1_Core/proto/EnSystem.c:397 FileExist,
+// :417 OpenFile, :425 ReadFile, :443 CloseFile. The path and 8192-byte limit
+// match HCc2PresentationConfig.HCReadSource; no writes or RPC format changes.
+class HCPresentationTuningReadJob : HCSaveJob
+{
+    protected int m_Stage;
+    protected FileHandle m_Handle;
+    protected bool m_Open;
+    protected string m_Text;
+    protected bool m_Invalid;
+
+    override string HCName() { return "PresentationRead"; }
+
+    void HCRequest()
+    {
+        if (HCDirty || HCInFlight) { return; }
+        m_Stage = 0;
+        m_Text = "";
+        m_Invalid = false;
+        HCDirty = true;
+        HCUrgent = true;
+        HCDue = GetGame().GetTickTime();
+    }
+
+    void HCCancel()
+    {
+        if (m_Open) { CloseFile(m_Handle); m_Open = false; }
+        m_Text = "";
+        HCDirty = false;
+        HCInFlight = false;
+        HCUrgent = false;
+    }
+
+    override int HCStep()
+    {
+        if (m_Stage == 0)
+        {
+            HCOperation = "source_probe";
+            m_Stage = 1;
+            if (!FileExist("$profile:HollowCountry/atmosphere-presentation.json")) { m_Stage = 4; }
+            return STEP_MORE;
+        }
+        if (m_Stage == 1)
+        {
+            HCOperation = "source_open";
+            m_Handle = OpenFile("$profile:HollowCountry/atmosphere-presentation.json", FileMode.READ);
+            m_Open = false;
+            if (m_Handle) { m_Open = true; }
+            m_Stage = 2;
+            if (!m_Open) { m_Invalid = true; m_Stage = 4; }
+            return STEP_MORE;
+        }
+        if (m_Stage == 2)
+        {
+            HCOperation = "source_read";
+            // One bounded read, including the byte beyond the 8192 limit.
+            int count = ReadFile(m_Handle, m_Text, 8193);
+            m_Invalid = count < 1 || count > 8192 || m_Text.Length() != count;
+            m_Stage = 3;
+            return STEP_MORE;
+        }
+        if (m_Stage == 3)
+        {
+            HCOperation = "source_close";
+            CloseFile(m_Handle);
+            m_Open = false;
+            m_Stage = 4;
+            return STEP_MORE;
+        }
+        HCOperation = "source_apply";
+        if (m_Invalid)
+        {
+            Print("[HC Config] atmosphere-presentation reason=read_or_json defaults_retained runtime=PENDING");
+            m_Text = "";
+        }
+        HCPresentationTuningServer.HCReadComplete(m_Text);
+        m_Text = "";
+        m_Stage = 0;
+        return STEP_DONE;
     }
 }
 
@@ -126,7 +239,7 @@ modded class MissionServer
 
     override void OnMissionFinish()
     {
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPresentationTuningServer.HCCheckChanges);
+        HCPresentationTuningServer.HCStop();
         super.OnMissionFinish();
     }
 }
