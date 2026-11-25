@@ -428,9 +428,11 @@ class HCDriverRoute
         if (!input) { return; }
         vector pos = player.GetPosition();
         float want = Math.Atan2(m_Points[m_Waypoint * 2] - pos[0], m_Points[m_Waypoint * 2 + 1] - pos[2]) * Math.RAD2DEG;
-        float frame = HCDriverWalker.CameraYaw() + HCDriverMovement.HeadingOffset;
+        float frame = HCDriverWalker.MovementFrame(player) + HCDriverMovement.HeadingOffset;
         float diff = HCDriverWalker.Wrap180(want - frame + offset);
-        HCDriverMovement.Request(speed, diff * HCDriverMovement.AngleSign);
+        // The fit, not a native doc, gives +/-90 requests for a full circle when |scale|=2.
+        // Native 1_Core/proto/EnMath.c:540 Math.Clamp.
+        HCDriverMovement.Request(speed, Math.Clamp(diff / HCDriverMovement.AngleScale, -180.0, 180.0));
     }
 
     // Next rung after a stuck report; false when the ladder is exhausted.

@@ -417,60 +417,58 @@ Round 5 remains implemented-unverified until the lead's native checks.
 1. Wait for ten continuous seconds alive, conscious and in `HumanCommandMove` with a controller
    and mission controls enabled. Missing/unloaded players reset this timer and release movement.
    A run waiting 60 s without readiness refuses.
-2. Try `mirror` (client predicts, server applies), then `server` (server applies only), then
-   `client` (client applies only, diagnostic). Every applying controller uses post-super ONE_FRAME.
-   Request speed **3.0**, angle 0, for **4 s**, then Stop and settle **2 s**. Select the first
-   variant with displacement **>0.30 m** and `back_m` **<=0.20 m** (round 7). A failed or corrected
-   forward probe advances to the next variant. Client applied-frame counts are expected to be
-   zero in `server`; use the correlated server summary to verify authoritative callbacks.
-3. Re-run the right probe with the selected variant: speed 3.0, angle +90 for **4 s**, then Stop
-   for **2 s**. Measure the forward camera bearing offset (`frame_offset`) and signed right
-   bearing residual after that offset (`right_offset`), both to two decimals. A forward offset
-   alone no longer rejects calibration; only the variant whose forward move survived settling
-   can supply the frame used by navigation. The right turn must agree within 15 degrees.
-   Each probe collects five observations at 0.5 s intervals (0.5 through 2.5 s), plus the Stop
-   position and the position after settling. `sample_s` records actual times: clamped updates
-   can delay samples; no observation is fabricated. `cur_speed` and `cur_angle` come from
-   `HumanCommandMove`; `input_angle=idle` means `GetCurrentInputAngle` returned false.
-   `dir` is the player's body direction xz. Exact line formats follow (values are illustrative
-   placeholders; all measured positions, distances and bearing offsets have two decimals):
+2. Use `mirror` (client predicts, existing server mirror applies). Run four probes in this
+   order: angle **0** (`fwd`), **+90** (`right`), **+45** (`diag`), **-90** (`left`). Each requests
+   speed **3.0** for **4 s**, then Stop and settle **2 s**. A failed probe ends the run; round 9
+   does not add fallback variant probes to the four-probe budget. The mirror/server/client
+   transport implementations remain available, but calibration selects mirror.
+3. Each probe collects five observations at 0.5 s intervals (0.5 through 2.5 s), plus Stop and
+   settled positions. `sample_s` records actual times; no observation is fabricated after a hitch.
+   `cur_speed` and `cur_angle` come from `HumanCommandMove`; `input_angle=idle` means
+   `GetCurrentInputAngle` returned false. Command-angle matching tolerates degrees or radians
+   (build 192 reports movement radians and input degrees). `dir` is body direction x,z.
+   New lists, appended after all existing keys, use two decimals: `heading` is controller
+   `GetHeadingAngle` converted from radians to degrees; `local_dir` and `move_speed` are
+   `GetMovement` local x,z and speed; `model_speed` is `GetModelSpeed` local x,z; `movement`
+   pairs `HumanMovementState.m_iMovement/m_iStanceIdx`. Native proofs: `3_Game/human.c:22,28`,
+   `:1183-1184,1470`, `3_Game/Entities/Object.c:338`.
+
+   Exact line templates (letters are placeholders, all sample lists have five entries):
 
    ```text
-   [HC Driver] calib probe=fwd variant=mirror serial=N req_speed=3.00 req_angle=0.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
-   [HC Driver] calib probe=right variant=mirror serial=N req_speed=3.00 req_angle=90.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
-   [HC Driver] calib result=ok|refused variant=mirror|server|client run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O right_offset=O apply=measured-camera-frame|refused aim=disabled controls=0|1
+   [HC Driver] calib probe=fwd|right|diag|left variant=mirror serial=N req_speed=3.00 req_angle=A pos=<x,z;...> cur_speed=<s;...> cur_angle=<a;...> input_angle=<a|idle;...> dir=<x,z;...> sample_s=<t;...> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5 heading=<h;...> local_dir=<x,z;...> move_speed=<s;...> model_speed=<x,z;...> movement=<m/i;...>
+   [HC Driver] calib result=ok|refused variant=mirror run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O right_offset=O apply=measured-camera-frame|measured-heading-frame|refused aim=disabled scale=S frame=heading|camera b0=B b90=B b45=B bm90=B resid45=R residm90=R controls=0|1
    [HC Driver] server-move applied_frames=N refused=none|REASON serial=N
    ```
 
 4. `moved_m` measures start to Stop; `settle_m` measures Stop to settled position. `back_m`
-   projects that drift toward this probe's start (negative means continuing away). Only
-   `back_m` above **0.20 m** (`correction_threshold_m`) counts as a server correction; settle
-   drift that is not toward the start passes (round 7: soak 190t6's mirror probe moved 8.10 m with
-   `settle_m=0.23 back_m=-0.15` and was wrongly refused under the old settle rule).
-   A corrected forward probe tries the next variant; a corrected right probe ends with
-   `reason=server-correction`. If every forward variant fails, the final reason is
-   `server-correction` when the final probe is pulled back, otherwise `no-moving-variant`.
-   For example, `variant=mirror serial=1 ... moved_m=8.00 settle_m=0.05 back_m=0.02` paired with
-   `server-move applied_frames=240 refused=none serial=1` supports a working mirror forward
-   probe. `moved_m=0.78 settle_m=0.78 back_m=0.78` fails that variant even if its server summary
-   reports applied frames: server application still did not establish stable movement.
-   `applied_frames=0 refused=command-change` identifies a server refusal. A `client` probe
-   deliberately reports zero server frames. Server summaries alone never prove movement.
-5. Calibration requires both displacements above 0.30 m, both settle distances <=0.20 m, and
-   at least three of five command-angle samples per probe within 15 degrees of the request.
-   Angle failure refuses as `command-angle-mismatch`; a right turn differing from the measured
-   frame's +90 (or mirrored -90) by more than 15 degrees is `command-angle-motion-mismatch`.
-   `AngleSign` carries a mirrored strafe into the walker. Other reasons include
-   `right-no-movement`, readiness failures, or `frame-probe` for success. `Calibrated` becomes
-   true only on `frame-probe`; result lines preserve measured offsets even on refusal.
-6. States are readiness → forward drive → forward settle → right drive → right settle → result.
-   A failed forward variant returns to forward drive with the next variant. A run has at most
-   three forward probes and one right probe: **24 s nominal**, bounded by **26 s** of clamped
-   update time including overshoot (12 s nominal when mirror moves), plus 60 s readiness and
-   at most one update of overshoot. Startup failures retry after 15 s, at most three startup
-   runs; a pre-movement retry shares the hard **four-run session cap**. Step timers start after
-   calibration. Readiness loss stops immediately and refuses; an interrupted probe has no
-   completed-probe line. At most four client probe lines and one result are emitted per run.
+   projects that drift toward the probe start (negative means continuing away). Only `back_m`
+   above **0.20 m** counts as `server-correction`; forward or sideways settling is allowed.
+   Every probe must move **>0.30 m**. No forward movement gives `no-moving-variant`; no movement
+   on a later probe retains `right-no-movement`. Readiness failures retain
+   `movement-or-controls-not-ready` and `readiness-lost`. At least three of five command-angle
+   samples per probe must match within 15 degrees, otherwise `command-angle-mismatch`.
+5. Compute displacement bearings `b0`, `b90`, `b45`, `bm90` in degrees. Fit
+   `B(a) = B(0) + AngleScale*a`, choosing the best wrap-aware +90 residual among **+1,-1,+2,-2**.
+   +2 and -2 are indistinguishable at +90; the +45 residual breaks that tie. Both held-out
+   residuals, `resid45` and `residm90`, must independently be within **15 degrees**, otherwise
+   `angle-fit-mismatch` (replaces `command-angle-motion-mismatch`). Success is `frame-probe`.
+   `scale=2` means +45 requests predict +90 world-bearing turns, while `scale=1` predicts +45;
+   negative scales reverse the turn. This is an empirical fit, not a native API contract or
+   proof that an angle is applied twice. The legacy `angle_sign` is a derived diagnostic alias;
+   `right_offset` is now the +90 fit residual.
+
+   Choose `frame=heading` when controller heading has a >1-degree range across the probe readings
+   or differs from camera yaw (0.001-degree numerical tolerance); otherwise `frame=camera`.
+   `frame_offset` is `Wrap180(B(0)-initial_selected_frame)`. Steering reads that same source
+   live and requests `Clamp(Wrap180(want-frame-frame_offset)/AngleScale,-180,180)`.
+   With absolute scale 2, a full circle uses requests in +/-90. Calibration never overrides aim.
+6. States are readiness → four (drive → settle) pairs → result: **24 s nominal**, at most
+   **26 s** including clamped update overshoot, plus up to 60 s readiness and one update.
+   Startup failures retry after 15 s, at most three startup runs; pre-movement retries share
+   the **four-run session cap**. Step timers start after calibration. Readiness loss stops
+   immediately and refuses; an interrupted probe has no completed-probe line. At most four
+   client probe lines and one result per run; no per-frame logs or new `[HC Use]` counters.
 7. The test-only `HCDriverMoveWire.RPC_MOVE` allocation is **4854091** (global lint inventory).
    The reliable player-targeted request contains serial, speed, angle, lease seconds and an
    apply flag. `client` sends apply=false for a correlated zero-frame diagnostic summary.

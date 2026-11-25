@@ -6,7 +6,7 @@
 //            (radians per tick per :30); :1458 Human.GetInputController; Object.c:305
 //            GetOrientation (yaw degrees). The local player's own controller is the only one used;
 //            collisions stay engine-owned. HCDriverMovement applies the calibrated variant at CommandHandler;
-//            navigation uses the measured camera frame and angle sign, with no aim feedback.
+//            navigation uses the measured frame and angle scale, with no aim feedback.
 //  actions   4_World/Classes/UserActionsComponent/ActionManagerClient.c:804 PerformActionStart
 //            (public), :1335 SetIgnoreAutomaticInputEnd, :286 EndActionInput;
 //            ActionManagerBase.c:91 GetRunningAction, :214 static GetAction(typename);
@@ -110,6 +110,20 @@ class HCDriverWalker
         return Math.Atan2(facing[0], facing[2]) * Math.RAD2DEG;
     }
 
+    // Native 3_Game/human.c:28 GetHeadingAngle is radians; Global/Game.c:732 camera direction.
+    static float MovementFrame(PlayerBase player)
+    {
+#ifndef SERVER
+        if (HCDriverMovement.HeadingFrame && player.GetInputController())
+        {
+            return player.GetInputController().GetHeadingAngle() * Math.RAD2DEG;
+        }
+        return CameraYaw();
+#else
+        return 0;
+#endif
+    }
+
     static string XZ(vector pos)
     {
         return Math.Round(pos[0]).ToString() + "," + Math.Round(pos[2]).ToString();
@@ -203,16 +217,18 @@ class HCDriverWalker
             m_Detail = "not-command-move id=" + HCDriverMovement.CommandId.ToString();
             return HCDriverResult.REFUSED;
         }
-        // Use the camera/input frame measured at calibration, never body-yaw aim feedback.
+        // Use the same heading/camera frame selected by calibration.
         float want = Math.Atan2(dx, dz) * Math.RAD2DEG;
-        float frame = HCDriverWalker.CameraYaw() + HCDriverMovement.HeadingOffset;
+        float frame = HCDriverWalker.MovementFrame(player) + HCDriverMovement.HeadingOffset;
         float diff = HCDriverWalker.Wrap180(want - frame);
         if (m_SideLeft > 0)
         {
             m_SideLeft = m_SideLeft - dt;
             diff = HCDriverWalker.Wrap180(diff + 90.0 * m_SideSign);
         }
-        HCDriverMovement.Request(m_Speed, diff * HCDriverMovement.AngleSign);
+        // The fit, not a native doc, gives +/-90 requests for a full circle when |scale|=2.
+        // Native 1_Core/proto/EnMath.c:540 Math.Clamp.
+        HCDriverMovement.Request(m_Speed, Math.Clamp(diff / HCDriverMovement.AngleScale, -180.0, 180.0));
         return HCDriverResult.RUNNING;
     }
 }

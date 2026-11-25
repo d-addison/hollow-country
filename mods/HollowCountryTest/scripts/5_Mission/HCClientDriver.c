@@ -46,7 +46,19 @@ class HCClientDriver
     protected string m_ProbeDirections;
     protected string m_ProbeTimes;
     protected float m_ProbeAngle;
-    protected float m_RightCamera;
+    protected string m_ProbeHeadings;
+    protected string m_ProbeLocalDirs;
+    protected string m_ProbeMoveSpeeds;
+    protected string m_ProbeModelSpeeds;
+    protected string m_ProbeMovement;
+    protected int m_ProbeIndex;
+    protected ref array<float> m_Bearings = {0, 0, 0, 0};
+    protected float m_FirstHeading;
+    protected bool m_HeadingLive;
+    protected float m_HeadingMin;
+    protected float m_HeadingMax;
+    protected float m_Resid45;
+    protected float m_ResidM90;
     protected float m_CalibTurn;
     protected float m_ForwardSettle;
     protected float m_RightSettle;
@@ -304,10 +316,23 @@ class HCClientDriver
         m_ForwardSettle = 0;
         m_RightSettle = 0;
         m_CalibAnglesMatch = true;
+        m_ProbeIndex = 0;
+        for (int b = 0; b < 4; b++) { m_Bearings[b] = 0; }
+        m_Resid45 = 0;
+        m_ResidM90 = 0;
+        // Native 3_Game/human.c:28 GetHeadingAngle returns radians.
+#ifndef SERVER
+        m_FirstHeading = player.GetInputController().GetHeadingAngle() * Math.RAD2DEG;
+#endif
+        m_HeadingLive = false;
+        m_HeadingMin = 0;
+        m_HeadingMax = 0;
         m_CalibTurn = 0;
         HCDriverMovement.Calibrated = false;
         HCDriverMovement.HeadingOffset = 0;
         HCDriverMovement.AngleSign = 1.0;
+        HCDriverMovement.AngleScale = 1.0;
+        HCDriverMovement.HeadingFrame = false;
         ResetProbe(player, 0);
     }
 
@@ -339,6 +364,11 @@ class HCClientDriver
         m_ProbeInputs = "";
         m_ProbeDirections = "";
         m_ProbeTimes = "";
+        m_ProbeHeadings = "";
+        m_ProbeLocalDirs = "";
+        m_ProbeMoveSpeeds = "";
+        m_ProbeModelSpeeds = "";
+        m_ProbeMovement = "";
         m_ProbeSettle = 0;
         m_ProbeBack = 0;
     }
@@ -372,6 +402,26 @@ class HCClientDriver
         m_ProbeInputs += separator + rawInput;
         // Native 3_Game/Entities/Object.c:314: GetDirection is the player's body direction.
         m_ProbeDirections += separator + CalibXZ(player.GetDirection());
+        // Native 3_Game/human.c:22 GetMovement (local direction), :28 heading radians;
+        // :1183-1184 state fields, :1470 GetMovementState; Object.c:338 GetModelSpeed.
+#ifndef SERVER
+        HumanInputController input = player.GetInputController();
+        float heading = input.GetHeadingAngle() * Math.RAD2DEG;
+        float movementSpeed;
+        vector localDirection;
+        input.GetMovement(movementSpeed, localDirection);
+        HumanMovementState movementState = new HumanMovementState;
+        player.GetMovementState(movementState);
+        m_ProbeHeadings += separator + CalibNumber(heading);
+        m_ProbeLocalDirs += separator + CalibXZ(localDirection);
+        m_ProbeMoveSpeeds += separator + CalibNumber(movementSpeed);
+        m_ProbeModelSpeeds += separator + CalibXZ(player.GetModelSpeed());
+        m_ProbeMovement += separator + CalibNumber(movementState.m_iMovement) + "/" + CalibNumber(movementState.m_iStanceIdx);
+        float headingDelta = HCDriverWalker.Wrap180(heading - m_FirstHeading);
+        if (headingDelta < m_HeadingMin) { m_HeadingMin = headingDelta; }
+        if (headingDelta > m_HeadingMax) { m_HeadingMax = headingDelta; }
+        if (m_HeadingMax - m_HeadingMin > 1.0 || Math.AbsFloat(HCDriverWalker.Wrap180(heading - HCDriverWalker.CameraYaw())) > 0.001) { m_HeadingLive = true; }
+#endif
         m_ProbeSamples++;
     }
 
@@ -387,7 +437,10 @@ class HCClientDriver
         line += " moved_m=" + CalibNumber(HCDriverWalker.FlatLength(m_ProbeEnd - m_ProbeStart));
         line += " settle_m=" + CalibNumber(m_ProbeSettle) + " back_m=" + CalibNumber(m_ProbeBack);
         line += " attempt=" + m_CalibAttempts.ToString() + " duration_s=4.00 settle_s=2.00";
-        Print(line + " samples=" + m_ProbeSamples.ToString());
+        line += " samples=" + m_ProbeSamples.ToString();
+        line += " heading=<" + m_ProbeHeadings + "> local_dir=<" + m_ProbeLocalDirs + ">";
+        line += " move_speed=<" + m_ProbeMoveSpeeds + "> model_speed=<" + m_ProbeModelSpeeds + "> movement=<" + m_ProbeMovement + ">";
+        Print("" + line);
     }
 
     protected void FinishCalib(PlayerBase player, vector right, string reason)
@@ -395,7 +448,9 @@ class HCClientDriver
         m_Walker.Release(player);
         string result = "refused";
         string applied = "refused";
-        if (HCDriverMovement.Calibrated) { result = "ok"; applied = "measured-camera-frame"; }
+        string frameName = "camera";
+        if (HCDriverMovement.HeadingFrame) { frameName = "heading"; }
+        if (HCDriverMovement.Calibrated) { result = "ok"; applied = "measured-" + frameName + "-frame"; }
         string calibration = "[HC Driver] calib result=" + result + " variant=" + HCDriverMovement.VariantName() + " run=" + m_CalibRuns.ToString() + " reason=" + reason;
         calibration = calibration + " forward=<" + CalibXZ(m_CalibForward) + "> right=<" + CalibXZ(right) + ">";
         calibration += " threshold_m=0.30 right_moved_m=" + CalibNumber(HCDriverWalker.FlatLength(right));
@@ -403,7 +458,11 @@ class HCClientDriver
         calibration += " correction_threshold_m=0.20 back_m=" + CalibNumber(m_ProbeBack);
         calibration = calibration + " facing=" + Math.Round(m_CalibCamera).ToString() + " yaw=" + Math.Round(m_CalibYaw).ToString() + "," + Math.Round(m_CalibMidYaw).ToString() + "," + Math.Round(player.GetOrientation()[0]).ToString();
         calibration = calibration + " cmd=" + m_CalibCommand.ToString() + "," + HCDriverMovement.CommandId.ToString() + " applied_frames=" + m_CalibForwardFrames.ToString() + "," + m_CalibRightFrames.ToString();
-        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + CalibNumber(HCDriverMovement.HeadingOffset) + " right_offset=" + CalibNumber(HCDriverWalker.Wrap180(m_CalibTurn - 90.0 * HCDriverMovement.AngleSign)) + " apply=" + applied + " aim=disabled";
+        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + CalibNumber(HCDriverMovement.HeadingOffset) + " right_offset=" + CalibNumber(HCDriverWalker.Wrap180(m_CalibTurn - 90.0 * HCDriverMovement.AngleScale)) + " apply=" + applied + " aim=disabled";
+        calibration += " scale=" + HCDriverMovement.AngleScale.ToString() + " frame=" + frameName;
+        calibration += " b0=" + CalibNumber(m_Bearings[0]) + " b90=" + CalibNumber(m_Bearings[1]);
+        calibration += " b45=" + CalibNumber(m_Bearings[2]) + " bm90=" + CalibNumber(m_Bearings[3]);
+        calibration += " resid45=" + CalibNumber(m_Resid45) + " residm90=" + CalibNumber(m_ResidM90);
         int controls = 0;
         Mission mission = GetGame().GetMission();
         if (mission && mission.IsControlDisabled()) { controls = 1; }
@@ -439,6 +498,12 @@ class HCClientDriver
             HCDriverMovement.Calibrated = false;
             HCDriverMovement.HeadingOffset = 0;
             HCDriverMovement.AngleSign = 1.0;
+            HCDriverMovement.AngleScale = 1.0;
+            HCDriverMovement.HeadingFrame = false;
+            for (int resetBearing = 0; resetBearing < 4; resetBearing++) { m_Bearings[resetBearing] = 0; }
+            m_Resid45 = 0;
+            m_ResidM90 = 0;
+            m_CalibTurn = 0;
             // Require ten continuous ready seconds, not ten seconds since loading began.
             if (m_ReadyAge < 10.0)
             {
@@ -457,8 +522,8 @@ class HCClientDriver
             FinishCalib(player, m_CalibRight, "readiness-lost");
             return;
         }
-        // States 1/2 drive forward/right for 4 s; states 3/4 hold stopped for 2 s.
-        if (m_CalibStage == 1 || m_CalibStage == 2)
+        // Four probes in order 0,+90,+45,-90; state 1 drives, state 3 settles.
+        if (m_CalibStage == 1)
         {
             SampleProbe(player);
             if (m_CalibAge < 4.0)
@@ -468,26 +533,13 @@ class HCClientDriver
                 return;
             }
             m_ProbeEnd = player.GetPosition();
+            vector delta = m_ProbeEnd - m_ProbeStart;
+            m_Bearings[m_ProbeIndex] = Math.Atan2(delta[0], delta[2]) * Math.RAD2DEG;
             int frames = HCDriverMovement.AppliedFrames - m_CalibApplied;
             if (m_ProbeSamples != 5 || m_ProbeAngleMatches < 3) { m_CalibAnglesMatch = false; }
-            if (m_CalibStage == 1)
-            {
-                m_CalibForward = m_ProbeEnd - m_ProbeStart;
-                m_CalibForwardFrames = frames;
-                float forwardBearing = Math.Atan2(m_CalibForward[0], m_CalibForward[2]) * Math.RAD2DEG;
-                // Retain bearing provisionally; only the settled forward test selects this variant.
-                HCDriverMovement.HeadingOffset = HCDriverWalker.Wrap180(forwardBearing - m_CalibCamera);
-                m_CalibStage = 3;
-            }
-            else
-            {
-                m_CalibRight = m_ProbeEnd - m_ProbeStart;
-                m_CalibRightFrames = frames;
-                float rightBearing = Math.Atan2(m_CalibRight[0], m_CalibRight[2]) * Math.RAD2DEG;
-                m_CalibTurn = HCDriverWalker.Wrap180(rightBearing - m_RightCamera - HCDriverMovement.HeadingOffset);
-                if (m_CalibTurn < 0) { HCDriverMovement.AngleSign = -1.0; }
-                m_CalibStage = 4;
-            }
+            if (m_ProbeIndex == 0) { m_CalibForward = delta; m_CalibForwardFrames = frames; }
+            if (m_ProbeIndex == 1) { m_CalibRight = delta; m_CalibRightFrames = frames; }
+            m_CalibStage = 3;
             HCDriverMovement.Stop();
             m_CalibAge = 0;
             return;
@@ -502,49 +554,73 @@ class HCClientDriver
         m_ProbeBack = 0;
         if (distance > 0.001) { m_ProbeBack = -(drift[0] * displacement[0] + drift[2] * displacement[2]) / distance; }
         string probe = "fwd";
-        if (m_CalibStage == 4) { probe = "right"; m_RightSettle = m_ProbeSettle; }
-        else { m_ForwardSettle = m_ProbeSettle; }
+        if (m_ProbeIndex == 0) { m_ForwardSettle = m_ProbeSettle; }
+        if (m_ProbeIndex == 1) { probe = "right"; m_RightSettle = m_ProbeSettle; }
+        if (m_ProbeIndex == 2) { probe = "diag"; }
+        if (m_ProbeIndex == 3) { probe = "left"; }
         LogProbe(player, probe);
-        // Correction = pulled back toward this probe's start. Soak 190t6: a mirror probe moved
-        // 8.10 m and drifted 0.23 m forward/sideways after Stop (back_m=-0.15); that is not a
-        // server snap, which shows back_m close to moved_m.
-        bool corrected = m_ProbeBack > 0.2;
-        if (m_CalibStage == 4 && corrected)
+        // Forward/sideways settle drift is allowed; only return toward start is correction.
+        if (m_ProbeBack > 0.2)
         {
             FinishCalib(player, m_CalibRight, "server-correction");
             return;
         }
-        if (m_CalibStage == 3)
+        if (distance <= 0.3)
         {
-            if (distance <= 0.3 || corrected)
-            {
-                // Prefer prediction plus authority, then authority only, then client diagnostic.
-                if (HCDriverMovement.Variant < HCDriverMovement.CLIENT_ONLY)
-                {
-                    HCDriverMovement.Variant++;
-                    BeginCalibProbe(player);
-                    return;
-                }
-                string failure = "no-moving-variant";
-                if (corrected) { failure = "server-correction"; }
-                FinishCalib(player, vector.Zero, failure);
-                return;
-            }
-            m_CalibApplied = HCDriverMovement.AppliedFrames;
-            m_CalibMidYaw = player.GetOrientation()[0];
-            m_RightCamera = HCDriverWalker.CameraYaw();
-            m_CalibAge = 0;
-            m_CalibStage = 2;
-            ResetProbe(player, 90.0);
+            string failure = "right-no-movement";
+            if (m_ProbeIndex == 0) { failure = "no-moving-variant"; }
+            FinishCalib(player, m_CalibRight, failure);
             return;
         }
+        if (m_ProbeIndex < 3)
+        {
+            m_ProbeIndex++;
+            float nextAngle = 90.0;
+            if (m_ProbeIndex == 2) { nextAngle = 45.0; }
+            if (m_ProbeIndex == 3) { nextAngle = -90.0; }
+            m_CalibApplied = HCDriverMovement.AppliedFrames;
+            m_CalibMidYaw = player.GetOrientation()[0];
+            m_CalibAge = 0;
+            m_CalibStage = 1;
+            ResetProbe(player, nextAngle);
+            return;
+        }
+        FitAngles();
         string reason = "frame-probe";
-        if (distance <= 0.3) { reason = "right-no-movement"; }
-        else if (!m_CalibAnglesMatch) { reason = "command-angle-mismatch"; }
-        // A mirrored strafe (turn near -90) is accepted; AngleSign carries it into the walker.
-        else if (Math.AbsFloat(Math.AbsFloat(m_CalibTurn) - 90.0) > 15.0) { reason = "command-angle-motion-mismatch"; }
+        if (!m_CalibAnglesMatch) { reason = "command-angle-mismatch"; }
+        else if (Math.AbsFloat(m_Resid45) > 15.0 || Math.AbsFloat(m_ResidM90) > 15.0) { reason = "angle-fit-mismatch"; }
         HCDriverMovement.Calibrated = reason == "frame-probe";
         FinishCalib(player, m_CalibRight, reason);
+    }
+
+    protected void FitAngles()
+    {
+        float turn = HCDriverWalker.Wrap180(m_Bearings[1] - m_Bearings[0]);
+        float bestError = 1000;
+        float bestHeld = 1000;
+        // +2 and -2 predict the same wrapped +90 bearing. Use +45 only to break
+        // that exact tie; both held-out residuals must still pass independently.
+        array<float> candidates = {1, -1, 2, -2};
+        foreach (float scale : candidates)
+        {
+            float error = Math.AbsFloat(HCDriverWalker.Wrap180(turn - scale * 90.0));
+            float held = Math.AbsFloat(HCDriverWalker.Wrap180(m_Bearings[2] - m_Bearings[0] - scale * 45.0));
+            if (error < bestError - 0.001 || (Math.AbsFloat(error - bestError) <= 0.001 && held < bestHeld))
+            {
+                bestError = error;
+                bestHeld = held;
+                HCDriverMovement.AngleScale = scale;
+            }
+        }
+        HCDriverMovement.AngleSign = 1.0;
+        if (HCDriverMovement.AngleScale < 0) { HCDriverMovement.AngleSign = -1.0; }
+        HCDriverMovement.HeadingFrame = m_HeadingLive;
+        float originFrame = m_CalibCamera;
+        if (m_HeadingLive) { originFrame = m_FirstHeading; }
+        HCDriverMovement.HeadingOffset = HCDriverWalker.Wrap180(m_Bearings[0] - originFrame);
+        m_CalibTurn = turn;
+        m_Resid45 = HCDriverWalker.Wrap180(m_Bearings[2] - m_Bearings[0] - HCDriverMovement.AngleScale * 45.0);
+        m_ResidM90 = HCDriverWalker.Wrap180(m_Bearings[3] - m_Bearings[0] + HCDriverMovement.AngleScale * 90.0);
     }
 
     protected int StepSprint(HCDriverStep step, PlayerBase player)

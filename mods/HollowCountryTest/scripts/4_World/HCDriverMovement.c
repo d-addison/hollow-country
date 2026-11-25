@@ -14,7 +14,9 @@ class HCDriverMovement
     static int CommandId;
     static int AppliedFrames;
     static bool Calibrated;
-    static float AngleSign = 1.0;
+    static float AngleSign = 1.0; // Derived diagnostic alias; steering uses AngleScale.
+    static float AngleScale = 1.0;
+    static bool HeadingFrame;
     static float HeadingOffset;
     static PlayerBase Owner;
     static float Lease;
