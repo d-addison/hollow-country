@@ -192,6 +192,11 @@ class HCShelterModule : HCModule
     static const float HC_RING_OUTER = 12.0;
     protected int m_RingCandidate = -1;
     protected float m_RingRise;
+    protected float m_RingBestRise;
+    protected vector m_RingBestAt;
+    protected int m_RingAccessRejected;
+    protected int m_RingWaterRejected;
+    protected int m_RingTerrainRejected;
     protected int m_SoftVegetation;
     protected ref array<float> m_RingRises = new array<float>();
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
@@ -521,6 +526,16 @@ class HCShelterModule : HCModule
         return m_GroundRise <= 0.25;
     }
 
+    // Installed 1_Core/proto/EnMath.c:413 Round; EnConvert.c:30/59
+    // int.ToString/ToStringLen. float.ToString(:115) has no precision argument.
+    protected string HCFormatRise(float rise)
+    {
+        int centimetres = Math.Round(rise * 100);
+        int metres = centimetres / 100;
+        int fraction = centimetres % 100;
+        return metres.ToString() + "." + fraction.ToStringLen(2);
+    }
+
     // As in HCSceneKits.LayoutOffset/LayoutYaw: bounded mirrored layouts,
     // followed by the same keepout/collision checks. Rotating a whole yard
     // about the barn pivot would put props in end-door approaches, so keep
@@ -581,6 +596,10 @@ class HCShelterModule : HCModule
 
     // Worst footprint rise of the three yard props at one ring candidate, or
     // -1 when any prop would enter the reserved barn strip, water or a slope.
+    // Measure all three dry footprints even after a slope refusal so best_rise
+    // describes the entire layout, not just its first failed prop. Still <=15
+    // SurfaceY reads per candidate. Native: 3_Game/Entities/Object.c:873
+    // ModelToWorld; 3_Game/Global/Game.c:1176 SurfaceY, :1196-1197 water.
     protected float HCRingRise(Object house, int candidate)
     {
         float worst = 0;
@@ -589,13 +608,21 @@ class HCShelterModule : HCModule
         {
             float localZ = -3 + 3 * propIndex;
             vector offset = HCRingOffset(localZ, candidate);
-            if (HCInBarnAccessStrip(offset)) { return -1; }
+            if (HCInBarnAccessStrip(offset)) { m_RingAccessRejected++; return -1; }
             vector point = house.ModelToWorld(offset);
             point[1] = GetGame().SurfaceY(point[0], point[2]);
-            if (!GroundFlat(point)) { return -1; }
+            bool flat = GroundFlat(point);
+            if (!flat && m_BlockingClass == "water") { m_RingWaterRejected++; return -1; }
             if (m_GroundRise > worst) { worst = m_GroundRise; }
             propIndex = propIndex + 1;
         }
+        if (m_RingBestRise < 0 || worst < m_RingBestRise)
+        {
+            m_RingBestRise = worst;
+            // World x,z of the candidate's central grill, not the barn pivot.
+            m_RingBestAt = house.ModelToWorld(HCRingOffset(0, candidate));
+        }
+        if (worst > 0.25) { m_RingTerrainRejected++; return -1; }
         return worst;
     }
 
@@ -603,16 +630,39 @@ class HCShelterModule : HCModule
     protected int HCScreenRing(Object house)
     {
         m_RingRises.Clear();
+        m_RingBestRise = -1;
+        m_RingBestAt = vector.Zero;
+        m_RingAccessRejected = 0;
+        m_RingWaterRejected = 0;
+        m_RingTerrainRejected = 0;
+        // Screening must not overwrite the last placement refusal's evidence.
+        float refusedRise = m_GroundRise;
+        string refusedBlocker = m_BlockingClass;
         int admissible = 0;
         int candidate = 0;
         while (candidate < HC_RING_CANDIDATES)
         {
+            m_BlockingClass = "none";
             float rise = HCRingRise(house, candidate);
             m_RingRises.Insert(rise);
             if (rise >= 0) { admissible = admissible + 1; }
             candidate = candidate + 1;
         }
+        m_GroundRise = refusedRise;
+        m_BlockingClass = refusedBlocker;
         return admissible;
+    }
+
+    protected string HCRingScreenDetails()
+    {
+        string bestRise = "-1.00";
+        string bestAt = "none";
+        if (m_RingBestRise >= 0)
+        {
+            bestRise = HCFormatRise(m_RingBestRise);
+            bestAt = "<" + m_RingBestAt[0].ToString() + "," + m_RingBestAt[2].ToString() + ">";
+        }
+        return " access_rejected=" + m_RingAccessRejected.ToString() + " water_rejected=" + m_RingWaterRejected.ToString() + " terrain_rejected=" + m_RingTerrainRejected.ToString() + " rise_limit=0.25 best_rise=" + bestRise + " best_at=" + bestAt;
     }
 
     // Flattest untried screened candidate (each is offered once), or -1.
@@ -884,7 +934,7 @@ class HCShelterModule : HCModule
         string queryCounts = " objects=" + m_QueryObjects.ToString() + " cargos=" + m_QueryCargos.ToString() + " collisions=" + m_CollisionCount.ToString();
         string ring = " ring=" + m_RingCandidate.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString();
         if (m_RefusalReason == "keepout" && m_KeepoutCheck != "") { ring += " keepout_check=" + m_KeepoutCheck + " slot_min=" + m_SlotMinimum.ToString() + " slot_max=" + m_SlotMaximum.ToString(); }
-        return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
+        return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + HCFormatRise(m_GroundRise) + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
     // Once per owner lifetime, bounded by the authored survey catalog.
@@ -994,7 +1044,7 @@ class HCShelterModule : HCModule
             }
             if (!complete)
             {
-                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString());
+                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString() + HCRingScreenDetails());
                 if (attempts == 0) { m_RefusalReason = variantReason; }
                 m_RingCandidate = -1;
                 RefuseShelter(entry, m_RefusalReason);
@@ -1014,7 +1064,7 @@ class HCShelterModule : HCModule
         entry.PlacementAnchor = fireSpot;
         if (m_RingCandidate >= 0)
         {
-            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=ring candidate=" + m_RingCandidate.ToString() + " rise=" + m_RingRise.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
+            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=ring candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
             m_RingCandidate = -1;
             return;
         }
