@@ -371,6 +371,7 @@ class HCClientDriver
     protected void LogProbe(PlayerBase player, string probe)
     {
         string line = "[HC Driver] calib probe=" + probe + " variant=" + HCDriverMovement.VariantName();
+        line += " serial=" + HCDriverMovement.Serial.ToString();
         line += " req_speed=3.00 req_angle=" + CalibNumber(m_ProbeAngle) + " pos=<" + m_ProbePositions + ">";
         line += " cur_speed=<" + m_ProbeSpeeds + "> cur_angle=<" + m_ProbeAngles + ">";
         line += " input_angle=<" + m_ProbeInputs + "> dir=<" + m_ProbeDirections + ">";
@@ -395,7 +396,7 @@ class HCClientDriver
         calibration += " correction_threshold_m=0.20 back_m=" + CalibNumber(m_ProbeBack);
         calibration = calibration + " facing=" + Math.Round(m_CalibCamera).ToString() + " yaw=" + Math.Round(m_CalibYaw).ToString() + "," + Math.Round(m_CalibMidYaw).ToString() + "," + Math.Round(player.GetOrientation()[0]).ToString();
         calibration = calibration + " cmd=" + m_CalibCommand.ToString() + "," + HCDriverMovement.CommandId.ToString() + " applied_frames=" + m_CalibForwardFrames.ToString() + "," + m_CalibRightFrames.ToString();
-        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + CalibNumber(HCDriverMovement.HeadingOffset) + " apply=" + applied + " aim=disabled";
+        calibration = calibration + " angle_sign=" + HCDriverMovement.AngleSign.ToString() + " frame_offset=" + CalibNumber(HCDriverMovement.HeadingOffset) + " right_offset=" + CalibNumber(HCDriverWalker.Wrap180(m_CalibTurn - 90.0 * HCDriverMovement.AngleSign)) + " apply=" + applied + " aim=disabled";
         int controls = 0;
         Mission mission = GetGame().GetMission();
         if (mission && mission.IsControlDisabled()) { controls = 1; }
@@ -440,7 +441,7 @@ class HCClientDriver
                 return;
             }
             m_CalibRuns++;
-            HCDriverMovement.Variant = HCDriverMovement.POST_SUPER;
+            HCDriverMovement.Variant = HCDriverMovement.MIRROR;
             BeginCalibProbe(player);
         }
         m_CalibAge = m_CalibAge + dt;
@@ -467,6 +468,7 @@ class HCClientDriver
                 m_CalibForward = m_ProbeEnd - m_ProbeStart;
                 m_CalibForwardFrames = frames;
                 float forwardBearing = Math.Atan2(m_CalibForward[0], m_CalibForward[2]) * Math.RAD2DEG;
+                // Retain bearing provisionally; only the settled forward test selects this variant.
                 HCDriverMovement.HeadingOffset = HCDriverWalker.Wrap180(forwardBearing - m_CalibCamera);
                 m_CalibStage = 3;
             }
@@ -496,23 +498,25 @@ class HCClientDriver
         if (m_CalibStage == 4) { probe = "right"; m_RightSettle = m_ProbeSettle; }
         else { m_ForwardSettle = m_ProbeSettle; }
         LogProbe(player, probe);
-        if (m_ProbeSettle > 0.2 && m_ProbeBack > 0.2)
+        if (m_CalibStage == 4 && m_ProbeSettle > 0.2)
         {
             FinishCalib(player, m_CalibRight, "server-correction");
             return;
         }
         if (m_CalibStage == 3)
         {
-            if (distance <= 0.3 || m_CalibForwardFrames == 0)
+            if (distance <= 0.3 || m_ProbeSettle > 0.2)
             {
-                // Only a failed default forward probe permits the diagnostic fallbacks.
-                if (HCDriverMovement.Variant < HCDriverMovement.PRE_SUPER)
+                // Prefer prediction plus authority, then authority only, then client diagnostic.
+                if (HCDriverMovement.Variant < HCDriverMovement.CLIENT_ONLY)
                 {
                     HCDriverMovement.Variant++;
                     BeginCalibProbe(player);
                     return;
                 }
-                FinishCalib(player, vector.Zero, "no-moving-variant");
+                string failure = "no-moving-variant";
+                if (m_ProbeSettle > 0.2) { failure = "server-correction"; }
+                FinishCalib(player, vector.Zero, failure);
                 return;
             }
             m_CalibApplied = HCDriverMovement.AppliedFrames;
@@ -524,10 +528,10 @@ class HCClientDriver
             return;
         }
         string reason = "frame-probe";
-        if (distance <= 0.3 || m_CalibRightFrames == 0) { reason = "right-no-movement"; }
+        if (distance <= 0.3) { reason = "right-no-movement"; }
         else if (!m_CalibAnglesMatch) { reason = "command-angle-mismatch"; }
         // A mirrored strafe (turn near -90) is accepted; AngleSign carries it into the walker.
-        else if (Math.AbsFloat(HCDriverMovement.HeadingOffset) > 15.0 || Math.AbsFloat(Math.AbsFloat(m_CalibTurn) - 90.0) > 15.0) { reason = "command-angle-motion-mismatch"; }
+        else if (Math.AbsFloat(Math.AbsFloat(m_CalibTurn) - 90.0) > 15.0) { reason = "command-angle-motion-mismatch"; }
         HCDriverMovement.Calibrated = reason == "frame-probe";
         FinishCalib(player, m_CalibRight, reason);
     }

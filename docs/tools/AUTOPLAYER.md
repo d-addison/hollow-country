@@ -398,7 +398,7 @@ Native evidence below is relative to `scripts-1.30.164289`:
   `4_World/Plugins/PluginBase/PluginDayzPlayerDebug_Ctrl.c:124-135` also demonstrate persistent
   enabled overrides. Persistent mode alone is therefore not proof of the failure.
 - `4_World/Entities/ManBase/PlayerBase.c:3206-3211` supplies the exact script `CommandHandler`
-  signature used by the new client-only hook, which calls super. The mission queues one input
+  signature used by the client and server hook, which calls super. The mission queues one input
   request per frame; the local player's command callback applies the selected variant only
   in `HumanCommandMove`. It never starts a movement command or replaces an engine method.
 - The native implementation of `OverrideAimChangeX` is opaque. Scripts establish per-tick radians
@@ -406,69 +406,105 @@ Native evidence below is relative to `scripts-1.30.164289`:
   second if heading error failed to shrink; that can oscillate indefinitely when aim does not turn
   the body. Navigation now makes no aim-change requests.
 
-Build 188 moved only with post-super ONE_FRAME, and then only 0.4–0.6 m in 2.5 s;
-the +90 probe returned south instead of east. Endpoints alone cannot distinguish partial input
-consumption (A) from a server correction (B). These remain hypotheses until a native run records
-the following diagnostics. No position writes, speed escalation, or fixture changes compensate.
+Build 189's four northbound probes reported current speed 3.0 and angle 0, but each settled
+exactly at its start. The lead's one-server/one-scripted-client run supports server correction:
+the old hook was excluded by `#ifndef SERVER`. Round 5 mirrors requests on the server, using
+the retail controller methods demonstrated by the DEVELOPER-only native debug RPC
+(`PluginDayzPlayerDebug.c:966`, `DayZPlayerImplement.c:3855–3866`); it does not use that RPC.
+The predicted north-west bearing remains unqualified until movement survives settling.
+Round 5 remains implemented-unverified until the lead's native checks.
 
 1. Wait for ten continuous seconds alive, conscious and in `HumanCommandMove` with a controller
    and mission controls enabled. Missing/unloaded players reset this timer and release movement.
    A run waiting 60 s without readiness refuses.
-2. Start with `one-frame-post-super` (also the movement default). Request speed **3.0**, angle 0,
-   for **4 s**, matching the vanilla bot's requested speed. Stop both overrides, then hold still
-   **2 s**. More than **0.30 m** horizontal movement and nonzero applied callbacks qualify.
-   Only a failed forward displacement/callback test tries `enabled`, then `one-frame-pre-super`,
-   as diagnostic fallbacks. A correction refuses immediately rather than trying to outrun it.
-3. Probe the first moving variant at speed 3.0, angle +90 for **4 s**, then Stop for **2 s**.
-   Both probes collect five observations at 0.5 s intervals (0.5 through 2.5 s), plus the 4 s
-   stop position and the position after the 2 s hold. `sample_s` records actual sample times;
-   the mission's clamped update clock can delay observations, and no sample is fabricated.
-   `GetCurrentMovementSpeed`/`GetCurrentMovementAngle` come from `HumanCommandMove`;
-   `GetCurrentInputAngle` returns `idle` when false. `dir` is the player's `GetDirection` xz.
-   All positions, directions and distances use two decimal places. The line is emitted after
-   settling, once per completed probe, with these exact field names and ordering:
+2. Try `mirror` (client predicts, server applies), then `server` (server applies only), then
+   `client` (client applies only, diagnostic). Every applying controller uses post-super ONE_FRAME.
+   Request speed **3.0**, angle 0, for **4 s**, then Stop and settle **2 s**. Select the first
+   variant with displacement **>0.30 m** and settle distance **<=0.20 m**. A failed or corrected
+   forward probe advances to the next variant. Client applied-frame counts are expected to be
+   zero in `server`; use the correlated server summary to verify authoritative callbacks.
+3. Re-run the right probe with the selected variant: speed 3.0, angle +90 for **4 s**, then Stop
+   for **2 s**. Measure the forward camera bearing offset (`frame_offset`) and signed right
+   bearing residual after that offset (`right_offset`), both to two decimals. A forward offset
+   alone no longer rejects calibration; only the variant whose forward move survived settling
+   can supply the frame used by navigation. The right turn must agree within 15 degrees.
+   Each probe collects five observations at 0.5 s intervals (0.5 through 2.5 s), plus the Stop
+   position and the position after settling. `sample_s` records actual times: clamped updates
+   can delay samples; no observation is fabricated. `cur_speed` and `cur_angle` come from
+   `HumanCommandMove`; `input_angle=idle` means `GetCurrentInputAngle` returned false.
+   `dir` is the player's body direction xz. Exact line formats follow (values are illustrative
+   placeholders; all measured positions, distances and bearing offsets have two decimals):
 
    ```text
-   [HC Driver] calib probe=fwd variant=one-frame-post-super req_speed=3.00 req_angle=0.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
-   [HC Driver] calib probe=right variant=one-frame-post-super req_speed=3.00 req_angle=90.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
-   [HC Driver] calib result=ok|refused variant=NAME run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O apply=measured-camera-frame|refused aim=disabled controls=0|1
+   [HC Driver] calib probe=fwd variant=mirror serial=N req_speed=3.00 req_angle=0.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
+   [HC Driver] calib probe=right variant=mirror serial=N req_speed=3.00 req_angle=90.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
+   [HC Driver] calib result=ok|refused variant=mirror|server|client run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O right_offset=O apply=measured-camera-frame|refused aim=disabled controls=0|1
+   [HC Driver] server-move applied_frames=N refused=none|REASON serial=N
    ```
 
-4. `moved_m` measures start to Stop, independently for each probe. `settle_m` measures Stop to
-   settled position; `back_m` is that drift projected toward this probe's start (negative means
-   continuing away). Both above **0.20 m** refuse with `reason=server-correction`, even when
-   displacement is below 0.30 m. This is evidence consistent with server rollback, not a packet
-   trace proving server causality. Other causes of backwards drift still need native inspection.
-   For example, a northbound probe moving 3.00 m then returning 2.80 m gives `moved_m=3.00
-   settle_m=2.80 back_m=2.80`: B, refusal. A probe whose samples stay near the start, report
-   `cur_speed` near zero or `input_angle=idle`, and finish with `settle_m=0.02 back_m=0.02`
-   instead points toward A. Correct command readings with very low displacement and no rollback
-   can also mean obstruction; absence of a correction in this two-second window does not exclude
-   corrections during the drive or later.
-5. Calibration requires both displacements above 0.30 m, applied callbacks, and at least three
-   of five command-angle samples per probe within 15 degrees of the request. Failure to observe
-   those angles refuses as `command-angle-mismatch`. Measure the forward camera offset and sign
-   of the right turn; preserve them in the result even on direction refusal. If command angles
-   match but the forward offset exceeds 15 degrees or the camera-relative right turn differs
-   from +90 by more than 15 degrees, refuse as `command-angle-motion-mismatch`. A southbound
-   right probe with requested/reported +90 is not accepted as a usable movement frame.
-   Other reasons are `no-moving-variant`, `right-no-movement`, readiness failures, or `frame-probe`
-   for success. `Calibrated` becomes true only on `frame-probe`; walks/routes use measured values.
+4. `moved_m` measures start to Stop; `settle_m` measures Stop to settled position. `back_m`
+   projects that drift toward this probe's start (negative means continuing away). Settle
+   distance above **0.20 m** fails the variant even when drift is not toward the start.
+   A corrected forward probe tries the next variant; a corrected right probe ends with
+   `reason=server-correction`. If every forward variant fails, the final reason is
+   `server-correction` when the final probe drifts, otherwise `no-moving-variant`.
+   For example, `variant=mirror serial=1 ... moved_m=8.00 settle_m=0.05 back_m=0.02` paired with
+   `server-move applied_frames=240 refused=none serial=1` supports a working mirror forward
+   probe. `moved_m=0.78 settle_m=0.78 back_m=0.78` fails that variant even if its server summary
+   reports applied frames: server application still did not establish stable movement.
+   `applied_frames=0 refused=command-change` identifies a server refusal. A `client` probe
+   deliberately reports zero server frames. Server summaries alone never prove movement.
+5. Calibration requires both displacements above 0.30 m, both settle distances <=0.20 m, and
+   at least three of five command-angle samples per probe within 15 degrees of the request.
+   Angle failure refuses as `command-angle-mismatch`; a right turn differing from the measured
+   frame's +90 (or mirrored -90) by more than 15 degrees is `command-angle-motion-mismatch`.
+   `AngleSign` carries a mirrored strafe into the walker. Other reasons include
+   `right-no-movement`, readiness failures, or `frame-probe` for success. `Calibrated` becomes
+   true only on `frame-probe`; result lines preserve measured offsets even on refusal.
 6. States are readiness → forward drive → forward settle → right drive → right settle → result.
    A failed forward variant returns to forward drive with the next variant. A run has at most
-   three forward probes and one right probe: **24 s nominal**, bounded by **26 s** of
-   clamped update time including frame overshoot (12 s nominal when the default moves), plus
-   60 s readiness and at most one update of overshoot. Startup failures retry after 15 s, at most
-   three startup runs; a pre-movement retry shares the hard **four-run session cap**. Step timers
-   start after calibration. Readiness loss stops immediately and refuses; an interrupted probe
-   has no completed-probe line. There are at most four probe lines and one result per run.
-7. Persistent ENABLED is set at movement start and updated only when speed/angle changes. Stop,
-   release, step end, conclusion and shutdown disable both movement overrides on the original
-   controller. The callback also clears on death, unconsciousness, lost movement command,
-   disabled controls, changed local player, or an expired 0.5 s request lease. Missing/unloaded
-   player ticks clear movement too. ONE_FRAME variants use the same explicit release paths.
-   Every walk/route/sprint result retains `start`, `end`, `moved_m`, `cmd` and `controls`.
-   Sprint requires displacement to succeed. No per-frame logging is added.
+   three forward probes and one right probe: **24 s nominal**, bounded by **26 s** of clamped
+   update time including overshoot (12 s nominal when mirror moves), plus 60 s readiness and
+   at most one update of overshoot. Startup failures retry after 15 s, at most three startup
+   runs; a pre-movement retry shares the hard **four-run session cap**. Step timers start after
+   calibration. Readiness loss stops immediately and refuses; an interrupted probe has no
+   completed-probe line. At most four client probe lines and one result are emitted per run.
+7. The test-only `HCDriverMoveWire.RPC_MOVE` allocation is **4854091** (global lint inventory).
+   The reliable player-targeted request contains serial, speed, angle, lease seconds and an
+   apply flag. `client` sends apply=false for a correlated zero-frame diagnostic summary.
+   Active refreshes are spaced at least 125 ms, with a hard sliding ten-message/second cap
+   including Stop. There are no idle refreshes. Stop sends lease=0 once; if throttled it retries
+   until sent, and the server lease still bounds release. A serial identifies one continuous
+   request/probe, not each refresh; the client probe line prints it for correlation.
+   The server grants at most 500 ms from receipt using its own clock, never comparing unsynced
+   client/server clocks. Refreshes must arrive before the prior deadline. Closed/stale serials
+   cannot reactivate movement. Delivery age before the first receipt is not measured by this
+   protocol and remains a native timing limitation to inspect.
+
+   | Server input/state | Refusal reason |
+   | --- | --- |
+   | Missing sender, identity mismatch, or sender.GetPlayer differs from RPC target | `not-owner` (does not touch target controller) |
+   | Incomplete payload or nonpositive serial | `malformed` |
+   | More than ten messages in sliding 1000 ms | `rate-limit` |
+   | Speed outside 0..3, including nonfinite values | `speed-range` |
+   | Angle outside -180..180, including nonfinite values | `angle-range` |
+   | Lease outside 0..0.5 seconds, including nonfinite values | `lease-range` |
+   | Refresh after deadline, or deadline reached in callback | `lease-expired` |
+   | Missing identity or disconnected player | `disconnected` |
+   | Dead / unconscious / not in move command / missing controller | `dead` / `unconscious` / `command-change` / `no-controller` |
+   | New serial replaces active request | Previous serial closes as `superseded` |
+   | Stop (lease=0), otherwise valid | `none`, both overrides disabled |
+   | Already closed or older serial | Ignored; keeps existing summary and cannot renew lease |
+
+   Stop, release, step end, conclusion and shutdown disable both local overrides on the original
+   controller. Client guards also clear on death, unconsciousness, lost movement command,
+   disabled controls, changed local player, or expired 0.5 s lease. The server callback clears
+   on lease expiry and life/command transitions; death and disconnect hooks clear before super.
+   Each serial emits one server summary on close, with frames saturated at 1,000,000;
+   summaries/refusals share a 128-line cap per player lifetime. Malformed/unowned packets use
+   serial=0 when they cannot be safely correlated. No per-frame logging, position writes,
+   teleports or increased speeds are used. Walk/route/sprint results retain `start`, `end`,
+   `moved_m`, `cmd` and `controls`; sprint requires displacement.
 
 `fx_site_patrol_kill` is registered with the same dev fixture flags as `fx_shoot`/`fx_melee`.
 The existing `enforce_lint` gate now checks every test addon `HCOwns` literal `fx_` comparison
