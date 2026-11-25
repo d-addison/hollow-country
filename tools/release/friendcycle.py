@@ -5,6 +5,7 @@ Use --build-only to prepare a reviewable bundle without any Windows install call
 """
 import argparse
 import csv
+from contextlib import nullcontext
 import importlib
 import io
 import json
@@ -79,15 +80,18 @@ OVERLAY_CHECK = 'check-overlays'
 OVERLAY_ERRORS_SHOWN = 40
 
 
-def overlay_vanilla_check(sha, mission, number):
+def overlay_vanilla_check(sha, mission, number, *, tree=None):
     """Refuse the build unless the commit's own map overlay validation passes against the mission's vanilla rows.
 
     This is the call the friend installer's step 6 makes (map_overlay.validate on read_vanilla rows), run by the
     pinned commit's friend_bundle on a scratch copy of --mission. Without a mission it did not run, and that is a
-    failure, never a pass."""
+    failure, never a pass. Preland supplies tree to validate working-tree edits via
+    the same checker, without creating a build worktree."""
     if mission is None:
         raise ValueError('overlay vanilla check not run: no --mission was given; the build is refused')
-    with worktree(sha, number + '-overlaycheck') as tree:
+    # Preland checks working-tree edits without creating Git metadata. The bundle
+    # checker itself stages a disposable mission copy and never edits the host mission.
+    with (nullcontext(tree) if tree is not None else worktree(sha, number + '-overlaycheck')) as tree:
         command = [sys.executable, '-B', '-m', 'tools.setup.friend_bundle']
         help_text = run([*command, '--help'], tree)
         if OVERLAY_CHECK not in help_text:
@@ -107,6 +111,16 @@ def overlay_vanilla_check(sha, mission, number):
         shown.append('(+%d more)' % (len(errors) - len(shown)))
     raise ValueError('overlay layers refused against the vanilla rows of --mission; the build is refused:\n  '
                      + '\n  '.join(shown))
+
+
+def require_candidate_checkout(sha):
+    """Read-only guard before the host lock or any setup/build work."""
+    head = run(['git', 'rev-parse', 'HEAD']).strip()
+    changed = run(['git', 'status', '--porcelain', '--untracked-files=all', '--',
+                   'tools/release', 'tools/package']).strip()
+    if head != sha or changed:
+        raise ValueError('run friendcycle from a clean worktree at the candidate commit '
+                         '(checkout HEAD must match --commit and tools/release + tools/package must be clean)')
 
 
 def cycle(args):
@@ -200,6 +214,9 @@ def main(argv=None):
                              'unavailable here as BUILD_MANIFEST waivers; the release gate refuses them')
     args = parser.parse_args(argv)
     try:
+        sha = resolve_commit(args.commit, args.allow_unpushed)
+        require_candidate_checkout(sha)
+        args.commit = sha
         from tools.release.host_lock import host_lock
         with host_lock('friendcycle'):
             cycle(args)

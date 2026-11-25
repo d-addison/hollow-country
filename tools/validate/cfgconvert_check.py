@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 import re
 import subprocess
+import time
 
 from tools.release.rpt_summary import filtered
 from tools.setup import winproc
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_TOOL = Path('/mnt/d/SteamLibrary/steamapps/common/DayZ Tools/Bin/CfgConvert/CfgConvert.exe')
 SKIPPED = 3
 MARKER = 'HC_CFG_RESULT='
+STARTED = 'HC_CFG_STARTED'
 ERROR = re.compile(r'\b(?:error|cannot|failed|fatal)\b', re.I)
 
 
@@ -32,13 +34,50 @@ def discover(root, paths=None):
 
 
 def windows_path(path):
-    result = subprocess.run(['wslpath', '-w', str(path.resolve())], capture_output=True,
-                            text=True, timeout=10, check=True)
+    try:
+        result = subprocess.run(['wslpath', '-w', str(path.resolve())], capture_output=True,
+                                text=True, timeout=10, check=True)
+    except subprocess.TimeoutExpired as error:
+        raise winproc.InteropError('wslpath timed out before CfgConvert could start') from error
+    except subprocess.CalledProcessError as error:
+        raise winproc.InteropError('wslpath failed with exit %d before CfgConvert could start'
+                                   % error.returncode) from error
+    if not result.stdout.strip():
+        raise winproc.InteropError('wslpath returned no Windows path before CfgConvert could start')
     return result.stdout.strip()
 
 
 def quote(value):
     return "'" + str(value).replace("'", "''") + "'"
+
+
+def run_converter_interop(script):
+    """Retry only an explicit connection refusal before PowerShell starts.
+
+    winproc.run folds empty replies, timeouts and vsock refusals into one error.
+    Here those cases must stay distinct: lost replies/timeouts may have launched
+    CfgConvert, so replaying them could hide a real refusal or leave two processes.
+    """
+    command = [str(winproc.SYSTEM32 / 'WindowsPowerShell/v1.0/powershell.exe'),
+               '-NoProfile', '-NonInteractive', '-Command', script]
+    for attempt in range(2):
+        try:
+            result = subprocess.run(command, cwd='/mnt/c', capture_output=True, timeout=60)
+        except subprocess.TimeoutExpired as error:
+            raise ValueError('Windows interop timed out; converter execution state unknown (no retry)') from error
+        out = result.stdout.decode('utf-8', errors='replace').replace('\r', '')
+        err = result.stderr.decode('utf-8', errors='replace').replace('\r', '')
+        lines = [line for line in (out + '\n' + err).splitlines() if line.strip()]
+        if (lines and STARTED not in out + err and MARKER not in out + err
+                and all(winproc.INTEROP.search(line) for line in lines)):
+            if attempt == 0:
+                print('cfgconvert_check: retrying Windows interop after explicit vsock connection failure (1/1)')
+                time.sleep(2)
+                continue
+            raise winproc.InteropError('explicit vsock connection failure after one retry; PowerShell did not start')
+        if not lines:
+            raise winproc.InteropError('empty Windows interop reply; execution state unknown (no retry)')
+        return winproc.Result(result.returncode, out, err, attempt + 1)
 
 
 def convert(source, tool):
@@ -56,7 +95,7 @@ def convert(source, tool):
     src, exe = windows_path(addon), windows_path(tool)
     relative = (Path(addon.name) / source.relative_to(addon)).as_posix().replace('/', '\\')
     script = (
-        "$ErrorActionPreference='Stop'; $scratch=Join-Path $env:TEMP "
+        f"$ErrorActionPreference='Stop'; Write-Output '{STARTED}'; $scratch=Join-Path $env:TEMP "
         "('hc-cfg-'+[Guid]::NewGuid()); $p=$null; try { "
         "New-Item -ItemType Directory -Path $scratch | Out-Null; "
         f"Copy-Item -LiteralPath {quote(src)} -Destination $scratch -Recurse; "
@@ -78,7 +117,7 @@ def convert(source, tool):
         "} finally { if (!$p -or $p.HasExited) { "
         "Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue } }"
     )
-    result = winproc.run('powershell', [script], attempts=1, timeout=60)
+    result = run_converter_interop(script)
     raw = result.stdout + '\n' + result.stderr
     receipts = re.findall(re.escape(MARKER) + r'(-?\d+):(True|False)', raw)
     ok = (result.returncode == 0 and receipts == [('0', 'True')]
@@ -90,7 +129,7 @@ def diagnostics(raw, source, root):
     label = source.relative_to(root).as_posix()
     result = []
     for line in raw.splitlines():
-        if MARKER in line or not line.strip():
+        if MARKER in line or line.strip() == STARTED or not line.strip():
             continue
         safe = filtered(line.replace(str(root) + '/', ''))
         if safe is None:
@@ -114,15 +153,23 @@ def main(argv=None):
         print('cfgconvert_check: no configs selected')
         return 0
     if not args.tool.is_file():
-        print('skipped: CfgConvert unavailable')
+        print('skipped: CfgConvert executable not found (--tool or default installation)')
         return SKIPPED
     failed = 0
     for source in configs:
         try:
             ok, raw = convert(source, args.tool)
-        except (winproc.InteropError, OSError, subprocess.SubprocessError):
-            print('skipped: CfgConvert unavailable (interop or timeout); native check pending')
+        except winproc.InteropError as error:
+            print('skipped: CfgConvert unavailable: ' + str(error))
             return 1 if failed else SKIPPED
+        except (OSError, subprocess.SubprocessError) as error:
+            # wslpath runs before PowerShell; report the actual failure category.
+            print('skipped: CfgConvert path/interop launch failed (' + type(error).__name__
+                  + ', errno=' + str(getattr(error, 'errno', None)) + ')')
+            return 1 if failed else SKIPPED
+        except ValueError as error:
+            print('cfgconvert_check: failed: ' + str(error))
+            return 1
         for line in diagnostics(raw, source, root):
             print(line)
         if not ok:
