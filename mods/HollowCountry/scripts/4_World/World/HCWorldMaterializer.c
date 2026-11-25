@@ -106,7 +106,8 @@ modded class HCWorldModule
 
 class HCWorldMaterializer : HCModule
 {
-    protected ref HCActivityCounters m_Activity = new HCActivityCounters("rings rows proposals claims materialized traces refused prerequisite cap no_players budget cooldown row_unavailable custody ring faction population sequence reserve provider_timeout");
+    protected ref HCActivityCounters m_Activity = new HCActivityCounters("rings rows proposals claims materialized traces refused prerequisite cap no_players budget cooldown custody ring faction population sequence reserve provider_timeout");
+    protected int m_SkippedIneligible;
     static const int MAX_PLAYERS = 32;
     static const int ROWS_PER_RING = 32;
     static const int PROVIDER_TIMEOUT = 120;
@@ -308,7 +309,11 @@ class HCWorldMaterializer : HCModule
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !(deltaTime > 0) || deltaTime > 3600) { return; }
-        if (m_Activity.HCDue(deltaTime)) { m_Activity.HCLog("[HollowCountry] V2 materializer", " active=" + m_Active.Count().ToString() + " custody_ready=" + m_CustodyReady.ToString()); }
+        if (m_Activity.HCDue(deltaTime))
+        {
+            m_Activity.HCLog("[HollowCountry] V2 materializer", " active=" + m_Active.Count().ToString() + " custody_ready=" + m_CustodyReady.ToString() + " skipped_ineligible=" + m_SkippedIneligible.ToString());
+            m_SkippedIneligible = 0;
+        }
         this.HCPumpCustodyFallback();
         m_Clock += deltaTime;
         m_RingSeconds += deltaTime;
@@ -1715,15 +1720,22 @@ class HCWorldMaterializer : HCModule
         for (int rowWork = 0; rowWork < ROWS_PER_RING; rowWork++)
         {
             if (m_Active.Count() + unresolvedLeases >= HCAILimits.Get().MaxMaterialized) { m_Activity.HCRefuse("cap"); return; }
-            if (!m_WorkBudget.HCContinue()) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
-            if (!m_UnitBudget.HCTake(1)) { m_Activity.HCRefuse("budget"); m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
             if (m_RowCursor >= totalRows) { m_RowCursor = 0; }
             int rowIndex = m_RowCursor;
             m_RowCursor++;
             m_Activity.Add("rows");
             if (m_Cooldowns[rowIndex] > m_Clock) { m_Activity.Add("cooldown"); continue; }
             HCWorldProposal row = world.MaterializerRow(rowIndex);
-            if (!row) { m_Activity.HCRefuse("row_unavailable"); continue; }
+            if (!row) { m_SkippedIneligible++; continue; }
+            // Eligibility/cooldown skips are bounded by ROWS_PER_RING, not proposal units.
+            // Retain this eligible row when the four-unit ring slice yields.
+            if (!m_WorkBudget.HCContinue() || !m_UnitBudget.HCTake(1))
+            {
+                m_RowCursor = rowIndex;
+                m_Activity.HCRefuse("budget");
+                m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork);
+                return;
+            }
             if (!this.HCCustodyAllows(row.Identity)) { m_Activity.HCRefuse("custody"); continue; }
             bool nearby = false;
             bool insideRing = false;

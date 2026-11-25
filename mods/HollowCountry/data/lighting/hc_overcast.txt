@@ -29,6 +29,8 @@ class LightingNew
         rayleigh[] = {0, 0, 0};
         mie[] = {0, 0, 0};
         cloudsColor[] = {0, 0, 0};
+        // NearCloud reuses this stage's ambientCloud tint (engine lighting input).
+        NearCloud[] = {0.49, 0.51, 0.54};
         swBrightness = 0;
         spaceIntensity = 0;
         atmosphereIntensity = 1;

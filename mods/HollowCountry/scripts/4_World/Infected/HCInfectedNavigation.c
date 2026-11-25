@@ -93,16 +93,20 @@ class HCPackQuarantine
     protected static ref array<AIGroup> s_Groups = new array<AIGroup>;
     protected static ref array<float> s_Until = new array<float>;
 
-    static void HCAdd(AIGroup group, float now)
+    // Native scripts-1.30.164289: EnDebug.c:96 Print; EnConvert.c:30 ToString.
+    // Anonymous process-local pack ordinal; never a native/player identity.
+    protected static int s_EntrySerial;
+
+    static void HCAdd(AIGroup group, float now, string reason)
     {
         if (!group) { return; }
+        HCAge(now);
         int index = s_Groups.Find(group);
         if (index >= 0)
         {
             s_Until.Set(index, now + COOLDOWN_SECONDS);
             return;
         }
-        HCAge(now);
         if (s_Groups.Count() >= CAPACITY)
         {
             s_Groups.RemoveOrdered(0);
@@ -110,6 +114,8 @@ class HCPackQuarantine
         }
         s_Groups.Insert(group);
         s_Until.Insert(now + COOLDOWN_SECONDS);
+        s_EntrySerial++;
+        Print("[HC Infected] pack quarantine pack=" + s_EntrySerial.ToString() + " reason=" + reason + " cooldown_s=" + COOLDOWN_SECONDS.ToString() + " runtime=PENDING");
         HCModuleReadiness.HCUse("Infected", "group_quarantine");
     }
 
@@ -291,6 +297,7 @@ class HCNativeInfectedPack
     // failed/no-op AddAgent calls. A missing old owner is never a receipt.
     protected ref map<ZombieBase, AIGroup> m_ReleaseFallbacks = new map<ZombieBase, AIGroup>;
     protected bool m_ReleaseQuarantined;
+    protected string m_QuarantineReason = "route_stalled";
     protected int m_ReleaseAttempts;
     protected int m_NextReleaseUtc;
     protected ref array<ref BehaviourGroupInfectedPackWaypointParams> m_RoutePlan;
@@ -890,6 +897,7 @@ class HCNativeInfectedPack
         {
             // Every tracked member was dropped: a clean give-up, quarantined so the same wedged group
             // is not immediately re-routed.
+            m_QuarantineReason = "all_members_dropped";
             RouteResult = 3;
             return !Release();
         }
@@ -985,7 +993,7 @@ class HCNativeInfectedPack
         // group: new routes for it are refused for the cooldown, other packs are never held back.
         if (!m_Releasing && Group && RouteResult == 3)
         {
-            HCPackQuarantine.HCAdd(Group, GetGame().GetTickTime());
+            HCPackQuarantine.HCAdd(Group, GetGame().GetTickTime(), m_QuarantineReason);
             m_ReleaseQuarantined = true;
         }
         m_Releasing = true;
