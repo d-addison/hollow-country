@@ -99,6 +99,38 @@ class ReadinessTiming:
                     limit_seconds=limit, pending=pending, late=late, ready_before_hive=before_hive)
 
 
+def soak_span(path):
+    """Elapsed Hive-to-stop time, including midnight rollover; missing markers fail closed."""
+    timing = ReadinessTiming()
+    stopped = None
+    for raw in lines(path):
+        timing.observe(raw)
+        if 'Server modules stopped' in raw:
+            stamp = RPT_CLOCK.match(raw)
+            if not stamp or stopped is not None:
+                return None
+            h, m, sec = map(int, stamp.group(1, 2, 3))
+            clock = h * 3600 + m * 60 + sec + float('0.' + (stamp[4] or '0'))
+            if h >= 24 or m >= 60 or sec >= 60 or timing.previous != clock:
+                return None
+            stopped = timing.clock
+    if timing.invalid or timing.hive_at is None or stopped is None or stopped < timing.hive_at:
+        return None
+    return stopped - timing.hive_at
+
+
+def r2b_warnings(path, limit):
+    """Combined work is measured directly, never a sum of unrelated owner maxima (#361)."""
+    peak = None
+    for raw in lines(path):
+        if '[HC Perf]' not in raw:
+            continue
+        match = re.search(r'\bwork_max=([0-9]+(?:\.[0-9]+)?)(?=\s|$)', raw)
+        if match:
+            peak = max(peak or 0, float(match[1]))
+    return ([f'WARN perf_rule=R2b combined_work_max_ms={peak:g} limit_ms={limit:g}']
+            if peak is not None and peak > limit else [])
+
 def filtered(line):
     """Strict audit drop policy, then existing report redaction and home masking.
 
@@ -307,7 +339,8 @@ class Summary:
                     worst_ticks=self.worst, save_peaks=self.saves,
                     tick_cost={k: {a: sorted(b) if isinstance(b, set) else b for a, b in v.items()}
                                for k, v in self.tick_rows.items()},
-                    tick_cost_rejected=self.tick_rejected)
+                    tick_cost_rejected=self.tick_rejected,
+                    warnings=r2b_warnings(self.path, targets['perf_r2_max_ms']))
 
     def print(self, as_json=False):
         if as_json:
@@ -321,6 +354,8 @@ class Summary:
             print(']}')
             return
         print('outcome=' + self.outcome)
+        for warning in self.header()['warnings']:
+            print(warning)
         print('R4 ' + json.dumps(self.header()['readiness_timing'], sort_keys=True))
         for entity_type, count in self.db.execute('SELECT type,n FROM corruptions ORDER BY type'):
             print(f'persistence_corrupted type={entity_type} count={count}')

@@ -42,6 +42,8 @@ class Generator:
 
 # All check-capable generators live here, including positional check subcommands.
 GENERATORS = (
+    Generator('activity_check', ('--check-plan',), package='tools.release', digest=False,
+              success='every registered use counter has a smoke plan row'),
     Generator('admin_world_catalog', ('--check',)),
     Generator('ai_route_precompute', ('--check', '--workshop', '{workshop}'), ('ai_roads',)),
     Generator('military_loot', ('--check',)),

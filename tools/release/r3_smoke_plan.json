@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "status": "planned_unverified",
-  "scope": "Build 156 supplied INERT counters only; re-enumerate exact release commit including other workers additions",
-  "acceptance": "No waivers. One server plus at most one client; every registered default-on counter must be ACTIVE. No multiplayer proof.",
+  "scope": "Every registered counter in the source tree, including shared legacy and navigation aggregate registrations; activity_check --check-plan enforces coverage.",
+  "acceptance": "No waivers. Automated counters require ACTIVE. Explicit OWNER_CHECKS remain listed as owner checks and never establish a pass.",
   "estimate_semantics": "est_minutes is a per-exercise observation allowance after prerequisites, not an upper bound. Shared actions overlap; not_deterministic estimates can overrun indefinitely. Preparation and 30-minute soak are additional.",
   "admin_controls": "Existing HC menu only (Pause); verified dispatch HCAdminModule.c#HCAdminModule.HCRegisterFixtureProvider..HCCommand, adapters HCAdminDirectors.c. No generic item/vehicle spawner is claimed. See R3_SMOKE_SCRIPT.md for exact citations and unimplemented proposal guards.",
   "entries": [
@@ -26,6 +26,16 @@
       "steps": "1. Activate patrol/scavenger sites by travelling near Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk]. 2. Stay out of combat while the role scheduler chooses its funded activity. 3. Require activity_started, not role assignment.",
       "est_minutes": 5,
       "prerequisites": "Expansion AI role activities enabled; funding, role/time policy, free group lease and normal cooldown."
+    },
+    {
+      "module": "AIRoles",
+      "feature": "routes_pending",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, timer:30m, code:HCXAIRoleActivities.c. Observe AIRoles/routes_pending count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "AISelfDefence",
@@ -58,6 +68,16 @@
       "est_minutes": 15,
       "prerequisites": "ai/trade-recipes.json: bandage-for-food; MinimumCampReserve=4, MinimumCampMembers=2; OfferIntervalSeconds=900; healthy trade journal, route and inventory bindings.",
       "deterministic_exercise_proposal": "Implemented-unverified: fx_trade. Run fx_trade near two real finite-reserve transient camps. With no retained plan, it ranks live qualified camp rows by distance and offers the nearest two through normal HCCandidate only if their relationship and supply qualify. It conservatively refuses if that pair fails; it does not enumerate all pairs. An existing retained plan keeps its one funded pair. Ready, cadence and receipt-cap guards remain in force; normal HCPlan resolves real stock, route, greeting and reciprocal custody. Require trade_completed with fixture=1; no stock or acknowledgements are injected."
+    },
+    {
+      "module": "AdminMap",
+      "feature": "catalog_auto_refresh",
+      "source": "mods/HollowCountry/scripts/4_World/Admin/HCAdminTeleport.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: timer:3m, step:menu:admin, code:HCAdminTeleport.c. Observe AdminMap/catalog_auto_refresh count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "AdminMap",
@@ -163,6 +183,16 @@
       "prerequisites": "EnableGroups; ChernarusMap needed for map layers, not roster."
     },
     {
+      "module": "CookingCompat",
+      "feature": "cooking_dish_cooked",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#Cooking.CookWithEquipment",
+      "trigger": "A cooking pass changes a stage and leaves a finished pack dish in the pot.",
+      "exercise": "client_action",
+      "steps": "1. With the cooking pack loaded, put the ingredients of one pack dish in a pot on a lit fire. 2. Wait until the dish is done and take it from the pot (keep a free inventory slot). 3. Require [HC Use] CookingCompat cooking_dish_cooked count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 10,
+      "prerequisites": "Cooking pack present (CookingCompat enabled); a pot, fire source and the dish ingredients; one server plus at most one client."
+    },
+    {
       "module": "Crafting",
       "feature": "recipe_completed",
       "source": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c#HCCraftingGate.RecordCraft",
@@ -184,6 +214,96 @@
       "deterministic_exercise_proposal": "Pre-stage a naturally created finite cache during player-free soak, then run normal LinkCache maintenance while entering its area. If normal creation requires conflicting near/far guards, family A proposes enqueueing only cache maintenance at a selected existing row, leaving observer guard and finite allocations unchanged; no deposit/refill grant."
     },
     {
+      "module": "DebugSnapshot",
+      "feature": "snapshot_saved",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase idle; reach: timer:5m, code:HCDebugSnapshotModule.c. Observe DebugSnapshot/snapshot_saved count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Ecology",
+      "feature": "animal_observed",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCEcologyRuntime.c. Observe Ecology/animal_observed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Escalation",
+      "feature": "state_advanced",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCEscalationClock.c. Observe Escalation/state_advanced count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Events",
+      "feature": "cache_filled",
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCEventRewardCache.c. Observe Events/cache_filled count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Events",
+      "feature": "mission_marker",
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCMissionBeacon.c. Observe Events/mission_marker count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Events",
+      "feature": "mission_notice",
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCMissionBeacon.c. Observe Events/mission_notice count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Events",
+      "feature": "mission_radius_entered",
+      "source": "mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase mission; reach: step:enter:mission, code:HCMissionBeacon.c, code:HCUseLifecycle.c. Observe Events/mission_radius_entered count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Events",
+      "feature": "police_supply_bound",
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCEventWorldBinding.c. Observe Events/police_supply_bound count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Events",
+      "feature": "situation_started",
+      "source": "mods/HollowCountry/scripts/4_World/Events/HCSituationDirector.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCSituationDirector.c. Observe Events/situation_started count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "FactionConflict",
       "feature": "outcome_recorded",
       "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCConflictStep",
@@ -194,6 +314,16 @@
       "prerequisites": "World recovery ready; two opposed faction records, clash budget, unleased distant place; ResolveEqualStrength policy.",
       "deterministic_exercise_proposal": "Implemented-unverified family A command fx_conflict. Nearest existing distant opposed pair/cell with no pending territory receipt, claimed lease or provider fight and eligible cooldown/daily fact budget. Normal HCConflictStep retains quota, budget and all outcome guards. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
       "implementation_status": "implemented-unverified"
+    },
+    {
+      "module": "FoodCompat",
+      "feature": "food_compat_guard",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#HCFoodCompat.Guarded",
+      "trigger": "Pack food, a pack box or a pack bundle initialises its temperature and the 1.30 contract holds.",
+      "exercise": "client_action",
+      "steps": "1. With the food pack loaded, spawn or find one pack food item, one pack loot box and one pack bundle (existing loot or the economy; no generic spawner is claimed). 2. Open the box and the bundle with the native Open action. 3. Require no SCRIPT (E) line and [HC Use] FoodCompat food_compat_guard count>=1. A '[HC Food] food_compat_refused reason=...' line means a contract refusal and must be investigated.",
+      "est_minutes": 5,
+      "prerequisites": "Food pack present (FoodCompat enabled); pack items reachable through loot or the existing HC menu; one server plus at most one client."
     },
     {
       "module": "Forage",
@@ -214,6 +344,36 @@
       "steps": "1. At woodland edge on route to Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, stand on forest surface. 2. Pause -> Economy -> forage -> Run. 3. Close menu, move at least 30 m away from candidate slot while staying in its 200 m cell. 4. Wait up to three 10 s slot cycles; inspect list for node and search ground.",
       "est_minutes": 2,
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; game month June-November; forest surface and available finite nodes. Command only primes normal path."
+    },
+    {
+      "module": "Fortify",
+      "feature": "barricade_breached",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge (breach step)",
+      "trigger": "Infected door pressure ruins the last part of a placed barricade.",
+      "exercise": "not_deterministic",
+      "steps": "1. Place a barricade on a door of your claimed building. 2. Draw several infected to the far side of that door and stay out of their reach until they stop at it. 3. Wait for the breach window (about 90 s, half for heavy infected). 4. Require [HC Use] module=Fortify feature=barricade_breached count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 10,
+      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client. Infected nearby; breach pacing depends on their count and the work budget."
+    },
+    {
+      "module": "Fortify",
+      "feature": "fortify_placed",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge.HCPlaced",
+      "trigger": "A shelter-scale pack kit is placed on a building the player's group has claimed.",
+      "exercise": "client_action",
+      "steps": "1. Claim a building with your group. 2. Place one shelter-scale pack kit at that building and finish the placement. 3. Require [HC Use] module=Fortify feature=fortify_placed count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 8,
+      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client."
+    },
+    {
+      "module": "Fortify",
+      "feature": "fortify_refused",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge.HCRefuseTo",
+      "trigger": "A pack kit placement is refused (kit larger than shelter scale, or a building claimed by another group).",
+      "exercise": "client_action",
+      "steps": "1. Try to place a pack kit that is larger than shelter scale, or a kit on a building claimed by another group. 2. Expect the 'Refused: \u2026' status line and no placed object. 3. Require [HC Use] module=Fortify feature=fortify_refused count>=1 and no SCRIPT (E) line.",
+      "est_minutes": 5,
+      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client. With one client, use the larger-than-shelter-scale kit; the other-group case needs a second player (owner multiplayer playtest pending)."
     },
     {
       "module": "Grade",
@@ -246,6 +406,16 @@
       "prerequisites": "EnableGroups; HC group map loaded."
     },
     {
+      "module": "GunPile",
+      "feature": "piles-placed",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCGunPile.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: . Observe GunPile/piles-placed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "Holdouts",
       "feature": "camp_committed",
       "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c#HCHoldouts.HCLogCamp",
@@ -258,6 +428,16 @@
       "implementation_status": "implemented-unverified"
     },
     {
+      "module": "Holdouts",
+      "feature": "holdout_reconcile",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase fixtures; reach: fixture:fx_materialize, code:HCHoldouts.c. Observe Holdouts/holdout_reconcile count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "HordeMigration",
       "feature": "route_advanced",
       "source": "mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c#HCNativeInfectedPack.V2Tick",
@@ -267,6 +447,16 @@
       "est_minutes": 5,
       "prerequisites": "EnableHordes/World; infected/route-surveys.json police-chernogorsk-loop; genuine cue and funded adoption; all members arrive within configured 8 m.",
       "deterministic_exercise_proposal": "Stage a native cohort on the existing authored loop before the cue, leave doors traversable. Family A proposes selecting the existing cohort/route for normal adoption, not teleporting members, advancing cursor or dropping lagging members to force arrival."
+    },
+    {
+      "module": "Infected",
+      "feature": "actor_bound",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, step:stand, code:HCInfectedModule.c. Observe Infected/actor_bound count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "InfectedDoors",
@@ -290,6 +480,16 @@
       "deterministic_exercise_proposal": "Use source seed at (3100.955811,4238.387207); approach naturally behind terrain while candidate is hidden. Family A proposes bounded seed evaluation selection only, preserving observation, population, surface and lease checks."
     },
     {
+      "module": "InfectedLOD",
+      "feature": "tier_changed",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, step:stand, code:HCInfectedLOD.c. Observe InfectedLOD/tier_changed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "InfectedMemory",
       "feature": "heat_recorded",
       "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c#HCInfectedMemory.Add",
@@ -298,6 +498,16 @@
       "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], fire one ordinary unsuppressed round into safe ground. 2. Wait for normal noise/memory path and require heat_recorded.",
       "est_minutes": 1,
       "prerequisites": "EnableInfected/World; memory active and real loudness event; not a config read."
+    },
+    {
+      "module": "InfectedReach",
+      "feature": "backoff_started",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCInfectedReachModule.c. Observe InfectedReach/backoff_started count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "InfectedReach",
@@ -333,6 +543,16 @@
       "deterministic_exercise_proposal": "Stage one real serviceable car and one naturally attracted infected in an open yard; repeat same entry/side. Family C proposes one finite empty vehicle fixture if none available, permission guarded/default off; no occupant damage proxy, fake damage or forced count."
     },
     {
+      "module": "InfectedSiege",
+      "feature": "siege_started",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Siege/HCInfectedSiege.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCInfectedSiege.c. Observe InfectedSiege/siege_started count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "InfectedVariety",
       "feature": "actor_woken",
       "source": "mods/HollowCountry/scripts/4_World/Infected/Variety/HCInfectedVarietyModule.c#HCInfectedVarietyModule.HCRecordWake",
@@ -353,14 +573,24 @@
       "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; a House site with stock CE items inside its sphere."
     },
     {
-      "module": "SearchBinding",
-      "feature": "house_bound",
-      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.NoteHouseBound",
-      "trigger": "The House search service commits one search and HCSearchBinding records that the House target was bound to a found item (the same commit as Interiors/house_search_completed); empty, refused or interrupted searches earn nothing.",
-      "exercise": "client_action",
-      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_bound; it fires on the same commit as house_search_completed.",
-      "est_minutes": 1,
-      "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; the same House search as Interiors/house_search_completed (one search counts for both)."
+      "module": "Interiors",
+      "feature": "pathgraph_refresh",
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCInteriorPathgraph.c. Observe Interiors/pathgraph_refresh count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Interiors",
+      "feature": "prop_placed",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCInteriorTemplatePlacement.c. Observe Interiors/prop_placed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "Leads",
@@ -381,6 +611,36 @@
       "steps": "1. Outside at Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] in daylight with NV off, Pause -> Time & Weather -> weather value 4 (bad weather) -> Run. 2. Wait for native weather and three-second lighting samples. 3. Require positive blend; night is deliberately vanilla.",
       "est_minutes": 2,
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; EnableAtmosphere; presentation enabled; sun above horizon, no native underground; verify profile name in reply."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "intent_read_ok",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase actions; reach: boot, code:HCSearchRefresh.c. Observe LootRefresh/intent_read_ok count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "intent_read_recovered",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase actions; reach: boot, code:HCSearchRefresh.c. Observe LootRefresh/intent_read_recovered count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "LootRefresh",
+      "feature": "intent_save_read_pending",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase actions; reach: boot, code:HCSearchRefresh.c. Observe LootRefresh/intent_save_read_pending count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "LootRefresh",
@@ -408,11 +668,41 @@
       "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c#HCWorldMaterializer.Resolve",
       "trigger": "Resolve folds back a genuinely materialized ended lease, releases budget and successfully writes world fact plus strength adjustment.",
       "exercise": "admin_action",
-      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_materialize -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing short (1–2 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required.",
+      "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_materialize -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required.",
       "est_minutes": 10,
       "prerequisites": "WorldMaterializer and Expansion bridge; genuine materialized lease; world faction/fact stores healthy; observer-safe body absence confirmed.",
-      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_materialize. Nearest existing short (1–2 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
+      "deterministic_exercise_proposal": "Implemented-unverified family A command fx_materialize. Nearest existing short (1\u20132 actors), unclaimed unexpired naturally offered proposal with allowed custody. Normal Next/claim and provider guards remain; successful real ended-lease fold-back required. No aging, funding, history edits, forced outcomes or direct counter credit. Native compile/soak/one-client evidence remains pending.",
       "implementation_status": "implemented-unverified"
+    },
+    {
+      "module": "Materializer",
+      "feature": "custody_read_ok",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, code:HCWorldMaterializer.c. Observe Materializer/custody_read_ok count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Materializer",
+      "feature": "custody_read_recovered",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, code:HCWorldMaterializer.c. Observe Materializer/custody_read_recovered count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Materializer",
+      "feature": "custody_save_read_pending",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, code:HCWorldMaterializer.c. Observe Materializer/custody_save_read_pending count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "MaterializerBridge",
@@ -456,6 +746,66 @@
       "prerequisites": "EnableMelee; Melee.WallVeto=true; an infected standing within native melee reach behind a wall or closed door."
     },
     {
+      "module": "NavInf",
+      "feature": "door_action",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase fixtures; reach: fixture:fx_door_press, code:HCInfectedDoors.c. Observe NavInf/door_action count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "NavInf",
+      "feature": "pathgraph_refresh",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCInteriorTemplatePlacement.c. Observe NavInf/pathgraph_refresh count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "NavInf",
+      "feature": "route_advance",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_zone; reach: step:walk:zone:balota-cf3bbed7, timer:60m, code:HCHordeMigration.c. Observe NavInf/route_advance count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "NavInf",
+      "feature": "vault_started",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCInfectedReachModule.c. Observe NavInf/vault_started count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "NavXai",
+      "feature": "routes",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, timer:30m, code:HCXAISitePatrols.c. Observe NavXai/routes count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "NavXai",
+      "feature": "stuck_recovery",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase fixtures; reach: fixture:fx_convoy_stuck, code:HCXUseRegistry.c. Observe NavXai/stuck_recovery count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "Notes",
       "feature": "note_read",
       "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#HCNoteLedger.Read",
@@ -465,6 +815,47 @@
       "est_minutes": 3,
       "prerequisites": "EnableLeads; ledger-created nonexpired note with matching text/id and real finite delivery.",
       "deterministic_exercise_proposal": "Stage a real normal scene and let HCNoteLedger deliver its factual note through ordinary inventory flow. Family A may select an eligible existing fact/scene for normal note consideration, never spawn arbitrary Paper with a forged HCNoteId or insert ledger receipts."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "notes_lead_protected",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#Paper.OnRPC",
+      "trigger": "A real refusal on a lead note: the note write/read RPC is dropped, the write action is vetoed in ActionCondition, or a recipe refuses the note as an ingredient.",
+      "exercise": "client_action",
+      "steps": "1. Obtain an HC lead note (see Notes/note_read) and hold a pen. 2. Try the write action on the lead note: it is not offered or does nothing, and the text is unchanged. 3. Optionally try a recipe that takes paper with the lead note: refused. 4. Require [HC Use] NotesCompat notes_lead_protected count>=1 and one '[HC Notes] lead_protected reason=<rpc|write_action|recipe>' line. Assignment alone does not count.",
+      "est_minutes": 3,
+      "prerequisites": "Writable-notes pack present; a ledger-created lead note delivered through ordinary play; one server plus at most one client.",
+      "deterministic_exercise_proposal": "Stage a normal scene so HCNoteLedger delivers its factual note through the ordinary inventory flow; never spawn arbitrary Paper with a forged HCNoteId."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "notes_lead_tracked",
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#Paper.HCAssignNote",
+      "trigger": "A lead note id is assigned to a vanilla paper on spawn or on restore after a restart.",
+      "exercise": "client_action",
+      "steps": "1. Receive an HC lead note (see Notes/note_read), then relog or restart the server once. 2. Confirm the note still reads with its original text. 3. Require [HC Use] NotesCompat notes_lead_tracked count>=1 (assignment evidence; it does not claim a refusal).",
+      "est_minutes": 3,
+      "prerequisites": "Writable-notes pack present; a ledger-created lead note; one server plus at most one client."
+    },
+    {
+      "module": "NotesCompat",
+      "feature": "write_rpc_passed",
+      "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c#HCNotesCompat.WriteRpcPassed",
+      "trigger": "A client note write RPC reaches Paper.OnRPC for a paper that is not a lead note and passes through to the pack handler.",
+      "exercise": "client_action",
+      "steps": "1. With the writable-notes pack loaded, hold a pen and a pack note (or a blank pack note) in the inventory. 2. Write a line of text on the pack note with the pen and close the editor. 3. Re-open it and confirm the text reads back. 4. Require [HC Use] NotesCompat write_rpc_passed count>=1 and no lead id on that note.",
+      "est_minutes": 3,
+      "prerequisites": "Writable-notes pack present (NotesCompat enabled); one server plus at most one client."
+    },
+    {
+      "module": "ObjectSpawner",
+      "feature": "pathgraph_refresh",
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, timer:30m, code:HCInteriorPathgraph.c. Observe ObjectSpawner/pathgraph_refresh count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "OptionalPacks",
@@ -539,6 +930,46 @@
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; scenes/world/event economy, free scene lease/cap and reviewed site; all native placement checks retained."
     },
     {
+      "module": "SearchBinding",
+      "feature": "house_bound",
+      "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c#HCSearchBinding.NoteHouseBound",
+      "trigger": "The House search service commits one search and HCSearchBinding records that the House target was bound to a found item (the same commit as Interiors/house_search_completed); empty, refused or interrupted searches earn nothing.",
+      "exercise": "client_action",
+      "steps": "1. At Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk], stand within 2.5 m of a template search site in a House class marked Search covered. 2. Start the native search action on the building and hold it until the 5.5 s commit. 3. Require the Found-an-item message and house_bound; it fires on the same commit as house_search_completed.",
+      "est_minutes": 1,
+      "prerequisites": "EnableInteriors/EnableSearch; template pack loaded, search journal healthy and the search marker present; the same House search as Interiors/house_search_completed (one search counts for both)."
+    },
+    {
+      "module": "SettlementDecay",
+      "feature": "prop_placed",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSettlementDecay.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase actions; reach: step:admin:decay, code:HCSettlementDecay.c. Observe SettlementDecay/prop_placed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Shelters",
+      "feature": "pathgraph_refresh",
+      "source": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCShelterModule.c. Observe Shelters/pathgraph_refresh count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Shelters",
+      "feature": "shelter_placed",
+      "source": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_town; reach: step:walk:site:scav-chernogorsk, timer:20m, code:HCShelterModule.c. Observe Shelters/shelter_placed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "SignsOfLife",
       "feature": "flies_created",
       "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile",
@@ -567,6 +998,76 @@
       "steps": "1. At the Bor village hearth stop near Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when native base environmental temperature < configured ColdC (default 10 C) and within configured house radius. 3. Wait client scan and require smoke_observed; ground Fireplace camp does not substitute.",
       "est_minutes": 2,
       "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c#HCSignsOfLife.DuskOrNight..Before and HCSignsOfLife.SelectHouses; house-bound fire required, not loose ground fireplace."
+    },
+    {
+      "module": "SitePatrols",
+      "feature": "death-hold-armed",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: . Observe SitePatrols/death-hold-armed count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "SitePatrols",
+      "feature": "death-hold-deferred",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: . Observe SitePatrols/death-hold-deferred count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "SitePatrols",
+      "feature": "death-hold-released",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: . Observe SitePatrols/death-hold-released count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Sites",
+      "feature": "composed_sites",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, timer:5m, code:HCSiteGuard.c. Observe Sites/composed_sites count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Sites",
+      "feature": "ground_refused_rows",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, timer:5m, code:HCSiteGuard.c. Observe Sites/ground_refused_rows count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Sites",
+      "feature": "orphan_sweep",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, timer:5m, code:HCSiteGuard.c. Observe Sites/orphan_sweep count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "Sites",
+      "feature": "site_refusals",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCSiteGuard.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: boot, timer:5m, code:HCSiteGuard.c. Observe Sites/site_refusals count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "SurvivalAlignment",
@@ -641,6 +1142,86 @@
       "deterministic_exercise_proposal": "Create a real sideways car by a controlled ordinary low-speed rollover in an empty yard, then leave it at rest. If unreliable, family C proposes one default-off finite empty sideways car fixture at a ground-validated open location; never rotate/move a player/AI, apply fake recovery or count an upright vehicle."
     },
     {
+      "module": "VehicleRetire",
+      "feature": "retired",
+      "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCVehicleRetire.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase idle; reach: boot, code:HCVehicleRetire.c. Observe VehicleRetire/retired count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "WeatherDays",
+      "feature": "profile_applied",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, timer:5m, code:HCWeatherDaysModule.c. Observe WeatherDays/profile_applied count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "World",
+      "feature": "row_simulated",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, timer:5m, code:HCWorldModule.c. Observe World/row_simulated count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "World",
+      "feature": "world_read_ok",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, code:HCWorldStore.c. Observe World/world_read_ok count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "World",
+      "feature": "world_read_recovered",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, code:HCWorldStore.c. Observe World/world_read_recovered count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "World",
+      "feature": "world_save_read_pending",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCWorldStore.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase join; reach: boot, code:HCWorldStore.c. Observe World/world_save_read_pending count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "WorldIncidents",
+      "feature": "incident_recorded",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase fixtures; reach: fixture:fx_conflict, fixture:fx_incident, code:HCWorldIncidents.c. Observe WorldIncidents/incident_recorded count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "WorldSaves",
+      "feature": "stage_written",
+      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase idle; reach: timer:5m, code:HCWorkBudget.c. Observe WorldSaves/stage_written count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
       "module": "WreckSalvage",
       "feature": "part_created",
       "source": "mods/HollowCountry/scripts/4_World/Vehicles/HCWreckSalvage.c#HCWreckSalvageModule.Complete",
@@ -659,6 +1240,16 @@
       "steps": "1. During drive west from Chernogorsk to Balota, approach held zone center (3900,4.9,2330), ai/zones.json id=balota-cf3bbed7. 2. Stay outside spawn LOS while in site activation range. 3. Require guards_posted and actual guards, not default_state=held alone.",
       "est_minutes": 3,
       "prerequisites": "HCZoneGuards enabled; Expansion AI; listed managed sites in held state, shared AI/site budgets, safe spawn candidates; overlapping zone names are not geography proof."
+    },
+    {
+      "module": "hcxai-live-map",
+      "feature": "report_published",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, timer:30m, code:HCXAILiveMap.c. Observe hcxai-live-map/report_published count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "optional-expansion-human-ai",
@@ -680,6 +1271,36 @@
       "est_minutes": 5,
       "prerequisites": "Real eligible convoy/vehicle/driver/lease and installed road data; route length/node/approach limits. caravans.json placeholder corridor is not a proven convoy.",
       "deterministic_exercise_proposal": "Implemented-unverified: fx_convoy_stuck. Run fx_convoy_stuck near an existing walking journey or driving convoy whose own anchored motion check is already due. Observe normal sampling; only a real rung-3 recovery may request the normal planner/FIFO. The per-request fixture mark follows the journey FIFO into the planner. Require a real successful A* outcome and convoy_astar use line with fixture=1; a queued journey diagnostic must also carry fixture=1. Completion, refusal and queue removal clear attribution. Lead native compile and runtime fixture evidence remain pending. No sample or stuck outcome is forced."
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "regional_road_site_binding",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/gapcode_routes_catalog.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, timer:30m, code:gapcode_routes_sites.c. Observe optional-expansion-human-ai/regional_road_site_binding count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "route_cache",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, timer:30m, code:HCXAISiteStore.c, code:HCXAISiteSurvey.c. Observe optional-expansion-human-ai/route_cache count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
+    },
+    {
+      "module": "optional-expansion-human-ai",
+      "feature": "site_radius_entered",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",
+      "exercise": "server_soak",
+      "steps": "Run campaign phase walk_ai; reach: step:walk:site:police-chernogorsk, code:HCXAISites.c. Observe optional-expansion-human-ai/site_radius_entered count>0. Registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     },
     {
       "module": "optional-expansion-human-ai",
@@ -711,87 +1332,6 @@
       "steps": "1. Near an owned live neutral AI (for example the Chernogorsk police loop), stay in view at about 50 m. 2. Raise a weapon: the AI faces you and shouts (status text), keeps its own weapon up and does not fire. 3. Lower the weapon within 3 s (AILimits.CautionGraceSeconds): no shots, stance de-escalates. 4. Repeat after 45 s and keep the weapon raised past 3 s: the AI turns hostile about 3 s after the raise, as before. Require [HC Use] caution_warn count>=1 and one first-warn line with grace_s=3 and fire=none.",
       "est_minutes": 5,
       "prerequisites": "EnableEncounters; provider ownership/faction and emote observation readiness; one server plus at most one client."
-    },
-    {
-      "module": "NotesCompat",
-      "feature": "write_rpc_passed",
-      "source": "mods/HollowCountry/scripts/4_World/Compat/HCNotesCompat.c#HCNotesCompat.WriteRpcPassed",
-      "trigger": "A client note write RPC reaches Paper.OnRPC for a paper that is not a lead note and passes through to the pack handler.",
-      "exercise": "client_action",
-      "steps": "1. With the writable-notes pack loaded, hold a pen and a pack note (or a blank pack note) in the inventory. 2. Write a line of text on the pack note with the pen and close the editor. 3. Re-open it and confirm the text reads back. 4. Require [HC Use] NotesCompat write_rpc_passed count>=1 and no lead id on that note.",
-      "est_minutes": 3,
-      "prerequisites": "Writable-notes pack present (NotesCompat enabled); one server plus at most one client."
-    },
-    {
-      "module": "NotesCompat",
-      "feature": "notes_lead_protected",
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#Paper.OnRPC",
-      "trigger": "A real refusal on a lead note: the note write/read RPC is dropped, the write action is vetoed in ActionCondition, or a recipe refuses the note as an ingredient.",
-      "exercise": "client_action",
-      "steps": "1. Obtain an HC lead note (see Notes/note_read) and hold a pen. 2. Try the write action on the lead note: it is not offered or does nothing, and the text is unchanged. 3. Optionally try a recipe that takes paper with the lead note: refused. 4. Require [HC Use] NotesCompat notes_lead_protected count>=1 and one '[HC Notes] lead_protected reason=<rpc|write_action|recipe>' line. Assignment alone does not count.",
-      "est_minutes": 3,
-      "prerequisites": "Writable-notes pack present; a ledger-created lead note delivered through ordinary play; one server plus at most one client.",
-      "deterministic_exercise_proposal": "Stage a normal scene so HCNoteLedger delivers its factual note through the ordinary inventory flow; never spawn arbitrary Paper with a forged HCNoteId."
-    },
-    {
-      "module": "NotesCompat",
-      "feature": "notes_lead_tracked",
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c#Paper.HCAssignNote",
-      "trigger": "A lead note id is assigned to a vanilla paper on spawn or on restore after a restart.",
-      "exercise": "client_action",
-      "steps": "1. Receive an HC lead note (see Notes/note_read), then relog or restart the server once. 2. Confirm the note still reads with its original text. 3. Require [HC Use] NotesCompat notes_lead_tracked count>=1 (assignment evidence; it does not claim a refusal).",
-      "est_minutes": 3,
-      "prerequisites": "Writable-notes pack present; a ledger-created lead note; one server plus at most one client."
-    },
-    {
-      "module": "FoodCompat",
-      "feature": "food_compat_guard",
-      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#HCFoodCompat.Guarded",
-      "trigger": "Pack food, a pack box or a pack bundle initialises its temperature and the 1.30 contract holds.",
-      "exercise": "client_action",
-      "steps": "1. With the food pack loaded, spawn or find one pack food item, one pack loot box and one pack bundle (existing loot or the economy; no generic spawner is claimed). 2. Open the box and the bundle with the native Open action. 3. Require no SCRIPT (E) line and [HC Use] FoodCompat food_compat_guard count>=1. A '[HC Food] food_compat_refused reason=...' line means a contract refusal and must be investigated.",
-      "est_minutes": 5,
-      "prerequisites": "Food pack present (FoodCompat enabled); pack items reachable through loot or the existing HC menu; one server plus at most one client."
-    },
-    {
-      "module": "CookingCompat",
-      "feature": "cooking_dish_cooked",
-      "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#Cooking.CookWithEquipment",
-      "trigger": "A cooking pass changes a stage and leaves a finished pack dish in the pot.",
-      "exercise": "client_action",
-      "steps": "1. With the cooking pack loaded, put the ingredients of one pack dish in a pot on a lit fire. 2. Wait until the dish is done and take it from the pot (keep a free inventory slot). 3. Require [HC Use] CookingCompat cooking_dish_cooked count>=1 and no SCRIPT (E) line.",
-      "est_minutes": 10,
-      "prerequisites": "Cooking pack present (CookingCompat enabled); a pot, fire source and the dish ingredients; one server plus at most one client."
-    },
-    {
-      "module": "Fortify",
-      "feature": "fortify_placed",
-      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge.HCPlaced",
-      "trigger": "A shelter-scale pack kit is placed on a building the player's group has claimed.",
-      "exercise": "client_action",
-      "steps": "1. Claim a building with your group. 2. Place one shelter-scale pack kit at that building and finish the placement. 3. Require [HC Use] module=Fortify feature=fortify_placed count>=1 and no SCRIPT (E) line.",
-      "est_minutes": 8,
-      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client."
-    },
-    {
-      "module": "Fortify",
-      "feature": "fortify_refused",
-      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge.HCRefuseTo",
-      "trigger": "A pack kit placement is refused (kit larger than shelter scale, or a building claimed by another group).",
-      "exercise": "client_action",
-      "steps": "1. Try to place a pack kit that is larger than shelter scale, or a kit on a building claimed by another group. 2. Expect the 'Refused: …' status line and no placed object. 3. Require [HC Use] module=Fortify feature=fortify_refused count>=1 and no SCRIPT (E) line.",
-      "est_minutes": 5,
-      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client. With one client, use the larger-than-shelter-scale kit; the other-group case needs a second player (owner multiplayer playtest pending)."
-    },
-    {
-      "module": "Fortify",
-      "feature": "barricade_breached",
-      "source": "mods/HollowCountry/scripts/4_World/Compat/Fortify/HCFortifyBridge.c#HCFortifyBridge (breach step)",
-      "trigger": "Infected door pressure ruins the last part of a placed barricade.",
-      "exercise": "not_deterministic",
-      "steps": "1. Place a barricade on a door of your claimed building. 2. Draw several infected to the far side of that door and stay out of their reach until they stop at it. 3. Wait for the breach window (about 90 s, half for heavy infected). 4. Require [HC Use] module=Fortify feature=barricade_breached count>=1 and no SCRIPT (E) line.",
-      "est_minutes": 10,
-      "prerequisites": "Fortification pack present (Fortify enabled); a claimed building the player's group owns; one server plus at most one client. Infected nearby; breach pacing depends on their count and the work budget."
     }
   ]
 }

@@ -59,7 +59,7 @@ class ConfigAuditTests(unittest.TestCase):
                 self.assertEqual(audit.classify('Warning Message: ' + line, rules), category)
         self.assertEqual(audit.classify('ZSUSkeleton missing bone SyntheticBone', rules), 15)
         self.assertEqual(audit.classify('Unknown synthetic warning', rules), 0)
-        self.assertIsNone(audit.classify('Server ready', rules))
+        self.assertEqual(audit.classify('Server ready', rules), audit.ENGINE_NOISE)
         unknown = 'Unknown synthetic warning\n'
         self.logs('\n'.join(samples.values()) + '\n' + unknown)
         result = audit.audit(self.rpt, self.vanilla)

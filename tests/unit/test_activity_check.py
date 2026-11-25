@@ -132,17 +132,19 @@ class UseActivityTests(unittest.TestCase):
         self.assertEqual(row['module'], 'Enabled')
         self.assertEqual(row['status'], 'ACTIVE')
 
-    def test_waiver_is_visible_and_not_active(self):
-        module, feature, reason = 'RareEvent', 'meteor_seen', 'Requires a rare world event outside the scenario.'
-        with patch.dict(audit.RELEASE_WAIVERS, {(module, feature): reason}):
-            result = self.report([ready(module), use(module, feature, 0)])
+    def test_waivers_are_forbidden(self):
+        with patch.dict(audit.RELEASE_WAIVERS, {('RareEvent', 'meteor_seen'): 'rare'}):
+            with self.assertRaisesRegex(ValueError, 'waivers forbidden'):
+                self.report([ready('RareEvent'), use('RareEvent', 'meteor_seen', 0)])
+
+    def test_owner_checks_never_establish_a_pass(self):
+        for count in (0, 1):
+            result = self.report([ready('TeamPing'), use('TeamPing', 'ping_delivered', count)])
             row, = result['features']
-            self.assertEqual((row['status'], row['reason']), ('WAIVED', reason))
-            self.assertEqual(result['activity'], 'waived')
-            self.assertEqual(result['totals']['ACTIVE'], 0)
+            self.assertEqual(row['status'], 'OWNER-CHECK')
+            self.assertEqual(row['owner_decision_date'], '2026-11-23')
             self.assertEqual(result['count'], 0)
-            active = self.report([ready(module), use(module, feature, 1)])
-            self.assertEqual(active['features'][0]['status'], 'ACTIVE')
+            self.assertIn('TeamPing/ping_delivered', result['owner_checks'])
 
     def test_enabled_owner_without_registration_fails(self):
         result = self.report([ready('Missing')])
@@ -243,9 +245,13 @@ class NavAggregateTests(unittest.TestCase):
         rows = [row for row in data['features'] if row['feature'].startswith('nav-')]
         self.assertTrue(rows)
         for row in rows:
-            match = re.search(r'module=(\w+) feature=(\w+) ', row['signal']['regex'])
-            self.assertIn((match[1], match[2]), audit.NAV_AGGREGATE_OWNERS)
-            self.assertIn(row['module'], audit.NAV_AGGREGATE_OWNERS[(match[1], match[2])])
+            match = re.search(r'module=([\w.-]+) feature=([\w.-]+) ', row['signal']['regex'])
+            key = (match[1], match[2])
+            if key in audit.NAV_AGGREGATE_OWNERS:
+                self.assertIn(row['module'], audit.NAV_AGGREGATE_OWNERS[key])
+            else:
+                self.assertEqual(row['module'], match[1])
+                self.assertIn(key, audit.registered_counters())
 
 
 class ActivityCLITests(unittest.TestCase):
@@ -284,13 +290,11 @@ class ActivityCLITests(unittest.TestCase):
         self.assertEqual(result['features'][0]['feature'], feature)
         self.assertEqual(result['features'][0]['status'], 'ACTIVE')
 
-    def test_release_waiver_text_is_explicit(self):
-        key = ('RareEvent', 'event_seen')
-        with patch.dict(audit.RELEASE_WAIVERS, {key: 'rare event outside scenario'}):
-            code, output = self.cli([ready(key[0]), use(*key, 0)], None, '--release')
+    def test_release_owner_check_text_is_explicit(self):
+        code, output = self.cli([ready('TeamPing'), use('TeamPing', 'ping_delivered', 0)], None, '--release')
         self.assertEqual(code, 0)
-        self.assertIn('WAIVED count=0 reason=rare event outside scenario', output)
-        self.assertIn('activity=waived', output)
+        self.assertIn('OWNER-CHECK count=0', output)
+        self.assertIn('owner_checks=TeamPing/ping_delivered', output)
 
     def test_bad_input_uses_existing_exit_six_without_echoing_path(self):
         output = StringIO()
