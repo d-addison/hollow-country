@@ -43,7 +43,7 @@ class HCProbe
 """
         findings = lint.lint_texts({W + 'Identity.c': source},
                                    rules=(lint.rule_identity_comparisons,))
-        self.assertEqual(['HC-E049'] * 7, [f.rule for f in findings])
+        self.assertEqual(['HC-E056'] * 7, [f.rule for f in findings])
         self.assertIn(lint.rule_identity_comparisons, lint.ALL_RULES)
 
 

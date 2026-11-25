@@ -82,7 +82,7 @@ RULES = {
     'HC-E035': 'StartCommand_ScriptInst on a DayZInfected (engine builds the command with null constructor arguments); use StartCommand_Script(new Command(this))',
     'HC-E036': 'new X passed directly as an argument to a call that does not store it (the temporary has no owner)',
     'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
-    'HC-E049': 'PlayerIdentity script references compared; use HCPlayerIdentity.Same with non-empty GetId values',
+    'HC-E056': 'PlayerIdentity script references compared; use HCPlayerIdentity.Same with non-empty GetId values',
     'HC-E048': 'foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first',
     'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
@@ -1831,8 +1831,8 @@ def rule_identity_comparisons(project, source):
             right = body[tokens[index + 1].start():tokens[end].end()]
             offset = method.body_start + token.start()
             if kind(left, method, offset) == kind(right, method, offset) == 'PlayerIdentity':
-                yield _finding('HC-E049', source, offset, _symbol(method),
-                               f'{left} {token[0]} {right}: {RULES["HC-E049"]}')
+                yield _finding('HC-E056', source, offset, _symbol(method),
+                               f'{left} {token[0]} {right}: {RULES["HC-E056"]}')
 
 
 def rule_receiver_methods(project, source):
