@@ -275,6 +275,12 @@ class HCXAICacheSave : HCSaveJob
         }
         if (result != STEP_DONE)
         {
+            if (result == STEP_MORE)
+            {
+                // Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
+                // 1_Core/proto/EnConvert.c:30 int.ToString.
+                Print("[HC Persistence] owner=HCXAICacheSave guard=save_stage_guard steps=" + guard.ToString());
+            }
             this.HCRepair("barrier_stage_failed");
             this.HCChanged();
             return false;
