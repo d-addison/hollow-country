@@ -420,7 +420,7 @@ Round 5 remains implemented-unverified until the lead's native checks.
 2. Try `mirror` (client predicts, server applies), then `server` (server applies only), then
    `client` (client applies only, diagnostic). Every applying controller uses post-super ONE_FRAME.
    Request speed **3.0**, angle 0, for **4 s**, then Stop and settle **2 s**. Select the first
-   variant with displacement **>0.30 m** and settle distance **<=0.20 m**. A failed or corrected
+   variant with displacement **>0.30 m** and `back_m` **<=0.20 m** (round 7). A failed or corrected
    forward probe advances to the next variant. Client applied-frame counts are expected to be
    zero in `server`; use the correlated server summary to verify authoritative callbacks.
 3. Re-run the right probe with the selected variant: speed 3.0, angle +90 for **4 s**, then Stop
@@ -443,11 +443,13 @@ Round 5 remains implemented-unverified until the lead's native checks.
    ```
 
 4. `moved_m` measures start to Stop; `settle_m` measures Stop to settled position. `back_m`
-   projects that drift toward this probe's start (negative means continuing away). Settle
-   distance above **0.20 m** fails the variant even when drift is not toward the start.
+   projects that drift toward this probe's start (negative means continuing away). Only
+   `back_m` above **0.20 m** (`correction_threshold_m`) counts as a server correction; settle
+   drift that is not toward the start passes (round 7: soak 190t6's mirror probe moved 8.10 m with
+   `settle_m=0.23 back_m=-0.15` and was wrongly refused under the old settle rule).
    A corrected forward probe tries the next variant; a corrected right probe ends with
    `reason=server-correction`. If every forward variant fails, the final reason is
-   `server-correction` when the final probe drifts, otherwise `no-moving-variant`.
+   `server-correction` when the final probe is pulled back, otherwise `no-moving-variant`.
    For example, `variant=mirror serial=1 ... moved_m=8.00 settle_m=0.05 back_m=0.02` paired with
    `server-move applied_frames=240 refused=none serial=1` supports a working mirror forward
    probe. `moved_m=0.78 settle_m=0.78 back_m=0.78` fails that variant even if its server summary

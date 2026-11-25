@@ -498,14 +498,18 @@ class HCClientDriver
         if (m_CalibStage == 4) { probe = "right"; m_RightSettle = m_ProbeSettle; }
         else { m_ForwardSettle = m_ProbeSettle; }
         LogProbe(player, probe);
-        if (m_CalibStage == 4 && m_ProbeSettle > 0.2)
+        // Correction = pulled back toward this probe's start. Soak 190t6: a mirror probe moved
+        // 8.10 m and drifted 0.23 m forward/sideways after Stop (back_m=-0.15); that is not a
+        // server snap, which shows back_m close to moved_m.
+        bool corrected = m_ProbeBack > 0.2;
+        if (m_CalibStage == 4 && corrected)
         {
             FinishCalib(player, m_CalibRight, "server-correction");
             return;
         }
         if (m_CalibStage == 3)
         {
-            if (distance <= 0.3 || m_ProbeSettle > 0.2)
+            if (distance <= 0.3 || corrected)
             {
                 // Prefer prediction plus authority, then authority only, then client diagnostic.
                 if (HCDriverMovement.Variant < HCDriverMovement.CLIENT_ONLY)
@@ -515,7 +519,7 @@ class HCClientDriver
                     return;
                 }
                 string failure = "no-moving-variant";
-                if (m_ProbeSettle > 0.2) { failure = "server-correction"; }
+                if (corrected) { failure = "server-correction"; }
                 FinishCalib(player, vector.Zero, failure);
                 return;
             }
