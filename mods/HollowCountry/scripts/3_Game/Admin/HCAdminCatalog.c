@@ -110,6 +110,16 @@ class HCAdminCatalog
         HCAdd("fx_holdout_due", "ai", "Smoke: due funded holdout", "Lead-only R3: select an existing naturally due funded row; no aging or supplies.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_conflict", "ai", "Smoke: distant conflict", "Lead-only R3: prioritize an existing eligible distant opposed cell; normal guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_materialize", "ai", "Smoke: offered proposal", "Lead-only R3: prioritize an existing unclaimed proposal; real provider outcome required.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_incident", "world", "Test setup: AI incident", "Dev test addon only: select a nearby real incident through the XAI handler.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_tactic", "world", "Test setup: AI tactic", "Dev test addon only: select a nearby real tactic through the XAI handler.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_trade", "world", "Test setup: AI trade", "Dev test addon only: select a nearby real trade through the XAI handler.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_convoy_stuck", "world", "Test setup: stuck convoy", "Dev test addon only: select a real stuck convoy through the XAI handler.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_bridge", "world", "Test setup: bridge selector", "Dev test addon only: report use-fx_materialize from the XAI handler.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_shoot_held", "world", "Test setup: held weapon shot", "Dev test addon only: fire one chambered round from your held weapon at the nearest AI within 60 m.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_door_press", "world", "Test setup: infected door pressure", "Dev test addon only: place three infected outside the nearest closed door within 30 m; stand inside or near it.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_hearth", "world", "Test setup: standalone fire", "Dev test addon only: light one fireplace 6-12 m away; SignsOfLife building selection still applies.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_die", "world", "Test setup: requester death", "Dev test addon only: set only your health to zero through the normal death path.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_car_zeds", "world", "Test setup: occupied car infected", "Dev test addon only: place two infected 10-20 m from the car you occupy; natural pursuit and contact required.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_car_side", "world", "Test setup: car on its side", "Dev test addon only: roll one parked or new car onto its side 8-15 m away; the real flip code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_camp_setup", "world", "Test setup: built camp", "Dev test addon only: pitch a tent, crate and lit fire 6-15 m away; the real camp code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_wreck", "world", "Test setup: salvage wreck", "Dev test addon only: place one reviewed car wreck 8-15 m away; the real salvage code runs.", false, true, false, 0, 0, 0, "");
