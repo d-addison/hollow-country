@@ -307,7 +307,9 @@ Finish prints once, after `Server modules stopped`:
 `[HC XAI Bridge] teardown retired_released=<n> retained=<n>` (bridge installed),
 and `[HC Teardown] shelters_skipped=<n> pathgraph_skipped=<n> callbacks_removed=<n> packs_released=<n> rpc_skipped=<n>`.
 Shelter deletes remain enabled, so shelters_skipped is zero; pathgraph_skipped
-counts discarded regions. callbacks_removed counts scheduled callback kinds
+counts discarded regions: shelter pending rebuilds plus any region of any domain
+(camps, interiors, XAI checkpoint props) whose Update runs after the finish latch,
+because HCPathgraphRefresh.Update itself refuses then. callbacks_removed counts scheduled callback kinds
 cancelled, including a repeating kind once. packs_released counts owned native
 packs whose script handles were dropped. These are teardown diagnostics, not new
 feature-use counters; existing [HC Ready] and [HC Use] receipts stay unchanged.
