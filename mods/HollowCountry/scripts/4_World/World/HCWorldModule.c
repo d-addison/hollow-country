@@ -30,6 +30,12 @@ class HCWorldModule : HCModule
     protected int m_Cursor;
     protected int m_StepsSinceSave;
     protected string m_HoldoutRefusal;
+    protected ref map<string, bool> m_HoldoutLive;
+    protected ref map<string, bool> m_HoldoutPresent;
+    protected ref map<int, string> m_HoldoutHouseOwners;
+    protected ref map<int, bool> m_HoldoutKept;
+    protected int m_HoldoutReused;
+    protected int m_HoldoutDropped;
     protected string m_Refusal;
     protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
@@ -517,10 +523,8 @@ class HCWorldModule : HCModule
     bool AddHoldout(HCWorldHoldout row)
     {
         if (!m_Running || !m_Data.HoldoutValid(row)) { return false; }
-        HCWorldHoldout copy;
-        string text;
-        string error;
-        if (!JsonFileLoader<HCWorldHoldout>.MakeData(row, text, error) || !JsonFileLoader<HCWorldHoldout>.LoadData(text, copy, error) || !m_Data.InsertHoldout(copy)) { return false; }
+        HCWorldHoldout copy = HCCopyHoldout(row);
+        if (!copy || !m_Data.InsertHoldout(copy)) { return false; }
         m_Dirty = true;
         return true;
     }
@@ -543,8 +547,62 @@ class HCWorldModule : HCModule
             if (stored.Id == row.Id) { rowIndex = holdoutIndex; }
             if (stored.Id != row.Id && stored.Occupants > 0) { occupiedOthers++; }
         }
+        int prospective = -1;
+        if (rowIndex < 0 && m_Data.Holdouts.Count() >= HCAILimits.Get().MaxHoldouts)
+        {
+            prospective = HCStaleHoldout(row);
+            // Count other occupied rows, excluding the prospective target.
+            if (prospective >= 0 && m_Data.Holdouts[prospective].Occupants > 0) { occupiedOthers--; }
+        }
         m_HoldoutRefusal = "occupied cap";
-        if (row.Occupants > 0 && occupiedOthers >= HCAILimits.Get().MaxOccupiedPlaces) { return false; }
+        if (row.Occupants > 0 && occupiedOthers >= HCAILimits.Get().MaxOccupiedPlaces)
+        {
+            // A refused proposal keeps its candidate intact, including retirement.
+            if (prospective >= 0 && m_HoldoutKept) { m_HoldoutKept.Set(prospective, true); }
+            return false;
+        }
+        HCWorldHoldout copy = HCCopyHoldout(row);
+        if (!copy) { m_HoldoutRefusal = "invalid holdout"; return false; }
+        if (rowIndex >= 0) { m_Data.Holdouts.Set(rowIndex, copy); }
+        else
+        {
+            m_HoldoutRefusal = "catalog cap";
+            if (m_Data.Holdouts.Count() >= HCAILimits.Get().MaxHoldouts)
+            {
+                HCHoldouts owner = HCHoldouts.Get();
+                if (!owner) { m_HoldoutRefusal = "catalog_unavailable"; return false; }
+                string catalogReason = owner.HCReconcileCatalogReason();
+                if (catalogReason != "") { m_HoldoutRefusal = catalogReason; return false; }
+                int staleIndex = HCStaleHoldout(row);
+                if (staleIndex < 0) { return false; }
+                HCWorldHoldout stale = m_Data.Holdouts[staleIndex];
+                // Recheck authority immediately before Set, never authored slots.
+                if (owner.HCLiveHoldout(stale.Id)) { return false; }
+                int dropped = stale.Occupants;
+                Print("[HC World] holdout reuse id=" + stale.Id + " dropped_occupants=" + dropped.ToString());
+                m_Data.Holdouts.Set(staleIndex, copy);
+                m_HoldoutReused++;
+                m_HoldoutDropped += dropped;
+            }
+            else
+            {
+                m_HoldoutRefusal = "catalog admission";
+                if (!m_Data.InsertHoldout(copy)) { return false; }
+            }
+        }
+        if (m_HoldoutPresent) { m_HoldoutPresent.Set(row.Id, true); }
+        m_HoldoutRefusal = "";
+        m_Dirty = true;
+        Print("[HollowCountry] V2 world holdout id=" + row.Id + " state=" + row.State);
+        return true;
+    }
+
+    // #374 native scripts-1.30.164289: 1_Core/proto/EnScript.c:380/389
+    // array Count/Set, :866/902/917 map Get/Set/Contains; EnConvert.c:210 DistanceSq;
+    // EnConvert.c:30 int.ToString; EnDebug.c:96 Print. Never shift row indices.
+    protected HCWorldHoldout HCCopyHoldout(HCWorldHoldout row)
+    {
+        if (!m_Data.HoldoutValid(row)) { return null; }
         HCWorldHoldout copy = new HCWorldHoldout;
         copy.Id = row.Id;
         copy.PlaceId = row.PlaceId;
@@ -557,20 +615,97 @@ class HCWorldModule : HCModule
         copy.Since = row.Since;
         copy.ReoccupyAfter = row.ReoccupyAfter;
         copy.Routine = row.Routine;
-        if (rowIndex >= 0) { m_Data.Holdouts.Set(rowIndex, copy); }
-        else
+        return copy;
+    }
+
+    protected int HCStaleHoldout(HCWorldHoldout proposal)
+    {
+        HCHoldouts owner = HCHoldouts.Get();
+        if (!owner || owner.HCReconcileCatalogReason() != "" || !m_HoldoutLive || !owner.HCLiveHoldout(proposal.Id)) { return -1; }
+        int first = -1;
+        for (int candidateIndex = 0; candidateIndex < m_Data.Holdouts.Count(); candidateIndex++)
         {
-            // Refuse before InsertHoldout's generic cap log: the publisher
-            // reports this reason once per holdout instead of once per tick.
-            m_HoldoutRefusal = "catalog cap";
-            if (m_Data.Holdouts.Count() >= HCAILimits.Get().MaxHoldouts) { return false; }
-            m_HoldoutRefusal = "catalog admission";
-            if (!m_Data.InsertHoldout(copy)) { return false; }
+            HCWorldHoldout candidate = m_Data.Holdouts[candidateIndex];
+            if (m_HoldoutLive.Contains(candidate.Id)) { continue; }
+            if (m_HoldoutKept && m_HoldoutKept.Contains(candidateIndex)) { continue; }
+            if (candidate.HouseClass == proposal.HouseClass && vector.DistanceSq(candidate.HousePos, proposal.HousePos) <= 1) { return candidateIndex; }
+            string houseOwner = m_HoldoutHouseOwners.Get(candidateIndex);
+            if (houseOwner != "" && !m_HoldoutPresent.Contains(houseOwner)) { continue; }
+            if (first < 0) { first = candidateIndex; }
         }
-        m_HoldoutRefusal = "";
+        return first;
+    }
+
+    // Reserve the first same-house stale index before any generic fallback;
+    // a later live publisher must keep its house. At most 48 x 48 comparisons.
+    protected void HCReserveStaleHouse(HCWorldHoldout proposal)
+    {
+        if (!m_Data.HoldoutValid(proposal) || m_HoldoutPresent.Contains(proposal.Id)) { return; }
+        for (int houseIndex = 0; houseIndex < m_Data.Holdouts.Count(); houseIndex++)
+        {
+            HCWorldHoldout candidate = m_Data.Holdouts[houseIndex];
+            if (m_HoldoutLive.Contains(candidate.Id)) { continue; }
+            if (candidate.HouseClass == proposal.HouseClass && vector.DistanceSq(candidate.HousePos, proposal.HousePos) <= 1)
+            {
+                m_HoldoutHouseOwners.Set(houseIndex, proposal.Id);
+                return;
+            }
+        }
+    }
+
+    protected int HCRetireStaleHoldout(int index)
+    {
+        HCWorldHoldout stale = m_Data.Holdouts[index];
+        HCWorldHoldout copy = HCCopyHoldout(stale);
+        if (!copy) { return 0; }
+        int dropped = copy.Occupants;
+        copy.Occupants = 0;
+        copy.State = "DORMANT";
+        copy.Routine = "STALE";
+        m_Data.Holdouts.Set(index, copy);
         m_Dirty = true;
-        Print("[HollowCountry] V2 world holdout id=" + row.Id + " state=" + row.State);
-        return true;
+        Print("[HC World] holdout retire id=" + stale.Id + " dropped_occupants=" + dropped.ToString());
+        return dropped;
+    }
+
+    // Called only through the running-world getter, after the authoritative
+    // catalog is durable/quiescent. <=MaxHoldouts live and world rows, no cursor.
+    // HCAllowsMaterializer rejects absent ledger ids; leases are memory-only.
+    // Stale occupants therefore own no ledger, reserves or bodies: no refund/raid.
+    void HCReconcileHoldouts(array<ref HCWorldHoldout> live, map<string, bool> ids)
+    {
+        m_HoldoutLive = ids;
+        m_HoldoutPresent = new map<string, bool>;
+        m_HoldoutHouseOwners = new map<int, string>;
+        m_HoldoutKept = new map<int, bool>;
+        m_HoldoutReused = 0;
+        m_HoldoutDropped = 0;
+        int staleCount = 0;
+        int retired = 0;
+        string refused = "none";
+        foreach (HCWorldHoldout before : m_Data.Holdouts)
+        {
+            m_HoldoutPresent.Set(before.Id, true);
+            if (!ids.Contains(before.Id)) { staleCount++; }
+        }
+        foreach (HCWorldHoldout houseProposal : live) { HCReserveStaleHouse(houseProposal); }
+        foreach (HCWorldHoldout proposal : live)
+        {
+            if (!UpsertHoldout(proposal) && refused == "none") { refused = HoldoutRefusal(); }
+        }
+        HCHoldouts owner = HCHoldouts.Get();
+        for (int retireIndex = 0; retireIndex < m_Data.Holdouts.Count(); retireIndex++)
+        {
+            HCWorldHoldout stale = m_Data.Holdouts[retireIndex];
+            if (ids.Contains(stale.Id) || m_HoldoutKept.Contains(retireIndex) || stale.Occupants == 0) { continue; }
+            if (!owner || owner.HCLiveHoldout(stale.Id)) { continue; }
+            int dropped = HCRetireStaleHoldout(retireIndex);
+            if (dropped > 0) { m_HoldoutDropped += dropped; retired++; }
+        }
+        m_HoldoutKept = null;
+        // Existing scheduler owns whole-row snapshots and STEP_FAILED retries.
+        HCModuleReadiness.HCUse("Holdouts", "holdout_reconcile");
+        Print("[HC World] holdout reconcile stale=" + staleCount.ToString() + " reused=" + m_HoldoutReused.ToString() + " dropped_occupants=" + m_HoldoutDropped.ToString() + " retired=" + retired.ToString() + " refused=" + refused);
     }
 
     bool AdjustStrength(string faction, int delta)

@@ -390,6 +390,24 @@
     },
     {
       "module": "Holdouts",
+      "feature": "holdout_reconcile",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=Holdouts feature=holdout_reconcile count=(?P<count>\\d+)\\s*$",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCHoldouts.c",
+      "scope": "runtime",
+      "note": "One completed durable-catalog census per Holdouts start, including zero stale rows; does not prove a world checkpoint committed."
+    },
+    {
+      "module": "Holdouts",
       "feature": "occupied-holdouts",
       "signal": {
         "tag": "[HC Holdouts]",
