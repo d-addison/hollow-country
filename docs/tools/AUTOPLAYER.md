@@ -158,7 +158,7 @@ row. The Class column has these values:
 | walk_zone | HordeMigration | drifting_cohorts, nav_route_advance, route_advanced | driven | steps walk:zone:balota-cf3bbed7; timer |
 | walk_zone | InfectedSiege | siege_noise, siege_started | driven | steps walk:zone:balota-cf3bbed7; timer |
 | walk_zone | NavInf | haven_seen | driven | steps walk:zone:balota-cf3bbed7; timer |
-| manual | Cellars | visual_applied | owner_check | needs the client more than 2 m below terrain inside a building (HCCellarsClient); no repo data names a cellar and a player may not be teleported, so the owner walks into one cellar the sampler measured |
+| manual | Cellars | visual_applied | owner_check | `cellar` now attempts a bounded walk; a reachable floor and renderer admission still need native proof before moving this counter to walk_town |
 | manual | TeamPing | ping_delivered | friend_playtest | delivery of a team ping to another player needs a second player; one client has no recipient |
 | manual | TeamPing | ping_recipients | friend_playtest | delivery of a team ping to another player needs a second player; one client has no recipient |
 
@@ -170,7 +170,7 @@ row. The Class column has these values:
 | Melee | Light and heavy attacks read the same synced inputs (`DayZPlayerMeleeFightLogic_LightHeavy.c:137/:151`, `human.c:75 IsMeleeWeaponAttack`). No override exists for them (`OverrideMeleeEvade` at `human.c:265` is evade only). |
 | Confirming a kill by the bot | Follows from the two rows above. Kills stay with the fixtures (`fx_melee`, `fx_shoot`, `fx_site_patrol_kill`). The combat step confirms only a target that something else killed (`IsAlive() == false` on a target it was tracking) and never claims to have killed it. |
 | TeamPing delivery (`ping_recipients`, `ping_delivered`) | One client has no recipient. The item stays friend_playtest. |
-| Cellars visual (`Cellars/visual_applied`) | Needs the client more than 2 m below terrain inside a building. No repo data names a cellar, and the bot may not teleport. The item stays owner_check. |
+| Cellars visual (`Cellars/visual_applied`) | The `cellar` step now attempts the walk and records bounded refusal evidence. The item stays owner_check until a reachable floor and the renderer-owned counter are proved natively; shared cellar admission is enabled but qualification remains unverified. Only the lighting look is subjective. |
 | Multiplayer anything | The acceptance bar is one server plus at most one client. Never claimed. |
 
 ## Native APIs (scripts-1.30.164289)
@@ -692,8 +692,20 @@ player height after the top exit (zero if never reached). `ok` requires observed
 native command exits at the top and bottom and the completed hold. Missing client
 entry yields `unsupported`; approach, action, endpoint or timeout failures yield
 `refused`. On timeout while attached, movement is released every frame and the
-normal exit action is attempted. The step stays pending until the native command
-exits, even indefinitely if the engine keeps a stationary mid-ladder command alive.
+normal exit action is attempted. A receiver-local clock bounds draining at
+`timeout_s + 30 s`, including while normal alive/hold gates would suspend the
+step. At that cap it prints exactly once:
+
+```text
+[HC Driver] step=S kind=climb result=fail detail=reason=climb-drain-timeout command=<native command id>
+```
+
+Input stays released. The driver advances only after `MovementReady` passes and
+the ladder command is absent. If this has not happened within another 60 s,
+the driver stops with `[HC Driver] done run=<run> reason=climb-stuck`, allowing
+the soak's existing 120 s tail to finish. This diagnostic is followed by the normal
+count summary (`done run=... steps=... ok=... refused=... unsupported=... timeout=...`),
+which the existing soak parser requires to arm that tail. No cancellation or position write is used.
 
 This path is unverified until a native run. Inspect both endpoint readings, entry
 from each end, forward/backward movement, the 90 s hold, and return to ground.
@@ -703,3 +715,59 @@ an ambient infected must target the elevated player and give up. Server evidence
 `[HC Nav] siege start anchor=<mesh|ladder> members=<m> n=<n>` and
 `[HC Use] module=InfectedSiege feature=siege_started count=<n>`; a ladder anchor also
 emits `feature=ladder_guard`. The driver manufactures no feature counters.
+
+## `cellar`: bounded cellar walk and refusal evidence
+
+The `walk_town` phase adds `cellar` after its interior, combat and climb steps,
+with `range_m=100`, `hold_s=20`, `timeout_s=240`. Its `classes_from` field is an
+embedded array of class names generated from `mission/hollow-country/cellars/classes.json`
+(currently 28 survey candidates). It is not a client file path. Schema limits are
+1–64 unique class names, range 5–150 m, hold 1–600 s, timeout 10–1800 s, and
+timeout strictly greater than hold. The builder marks the resulting position uncertain.
+
+`HCClientDriverCellar.c` makes one bounded-radius `GetObjectsAtPosition3D` query
+(`3_Game/Global/Game.c:930`), scans it incrementally with `HCWorkBudget` (64 units),
+and keeps the four nearest matching buildings. It approaches a native door sound
+position (`Entities/Building.c:73`), uses the existing vanilla door action restricted
+to that building, and walks inward using `HCDriverRoute` and its recovery ladder.
+Each entered building gets four downward geometry rays, one per tick, from two
+interior columns and two starting depths below terrain, ending 12 m below terrain.
+`DayZPhysics.RaycastRV` (`3_Game/Global/DayZPhysics.c:130-143,199`) must return an
+upward-facing hit on that building more than 2 m below `SurfaceY`. The total is
+at most 16 floor probes per step; the existing door helper has its separate bounded
+action rays. These sparse probes may miss a cellar and are not a complete survey.
+
+The route walks toward the lowest detected floor. Horizontal arrival alone cannot
+pass: the actual player must be more than 2 m below terrain, report
+`IsSoundInsideBuilding()` (`Entities/Man.c:37`), and have the renderer-owned
+`HCCellarsClient.HCVisualActive()` receipt continuously for the hold. A bounded
+breadcrumb list records the downward walk; the return follows it in reverse through
+the same door and requires an outside-building reading before success. No depth,
+lighting state, admission receipt or feature counter is written by the driver.
+
+```text
+[HC Driver] cellar building=<type> pos=<x,z> depth_m=<observed depth> result=ok
+[HC Driver] step=S kind=cellar result=ok detail=returned
+[HC Driver] cellar result=refused reason=no-cellar-floor tried=<type>@<x,z>;...
+[HC Driver] cellar result=refused reason=cellar-route-blocked tried=<type>@<x,z>;...
+[HC Driver] step=S kind=cellar result=refused detail=reason=<reason>
+```
+
+The refusal evidence lists at most four tried buildings; an empty `tried=` means
+the query had no matching instance. Inaccessible doors, failed routes, missing
+inside readings, or a floor without a renderer receipt cannot pass. Current shared
+admission is enabled with reason `admitted_unverified_native_cellar_qualification_pending`;
+the stale disabled wording in `HCCellarsClient.c` does not describe that gate's
+current return value. This implementation does **not** yet establish that
+`Cellars/visual_applied` is driven. Do not change
+`soak_phases.json` on offline evidence. After native proof, the lead should remove
+`manual["Cellars/visual_applied"]` and add
+`features["Cellars/visual_applied"] = "walk_town"`; the subjective cellar look stays owner.
+
+Native proof must cover door coordinates/approach, collision-bound coordinate space,
+ray normals and real floor depth, a reachable downward route, the continuous 20 s
+hold, and the same-door return. The existing module must emit
+`[HC Use] module=Cellars feature=visual_applied count=<n>` and
+`[HollowCountry] V2 client cellars visual=below_terrain_inside_building` during that
+walk. Existing preference opt-outs remain respected; changing admission or preferences
+is outside this worker's scope.

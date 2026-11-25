@@ -70,7 +70,7 @@ GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
 KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route",
-         "combat", "loot", "survive", "vehicle", "climb", "search_site", "take_lead", "raise", "hold_ring", "respawn")
+         "combat", "loot", "survive", "vehicle", "climb", "cellar", "search_site", "take_lead", "raise", "hold_ring", "respawn")
 # route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
 # stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
 MAX_ROUTE_POINTS = 64
@@ -151,6 +151,7 @@ _STEP_FIELDS = {
     "enter": {"zone", "sites", "gait", "hold_s", "timeout_s"},
     "route": {"points", "gait", "arrive_m", "timeout_s"},
     "climb": {"range_m", "hold_s", "timeout_s"},
+    "cellar": {"classes_from", "range_m", "hold_s", "timeout_s"},
     "combat": {"range_m", "timeout_s"},
     "loot": {"range_m", "max_items", "timeout_s"},
     "survive": {"mode", "timeout_s"},
@@ -260,7 +261,7 @@ class _Builder:
         self.steps.append(step)
         if kind == "group":
             self.done.add("group")
-        if kind in ("menu", "enter", "combat", "loot", "vehicle", "climb", "respawn", "raise", "search_site", "take_lead") or (kind == "admin" and fields.get("cmd", "").startswith("fx_")):
+        if kind in ("menu", "enter", "combat", "loot", "vehicle", "climb", "cellar", "respawn", "raise", "search_site", "take_lead") or (kind == "admin" and fields.get("cmd", "").startswith("fx_")):
             self.uncertain = True
         if kind == "action":
             self.done.add("action:" + fields.get("name", ""))
@@ -346,6 +347,23 @@ def _phase_walk_town(b):
     b.add("combat", range_m=60, timeout_s=180)
     b.add("admin", cmd="fx_shoot_held", value="")
     b.add("climb", range_m=100, hold_s=90, timeout_s=360)
+    b.add("cellar", classes_from=cellar_classes(), range_m=100, hold_s=20, timeout_s=240)
+
+
+def cellar_classes():
+    """Embed the survey candidates; the client cannot read the mission JSON."""
+    data = json.loads((MISSION / "cellars" / "classes.json").read_text(encoding="utf-8"))
+    classes = [row["BuildingClass"] for row in data["Classes"]]
+    _validate_cellar_classes(classes)
+    return classes
+
+
+def _validate_cellar_classes(classes):
+    if (not isinstance(classes, list) or not 1 <= len(classes) <= 64
+            or any(not isinstance(value, str) or not _TYPE.fullmatch(value) for value in classes)):
+        raise ScriptError("cellar classes_from must be a list of 1..64 class names")
+    if len(set(classes)) != len(classes):
+        raise ScriptError("cellar classes_from must be unique")
 
 
 def _phase_combat(b):
@@ -655,7 +673,9 @@ def validate_step(step, label="step"):
             raise ScriptError("%s gait must be one of %s" % (label, GAITS))
         _number(step.get("arrive_m"), 2, 50, label + " arrive_m")
         _number(step.get("timeout_s"), 10, 3600, label + " timeout_s")
-    elif kind == "climb":
+    elif kind in ("climb", "cellar"):
+        if kind == "cellar":
+            _validate_cellar_classes(step.get("classes_from"))
         _number(step.get("range_m"), 5, 150, label + " range_m")
         _number(step.get("hold_s"), 1, 600, label + " hold_s")
         _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
@@ -757,8 +777,10 @@ def describe(step, notes):
             len(step["points"]) // 2, step["gait"], step["arrive_m"], step["timeout_s"])
         if step["id"] in notes:
             detail += " source=" + notes[step["id"]]
-    elif kind == "climb":
+    elif kind in ("climb", "cellar"):
         detail = "range_m=%s hold_s=%s timeout_s=%s" % (step["range_m"], step["hold_s"], step["timeout_s"])
+        if kind == "cellar":
+            detail += " classes=%d" % len(step["classes_from"])
     elif kind == "combat":
         detail = "range_m=%s timeout_s=%s (fire=unsupported)" % (step["range_m"], step["timeout_s"])
     elif kind == "loot":

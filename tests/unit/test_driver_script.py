@@ -301,6 +301,64 @@ class DriverScriptTests(unittest.TestCase):
         b.add("climb", range_m=100, hold_s=90, timeout_s=360)
         self.assertTrue(b.uncertain)
 
+    def test_cellar_schema_and_bounds(self):
+        good = {"id": "s01", "kind": "cellar", "classes_from": ["Land_House_1W01"],
+                "range_m": 100, "hold_s": 20, "timeout_s": 240}
+        ds.validate_step(good)
+        for key in ("classes_from", "range_m", "hold_s", "timeout_s"):
+            missing = dict(good)
+            del missing[key]
+            with self.subTest(missing=key), self.assertRaises(ds.ScriptError):
+                ds.validate_step(missing)
+        for classes in (None, "cellars/classes.json", [], [True], ["bad class"], [""],
+                        ["A" * 65], ["House", "House"], ["House%d" % i for i in range(65)]):
+            with self.subTest(classes=classes), self.assertRaises(ds.ScriptError):
+                ds.validate_step(dict(good, classes_from=classes))
+        for key, low, high in (("range_m", 5, 150), ("hold_s", 1, 600), ("timeout_s", 10, 1800)):
+            for value in (True, None, "20", float("nan"), float("inf"), low - 1, high + 1):
+                with self.subTest(key=key, value=value), self.assertRaises(ds.ScriptError):
+                    ds.validate_step(dict(good, **{key: value}))
+        for fields in ({"timeout_s": 20}, {"timeout_s": 19}, {"position": [1, 2]}, {"classes": []}):
+            with self.subTest(fields=fields), self.assertRaises(ds.ScriptError):
+                ds.validate_step(dict(good, **fields))
+        for value in (5, 150):
+            ds.validate_step(dict(good, range_m=value))
+        ds.validate_step(dict(good, hold_s=1, timeout_s=10))
+        ds.validate_step(dict(good, hold_s=600, timeout_s=1800,
+                              classes_from=["House%d" % i for i in range(64)]))
+        self.assertEqual(ds.step_token(good, {}), "cellar")
+        self.assertIn("classes=1", ds.describe(good, {}))
+
+    def test_cellar_classes_are_embedded_from_mission_data(self):
+        from unittest.mock import patch
+        expected = [row["BuildingClass"] for row in json.loads(
+            (ds.MISSION / "cellars" / "classes.json").read_text())["Classes"]]
+        self.assertEqual(ds.cellar_classes(), expected)
+        self.assertEqual(len(expected), 28)
+        # A different source changes the step: no class names are baked into the builder.
+        with tempfile.TemporaryDirectory() as directory:
+            mission = Path(directory)
+            (mission / "cellars").mkdir()
+            source = mission / "cellars" / "classes.json"
+            source.write_text(json.dumps({"Classes": [{"BuildingClass": "Land_TestHouse"}]}))
+            with patch.object(ds, "MISSION", mission):
+                self.assertEqual(ds.cellar_classes(), ["Land_TestHouse"])
+            source.write_text(json.dumps({"Classes": [{"BuildingClass": "bad class"}]}))
+            with patch.object(ds, "MISSION", mission), self.assertRaises(ds.ScriptError):
+                ds.cellar_classes()
+        for phases in (["walk_town"], list(ds.PHASES)):
+            steps = ds.build_route(phases)["steps"]
+            indices = [i for i, step in enumerate(steps) if step["kind"] == "cellar"]
+            self.assertEqual(len(indices), 1)
+            i = indices[0]
+            self.assertEqual(steps[i - 1]["kind"], "climb")
+            self.assertTrue(any(step["kind"] == "search_site" for step in steps[:i]))
+            self.assertEqual(steps[i]["classes_from"], expected)
+            self.assertEqual((steps[i]["hold_s"], steps[i]["timeout_s"]), (20, 240))
+        builder = ds._Builder()
+        builder.add("cellar", classes_from=expected, range_m=100, hold_s=20, timeout_s=240)
+        self.assertTrue(builder.uncertain)
+
     def test_loot_steps_are_bounded(self):
         script, notes = ds.build_plan(list(ds.PHASES))
         loots = [step for step in script["steps"] if step["kind"] == "loot"]

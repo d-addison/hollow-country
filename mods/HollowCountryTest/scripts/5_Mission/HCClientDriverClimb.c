@@ -29,6 +29,7 @@ class HCDriverClimb
     protected bool m_Timeout;
     protected bool m_Entered;
     protected bool m_Logged;
+    protected int m_Started;
     protected ref array<Object> m_Near = new array<Object>;
     protected ref array<CargoBase> m_Cargo = new array<CargoBase>;
     protected ref set<Object> m_Hits = new set<Object>;
@@ -39,6 +40,12 @@ class HCDriverClimb
     bool AwaitingEntry()
     {
         return m_Entered;
+    }
+
+    float Elapsed()
+    {
+        // Native 3_Game/Global/Game.c:1535 GetTime, receiver-local milliseconds.
+        return (GetGame().GetTime() - m_Started) * 0.001;
     }
 
     void Drain(PlayerBase player, HCDriverWalker walker)
@@ -78,6 +85,7 @@ class HCDriverClimb
         m_Timeout = false;
         m_Entered = false;
         m_Logged = false;
+        m_Started = GetGame().GetTime();
     }
 
     protected void ApplyClimbInput(PlayerBase player, float speed, float angle)
@@ -172,7 +180,7 @@ class HCDriverClimb
 #ifdef SERVER
         return Finish(player, walker, HCDriverResult.UNSUPPORTED, "client-only", detail);
 #else
-        m_Age += dt;
+        m_Age = Elapsed();
         m_Wait += dt;
         HumanCommandLadder ladder = player.GetCommand_Ladder();
         ActionManagerClient manager = ActionManagerClient.Cast(player.GetActionManager());
@@ -182,8 +190,8 @@ class HCDriverClimb
         {
             walker.Release(player);
             ApplyClimbInput(player, 0, 0);
-            // No deadline escape while attached. A stuck mid-ladder command must remain
-            // draining (zero input), even past timeout, until the native command exits.
+            // The driver watchdog caps this drain at timeout + 30, then gates recovery
+            // on MovementReady for at most another 60 seconds, including forced ends.
             if (ladder)
             {
                 if (manager && player.IsAlive() && !player.IsUnconscious()) { TryExit(player, manager); }
@@ -297,6 +305,59 @@ class HCDriverClimb
 
 modded class HCClientDriver
 {
+    protected bool m_ClimbDrainLogged;
+
+    override void Tick(float timeslice)
+    {
+        // Run before super's alive/hold/calibration gates: none may suspend this watchdog.
+        if (m_Live && !m_Finished && m_StepOpen && m_Stage > 0 && m_Script.steps[m_Index].kind == "climb")
+        {
+            HCDriverStep step = m_Script.steps[m_Index];
+            float elapsed = m_Climb.Elapsed();
+            if (elapsed >= step.timeout_s + 30)
+            {
+                PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
+                m_Walker.Release(player);
+                HCDriverMovement.Stop();
+                if (!m_ClimbDrainLogged)
+                {
+                    // Native 3_Game/human.c:1473 GetCurrentCommandID (native command enum only).
+                    int command = -1;
+                    if (player) { command = player.GetCurrentCommandID(); }
+                    string label = step.id;
+                    if (label == "") { label = "s" + (m_Index + 1).ToString(); }
+                    Print("[HC Driver] step=" + label + " kind=climb result=fail detail=reason=climb-drain-timeout command=" + command.ToString());
+                    m_ClimbDrainLogged = true;
+                    m_Refused++;
+                }
+                if (player) { m_Climb.Drain(player, m_Walker); }
+                if (player && MovementReady(player) && !player.GetCommand_Ladder())
+                {
+                    // Already reported exactly once; close the step without a second result line.
+                    m_Actions.Abort(player, m_Walker);
+                    HCDriverMovement.FinishedSerial = HCDriverMovement.Serial;
+                    HCDriverMovement.ClosedReason = "";
+                    m_Index++;
+                    m_Hold.Reset();
+                    m_StepOpen = false;
+                    m_StepCalibRetried = false;
+                    m_ClimbDrainLogged = false;
+                    if (m_Index >= m_Script.steps.Count()) { Conclude(); }
+                    return;
+                }
+                if (elapsed >= step.timeout_s + 90)
+                {
+                    Print("[HC Driver] done run=" + m_Script.run_id + " reason=climb-stuck");
+                    // soak_campaign.DRIVER_DONE requires the legacy count summary to
+                    // arm its 120 s tail; the reason diagnostic alone is not matched.
+                    Conclude();
+                }
+                return;
+            }
+        }
+        super.Tick(timeslice);
+    }
+
     override protected void EndStep(HCDriverStep step, int code, string detail, PlayerBase player)
     {
         if (step.kind == "climb")

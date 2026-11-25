@@ -344,6 +344,7 @@ class HCClientDriver
             m_Stage = 1;
         }
         else if (step.kind == "climb") { code = m_Climb.Run(step, player, dt, m_Walker, m_Stage == 0, detail); m_Stage = 1; }
+        else if (step.kind == "cellar") { code = HCDriverCellar.Run(step, player, dt, m_Walker, m_Stage == 0, detail); m_Stage = 1; }
         else if (step.kind == "vehicle")
         {
             code = StepVehicle(step, player, dt);
