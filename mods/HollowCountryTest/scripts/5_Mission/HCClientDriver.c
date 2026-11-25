@@ -526,7 +526,8 @@ class HCClientDriver
         string reason = "frame-probe";
         if (distance <= 0.3 || m_CalibRightFrames == 0) { reason = "right-no-movement"; }
         else if (!m_CalibAnglesMatch) { reason = "command-angle-mismatch"; }
-        else if (Math.AbsFloat(HCDriverMovement.HeadingOffset) > 15.0 || Math.AbsFloat(m_CalibTurn - 90.0) > 15.0) { reason = "command-angle-motion-mismatch"; }
+        // A mirrored strafe (turn near -90) is accepted; AngleSign carries it into the walker.
+        else if (Math.AbsFloat(HCDriverMovement.HeadingOffset) > 15.0 || Math.AbsFloat(Math.AbsFloat(m_CalibTurn) - 90.0) > 15.0) { reason = "command-angle-motion-mismatch"; }
         HCDriverMovement.Calibrated = reason == "frame-probe";
         FinishCalib(player, m_CalibRight, reason);
     }
