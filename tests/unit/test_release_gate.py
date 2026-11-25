@@ -121,10 +121,10 @@ class ReleaseGateTests(unittest.TestCase):
         args = self.args()
         steps = gate.NativeSteps(args, self.targets, self.entries)
         steps.rpt, steps.client_rpt = Path('server.RPT'), Path('client.RPT')
-        with patch.object(gate, 'capture') as call:
+        with patch.object(gate.activity_check, 'scan_release', return_value={'features': [], 'count': 0}) as scan, patch.object(gate.activity_check, 'print_result'):
             steps.activity()
-        self.assertIn('--release', call.call_args.args[1])
-        self.assertEqual(call.call_args.kwargs, dict(targets=self.targets, entries=self.entries))
+        scan.assert_called_once_with(steps.rpt, client_rpt=steps.client_rpt,
+                                     targets=self.targets, entries=self.entries, evidence=None)
 
     def test_release_activity_requires_candidate_client_signal(self):
         entries = [dict(module='Core', feature='candidate_signal', release_smoke=True)]
@@ -135,7 +135,7 @@ class ReleaseGateTests(unittest.TestCase):
             signal = '[HC Use] module=Core feature=candidate_signal count=1\n'
             steps.rpt.write_text('[HC Ready] module=Core enabled=true ready=true\n' + signal)
             steps.client_rpt.write_text('')
-            with self.assertRaisesRegex(gate.Refused, 'tool failed'):
+            with self.assertRaisesRegex(gate.Refused, 'activity=inert'):
                 steps.activity()
             steps.client_rpt.write_text(signal)
             steps.activity()
@@ -148,7 +148,7 @@ class ReleaseGateTests(unittest.TestCase):
                 with self.assertRaisesRegex(gate.Refused, 'R2'):
                     gate.audit(rpt)
             for line in ('SCRIPT    (E): error', 'VME', '[HC SelfTest] name=x pass=false',
-                         'store quarantined', "Can't load texture"):
+                         '[HC Ecology] migration quarantine in place', "Cannot load texture 'HollowCountry\\missing.paa'"):
                 rpt.write_text(line + '\n')
                 with self.assertRaises(gate.Refused):
                     gate.audit(rpt, client=True)
@@ -209,7 +209,7 @@ class ReleaseGateTests(unittest.TestCase):
             with self.assertRaisesRegex(gate.Refused, 'R3 incomplete RPT census'):
                 gate.audit(rpt, targets=TARGETS)
 
-            for line in ('SCRIPT (E): synthetic', 'VME', 'store quarantined',
+            for line in ('SCRIPT (E): synthetic', 'VME', '[HC Ecology] migration quarantine in place',
                          '[HC SelfTest] name=x pass=false',
                          '[HC Ready] module=Core enabled=true ready=false'):
                 with self.subTest(line=line):
@@ -251,7 +251,7 @@ class ReleaseGateTests(unittest.TestCase):
         cases = [('SCRIPT (E): synthetic', 'max_script_errors', False),
                  ('VME', 'max_vme_server', False),
                  ('VME', 'client_max_vme', True),
-                 ('missing texture', 'client_max_missing_textures', True)]
+                 ("Cannot load texture 'HollowCountry\\missing.paa'", 'client_max_missing_textures', True)]
         with tempfile.TemporaryDirectory() as temp:
             rpt = Path(temp) / 'test.RPT'
             header = '12:00:00 Player connect enabled\n12:00:00 [CE][Hive] :: Init sequence finished\n12:00:01 [HC Ready] module=Core enabled=true ready=true\n'

@@ -114,7 +114,7 @@ class RegenerateAllTests(unittest.TestCase):
                         expected_input = '{}' if flag == '--prior' else (regen.ROOT / regen.LOOT_CANDIDATE).read_text()
                         self.assertEqual(expected_input, Path(command[command.index(flag) + 1]).read_text())
                     self.assertEqual(regen.LOOT_OUTPUT, command[-1])
-                self.assertTrue('--check' in command or 'check' in command or '--compare' in command)
+                self.assertTrue('--check' in command or '--check-plan' in command or 'check' in command or '--compare' in command)
                 return subprocess.CompletedProcess(command, 0, 'ok', '')
             with patch.object(regen, 'missing_inputs', return_value=None), patch.object(regen.subprocess, 'run', side_effect=run) as child:
                 for generator in regen.GENERATORS:

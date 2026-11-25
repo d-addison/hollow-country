@@ -11,6 +11,8 @@ import subprocess
 import sys
 import threading
 import time
+import tempfile
+import zipfile
 
 from tools.audit import rpt_config_audit
 from tools.release import activity_check, checkstart, client_compile_check, friendcycle, rpt_summary
@@ -111,9 +113,186 @@ def capture(function, argv, **kwargs):
         raise Refused('tool failed')
 
 
-def audit(path, *, client=False, startup_only=False, targets=None, entries=None):
+# Persisted-store/record announcements only. Source inventory (2026-11-25):
+# HCGroupIO.c:173, HCEcologyRuntimeStore.c:272, HCEcologyMigrationStore.c:61/71,
+# HCEventModule.c:832, HCInteriorStore.c:62, HCInfectedModule.c:1132,
+# HCXEmoteObservation.c:247; HCStagedStore.c:HCEvidence emits action=quarantine.
+STORE_QUARANTINE_MARKERS = {
+    'hc28-store-recovery': r'\[HC Plan\] HC-28 store=\S+ recovery=quarantined\b',
+    'ecology-recovery': r'\[HC Ecology\] recovery=quarantined\b',
+    'ecology-migration': r'\[HC Ecology\] migration quarantine in place\b',
+    'event-cleanup': r'\[HC Events\] cleanup quarantined\b',
+    'interior-slot': r'\[HC Interiors\] slot [0-9]+ quarantined:',
+    'infected-cohort': r'\[HollowCountry\] infected cohort quarantined\b',
+    'betrayal-store': r'\[HC Plan\] HC-5 signals=\S+ betrayal_store=quarantined\b',
+    # HCSiteGuard.c:432 emits a persisted-state recovery summary through Log.
+    'sites-state': r'\[HC Sites\] state recovered=\S+ quarantined=(?:1|true)\b',
+    'staged-store': r'\[HC Store\].*\baction=quarantine\b',
+}
+TEXTURE = re.compile(r"Cannot load texture '([^'\r\n]+)'", re.I)
+
+
+def texture_prefixes(root=ROOT, workshop=None):
+    """Derive virtual roots from authored prefixes/config and declared dependency PBO headers."""
+    from tools.setup import workshop_sync
+    from tools.audit.pbo_config import read_pbo_index
+    own, dependency = set(), set()
+    for config in (Path(root) / 'mods').glob('*/config.cpp'):
+        prefix = config.with_name('$PBOPREFIX$')
+        if prefix.is_file():
+            own.add(prefix.read_text().strip().lower().replace('/', '\\').strip('\\'))
+        else:
+            # The base addon uses its CfgMods dir as its virtual root.
+            own.update(x.lower() for x in re.findall(r'\bdir\s*=\s*"([^"\r\n]+)"', config.read_text()))
+    workshop = Path(workshop) if workshop else Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
+    manifest = workshop_sync.load_manifest(Path(root) / 'tools/setup/workshop_mods.json')
+    for item in manifest['mods']:
+        if item['publish'] or not item['id']:
+            continue
+        for pbo in (workshop / item['id']).glob('**/*.pbo'):
+            prefix = read_pbo_index(pbo)['prefix'].lower().replace('/', '\\').strip('\\')
+            if prefix:
+                dependency.add(prefix)
+    return own, dependency
+
+
+def texture_counts(path, prefixes=None):
+    own, dependency = texture_prefixes() if prefixes is None else prefixes
+    result = dict(missing_textures=0, vanilla_texture_noise=0, other_texture_noise=0)
+    roots = tuple(x.lower().replace('/', '\\').strip('\\') + '\\' for x in own | dependency)
+    for raw in rpt_summary.lines(path):
+        match = TEXTURE.search(raw)
+        if not match:
+            continue
+        resource = match[1].lower().replace('/', '\\').lstrip('\\')
+        if resource.startswith(('dz\\', 'a3\\', 'd:\\p4\\')) or '\\' not in resource:
+            result['vanilla_texture_noise'] += 1
+        elif resource.startswith(roots):
+            result['missing_textures'] += 1
+        else:
+            result['other_texture_noise'] += 1
+    return result
+
+
+def post_stop_check(path, *, soak_minutes=None):
+    for category, raw in rpt_config_audit.diagnostic_lines(path, rpt_config_audit.category_rules()):
+        if category is None:
+            raise Refused('post-stop RPT oversized line; crash evidence incomplete')
+        if rpt_summary.failure(raw, True) == 'crashed':
+            raise Refused('post-stop crash observed')
+    if soak_minutes is not None:
+        span = rpt_summary.soak_span(path)
+        emit('soak_duration_seconds=' + ('unavailable' if span is None else f'{span:.3f}'))
+        if span is None or span < soak_minutes * 60:
+            measured = 'unavailable' if span is None else f'{span:.3f}'
+            raise Refused(f'soak duration insufficient measured_seconds={measured} required_minutes={soak_minutes:g}')
+
+
+def campaign_evidence(directory, commit):
+    """Only explicit full, release-class, commit-bound receipts may contribute counters."""
+    directory = Path(directory)
+    try:
+        selection_file = directory / 'selection.json'
+        selection = json.loads(selection_file.read_text()) if selection_file.is_file() else {}
+        manifests = [directory / name for name in ('manifest.json', 'BUILD_MANIFEST.json')
+                     if (directory / name).is_file()]
+        metadata = [selection] + [json.loads(p.read_text()) for p in manifests]
+        if not all(isinstance(m, dict) for m in metadata):
+            raise Refused('activity evidence receipt invalid')
+        if selection.get('targeted') is True:
+            raise Refused('activity evidence targeted run is not release-class')
+        commits = [m['commit'] for m in metadata if 'commit' in m]
+        if not commits or any(value != commit for value in commits):
+            raise Refused('activity evidence candidate commit mismatch or unavailable')
+        # The campaign removes selection.json for a full run (record_selection).
+        # A retained report plus the exact manifest binds that established format.
+        report = directory / 'report.md'
+        full_report = (not selection_file.exists() and report.is_file()
+                       and report.read_text().startswith('# Soak campaign report\n')
+                       and 'Targeted run:' not in report.read_text())
+        explicit_full = selection.get('targeted') is False
+        if (any(m.get('release_class') is False for m in metadata)
+                or not (full_report or explicit_full)):
+            raise Refused('activity evidence full release-class receipt required')
+        server = list((directory / 'server').glob('*.RPT'))
+        client = list((directory / 'client').glob('*.RPT'))
+        if len(server) != 1 or len(client) > 1:
+            raise Refused('activity evidence RPT selection ambiguous or missing')
+        for category, raw in rpt_config_audit.diagnostic_lines(server[0], rpt_config_audit.category_rules()):
+            if category is None:
+                raise Refused('activity evidence oversized line; crash/script/VME evidence incomplete')
+            if (rpt_summary.failure(raw, True) in ('crashed', 'compile_failed', 'script_error')
+                    or re.search(r'\bVME\b|Virtual Machine Exception', raw, re.I)):
+                raise Refused('activity evidence server crash/script/VME observed')
+        return server[0], client[0] if client else None
+    except (OSError, ValueError, TypeError) as error:
+        if isinstance(error, Refused):
+            raise
+        raise Refused('activity evidence receipt unavailable or invalid') from None
+
+
+def previous_release(tag, cache=None):
+    """Download an immutable release bundle, safely extract, verify its entire installer manifest."""
+    from tools.setup import friend_install
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,95}', tag) or '..' in tag:
+        raise Refused('previous release tag invalid')
+    cache = (Path(cache) if cache else Path.home() / '.cache/hollow-country/releases') / tag
+    cache.mkdir(parents=True, exist_ok=True)
+    extracted = cache / 'verified'
+
+    def verify(folder):
+        manifests = list(folder.rglob('bundle-manifest.json'))
+        if len(manifests) != 1:
+            raise Refused('previous release installer manifest missing or ambiguous')
+        bundle = manifests[0].parent
+        try:
+            manifest = friend_install.load_bundle(bundle)
+            if not manifest.get('files'):
+                raise Refused('previous release manifest empty')
+        except friend_install.Refused:
+            raise Refused('previous release manifest verification failed') from None
+        return bundle
+
+    if extracted.exists():
+        return verify(extracted)
+    try:
+        result = subprocess.run(['gh', 'release', 'view', tag, '--json', 'assets'], cwd=ROOT,
+                                capture_output=True, text=True, check=True, timeout=60)
+        assets = json.loads(result.stdout)['assets']
+        names = [a['name'] for a in assets if 'bundle' in a['name'].lower() and a['name'].endswith('.zip')]
+        if len(names) != 1 or Path(names[0]).name != names[0]:
+            raise Refused('previous release bundle asset missing or ambiguous')
+        with tempfile.TemporaryDirectory(dir=cache, prefix='download-') as tmp:
+            tmp = Path(tmp)
+            subprocess.run(['gh', 'release', 'download', tag, '--pattern', names[0], '--dir', str(tmp)],
+                           cwd=ROOT, capture_output=True, check=True, timeout=600)
+            unpack = tmp / 'unpack'
+            unpack.mkdir()
+            with zipfile.ZipFile(tmp / names[0]) as archive:
+                members = archive.infolist()
+                if len(members) > 100000 or sum(m.file_size for m in members) > 8 * 1024**3:
+                    raise Refused('previous release archive exceeds budget')
+                for member in members:
+                    name = member.filename
+                    if (name.startswith('/') or '\\' in name or ':' in name or '..' in name.split('/')
+                            or (member.external_attr >> 16) & 0o170000 == 0o120000):
+                        raise Refused('previous release archive unsafe')
+                archive.extractall(unpack)
+            verify(unpack)
+            unpack.rename(extracted)
+        return verify(extracted)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
+        if isinstance(error, Refused):
+            raise
+        raise Refused('previous release download or verification failed') from None
+
+
+def audit(path, *, client=False, startup_only=False, targets=None, entries=None, texture_roots=None):
     """Reuse the common summary and perf parser; add only release-specific rules."""
     targets = load_targets() if targets is None else targets
+    warnings = rpt_summary.r2b_warnings(path, targets['perf_r2_max_ms']) if not client else []
+    for warning in warnings:
+        emit(warning)
     summary = rpt_summary.Summary(path, targets=targets, entries=entries)
     try:
         summary.scan()
@@ -123,7 +302,7 @@ def audit(path, *, client=False, startup_only=False, targets=None, entries=None)
             raise Refused('RPT boot/error/readiness check failed')
     finally:
         summary.close()
-    script_errors = vmes = missing_textures = 0
+    script_errors = vmes = 0
     for line in rpt_summary.lines(path):
         if rpt_summary.COMPILE_MARKER.search(line):
             raise Refused('RPT compile failure')
@@ -136,12 +315,14 @@ def audit(path, *, client=False, startup_only=False, targets=None, entries=None)
                 raise Refused('RPT VME limit exceeded')
         if '[HC SelfTest]' in line and re.search(r'\bpass=false\b', line):
             raise Refused('self-test failed')
-        if re.search(r'quarantin', line, re.I):
-            raise Refused('store quarantine observed')
-        if client and re.search(r"can.t load|missing texture|cannot load.*texture", line, re.I):
-            missing_textures += 1
-            if missing_textures > targets['client_max_missing_textures']:
-                raise Refused('client texture error limit exceeded')
+        for marker, pattern in STORE_QUARANTINE_MARKERS.items():
+            if re.search(pattern, line):
+                raise Refused('store quarantine observed marker=' + marker)
+    if client:
+        textures = texture_counts(path, texture_roots)
+        emit('client_textures ' + ' '.join(f'{key}={value}' for key, value in textures.items()))
+        if textures['missing_textures'] > targets['client_max_missing_textures']:
+            raise Refused('client texture error limit exceeded')
     if client or startup_only:
         return
 
@@ -168,7 +349,9 @@ def audit(path, *, client=False, startup_only=False, targets=None, entries=None)
             value = re.search(r'\bms=([0-9.]+)', rule)
             if value is None or float(value[1]) > targets['perf_r2_max_ms']:
                 raise Refused(f"perf R2 over {targets['perf_r2_max_ms']:g} ms")
-    evidence = dict(rpt_categories={str(key): dict(count=value,
+    evidence = dict(warnings=warnings, engine_noise_count=counts[rpt_config_audit.ENGINE_NOISE],
+                    hc_diagnostic_count=counts[rpt_config_audit.HC_TELEMETRY],
+                    rpt_categories={str(key): dict(count=value,
                     ceiling=targets['rpt_category_ceilings'][str(key)])
                     for key, value in totals.items()}, readiness_timing=dict(
                         status=timing['status'],
@@ -332,6 +515,10 @@ class NativeSteps:
         self.client_dir = None
         self.client_before = set()
         self.scripted = None
+        self.boot_rpt = None
+        self.boot_soak = None
+        self.warnings = []
+        self.texture_roots = None
 
     def scripted_client(self):
         from tools.testing import soak_campaign
@@ -376,7 +563,8 @@ class NativeSteps:
         result = winproc.run('powershell', [script], attempts=1, timeout=300)
         emit(result.stdout + '\n' + result.stderr)
         if result.returncode:
-            raise Refused('install failed')
+            codes = re.findall(r'(?:refused:|Refused)\s*([A-Za-z0-9_-]{1,64})', result.stdout + '\n' + result.stderr)
+            raise Refused('install failed' + (' code=' + codes[-1] if codes else ''))
 
     def boot(self, bundle, minutes, *, startup_only=False):
         before = set(self.args.profiles.glob('*.RPT'))
@@ -392,6 +580,9 @@ class NativeSteps:
         if len(fresh) != 1:
             raise Refused('fresh server RPT ambiguous or missing')
         path = fresh.pop()
+        self.boot_rpt = path
+        self.boot_soak = None if startup_only else minutes
+        self.warnings.extend(rpt_summary.r2b_warnings(path, self.targets['perf_r2_max_ms']))
         audit(path, startup_only=startup_only, targets=self.targets, entries=self.entries)
         return path
 
@@ -405,6 +596,9 @@ class NativeSteps:
             except GATE_ERRORS as error:
                 failure = error
         self.stop_server()
+        if self.boot_rpt is not None:
+            post_stop_check(self.boot_rpt, soak_minutes=self.boot_soak)
+            self.boot_rpt = None
         if failure is not None:
             raise failure
 
@@ -436,13 +630,18 @@ class NativeSteps:
         raise Refused('graceful server stop could not be verified; operator intervention required')
 
     def upgrade(self):
+        if getattr(self.args, 'previous_release', None):
+            self.args.previous_bundle = previous_release(self.args.previous_release)
         if not self.args.previous_bundle:
             if self.targets['upgrade_from_previous_release_required']:
                 raise Refused('previous release bundle required for the upgrade check (--previous-bundle)')
             return
         # checkstart still enforces startup readiness for both versions. The
         # candidate census, ratchet and performance checks use the soak RPT.
-        self.install(self.args.previous_bundle)
+        try:
+            self.install(self.args.previous_bundle)
+        except Refused as error:
+            raise Refused('upgrade previous-install-refused reason=' + str(error)) from None
         self.boot(self.args.previous_bundle, 1, startup_only=True)
         self.stop()
         self.install(self.args.bundle)
@@ -471,8 +670,21 @@ class NativeSteps:
     def activity(self):
         if self.client_rpt is None:
             raise Refused('fresh client RPT required during soak')
-        capture(activity_check.main, [str(self.rpt), '--client-rpt', str(self.client_rpt), '--release'],
-                targets=self.targets, entries=self.entries)
+        evidence_dir = getattr(self.args, 'activity_evidence', None)
+        evidence = campaign_evidence(evidence_dir, self.args.commit) if evidence_dir else None
+        result = activity_check.scan_release(self.rpt, client_rpt=self.client_rpt,
+                    targets=self.targets, entries=self.entries, evidence=evidence)
+        activity_check.print_result(result)
+        if result['count']:
+            raise Refused(activity_check.summary_line(result))
+
+    def audit_client(self):
+        if self.texture_roots is None:
+            from tools.testing.soak_campaign import default_linux
+            workshop = getattr(self.args, 'workshop_content', None)
+            self.texture_roots = texture_prefixes(workshop=default_linux(workshop) if workshop else None)
+        return audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries,
+                     texture_roots=self.texture_roots)
 
     def client(self):
         emit(self.checklist())
@@ -492,7 +704,7 @@ class NativeSteps:
             emit(client_compile_check.verdict_line(result))
             if not result['passed']:
                 raise Refused('client compile check failed: ' + result['reason'])
-            audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries)
+            self.audit_client()
             # Delegate shared [HC Use] parsing to the activity checker. Release
             # mode owns the signal format and reports per-feature active counts.
             result = activity_check.scan(self.rpt, client_rpt=self.client_rpt, entries=self.entries)
@@ -501,7 +713,7 @@ class NativeSteps:
                       and row.get('value', 0) is not None and row['value'] > 0}
             if required <= active:
                 audit(self.rpt, targets=self.targets, entries=self.entries)
-                audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries)
+                self.audit_client()
                 result = client_compile_check.scan(self.client_rpt)
                 emit(client_compile_check.verdict_line(result))
                 if not result['passed']:
@@ -541,6 +753,9 @@ def run_gate(args, steps=None):
     except GATE_ERRORS as error:
         verdict['failed_step'] = current
         verdict['reason'] = failure_reason(error)
+    warnings = getattr(steps, 'warnings', None)
+    if isinstance(warnings, list):
+        verdict['warnings'] = sorted(set(warnings))
     return verdict
 
 
@@ -553,7 +768,10 @@ def main(argv=None):
     parser = Parser(description=__doc__)
     parser.add_argument('--commit', required=True)
     parser.add_argument('--bundle', type=Path, required=True)
-    parser.add_argument('--previous-bundle', type=Path)
+    previous = parser.add_mutually_exclusive_group()
+    previous.add_argument('--previous-bundle', type=Path)
+    previous.add_argument('--previous-release')
+    parser.add_argument('--activity-evidence', type=Path)
     parser.add_argument('--profiles', type=Path, default=Path('/mnt/e/HollowCountryLocal/friend-local-1/profiles'))
     parser.add_argument('--server-root', default=r'E:\HollowCountryLocal\friend-local-1')
     parser.add_argument('--workshop-content', default=r'G:\SteamLibrary\steamapps\workshop\content\221100')

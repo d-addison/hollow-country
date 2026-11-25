@@ -15,6 +15,8 @@ reopenings, missing inputs and ambiguous matches never become proven blame.
 Exit 0 = census written, 2 = input/storage failure (with no partial report).
 """
 import argparse
+import difflib
+import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 import json
 from pathlib import Path
@@ -38,7 +40,7 @@ RULES = {
     4: ('other_warning_message', r'Warning Message'),
     5: ('ce_point_removing', r'\[CE\]\[Point\].*\bRemoving\b'),
     6: ('vehicle_spawn_failure', r'\[CE\]\[VehicleRespawner\].*Failed to spawn'),
-    7: ('animation_resource', r'\.anm\b'),
+    7: ('animation_resource', r'\.anm\b|skeletons\.anim\.xml'),
     8: ('random_loot_mismatch', r'\[CE\]\[SpawnRandomLoot\].*(?:lootmax|containermaxsum)'),
     9: ('inventory_shape', r'Wrong inventory shape'),
     10: ('convex_components', r'Convex component selection faces are less th[ae]n\b'),
@@ -48,6 +50,22 @@ RULES = {
     14: ('snake_graph', r'snake[\\/]+anims[\\/]+animgraph[\\/]+snake\.agr.*(?:doesn.t have|missing|unknown).*variable'),
     15: ('input_or_skeleton', r'UAGestureSlot.*(?:twice|duplicate|already)|(?:twice|duplicate|already).*UAGestureSlot|ZSUSkeleton.*(?:bone|missing)|(?:bone|missing).*ZSUSkeleton'),
 }
+# Informational classes have no acceptance ceiling. Preserve the stable 1..15 table.
+ENGINE_NOISE = 16
+HC_TELEMETRY = 17
+NOISE = re.compile(
+    r'No components in |Way too much components|Sliding pose|Initializing ragdoll NONE|'
+    r'Player Simulation entity eAI_Survivor|^Loaded\b|'
+    r'Door .*missing geometry components|DamageSystem Warning:|unknown animation source|'
+    r'^(?:ANIMATION|WORLD|AUDIO|RESOURCES|MATERIAL|PHYSICS)\s+\([EW]\):|'
+    r'^SCRIPT\s+\(W\):|^NetServer|^!!! \[Inputs\]|Unknown flag |'
+    r'\[CE\].*WARNING.*Preset .*was not found|Message not sent - error|'
+    r'String .*not found|String .*listed twice|Cannot load texture|Can.t load.*(?:material|texture)|'
+    r'^Updating base class|missing in PreloadConfig|Unknown hit sound type|'
+    r'^SCRIPT\s*:\s*\[WARNING\]|\[BuildingFortificationsConfig\]|'
+    r'\[CE\].*(?:WARNING|groups failed: 0)|No overcharged virtual memory|^Fault address:', re.I)
+HC_ORIGIN = re.compile(r'\[HC(?:[^\]]*)\]|\[HollowCountry\]|HollowCountry', re.I)
+
 WARNING = re.compile(r'warning|error|cannot|can.t|missing|not found|unknown|failed|mismatch|not an array|no entry|hard to place|removing|convex component|slopelandcontact|\.anm\b|inserted twice', re.I)
 TOKENS = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
 RESOURCE = re.compile(r'[A-Za-z0-9_./\\-]+\.(?:p3d|anm|asi|agr|paa|emat|rvmat|ogg|wav)\b', re.I)
@@ -82,7 +100,14 @@ def classify(line, rules):
     for key in sorted(rules, key=lambda key: (key == 4, key)):
         if rules[key].search(line):
             return key
-    return 0 if WARNING.search(line) else None
+    body = STAMP.sub('', line).strip()
+    if HC_ORIGIN.search(line):
+        if not re.search(r'SCRIPT\s*\(E\)|Unhandled exception', line, re.I):
+            return HC_TELEMETRY
+        return 0 if WARNING.search(line) else HC_TELEMETRY
+    if NOISE.search(body) or not WARNING.search(line):
+        return ENGINE_NOISE
+    return 0
 
 
 def diagnostic_lines(path, rules):
@@ -260,6 +285,8 @@ def audit(rpt, vanilla_rpt, pbo_inputs=None, overrides=()):
                 categories=categories, diagnostics=rows,
                 unclassified_count=sum(n for (cat, _), n in observed.items() if cat == 0),
                 vanilla_unclassified_count=sum(n for (cat, _), n in baseline.items() if cat == 0),
+                engine_noise_count=sum(n for (cat, _), n in observed.items() if cat == ENGINE_NOISE),
+                hc_diagnostic_count=sum(n for (cat, _), n in observed.items() if cat == HC_TELEMETRY),
                 oversized_lines=skipped, vanilla_oversized_lines=baseline_skipped,
                 pbo_counts={owner: index.pbos[owner] for owner in OWNERS},
                 config_counts={owner: index.configs[owner] for owner in OWNERS})
@@ -273,8 +300,63 @@ def totals_audit(rpt, vanilla_rpt):
                 categories=[dict(category=key, label=RULES[key][0], count=observed[key],
                                  vanilla_count=baseline[key]) for key in RULES],
                 unclassified_count=observed[0], vanilla_unclassified_count=baseline[0],
+                engine_noise_count=observed[ENGINE_NOISE], hc_diagnostic_count=observed[HC_TELEMETRY],
                 oversized_lines=skipped, vanilla_oversized_lines=baseline_skipped)
 
+
+
+def ceiling_proposal(stock, candidate, targets):
+    """An advisory paired measurement; never write or apply owner policy."""
+    result = totals_audit(candidate, stock)
+    if any(result[k] for k in ('unclassified_count', 'vanilla_unclassified_count', 'oversized_lines', 'vanilla_oversized_lines')):
+        raise InputError('paired_census_incomplete')
+    before = Path(targets).read_text()
+    data = json.loads(before)
+    for row in result['categories']:
+        # Keep all classified candidate warnings, including paired stock warnings.
+        data['rpt_category_ceilings'][str(row['category'])] = row['count']
+    after = json.dumps(data, indent=2) + '\n'
+    return result, ''.join(difflib.unified_diff(before.splitlines(True), after.splitlines(True),
+                        fromfile='a/config/acceptance-targets.json', tofile='b/config/acceptance-targets.json'))
+
+
+def loot_breakdown(rpt, types_paths, stock_types_paths=(), settings=None):
+    """Per-type CE pressure against shipped rows; never retain log identities or paths."""
+    counts = Counter()
+    for category, raw in diagnostic_lines(rpt, category_rules()):
+        if category != 2:
+            continue
+        match = re.search(r"hard to place[^'\"]*['\"]([A-Za-z0-9_]+)['\"]", raw, re.I)
+        if match:
+            counts[match[1]] += 1
+        else:
+            counts['unparsed'] += 1
+    def read_types(paths):
+        types = {}
+        for path in paths:
+            for row in ET.parse(path).getroot().findall('type'):
+                name = row.get('name')
+                if not name or not re.fullmatch(r'[A-Za-z0-9_]{1,128}', name):
+                    raise InputError('invalid_type_name')
+                types[name] = dict(nominal=int(row.findtext('nominal', '0')), minimum=int(row.findtext('min', '0')),
+                                   usages=[e.get('name') for e in row.findall('usage')],
+                                   categories=[e.get('name') for e in row.findall('category')])
+        return types
+    types, stock = read_types(types_paths), read_types(stock_types_paths)
+    settings = json.loads(Path(settings).read_text()) if settings else {}
+    rows = []
+    for name, count in counts.most_common():
+        shipped, baseline = types.get(name), stock.get(name)
+        supply = capacity = None
+        if shipped:
+            usages = shipped['usages']
+            supply = max((settings.get('UsageMultiplier', {}).get(u, 1.0) for u in usages), default=1.0)
+            capacity = max((settings.get('CapacityMultiplier', {}).get(u, 1.0) for u in usages), default=1.0)
+        boosted = (shipped['nominal'] > baseline['nominal'] or shipped['minimum'] > baseline['minimum']) if shipped and baseline else None
+        rows.append(dict(type=name, count=count, shipped=shipped, stock=baseline,
+                         nominal_or_min_boosted=boosted, usage_multiplier=supply,
+                         capacity_multiplier=capacity))
+    return rows
 
 def main(argv=None):
     parser = PrivateParser(description=__doc__)
@@ -284,9 +366,24 @@ def main(argv=None):
         parser.add_argument('--' + owner + '-pbo', action='append', default=[], type=Path)
     parser.add_argument('--category-pattern', action='append', default=[])
     parser.add_argument('--totals-only', action='store_true')
+    parser.add_argument('--propose-ceilings', action='store_true')
+    parser.add_argument('--targets', type=Path, default=Path('config/acceptance-targets.json'))
+    parser.add_argument('--types', type=Path, action='append', default=[])
+    parser.add_argument('--stock-types', type=Path, action='append', default=[])
+    parser.add_argument('--loot-settings', type=Path, default=Path('mission/hollow-country/loot-points/settings.json'))
     parser.add_argument('--output', type=Path, default=Path('compat_audit.json'))
     try:
         args = parser.parse_args(argv)
+        if args.propose_ceilings:
+            result, diff = ceiling_proposal(args.vanilla_rpt, args.rpt, args.targets)
+            print('category stock candidate')
+            for row in result['categories']:
+                print(row['category'], row['vanilla_count'], row['count'])
+            print('PROPOSED ONLY: paired measurement requires owner review')
+            print(diff, end='')
+            if args.types:
+                print(json.dumps(dict(loot_hard_to_place=loot_breakdown(args.rpt, args.types, args.stock_types, args.loot_settings))))
+            return 0
         inputs = {owner: getattr(args, owner + '_pbo') for owner in OWNERS}
         if args.totals_only and (args.category_pattern or any(inputs.values())):
             raise InputError('invalid_arguments')
@@ -314,7 +411,7 @@ def main(argv=None):
                 temporary.unlink(missing_ok=True)
         print('compat_audit: written')
         return 0
-    except (OSError, ValueError, KeyError, OverflowError, RecursionError):
+    except (OSError, ValueError, KeyError, OverflowError, RecursionError, ET.ParseError):
         print('compat_audit: input_or_storage_error', file=sys.stderr)
         return 2
 

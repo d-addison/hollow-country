@@ -51,7 +51,7 @@ Order:
 3. Install the previous bundle, boot for a minute, gracefully stop, install the
    candidate with the same server/storage, boot and stop. Refuse error/readiness
    failures and store quarantine evidence. While
-   `upgrade_from_previous_release_required` is true, a missing `--previous-bundle`
+   `upgrade_from_previous_release_required` is true, missing both `--previous-bundle` and `--previous-release`
    refuses the release; only with it false is the step omitted (no upgrade claimed).
 4. Install the candidate and run `checkstart --start` with `--settle-minutes`
    from `soak_minutes` and an overall deadline of that duration plus 15 minutes. Audit its one fresh RPT through `rpt_summary` and
@@ -191,3 +191,157 @@ stop command is used. Only the scripted client mode launches and stops a client,
 through the same graceful path. Only
 `rpt_summary.filtered` output is printed; raw RPTs are never printed or saved in
 the verdict. Keep verdicts local until reviewed.
+
+## Evidence contracts (#368 / #361, owner 2026-11-25)
+
+Cleanup rereads each boot's final server RPT **after the process exits**. Any crash
+indicator, including an exception or minidump after `Server modules stopped`,
+refuses as `post-stop crash observed`. For the candidate soak, the clock span
+from `[CE][Hive] :: Init sequence finished` to `Server modules stopped` must be
+at least `soak_minutes`; missing/duplicate markers refuse. Midnight is supported.
+The settle timer alone is insufficient. A short run reports, for example,
+`soak duration insufficient measured_seconds=1194.028 required_minutes=30`.
+
+Store quarantine checks use the named `STORE_QUARANTINE_MARKERS` inventory in
+`release_gate.py`, with source citations: group recovery, ecology recovery and
+migration, event cleanup, interior slots, infected cohorts, betrayal store,
+staged-store recovery, and Sites persisted-state recovery. The refusal names
+its marker, e.g. `store quarantine observed marker=ecology-recovery`. Native
+infected release quarantine counts and the `group_quarantine` activity counter
+are operational measurements and do not announce store quarantine.
+
+Client texture accounting accepts only `Cannot load texture '<path>'`. Own
+virtual roots come from authored `$PBOPREFIX$` files and the base CfgMods `dir`;
+dependency roots come from PBO prefix headers under the Workshop items declared
+in the installer's `tools/setup/workshop_mods.json`. No dependency root names
+are guessed. Only paths under those roots count toward the texture limit.
+Vanilla roots and bare tokens are reported as `vanilla_texture_noise=N`; other
+unowned paths are separately reported as `other_texture_noise=N`. Animation,
+XML-setting and particle-material messages are outside this texture count.
+
+`--activity-evidence CAMPAIGN_RUN` adds activity from one full campaign. The run
+must carry `selection.json`, `manifest.json` or `BUILD_MANIFEST.json` with an
+exact candidate `commit`. All commits present must agree. Targeted selections
+are refused. For an explicit full selection, `targeted` must be false; an
+explicit `release_class=false` always refuses. The campaign's existing full-run
+format removes `selection.json`: in that format retain its `report.md` (full
+campaign header, no targeted-run label) and archive the exact candidate build
+manifest beside it. A missing commit receipt refuses; the gate never substitutes
+the checkout HEAD. The directory must have exactly one server RPT and at most
+one client RPT. Server crashes, SCRIPT (E), compile errors and VM exceptions
+refuse the evidence, even if counters are positive. The current campaign runner
+does not archive the candidate build manifest automatically; the lead must
+retain it with the run. A receipt alone does not repair a targeted or crashed run.
+
+The union uses cumulative maxima, never sums checkpoints. Every positive row
+records `active_runs` (`gate`, `campaign`, or both). Client smoke still requires
+client evidence. `RELEASE_WAIVERS` must stay empty; the checker refuses any entry.
+`OWNER_CHECKS` is a separate table with reason and owner date 2026-11-23. Its
+sole current entry is TeamPing/ping_delivered: HCTeamPing.c:138-141 increments
+only for another live group recipient (HCGroupService.HCPingDeliver). It always
+prints `OWNER-CHECK`, never a pass, and is excluded from INERT failures. The
+verdict lists owner checks. Cellars/visual_applied stays automated and blocking;
+its pending cellar-entry driver is recorded in `soak_phases.json`.
+
+R2 remains the existing per-owner cost check. R2b is the directly measured combined
+per-tick `work_max` in `[HC Perf]`, rather than a sum of unrelated owner maxima.
+Above `perf_r2_max_ms` it emits
+`WARN perf_rule=R2b combined_work_max_ms=23.09 limit_ms=20` and never refuses.
+Gate verdict JSON, `rpt_summary` JSON/text and release activity output expose the
+warning. The campaign Markdown renderer in `tools/testing/soak_campaign.py`
+does not yet copy this warnings field into `report.md`; that file is outside
+this worker's allowed scope. It must consume the field before claiming that the
+campaign Markdown report includes R2b warnings.
+
+## Offline paired census and loot pressure
+
+The 15 ceiling-controlled categories retain their stable IDs. Additional
+informational classes distinguish vanilla/dependency engine noise (16) from HC
+telemetry/diagnostics (17). HC-origin lines never enter engine noise. Compiler,
+crash, script, readiness and self-test checks remain independent. Unrecognized
+engine warnings and oversized lines still refuse. Skeleton XML resource errors
+are classified as animation resources (7), including HC-origin resource paths.
+
+Given equal-length stock and candidate captures, print counts side by side and
+an **unapplied** proposed policy diff:
+
+```sh
+python3 -B -m tools.audit.rpt_config_audit CANDIDATE.RPT \
+  --vanilla-rpt STOCK.RPT --propose-ceilings
+```
+
+This command writes no files and refuses an incomplete paired census. The lead
+must first verify paired run lengths and review classified warnings; counts
+alone do not establish an acceptable release. `tools.testing.stock_capture pair`
+already checks equal declared capture lengths and actual timestamp exposure.
+Ceilings remain unchanged until the lead applies a reviewed proposal. To append
+a per-type category-2 breakdown, repeat `--types` for **all shipped/installed CE
+types files in their load order**, and `--stock-types` for the paired stock types:
+
+```sh
+python3 -B -m tools.audit.rpt_config_audit CANDIDATE.RPT \
+  --vanilla-rpt STOCK.RPT --propose-ceilings \
+  --types INSTALLED/db/types.xml --types INSTALLED/hollow-country/ce/types.xml \
+  --stock-types STOCK_MISSION/db/types.xml
+```
+
+Include the active optional-pack and travel CE types too. `--loot-settings`
+defaults to the repository's shipped loot settings. Every observed item type
+gets a count, nominal/min when found, paired stock quantities when found,
+boost flag, usage multiplier and capacity multiplier. Missing rows remain
+explicitly unresolved. Policy multipliers explain intended pressure; installed
+quantities show the effective result after all transformations.
+
+Offline analysis of the retained November 25 RPT (same category counts as the
+brief; its receipt marks it targeted):
+
+| Item | Placement warnings | Stock nominal/min | Installed nominal/min | Usage factor | Capacity factor |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CableReel | 60,147 | 80/50 | 281/176 | Industrial 3.5 | Industrial 1.0 |
+| Pipe | 60,000 | 80/60 | 280/210 | Industrial 3.5 | Industrial 1.0 |
+| GardenLime | 24,604 | 50/30 | 185/111 | Farm 3.7 | Farm 3.0 |
+| CombinationLock | 2,030 | 60/40 | 223/149 | Farm 3.7 | Farm 3.0 |
+| WoodAxe | 1,906 | 20/13 | 78/51 | Farm 3.7 | Village 3.0 |
+| Izh43Shotgun | 1,752 | 30/26 | 144/125 | Town 4.0 | Hunting 4.0 |
+
+There are 834 item types and 186,153 category-2 messages. The top three contribute
+144,751 (77.8%); 177,525 (95.4%) occur in the first two RPT minutes. The three
+largest are all boosted tool rows. Industrial supply grows 3.5x while its
+capacity map has no Industrial entry (effective 1x); Farm supply grows 3.7x
+against 3x capacity. This supports boosted supply plus initial-fill pressure,
+rather than an across-the-board persistent 14x runtime increase. It does **not**
+prove fresh storage: that needs the campaign staging receipt. Matching all
+active installed CE files found quantities for 828 of 834 types; six remain
+unresolved. Installed files are observational evidence and are not certified as
+the candidate commit's shipped bytes. Repeat against the exact candidate bundle
+and paired stock capture before proposing a ceiling.
+
+## Previous release acquisition and the v1-test-15 obstruction
+
+`--previous-release v1-test-15` is mutually exclusive with `--previous-bundle`.
+It uses `gh release view` / `gh release download`, selects the single bundle ZIP,
+extracts into the release cache under the user's cache directory, rejects unsafe
+archive paths/symlinks and oversized archives, and verifies every file against
+`bundle-manifest.json` with the shared installer verifier. A verified cached
+copy is rechecked on reuse. Missing assets/manifests or changed files refuse.
+The cache is `~/.cache/hollow-country/releases/<tag>/verified`.
+
+The shipped v1-test-15 asset `friend-bundle-v1-test-15.zip` was downloaded and its
+manifest verified offline. Its own Python map-overlay validator, against the
+installed pristine Chernarus mission's vanilla rows, refuses five flatness checks:
+`military-zones-v2/s016-p03`, `s016-p04`, `s030-p10`, `s031-p02`, `s031-p03`.
+Their heights differ from local vanilla medians by 1.0-1.1 m, beyond the 0.8 m
+tolerance. Its installer calls this validator during step 6 (`overlays-map`)
+before applying map layers. A pristine previous installation therefore cannot
+complete that path. The gate reports
+`upgrade previous-install-refused reason=install failed code=overlays-map`
+when the old installer reports that refusal; it does not install the candidate
+or label the refusal a candidate failure.
+
+The proven offline route is acquisition, manifest verification, then the old
+bundle's own `map_overlay validate --source ... --mission ...`, which reaches
+this refusal. No complete v1-test-15-to-candidate native upgrade route is proven.
+A lead must supply a previously successful v1-test-15 installation and retained
+storage, or choose and document an installable earlier baseline; neither is
+silently substituted for the required previous-release test. Do not bypass the
+validator or delete persistence/receipts to turn this into a pass.

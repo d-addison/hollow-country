@@ -3,11 +3,11 @@
 This is an exercise plan, not runtime evidence or a release pass. Owner decision
 2026-11-21: **no waivers**. Every registered default-on `[HC Use]` counter must
 be ACTIVE after the 30-minute soak plus one-client smoke on the exact release
-commit. Build 156's supplied list had 67 INERT counters; the companion
-[JSON plan](../tools/release/r3_smoke_plan.json) holds those 67 plus the counters
-added since (variety packs: notes, cooking, fortify), 75 entries in total. Reconcile
-against registration on the candidate commit: other counters and subsequent
-workers' changes remain part of R3. One server plus at most one client is the
+commit, except explicitly listed OWNER-CHECK counters (owner decision 2026-11-23).
+The [JSON plan](../tools/release/r3_smoke_plan.json) now enumerates all 130 source
+registrations; the earlier plan contained 76 entries, not the previously documented 75.
+Coverage is checked against the candidate source tree by `activity_check --check-plan`.
+One server plus at most one client is the
 acceptance limit. This cannot establish multiplayer behaviour.
 
 **There is no verified all-counter route under 45 minutes in current code.**
@@ -446,3 +446,10 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `v2-expansion-living-world/actor_admitted` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXStance.c#HCXLivingModule.OnTick`.
 - [ ] `v2-expansion-living-world/caution_warn` — `server_soak`; `mods/HollowCountryExpansionAI/scripts/4_World/HCXCautionObservation.c#HCXCautionObservation.Observe`.
   Neutral AI at about 50 m, raise a weapon: it faces you and shouts without firing; lower within 3 s (`AILimits.CautionGraceSeconds`) and no shots follow; keep it raised and it turns hostile after about 3 s. Require `count>=1` and the first-warn line with `grace_s=3 fire=none`.
+
+Coverage is checked by `python3 -B -m tools.release.activity_check --check-plan` and by
+`regenerate_all`. The plan includes registrations for disabled and upgrade-only owners.
+Registration is not activity; every newly enumerated exercise remains unverified until observed.
+TeamPing/ping_delivered is an OWNER-CHECK (owner decision 2026-11-23).
+Melee/wall_veto increments before the blocking-mode return in HCMeleeWall.c:78, and
+its campaign reach remains fixtures / fx_melee.

@@ -1,7 +1,7 @@
 """Streaming activity audit; readiness and runtime acceptance remain separate.
 
 python3 -B -m tools.release.activity_check server.RPT [--client-rpt client.RPT] [--json]
-Exit 0: ACTIVE/WAITING only (legacy), ACTIVE/WAIVED (release); 8: activity findings; 6: input error.
+Exit 0: ACTIVE/WAITING only (legacy), ACTIVE/OWNER-CHECK/NOT_APPLICABLE (release); 8: activity findings; 6: input error.
 --release audits registered cumulative [HC Use] counters after the scenario window.
 """
 import argparse
@@ -28,14 +28,17 @@ LEAVE = re.compile(r'\bdisconnected\b|\bkicked\b|\bbanned\b|\bhas left\b', re.I)
 JOIN = re.compile(r'\bconnected\b|\bhas joined\b', re.I)
 
 
-# Waivers are deliberately explicit and empty until an owner accepts a reason.
-# Key: (module, feature); value: reason why the scenario cannot exercise it.
-# A waiver remains visible as WAIVED and never counts as ACTIVE.
-RELEASE_WAIVERS = {}
+# Waivers are forbidden. Two-player owner checks stay visible and never pass.
+RELEASE_WAIVERS = {}  # Forbidden: release exceptions belong only in OWNER_CHECKS.
+# HCTeamPing.c:138-141 counts only recipients; HCGroupService.HCPingDeliver excludes the sender.
+OWNER_CHECKS = {
+    ('TeamPing', 'ping_delivered'): dict(
+        reason='requires a second live group member to receive the ping', date='2026-11-23'),
+}
 USE_LINE = re.compile(r'\[HC Use\] module=([A-Za-z0-9_.-]{1,64}) '
                       r'feature=([A-Za-z0-9_.-]{1,64}) count=([0-9]{1,10})(?=\s|$)')
 FIXTURE_SUFFIX = re.compile(r' fixture=([0-9]{1,10})(?=\s|$)')
-RELEASE_STATUSES = ('ACTIVE', 'INERT', 'WAIVED', 'NOT_APPLICABLE')
+RELEASE_STATUSES = ('ACTIVE', 'INERT', 'OWNER-CHECK', 'NOT_APPLICABLE')
 # World P1.3 navigation aggregates (HCModuleReadiness HCNav*): NavInf/NavXai have no
 # [HC Ready] marker of their own, so each row is admitted through the owner modules that
 # produce its member counters. Key: (aggregate module, feature); value: owner modules.
@@ -49,6 +52,61 @@ NAV_AGGREGATE_OWNERS = {
 }
 NAV_AGGREGATE_MODULES = frozenset(module for module, _ in NAV_AGGREGATE_OWNERS)
 
+
+
+def registered_counters(root=None):
+    """Enumerate literal registrations and the shared legacy registration table.
+
+    Resolve module constants in their own file and GetName in the containing class;
+    generic API bodies are covered by their caller registrations and legacy table.
+    """
+    root = Path(root) if root else Path(__file__).resolve().parents[2]
+    sources = [(p, re.sub(r'/\*.*?\*/|//[^\n]*', '', p.read_text(), flags=re.S))
+               for p in (root / 'mods').rglob('*.c')]
+    common = {}
+    for path, text in sources:
+        if path.name == 'HCModuleReadiness.c':
+            common = dict(re.findall(r'\bstring\s+(HC_NAV_\w+)\s*=\s*"([^"\n]+)"', text))
+    found = {}
+    call = re.compile(r'\bHCRegisterUse\(\s*'
+                      r'("[^"\n]+"|GetName\(\)|[A-Za-z0-9_]+)\s*,\s*"([^"\n]+)"')
+    for path, text in sources:
+        constants = dict(common)
+        constants.update(re.findall(r'\bstring\s+(\w+)\s*=\s*"([^"\n]+)"', text))
+        for match in call.finditer(text):
+            module, feature = match.groups()
+            if module.startswith('"'):
+                module = module.strip('"')
+            elif module == 'GetName()':
+                # Only the current class can supply a module name. A class without
+                # GetName must not accidentally inherit the preceding class's name.
+                starts = list(re.finditer(r'\bclass\s+\w+[^\n{]*', text[:match.start()]))
+                start = starts[-1].start() if starts else 0
+                name = re.search(r'\bGetName\(\)\s*\{\s*return\s+"([^"\n]+)"', text[start:])
+                if not name:
+                    raise ValueError('unresolved use module GetName')
+                module = name[1]
+            else:
+                if module not in constants:
+                    raise ValueError('unresolved use module constant')
+                module = constants[module]
+            found[(module, feature)] = path.relative_to(root).as_posix()
+        for module, features in re.findall(r's_LegacyUses\.Insert\("([^"\n]+)",\s*"([^"\n]+)"', text):
+            for feature in features.split(','):
+                found.setdefault((module, feature), path.relative_to(root).as_posix())
+    return found
+
+
+def check_smoke_plan(root=None):
+    root = Path(root) if root else Path(__file__).resolve().parents[2]
+    rows = json.loads((root / 'tools/release/r3_smoke_plan.json').read_text())['entries']
+    keys = [(r['module'], r['feature']) for r in rows]
+    if len(set(keys)) != len(keys):
+        raise ValueError('duplicate smoke plan counter')
+    missing = sorted(set(registered_counters(root)) - set(keys))
+    if missing:
+        raise ValueError('smoke plan missing counters: ' + ','.join(m + '/' + f for m, f in missing))
+    return len(keys)
 
 class UseActivity:
     """Cumulative maxima from change-only checkpoints; zero lines register features.
@@ -70,6 +128,8 @@ class UseActivity:
         self.counts = {}
         self.fixtures = {}
         self.registry_count = None
+        self.run = "gate"
+        self.active_runs = {}
 
     def observe(self, raw, *, client=False):
         safe = filtered(raw)
@@ -115,10 +175,14 @@ class UseActivity:
             # client can satisfy it. These smoke counters have no fixture source.
             count = count if client and not fixture else 0
             fixture = 0
+        if count:
+            self.active_runs.setdefault(key, set()).add(self.run)
         self.counts[key] = max(self.counts.get(key, 0), count)
         self.fixtures[key] = max(self.fixtures.get(key, 0), fixture)
 
     def result(self):
+        if RELEASE_WAIVERS:
+            raise ValueError('release waivers forbidden')
         if not self.modules:
             raise ValueError('no readiness markers')
         features = []
@@ -131,15 +195,18 @@ class UseActivity:
                     continue
             elif not self.modules.get(module, module == 'ClientUI'):
                 continue
-            reason = RELEASE_WAIVERS.get((module, feature)) if count == 0 else None
+            owner = OWNER_CHECKS.get((module, feature))
+            reason = owner['reason'] if owner else None
             conditional_idle = ((module, feature) in self.required_when
                                 and (module, feature) not in self.observed_conditions)
-            status = ('ACTIVE' if count else 'NOT_APPLICABLE' if conditional_idle
-                      else 'WAIVED' if reason else 'INERT')
+            status = ('OWNER-CHECK' if owner else 'ACTIVE' if count else
+                      'NOT_APPLICABLE' if conditional_idle else 'INERT')
             if conditional_idle and not count:
                 reason = 'upgrade-only: no persisted retirement candidate observed'
             features.append(dict(module=module, feature=feature, count=count,
-                                 status=status, reason=reason, fixture=self.fixtures.get((module, feature), 0)))
+                                 status=status, reason=reason, owner_decision_date=owner['date'] if owner else None,
+                                 active_runs=sorted(self.active_runs.get((module, feature), ())),
+                                 fixture=self.fixtures.get((module, feature), 0)))
         registered = {row['module'] for row in features}
         # An aggregate row stands in for its owner modules' registration only when
         # the owner itself has a registered counter; it never hides an unregistered one.
@@ -155,18 +222,31 @@ class UseActivity:
         totals.update(Counter(row['status'] for row in features))
         failures = totals['INERT'] if self.targets['activity_requires_active_for_default_on'] else 0
         return dict(features=features, totals=totals, count=failures,
-                    activity='inert' if failures else 'waived' if totals['WAIVED'] else 'ok',
+                    activity='inert' if failures else 'ok',
+                    owner_checks=[r['module'] + '/' + r['feature'] for r in features if r['status'] == 'OWNER-CHECK'],
                     release=True, readiness_observed=True, registry_count=self.registry_count)
 
 
-def scan_release(path, *, client_rpt=None, targets=None, entries=None):
+def scan_release(path, *, client_rpt=None, targets=None, entries=None, evidence=None):
     audit = UseActivity(targets=targets, entries=entries)
     for raw in lines(path):
         audit.observe(raw)
     if client_rpt is not None:
         for raw in lines(client_rpt):
             audit.observe(raw, client=True)
+    if evidence:
+        gate_modules = dict(audit.modules)
+        audit.run = 'campaign'
+        for raw in lines(evidence[0]):
+            audit.observe(raw)
+        if evidence[1] is not None:
+            for raw in lines(evidence[1]):
+                audit.observe(raw, client=True)
+        for module, enabled in gate_modules.items():
+            audit.modules[module] = audit.modules.get(module, False) or enabled
     result = audit.result()
+    from tools.release.rpt_summary import r2b_warnings
+    result['warnings'] = r2b_warnings(path, audit.targets['perf_r2_max_ms'])
     result['client_rpt_observed'] = client_rpt is not None
     return result
 
@@ -420,15 +500,18 @@ def scan(path, expectations=DEFAULT_EXPECTATIONS, *, client_rpt=None, entries=No
 
 
 def summary_line(result):
-    return f"activity={result['activity']} count={result['count']}"
+    return (f"activity={result['activity']} count={result['count']}" +
+            (' owner_checks=' + ','.join(result['owner_checks']) if result.get('owner_checks') else ''))
 
 
 def print_result(result):
     if result.get('release'):
+        for warning in result.get('warnings', ()):
+            print(warning)
         for row in result['features']:
             reason = f" reason={row['reason']}" if row['reason'] else ''
             fixture = f" fixture={row['fixture']}" if row.get('fixture') else ''
-            print(f"{row['module']}/{row['feature']} {row['status']} count={row['count']}{fixture}{reason}")
+            print(f"{row['module']}/{row['feature']} {row['status']} count={row['count']}{fixture}{reason} runs={','.join(row.get('active_runs', []))}")
         print('totals ' + ' '.join(f'{s}={result["totals"][s]}' for s in RELEASE_STATUSES))
         print(summary_line(result))
         return
@@ -449,13 +532,19 @@ class InputParser(argparse.ArgumentParser):
 
 def main(argv=None, *, targets=None, entries=None):
     parser = InputParser(description=__doc__)
-    parser.add_argument('rpt', type=Path)
+    parser.add_argument('rpt', type=Path, nargs='?')
+    parser.add_argument('--check-plan', action='store_true')
     parser.add_argument('--client-rpt', type=Path)
     parser.add_argument('--json', action='store_true')
     parser.add_argument('--release', action='store_true')
     parser.add_argument('--expectations', type=Path, default=DEFAULT_EXPECTATIONS)
     args = parser.parse_args(argv)
     try:
+        if args.check_plan:
+            print('smoke_plan: PASS counters=%d' % check_smoke_plan())
+            return 0
+        if args.rpt is None:
+            raise ValueError('RPT required')
         if args.release:
             result = scan_release(args.rpt, client_rpt=args.client_rpt, targets=targets, entries=entries)
         else:
