@@ -67,7 +67,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 6  # 6: final shelf/supply-gap caps (#372); 5: count_in_hoarder=1 on guns, magazines and ammo (#347); 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
+LOOT_BOOST_VERSION = 7  # 7: cap only excess, classify stock/protected exceptions (#372); 6: final shelf/supply-gap caps (#372); 5: count_in_hoarder=1 on guns, magazines and ammo (#347); 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
@@ -1561,7 +1561,7 @@ def _effective_knobs(knobs, root=None):
 
 def set_nominals(data, new, minimums=None):
     """Set the nominal of named rows ({lowercase class: nominal}); min follows proportionally (at least 1, never above
-    the nominal); optional minimums preserve pre-boost min floors. Returns (bytes, rows changed);
+    the nominal, and zero when nominal is zero); optional minimums preserve pre-boost min floors. Returns (bytes, rows changed);
     the same masked in-place edit and verification as scale_types."""
     economy.xml(data, 'types')
     text = data.decode('utf-8-sig')
@@ -1591,7 +1591,7 @@ def set_nominals(data, new, minimums=None):
             continue
         if nominal == old_nominal and (minimums is None or old_min >= minimums.get(name.lower(), 0)):
             continue
-        minimum = (old_min if not old_min or not old_nominal else
+        minimum = (0 if nominal == 0 else old_min if not old_min or not old_nominal else
                    max(1, min(nominal, ceil_scaled(old_min, nominal / old_nominal))))
         if minimums is not None:
             minimum = max(minimum, minimums.get(name.lower(), 0))
@@ -1754,12 +1754,11 @@ def _attachment_report(mission, layers, fits):
 
 
 def _cap_shelf_supply(outputs, floor, proto, positions, policy, roster):
-    """Final, non-reinvesting cap. Pre-boost quantities and firearm scarcity are hard floors.
+    """Cap bucket excess from boosted increments, then cap individual row demand.
 
-    Floor transfers are an offline allocation, not a census of placed buildings.
-    Use their fulfilled fraction as a conservative bound on displaced supply;
-    usage/tag limits separately use the placed-map census. Never add these two
-    different capacity estimates together.
+    Bucket cuts preserve pre-boost floors and protected firearm/roster supply.
+    Row cuts use compatible points directly, including native stock floods.
+    Neither rule reinvests the removed nominal.
     """
     rows = {}
     for index, (file, before, after) in enumerate(outputs):
@@ -1781,68 +1780,119 @@ def _cap_shelf_supply(outputs, floor, proto, positions, policy, roster):
                          'weights': {u + '/' + t: 1 / (len(usages) * len(tags))
                                      for u in usages for t in tags}}
     original = {n: r['nominal'] for n, r in rows.items()}
-    # Balance may itself have reduced a shelf row below its installed floor.
-    # Restore that floor before computing reducible boost; firearm rules stay intact.
-    for row in rows.values():
-        if row['mutable'] and any(k.endswith('/' + policy['shelf_tag']) for k in row['weights']):
-            row['nominal'] = max(row['stock'], row['nominal'])
-    gaps = floor.get('supply_gaps', {})
-    for name, gap in gaps.items():
-        row = rows.get(name.lower())
-        if row is None or not gap['unplaced_slots']:
-            continue
-        from tools.package.loot_floor_policy import supported_nominal
-        supported = supported_nominal(gap)
-        gap['supported_nominal'] = supported
-        gap['nominal_before_cap'] = gap['nominal']
-        if row['mutable']:
-            row['nominal'] = max(row['stock'], min(row['nominal'], supported))
     layers = [a for n, b, a in outputs if n in policy['type_files']]
     budget = economy.placement_budget(layers, proto, positions)
-    # Every reduction only helps other buckets. Deterministic proportional cuts
-    # preserve the distribution of the boost; integer rounding always cuts up.
-    for key, values in budget['by_usage_tag'].items():
-        if not key.endswith('/' + policy['shelf_tag']):
+    bucket_cuts = {}
+    shelf_keys = {k for k in budget['by_usage_tag'] if k.endswith('/' + policy['shelf_tag'])}
+    # Preserve under-capacity buckets. Integer rounding may cross a pressured
+    # bucket's ceiling once, by less than one nominal, never once per row.
+    headroom = {k: max(0, sum(r['nominal'] * r['weights'].get(k, 0) for r in rows.values())
+                           - budget['by_usage_tag'][k]['point_slots'])
+                if budget['by_usage_tag'][k]['nominal'] > budget['by_usage_tag'][k]['point_slots'] else 0
+                for k in shelf_keys}
+    def can_cut(row):
+        return row['mutable'] and row['nominal'] > row['stock'] and all(
+            headroom[k] > 1e-6 for k in row['weights'] if k in shelf_keys)
+    def cut_row(row, count):
+        row['nominal'] -= count
+        bucket_cuts[row['name']] = bucket_cuts.get(row['name'], 0) + count
+        for key, weight in row['weights'].items():
+            if key in headroom:
+                headroom[key] -= count * weight
+    for key in sorted(shelf_keys):
+        candidates = [r for r in rows.values() if key in r['weights'] and can_cut(r)]
+        if headroom[key] <= 1e-6 or not candidates:
             continue
-        members = [r for r in rows.values() if key in r['weights']]
-        demand = sum(r['nominal'] * r['weights'][key] for r in members)
-        excess = demand - values['point_slots']
-        candidates = [r for r in members if r['mutable'] and r['nominal'] > r['stock']]
-        reducible = sum((r['nominal'] - r['stock']) * r['weights'][key] for r in candidates)
-        if excess > 0 and reducible > 0:
-            fraction = min(1, excess / reducible)
-            for row in candidates:
-                row['nominal'] -= min(row['nominal'] - row['stock'],
-                                      math.ceil((row['nominal'] - row['stock']) * fraction))
+        increments = {k: sum((r['nominal'] - r['stock']) * r['weights'].get(k, 0)
+                             for r in candidates) for k in shelf_keys}
+        fraction = min([1] + [max(0, headroom[k]) / amount for k, amount in increments.items() if amount])
+        remainders = {}
+        for row in candidates:
+            ideal = (row['nominal'] - row['stock']) * fraction
+            cut = math.floor(ideal + 1e-9)
+            cut_row(row, cut)
+            remainders[row['name']] = ideal - cut
+        while headroom[key] > 1e-6:
+            fitting = [r for r in candidates if can_cut(r)]
+            if not fitting:
+                break
+            exact = [r for r in fitting if all(headroom[k] + 1e-6 >= weight
+                     for k, weight in r['weights'].items() if k in headroom)]
+            row = (max(exact, key=lambda r: (remainders[r['name']], r['name'])) if exact else
+                   min(fitting, key=lambda r: (max(max(0, weight - headroom[k])
+                       for k, weight in r['weights'].items() if k in headroom), r['name'])))
+            cut_row(row, 1)
+            remainders[row['name']] -= 1
+    after_bucket = {n: r['nominal'] for n, r in rows.items()}
+    gaps = floor.get('supply_gaps', {})
+    supply = floor.get('supply', gaps)
+    from tools.package.loot_floor_policy import supported_nominal
+    for name, gap in supply.items():
+        row = rows.get(name.lower())
+        if row is None:
+            continue
+        supported = supported_nominal(gap)
+        gap['supported_nominal'] = supported
+        gap['nominal_before_cap'] = original[name.lower()]
+        gap['preboost_nominal'] = row['stock']
+        gap['protected_supply'] = not row['mutable']
+        if row['mutable'] and row['nominal'] > supported:
+            row['nominal'] = supported
     capped = []
     for index, (file, before, after) in enumerate(outputs):
         changes = {n: r['nominal'] for n, r in rows.items()
                    if r['layer'] == index and r['nominal'] != original[n]}
         if changes:
-            after, _ = set_nominals(after, changes, {n: rows[n]['minimum'] for n in changes})
+            after, _ = set_nominals(after, changes, {n: min(rows[n]['minimum'], rows[n]['nominal']) for n in changes})
         capped.append((file, before, after))
-    for name, gap in floor.get('supply', gaps).items():
+    for name, gap in supply.items():
         if name.lower() in rows:
-            row = rows[name.lower()]
-            gap['nominal'] = row['nominal']
-            if 'supported_nominal' in gap:
-                gap['preboost_nominal'] = row['stock']
-                gap['protected_supply'] = not row['mutable']
+            gap['nominal'] = rows[name.lower()]['nominal']
         if 'supported_nominal' in gap:
             gap['above_capacity'] = max(0, gap['nominal'] - gap['supported_nominal'])
     final = economy.placement_budget([a for n, b, a in capped if n in policy['type_files']], proto, positions)
     final['remaining_pressure'] = [k for k, v in final['by_usage_tag'].items()
-                                   if k.endswith('/' + policy['shelf_tag']) and v['nominal'] > v['point_slots']]
-    report = {'rows': {r['name']: {'before': original[n], 'after': r['nominal'], 'stock': r['stock']}
+                                   if k.endswith('/' + policy['shelf_tag']) and v['nominal'] > v['point_slots'] + 1e-6]
+    exceptions, caused = {}, {}
+    for key in final['remaining_pressure']:
+        values = final['by_usage_tag'][key]
+        baseline = sum((min(r['nominal'], r['stock']) if r['mutable'] else r['nominal'])
+                       * r['weights'].get(key, 0) for r in rows.values())
+        record = dict(values, preboost_nominal=round(sum(r['stock'] * r['weights'].get(key, 0)
+                                                       for r in rows.values()), 3),
+                      retained_floor_nominal=round(baseline, 3),
+                      blocked_by_buckets=sorted({k for r in rows.values()
+                          if key in r['weights'] and r['mutable'] and r['nominal'] > r['stock']
+                          for k, weight in r['weights'].items()
+                          if k in headroom and headroom[k] <= 1e-6}))
+        stock_excess = max(0, baseline - values['point_slots'])
+        boost_excess = max(0, values['nominal'] - max(values['point_slots'], baseline))
+        if stock_excess > 1e-3:
+            exceptions[key] = dict(record, above_capacity=round(stock_excess, 3))
+        if boost_excess > 1e-3:
+            caused[key] = dict(record, above_capacity=round(boost_excess, 3))
+    remaining_gaps = {n: g for n, g in supply.items() if g.get('above_capacity', 0)}
+    caused_gaps = {n: g for n, g in remaining_gaps.items()
+                   if not g['protected_supply'] and g['nominal'] > max(g['preboost_nominal'], g['supported_nominal'])}
+    report = {'nominal_before_cap': budget['nominal'],
+              'removed_by_bucket_rule': sum(bucket_cuts.values()),
+              'removed_by_row_rule': sum(after_bucket[n] - r['nominal'] for n, r in rows.items()),
+              'rows': {r['name']: {'before': original[n], 'after_bucket': after_bucket[n],
+                                   'after': r['nominal'], 'stock': r['stock']}
                        for n, r in rows.items() if r['nominal'] != original[n]},
-              'unreinvested_nominal': sum(max(0, original[n] - r['nominal']) for n, r in rows.items()),
-              'restored_stock_nominal': sum(max(0, r['nominal'] - original[n]) for n, r in rows.items()),
-              'stock_or_protected_pressure': {k: dict(final['by_usage_tag'][k],
-                  preboost_nominal=round(sum(r['stock'] * r['weights'].get(k, 0) for r in rows.values()), 3),
-                  protected_nominal=round(sum(r['nominal'] * r['weights'].get(k, 0)
-                                             for r in rows.values() if not r['mutable']), 3))
-                  for k in final['remaining_pressure']},
-              'stock_or_protected_gaps': {n: g for n, g in gaps.items() if g.get('above_capacity', 0)}}
+              'unreinvested_nominal': sum(original[n] - r['nominal'] for n, r in rows.items()),
+              'restored_stock_nominal': 0,
+              'boost_caused_pressure': caused, 'boost_caused_gaps': caused_gaps,
+              'buckets': {k: dict(before=budget['by_usage_tag'][k]['nominal'],
+                  after_bucket=round(sum(after_bucket[n] * r['weights'].get(k, 0) for n, r in rows.items()), 3),
+                  after=v['nominal'], point_slots=v['point_slots'],
+                  removed_by_bucket_rule=round(sum((original[n] - after_bucket[n]) * r['weights'].get(k, 0)
+                                                   for n, r in rows.items()), 3),
+                  removed_by_row_rule=round(sum((after_bucket[n] - r['nominal']) * r['weights'].get(k, 0)
+                                                for n, r in rows.items()), 3))
+                  for k, v in final['by_usage_tag'].items() if k in shelf_keys},
+              'stock_or_protected_pressure': exceptions,
+              'stock_or_protected_gaps': {n: g for n, g in remaining_gaps.items() if n not in caused_gaps}}
     return capped, final, report
 
 
@@ -1961,16 +2011,6 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
                                          'remaining_point_slots': round(available, 3)}
         if shared['nominal'] > available:
             pressure.append(shared_key)
-        if (pressure and not _limit_shelves and multiplier > 1
-                and frozenset(k.split('/')[0] for k in pressure) - set(knobs['usage'])):
-            # A usage with a UsageMultiplier is sized to the owner's target, not to today's slots (wh-points adds
-            # the slots). The final cap below still applies after this scoped holdback pass.
-            pressured = frozenset(k.split('/')[0] for k in pressure) - set(knobs['usage'])
-            limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=pressured, buildings=buildings,
-                           capacity=capacity, categories=categories, knobs=knobs, fits=fits, root=root)
-            limited['counts']['placement_budget']['before_shelf_limit'] = budget
-            limited['counts']['placement_budget']['trigger_usages'] = pressure
-            return limited
         outputs, final, counts['supply_cap'] = _cap_shelf_supply(
             outputs, floor, proto_after, pos_after,
             dict(policy, type_files=set(counts['types'])), roster)
@@ -2032,19 +2072,24 @@ def capacity_check(mission):
     if 'unavailable' in budget:
         print('loot_boost_capacity: not available (placement budget unavailable)')
         return 2
-    pressure = budget['remaining_pressure']
-    gaps = result['counts']['supply_cap']['stock_or_protected_gaps']
-    print('loot_boost_capacity: %s shelves_over_capacity=%d unplaced_gaps_above_capacity=%d '
-          'unreinvested_nominal=%d (offline estimate; runtime PENDING)'
+    cap = result['counts']['supply_cap']
+    pressure, gaps = cap['boost_caused_pressure'], cap['boost_caused_gaps']
+    print('loot_boost_capacity: %s boost_shelves_over_capacity=%d boost_rows_above_capacity=%d '
+          'info_buckets=%d info_rows=%d unreinvested_nominal=%d (offline estimate; runtime PENDING)'
           % ('FAIL' if pressure or gaps else 'PASS', len(pressure), len(gaps),
-             result['counts']['supply_cap']['unreinvested_nominal']))
-    for key in pressure:
-        row = budget['by_usage_tag'][key]
-        print('  %s nominal=%s point_slots=%s (pre-boost or protected supply retained)'
-              % (key, row['nominal'], row['point_slots']))
-    for name, row in sorted(gaps.items()):
-        print('  %s nominal=%d supported_nominal=%d (pre-boost or protected supply retained)'
-              % (name, row['nominal'], row['supported_nominal']))
+             len(cap['stock_or_protected_pressure']), len(cap['stock_or_protected_gaps']),
+             cap['unreinvested_nominal']))
+    for label, entries in (('FAIL', pressure), ('info', cap['stock_or_protected_pressure'])):
+        for key, row in sorted(entries.items()):
+            print('  %s %s excess=%s nominal=%s point_slots=%s retained_floor_nominal=%s'
+                  % (label, key, row['above_capacity'], row['nominal'], row['point_slots'], row['retained_floor_nominal']))
+            if label == 'FAIL' and row['blocked_by_buckets']:
+                print('    constrained by shared buckets: ' + ', '.join(row['blocked_by_buckets']))
+    for label, entries in (('FAIL', gaps), ('info', cap['stock_or_protected_gaps'])):
+        for name, row in sorted(entries.items()):
+            print('  %s %s nominal=%d supported_nominal=%d preboost_nominal=%d protected=%s'
+                  % (label, name, row['nominal'], row['supported_nominal'],
+                     row['preboost_nominal'], row['protected_supply']))
     return 1 if pressure or gaps else 0
 
 

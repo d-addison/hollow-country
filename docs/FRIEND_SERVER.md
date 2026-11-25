@@ -91,14 +91,16 @@ It also merges `loot-points/additions.json`: model-derived floor points per buil
 (kitchen food, garage/shed tools, police and military at existing weapon scarcity, medical,
 fire, civic and residential), at most 12 points per building and 3000 in total. Its own
 receipt and byte-exact backups live in `hollow-country-loot-boost`; rollback undoes it first. After
-balance/reinvestment, a final capacity cap reduces boosted nominal/min against the placed-map
-usage/shelves budgets and the fulfilled fraction of floor-policy transfer requests (also
-bounded by compatible shelf points). Freed nominal is not reinvested. Each cut retains the
-pre-boost nominal/min floor; firearm scarcity is unchanged. Unavoidable pre-boost/protected
-excess is recorded under `counts.supply_cap` and fails the offline `loot_boost_capacity`
-preland check; missing mission inputs report “not available”, never pass. An upgrade changes
-the overlay fingerprint, restores the verified receipt backups, and regenerates the capped
-values without wiping persistent storage.
+balance/reinvestment, a final capacity cap removes excess nominal/min from shelves
+buckets proportionally to their boosted increments, retaining pre-boost floors and
+protected firearm/roster supply. The row rule separately caps demand to compatible shelf
+points, including a native stock flood; unfulfilled floor-transfer requests alone never
+justify a nominal cut. Freed nominal is not reinvested. `counts.supply_cap` separates
+bucket and row cuts and records remaining stock/protected excess as `info` exceptions.
+The offline `loot_boost_capacity` preland check fails when boost/rebalance still causes
+excess, passes with only listed stock/protected exceptions, and reports “not available”
+when mission inputs are missing. An upgrade restores verified receipt backups and
+regenerates values without wiping persistent storage.
 `InitialSpawn`, `RespawnLimit`, `RespawnAttempt` and cleanup values are unchanged. Native CE
 acceptance of the added containers and the entity/performance cost are not yet observed.
 

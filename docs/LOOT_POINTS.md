@@ -1209,7 +1209,7 @@ capacity mostly helps the non-weapon Military rows and the shared Military weapo
 
 Owner request (wh-econ, 2026-11-22): every building needs more loot because the point additions raised the
 physical points but not the limits. Three knobs in `mission/hollow-country/loot-points/settings.json`, all applied
-by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the scoped shelf limit in `plan`):
+by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the final supply cap in `plan`):
 
 - `CapacityMultiplier` is a per-usage map `{usage: factor}` (factor 1.0 to 8.0, usage must be a vanilla
   `cfglimitsdefinition.xml` usageflag); the shipped map is in `settings.json` only. A group takes the largest factor among its usages that are in the map. Group `lootmax` becomes
@@ -1234,39 +1234,46 @@ by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the sco
   whose boost is lower than the target. Medical is a name
   class of tools rows (bandages, saline, injectors and so on); without a `medical` key it falls back to `tools`.
   Weapons, ammo, explosives and the firearms roster are never targeted.
-- The shelf limit is scoped. The first plan finds the `usage/shelves` buckets whose nominal exceeds their point
-  slots; the re-plan holds a shelf-routed row at 1x only when all of its usages are in that pressured set (a row
-  with a usage that has slack keeps the boost), instead of holding every shelf row on the map. The describe line
-  reports `shelf_boost_limited=[...]`.
-- Final supply cap (#372): after balance, route spreading and the scoped shelf limit, cap
-  boosted rows against every placed-map `usage/shelves` bucket's `point_slots`, including
-  the wildcard bucket. Multi-usage/tag demand keeps the budget's even split. Reduce only
-  the excess over pre-boost nominal, proportionally with integer cuts rounded upward.
-  A floor-policy supply gap with unplaced requests also caps supply to
-  `min(compatible_shelf_points, floor(nominal * transferred_slots / requested_slots))`.
-  Compatible points are shared capacity, not an independent allowance per class; the
-  fulfilled fraction is a conservative offline bound, not native placement evidence.
-  The original requested/unplaced counts remain as provenance; `nominal_before_cap`,
-  `supported_nominal`, final `nominal` and `above_capacity` explain the cap.
-  Min follows proportionally but never falls below its pre-boost value. Firearms,
-  ammunition, magazines, roster rows and optional-pack quantities retain their existing
-  scarcity rules. Building-loot balance rebases the generated table's spare headroom
-  onto current scaled demand: prior slack plus prior nominal minus current nominal,
-  bounded below by zero. This avoids treating post-cap headroom as pre-balance
-  headroom and feeding the same changed nominal back into reinvestment. Buckets
-  shared with firearm supply retain their exact weights. No nominal freed by the
-  final cap is reinvested. `counts.supply_cap` records cuts,
-  unreinvested nominal and unavoidable pre-boost/protected gaps and bucket pressure.
-  `loot_boost_capacity` runs `loot_boost.plan` on the strict environment's `HC_CE_MISSION`
-  inputs, replaying hash-verified pre-boost receipt backups in a disposable mission when
-  installed. It fails on every remaining shelf bucket excess or unplaced gap above its
-  supported nominal, including retained pre-boost/protected exceptions. Missing inputs
-  report “not available”, never pass. These are offline estimates; runtime stays pending.
-  Boost version 6 invalidates the install fingerprint: the existing upgrade rollback
-  restores verified backups before regenerating, without wiping the server.
+- Final supply cap (#372, round 2): after balance and route spreading, remove only
+  excess from placed-map `usage/shelves` budgets. Bucket cuts are proportional to
+  each mutable row's boosted increment (final minus pre-boost nominal); no bucket
+  cut goes below pre-boost or changes protected firearm/roster supply. Integer
+  cuts distribute remainders instead of rounding every row upward. A final
+  indivisible cut can cross a pressured ceiling by less than one nominal. There is no
+  earlier blanket holdback to 1x. The budget retains its even usage/tag split;
+  a row shared across usages contributes to every one of those buckets. Cuts
+  preserve initially under-capacity shelves buckets and stop when any shared
+  bucket reaches its ceiling. Remaining excess that cannot be removed under
+  these constraints still fails the gate; shared-route constraints are not
+  stock/protected exceptions.
+- The separate row rule caps demand only when it exceeds the row's own compatible
+  shelf points. It uses that point ceiling directly, including native stock floods,
+  rather than multiplying nominal by the fulfilled fraction of floor-transfer
+  requests. Requested/unplaced transfers remain allocation provenance. A row that
+  fits its compatible points keeps its demand regardless of unfulfilled transfers.
+  Min follows proportionally; bucket cuts preserve pre-boost min, while a row cap
+  below native nominal bounds min to the new nominal. Firearms, ammunition,
+  magazines, roster rows and optional-pack supply stay protected.
+- Building-loot reinvestment rebases spare headroom onto current scaled demand:
+  prior slack plus prior nominal minus current nominal, bounded below by zero.
+  Buckets shared with firearm supply retain their exact weights. Neither final
+  cap reinvests removed nominal. `counts.supply_cap` records `nominal_before_cap`,
+  `removed_by_bucket_rule`, `removed_by_row_rule`, and each changed class's
+  `before`, `after_bucket`, `after`, and `stock` values.
+- `loot_boost_capacity` replays hash-verified pre-boost receipt backups from
+  `HC_CE_MISSION` in a disposable mission. It fails for excess still caused by
+  boost/rebalance. Each bucket's unavoidable pre-boost/protected portion is
+  listed separately as `info` in the output and receipt, under
+  `stock_or_protected_pressure` / `stock_or_protected_gaps`. Classification compares
+  final demand with both capacity and the retained stock/protected floor. A
+  bucket may carry both an info exception and a failing boost excess; an
+  exception cannot hide remaining boost-caused excess. Missing inputs report “not
+  available”, never pass. Boost version 7 invalidates the install fingerprint;
+  upgrades restore verified backups before regenerating. These are offline
+  estimates; runtime acceptance remains pending.
 
 A target at or below the factor a row already gets is a no-op for that row (`rows=` in the describe line counts the
-rows it lifted). Held shelf rows are never raised by a target.
+rows it lifted).
 
 Supply side (owner interview 2026-11-22, targets in `economy-targets` of the wave brief): the same file carries
 five more knobs, all read by `loot_boost.default_knobs` and recorded in the receipt as `knobs`.
@@ -1274,8 +1281,8 @@ five more knobs, all read by `loot_boost.default_knobs` and recorded in the rece
 - `UsageMultiplier` is `{usage: factor}` (1.0 to 8.0). A building-loot row's nominal and min factor is the largest
   entry over its usages; a usage without an entry counts as `Multiplier`, a row without usages keeps `Multiplier`.
   A usage with an entry replaces the legacy Military-adjacent step for rows that use it, and is sized to its owner
-  target rather than to today's slots during the scoped shelf pass. The final capacity cap still applies;
-  pre-boost/protected pressure stays in the receipt and fails the capacity gate.
+  target before the final capacity cap. Pre-boost/protected exceptions stay in the receipt as info;
+  boost-caused excess fails the capacity gate.
 - `MilitaryTierMultiplier` is `{TierN: factor}` (0.5 to 4.0). A row with the Military usage gets an extra factor
   equal to the mean over its tier values (a row without tier values counts as 1.0), so Tier3/Tier4 rows outweigh
   Tier1/Tier2 rows. Groups carry no tier in `mapgroupproto.xml`, so this widens what a Tier3/Tier4 zone can draw,
@@ -1587,3 +1594,120 @@ new flags; no stored data changes, so a never-wiped server upgrades in place. Ro
 bytes, flag included, through the normal `rollback`. `_verify_types` allows exactly this 0 to 1 change on exactly these
 rows and still refuses every other flag change. Offline only: whether the CE respawns less once stored guns count is
 unobserved until a server soak.
+
+## #372 round 2 receipt: shared-route constraint unresolved
+
+This round is incomplete: preserving all initially under-capacity buckets and capping
+all over-capacity buckets cannot both be achieved by nominal cuts on shared rows.
+The cap preserves under-capacity demand and the gate reports remaining boost excess
+as FAIL. It does not relabel that excess as a stock exception.
+
+A minimal example is covered by the slow regression test: a row with pre-boost nominal
+10, boosted nominal 20, and Farm/Town usages contributes 10 to each bucket. Farm has
+3 slots and Town has 100. Any cut needed for Farm also reduces under-capacity Town.
+With no cut, Farm retains 2 stock excess (info) plus 5 boost excess (FAIL). A compatible
+row ceiling at or above 20 does not authorize a row-rule cut to bypass that constraint.
+
+The installed replay needs 3,592.714 removed from Farm; even an upper bound
+on cuts whose shelves routes are all initially over capacity is only 2,202.500.
+This bound already ignores the additional constraint of stopping shared Industrial
+at its own capacity. A decision on shared-row reductions or bucket accounting is
+required to produce the requested installed-input PASS.
+
+Implemented at `tools/package/loot_boost.py:1786` (bucket headroom and proportional cuts),
+`tools/package/loot_boost.py:1829` (row rule),
+`tools/package/loot_boost.py:1868` (mixed excess classification), and
+`tools/package/loot_boost.py:2030` (receipt-backed gate); the row ceiling
+is `tools/package/loot_floor_policy.py:36`.
+
+Source commits: round 1 / unchanged HEAD `1bfd01c06597bee664e68e5e2ca4214e8a47d177`;
+comparison base `d3ce1bd6c40fcb3200a2f375d2bbd89d8d5047af`.
+Installed receipt SHA-256 `3bd7e19345be625479cfb7c9c3897946b22b9d76be5e91276351725a03ce758d`.
+The replay copies its hash-verified pre-boost backups into a disposable mission;
+the installed mission is not changed. These are the current receipt-backed values
+with the regenerated slack fixpoint; the review's earlier before-values were not
+reproduced by this snapshot.
+
+Nominal before cap **88,215**; bucket rule removed **2,410**;
+row rule removed **0**; final nominal **85,805**.
+No removed nominal is reinvested. No capped class belongs to the firearm roster;
+all roster-bucket nominal/slack pairs match the round-1 table.
+
+| Class | Before cap | After cap | Compatible shelf points | Reason |
+| --- | ---: | ---: | ---: | --- |
+| Pipe | 281 | 281 | 892 | Fits own compatible ceiling |
+| CableReel | 281 | 281 | 892 | Fits own compatible ceiling |
+| WoodAxe | 78 | 78 | 1992 | Fits own compatible ceiling; shared under-capacity routes retained |
+| CombinationLock | 223 | 172 | 1085 | Bucket-rule cut; own compatible ceiling does not bind |
+
+| Shelves bucket | Before cap | After cap | Point slots | Why this after-value |
+| --- | ---: | ---: | ---: | --- |
+| * | 180.000 | 180.000 | 6.125 | Stock/protected floor retained (info) |
+| Coast | 531.333 | 348.333 | 38.600 | Further cuts blocked by shared buckets: Town, Village; stock/protected portion is info |
+| ContaminatedArea | 32.867 | 27.867 | 0.000 | Stock/protected floor retained (info) |
+| Farm | 6654.881 | 5336.881 | 3062.167 | Further cuts blocked by shared buckets: Industrial, Military, Town, Village |
+| Firefighter | 145.000 | 145.000 | 245.390 | Under capacity; untouched |
+| Hunting | 4193.031 | 3764.531 | 2876.333 | Further cuts blocked by shared buckets: Industrial, Medic, Military, Office, Police, Town, Village; stock/protected portion is info |
+| Industrial | 7088.267 | 6620.767 | 6620.791 | Capped to capacity, within one indivisible nominal quantum |
+| Lunapark | 210.533 | 202.533 | 0.000 | Further cuts blocked by shared buckets: Office, Town, Village; stock/protected portion is info |
+| Medic | 1365.167 | 1365.167 | 1696.000 | Under capacity; untouched |
+| Military | 4289.931 | 4289.931 | 6750.100 | Under capacity; untouched |
+| Office | 668.967 | 668.967 | 917.654 | Under capacity; untouched |
+| Police | 3058.564 | 3058.564 | 3070.000 | Under capacity; untouched |
+| Prison | 787.048 | 787.048 | 290.000 | Further cuts blocked by shared buckets: Office, Police, Town, Village; stock/protected portion is info |
+| School | 926.567 | 926.567 | 841.388 | Further cuts blocked by shared buckets: Industrial, Office, Town, Village |
+| SeasonalEvent | 0.000 | 0.000 | 998.173 | Under capacity; untouched |
+| Town | 7460.814 | 7460.814 | 13681.589 | Under capacity; untouched |
+| Village | 9653.531 | 9653.531 | 26655.363 | Under capacity; untouched |
+
+Receipt-backed capacity-check output:
+
+```text
+loot_boost_capacity: FAIL boost_shelves_over_capacity=6 boost_rows_above_capacity=0 info_buckets=6 info_rows=4 unreinvested_nominal=2410 (offline estimate; runtime PENDING)
+  FAIL Coast/shelves excess=50.0 nominal=348.333 point_slots=38.6 retained_floor_nominal=298.333
+    constrained by shared buckets: Town/shelves, Village/shelves
+  FAIL Farm/shelves excess=2274.714 nominal=5336.881 point_slots=3062.167 retained_floor_nominal=2490.214
+    constrained by shared buckets: Industrial/shelves, Military/shelves, Town/shelves, Village/shelves
+  FAIL Hunting/shelves excess=885.717 nominal=3764.531 point_slots=2876.333 retained_floor_nominal=2878.814
+    constrained by shared buckets: Industrial/shelves, Medic/shelves, Military/shelves, Office/shelves, Police/shelves, Town/shelves, Village/shelves
+  FAIL Lunapark/shelves excess=125.866 nominal=202.533 point_slots=0.0 retained_floor_nominal=76.667
+    constrained by shared buckets: Office/shelves, Town/shelves, Village/shelves
+  FAIL Prison/shelves excess=85.0 nominal=787.048 point_slots=290.0 retained_floor_nominal=702.048
+    constrained by shared buckets: Office/shelves, Police/shelves, Town/shelves, Village/shelves
+  FAIL School/shelves excess=85.179 nominal=926.567 point_slots=841.388 retained_floor_nominal=362.3
+    constrained by shared buckets: Industrial/shelves, Office/shelves, Town/shelves, Village/shelves
+  info */shelves excess=173.875 nominal=180.0 point_slots=6.125 retained_floor_nominal=180.0
+  info Coast/shelves excess=259.733 nominal=348.333 point_slots=38.6 retained_floor_nominal=298.333
+  info ContaminatedArea/shelves excess=27.867 nominal=27.867 point_slots=0.0 retained_floor_nominal=27.867
+  info Hunting/shelves excess=2.481 nominal=3764.531 point_slots=2876.333 retained_floor_nominal=2878.814
+  info Lunapark/shelves excess=76.667 nominal=202.533 point_slots=0.0 retained_floor_nominal=76.667
+  info Prison/shelves excess=412.048 nominal=787.048 point_slots=290.0 retained_floor_nominal=702.048
+  info GlassBottle nominal=80 supported_nominal=0 preboost_nominal=80 protected=True
+  info NBCPack_Grey nominal=10 supported_nominal=0 preboost_nominal=10 protected=True
+  info NBCPack_Yellow nominal=15 supported_nominal=0 preboost_nominal=15 protected=True
+  info WaterBottle nominal=100 supported_nominal=0 preboost_nominal=100 protected=True
+```
+
+Validation: `python3 -B -m unittest tests.slow.test_loot_boost` — 25 tests PASS.
+The tests cover exact capacity, untouched under-capacity buckets, native and zero-point
+row caps, protected supply PASS, mixed stock/boost classification, and shared-route
+infeasibility FAIL. The source table is a byte-verified staged-plan fixpoint.
+
+Digest receipts: the 13 available receipts (`ai_route_precompute`, `admin_world_catalog`,
+`military_loot`, `loot_slack`, `inventory_sizes`, `variety_packs`, `firearms`,
+`snafu_optional`, `tactical_flava_optional`, `economy`, `gen_modules`, `ai_patrols`,
+`anims_config`) were regenerated and validated. The final `loot_point_preserve`
+replay finished alone with **PASS loot_point_preserve byte-verified digest contract**
+after the final code and slack inputs were frozen. All 14 available receipts are
+current against their repository input snapshots.
+`gui_icons` and `new_buildings` receipt rows are unchanged from `d3ce1bd6`, confirmed
+by the manifest diff and structural comparison. They remain stale: `gui_icons`
+binds the changed `loot_slack.json`; `new_buildings` additionally binds the changed
+boost/floor-policy source. No unverified digest was substituted for either row;
+the converter and original native census remain lead follow-ups.
+
+Preland: **SKIPPED**, because the required Windows process query returned
+`{"state": "unknown"}` rather than `gone`. No preland ran beside generators.
+No DayZ, compile gate, friendcycle or soak was started. Runtime acceptance remains
+pending. Git metadata is untouched; the commit message is provided through
+`.banso-writer/commit-message` for the writer's automatic commit.

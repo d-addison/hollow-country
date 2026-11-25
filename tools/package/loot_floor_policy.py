@@ -34,16 +34,13 @@ MAX_LIST = 256
 
 
 def supported_nominal(record):
-    """Conservative supply bound for an unfulfilled floor-to-shelf allocation.
+    """Row ceiling from compatible shelf points, independent of transfer requests.
 
-    Compatible points are shared, not an entitlement for each class. Restrict
-    nominal to the fulfilled fraction of requested slots as well as that point
-    ceiling. This estimate is frozen before the final supply cap so a receipt
-    retains the evidence that caused the cut.
+    Unfulfilled floor transfers measure allocation pressure, not the fraction of
+    a class's nominal that CE can place. Shared demand is capped separately by
+    the usage/tag bucket rule.
     """
-    requested = record['requested_slots']
-    return min(record['compatible_shelf_points'],
-               record['nominal'] * max(0, requested - record['unplaced_slots']) // max(1, requested))
+    return record['compatible_shelf_points']
 
 
 def _names(value, what):

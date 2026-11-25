@@ -579,7 +579,7 @@ class FinalShelfCapacity(unittest.TestCase):
             {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {'syntheticrifle': 'weapon'})
         rows = {n.get('name'): (int(n.findtext('nominal')), int(n.findtext('min')))
                 for n in ET.fromstring(outputs[0][2])}
-        self.assertLessEqual(sum(n for n, m in rows.values()), 9)
+        self.assertEqual(sum(n for n, m in rows.values()), 9)
         self.assertGreaterEqual(rows['Pipe'][0], 4)
         self.assertGreaterEqual(rows['Pipe'][1], 3)
         self.assertGreaterEqual(rows['Hammer'][1], 2)
@@ -600,10 +600,103 @@ class FinalShelfCapacity(unittest.TestCase):
             [('db/types.xml', stock, boosted)], floor, b'<prototype/>', b'<map/>',
             {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {})
         row = ET.fromstring(outputs[0][2]).find('type')
-        self.assertEqual((row.findtext('nominal'), row.findtext('min')), ('8', '6'))
+        self.assertEqual((row.findtext('nominal'), row.findtext('min')), ('1', '1'))
         self.assertEqual(budget['remaining_pressure'], ['*/shelves'])
-        self.assertEqual(report['stock_or_protected_gaps']['Pipe']['above_capacity'], 8)
+        self.assertFalse(report['stock_or_protected_gaps'])
+        self.assertEqual(report['removed_by_bucket_rule'], 8)
+        self.assertEqual(report['removed_by_row_rule'], 7)
+        self.assertFalse(report['boost_caused_pressure'])
+        self.assertIn('*/shelves', report['stock_or_protected_pressure'])
         self.assertEqual(lb.capacity_check(None), 2)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'mission'
+            mission(target)
+            (target / 'mapgrouppos.xml').write_bytes(b'<map/>')
+            result = {'counts': {'supply_cap': report, 'placement_budget': budget}}
+            with mock.patch.object(lb, 'plan', return_value=result), mock.patch('builtins.print') as output:
+                self.assertEqual(lb.capacity_check(target), 0)
+            self.assertIn('loot_boost_capacity: PASS', output.call_args_list[0].args[0])
+            self.assertIn('info */shelves', output.call_args_list[1].args[0])
+
+    def test_under_capacity_bucket_and_unfulfilled_transfers_do_not_cut_supply(self):
+        from tools.package import loot_boost as lb
+        stock = b'<types><type name="Pipe"><nominal>4</nominal><min>2</min><category name="tools"/><usage name="Industrial"/><tag name="shelves"/></type></types>'
+        boosted, _ = lb.set_nominals(stock, {'pipe': 12})
+        proto = b'<prototype><group name="S" lootmax="20"><usage name="Industrial"/><container lootmax="20"><tag name="shelves"/>' + b'<point/>' * 20 + b'</container></group></prototype>'
+        floor = {'supply_gaps': {'Pipe': {'nominal': 12, 'requested_slots': 4,
+                 'unplaced_slots': 4, 'compatible_shelf_points': 20}}}
+        outputs, budget, report = lb._cap_shelf_supply(
+            [('db/types.xml', stock, boosted)], floor, proto, b'<map><group name="S"/></map>',
+            {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {})
+        self.assertEqual(outputs[0][2], boosted)
+        self.assertEqual(budget['by_usage_tag']['Industrial/shelves']['nominal'], 12)
+        self.assertEqual(report['unreinvested_nominal'], 0)
+
+    def test_native_row_flood_caps_to_compatible_points_and_protected_excess_is_info(self):
+        from tools.package import loot_boost as lb
+        stock = b'<types><type name="Pipe"><nominal>80</nominal><min>60</min><category name="tools"/><usage name="Industrial"/><tag name="shelves"/></type><type name="SyntheticRifle"><nominal>8</nominal><min>4</min><category name="weapons"/><usage name="Industrial"/><tag name="shelves"/></type></types>'
+        boosted, _ = lb.set_nominals(stock, {'pipe': 160})
+        proto = b'<prototype><group name="S" lootmax="200"><usage name="Industrial"/><container lootmax="200"><tag name="shelves"/>' + b'<point/>' * 200 + b'</container></group></prototype>'
+        floor = {'supply': {n: {'nominal': count, 'requested_slots': 4, 'unplaced_slots': 4,
+                              'compatible_shelf_points': points}
+                            for n, count, points in [('Pipe', 160, 50), ('SyntheticRifle', 8, 1)]}}
+        outputs, budget, report = lb._cap_shelf_supply(
+            [('db/types.xml', stock, boosted)], floor, proto, b'<map><group name="S"/></map>',
+            {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {'syntheticrifle': 'weapon'})
+        rows = {n.get('name'): int(n.findtext('nominal')) for n in ET.fromstring(outputs[0][2])}
+        self.assertEqual(rows, {'Pipe': 50, 'SyntheticRifle': 8})
+        self.assertEqual(report['removed_by_bucket_rule'], 0)
+        self.assertEqual(report['removed_by_row_rule'], 110)
+        self.assertFalse(report['boost_caused_gaps'])
+        self.assertEqual(report['stock_or_protected_gaps']['SyntheticRifle']['above_capacity'], 7)
+        self.assertFalse(budget['remaining_pressure'])
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'mission'
+            mission(target)
+            (target / 'mapgrouppos.xml').write_bytes(b'<map/>')
+            result = {'counts': {'supply_cap': report, 'placement_budget': budget}}
+            with mock.patch.object(lb, 'plan', return_value=result), mock.patch('builtins.print') as output:
+                self.assertEqual(lb.capacity_check(target), 0)
+            self.assertIn('loot_boost_capacity: PASS', output.call_args_list[0].args[0])
+            self.assertIn('info SyntheticRifle', output.call_args_list[1].args[0])
+
+    def test_row_with_no_compatible_points_caps_nominal_and_min_to_zero(self):
+        from tools.package import loot_boost as lb
+        stock = b'<types><type name="CableReel"><nominal>80</nominal><min>60</min><category name="tools"/><usage name="Industrial"/><tag name="shelves"/></type></types>'
+        boosted, _ = lb.set_nominals(stock, {'cablereel': 160})
+        proto = b'<prototype><group name="S" lootmax="200"><usage name="Industrial"/><container lootmax="200"><tag name="shelves"/>' + b'<point/>' * 200 + b'</container></group></prototype>'
+        outputs, _, report = lb._cap_shelf_supply(
+            [('db/types.xml', stock, boosted)],
+            {'supply': {'CableReel': {'nominal': 160, 'compatible_shelf_points': 0}}},
+            proto, b'<map><group name="S"/></map>',
+            {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {})
+        row = ET.fromstring(outputs[0][2]).find('type')
+        self.assertEqual((row.findtext('nominal'), row.findtext('min')), ('0', '0'))
+        self.assertEqual(report['removed_by_row_rule'], 160)
+        self.assertEqual(report['removed_by_bucket_rule'], 0)
+
+    def test_shared_row_preserves_under_capacity_bucket_and_remaining_boost_fails(self):
+        from tools.package import loot_boost as lb
+        stock = b'<types><type name="Hammer"><nominal>10</nominal><min>5</min><category name="tools"/><usage name="Farm"/><usage name="Town"/><tag name="shelves"/></type></types>'
+        boosted, _ = lb.set_nominals(stock, {'hammer': 20})
+        proto = b'<prototype><group name="Farm" lootmax="3"><usage name="Farm"/><container lootmax="3"><tag name="shelves"/>' + b'<point/>' * 3 + b'</container></group><group name="Town" lootmax="100"><usage name="Town"/><container lootmax="100"><tag name="shelves"/>' + b'<point/>' * 100 + b'</container></group></prototype>'
+        outputs, budget, report = lb._cap_shelf_supply(
+            [('db/types.xml', stock, boosted)], {}, proto,
+            b'<map><group name="Farm"/><group name="Town"/></map>',
+            {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {})
+        self.assertEqual(outputs[0][2], boosted, 'cutting Farm would also cut the under-capacity Town bucket')
+        self.assertEqual(budget['by_usage_tag']['Town/shelves']['nominal'], 10)
+        self.assertIn('Farm/shelves', report['boost_caused_pressure'])
+        self.assertEqual(report['boost_caused_pressure']['Farm/shelves']['above_capacity'], 5)
+        self.assertEqual(report['stock_or_protected_pressure']['Farm/shelves']['above_capacity'], 2)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'mission'
+            mission(target)
+            (target / 'mapgrouppos.xml').write_bytes(b'<map/>')
+            result = {'counts': {'supply_cap': report, 'placement_budget': budget}}
+            with mock.patch.object(lb, 'plan', return_value=result), mock.patch('builtins.print') as output:
+                self.assertEqual(lb.capacity_check(target), 1)
+            self.assertIn('loot_boost_capacity: FAIL', output.call_args_list[0].args[0])
 
     def test_upgrade_rollback_uses_verified_preboost_bytes_then_replans(self):
         from tools.package import loot_boost as lb
