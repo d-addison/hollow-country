@@ -78,6 +78,43 @@ def compare_silhouettes(reference, candidate, *, min_iou=MIN_IOU):
             'engine_verified': False}
 
 
+def black_silhouette(image):
+    """Scoring contract: opaque black frame, with no inferred background colour."""
+    if any(image.rgba[i:i+4] != b'\0\0\0\xff'
+           for i in range(0, len(image.rgba), 4)
+           if (i // 4) // image.width in (0, image.height - 1)
+           or (i // 4) % image.width in (0, image.width - 1)):
+        raise ValueError('score.black_frame_required')
+    if any(a != 255 for a in image.rgba[3::4]):
+        raise ValueError('score.opaque_required')
+    return (image.width, image.height,
+            bytes(int(max(image.rgba[i:i+3]) > BACKGROUND_TOLERANCE)
+                  for i in range(0, len(image.rgba), 4)))
+
+
+def edge_f1(reference, candidate, *, threshold=0.1):
+    """Exact-pixel Sobel edge F1, including internal luminance edges.
+
+    Fixed normalized gradient threshold; no alignment or dilation can hide scale
+    changes. numpy is already used by the FLIP gate; no new dependency.
+    """
+    np = flip_diff._numpy()
+    if (reference.width, reference.height) != (candidate.width, candidate.height):
+        raise ValueError('render.dimensions')
+    def edges(image):
+        rgb = np.frombuffer(image.rgba, dtype=np.uint8).reshape(image.height, image.width, 4)[..., :3]
+        gray = rgb @ np.array([0.2126, 0.7152, 0.0722]) / 255
+        a = np.pad(gray, 1, mode='constant')
+        gx = (a[:-2, 2:] + 2*a[1:-1, 2:] + a[2:, 2:]
+              - a[:-2, :-2] - 2*a[1:-1, :-2] - a[2:, :-2]) / 4
+        gy = (a[2:, :-2] + 2*a[2:, 1:-1] + a[2:, 2:]
+              - a[:-2, :-2] - 2*a[:-2, 1:-1] - a[:-2, 2:]) / 4
+        return np.hypot(gx, gy) >= threshold
+    a, b = edges(reference), edges(candidate)
+    total = int(a.sum()) + int(b.sum())
+    return 2 * int((a & b).sum()) / total if total else 1.0
+
+
 def _png(width, height, rgba):
     def chunk(kind, data):
         body = kind + data

@@ -1,11 +1,36 @@
 """Shared release PBO catalogue, catalog provenance gate and animation build recipe."""
+import os
 from pathlib import Path
+import shutil
 import sys
 
 ADDONS = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/Addons')
 
 
 COMPAT_STEM = 'hollowcountry_compat'
+ASSETS_SWITCH = 'HC_ASSETS_PLAN'  # unset/empty: byte-identical legacy build path
+
+
+def assets_enabled():
+    return bool(os.environ.get(ASSETS_SWITCH, ''))
+
+
+def build_assets(tree, scratch, run):
+    """Build from sealed post-Binarize inputs, checking source coverage in tree.
+
+    The plan may live outside the checkout; all packaged source bytes must match
+    the selected commit. Never use --allow-mlod on this path.
+    """
+    plan = Path(os.environ[ASSETS_SWITCH]).absolute()
+    output = scratch / 'assets'
+    run([sys.executable, '-B', '-m', 'tools.package.build_assets_addon',
+         '--plan', plan, '--out', output], tree)
+    package = output / 'addons/HollowCountryAssets.pbo'
+    run([sys.executable, '-B', '-m', 'tools.package.pbo', 'verify',
+         '--prefix', 'HollowCountryAssets', package], tree)
+    target = scratch / 'hollowcountryassets.pbo'
+    shutil.copyfile(package, target)
+    return target
 
 
 def compat_label(name):
@@ -26,6 +51,8 @@ def signing_inputs(guard_name=None, compat_names=()):
     rows = [('hollowcountry', 'HollowCountry', 'base'),
             ('hollowcountryanims', 'HollowCountry', 'anims'),
             ('hollowcountryexpansionai', 'HollowCountryExpansionAI', 'addon')]
+    if assets_enabled():
+        rows.insert(2, ('hollowcountryassets', 'HollowCountry', 'assets'))
     if guard_name:
         rows.append((Path(guard_name).stem, 'HollowCountryExpansionAI', 'weapon-pack-guards'))
     for name in compat_names:
@@ -48,4 +75,8 @@ def build_anims(tree, addons, scratch, run):
     package = output / 'addons/HollowCountryAnims.pbo'
     run([sys.executable, '-B', '-m', 'tools.package.pbo', 'verify',
          '--prefix', 'HollowCountryAnims', package], tree)
+    # Existing release callers build their companion PBOs here before iterating
+    # signing_inputs; publish the optional assets package at their scratch root.
+    if assets_enabled():
+        build_assets(tree, scratch, run)
     return package

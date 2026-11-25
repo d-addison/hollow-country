@@ -360,6 +360,11 @@ def stage_release_pbos(tree, package, inputs, addons, scratch):
     shutil.copyfile(package, base / 'hollowcountry.pbo')
     anims = ship_inputs.build_anims(tree, addons, scratch, build_command)
     shutil.copyfile(anims, base / 'hollowcountryanims.pbo')
+    base_extras = [base / 'hollowcountryanims.pbo']
+    if ship_inputs.assets_enabled():
+        assets = base / 'hollowcountryassets.pbo'
+        shutil.copyfile(scratch / 'hollowcountryassets.pbo', assets)
+        base_extras.append(assets)
     server = scratch / '@HollowCountryExpansionAI/addons'
     server.mkdir(parents=True)
     adapter = server / 'hollowcountryexpansionai.pbo'
@@ -382,7 +387,7 @@ def stage_release_pbos(tree, package, inputs, addons, scratch):
     validate_staged_pbos(staged, guard_name, [source.name for source in compat])
     shipped = {key: value for key, value in inputs.items() if key != 'compat_pbos'}
     return dict(shipped, server_mod=adapter, server_extra_pbos=extras,
-                base_extra_pbos=[base / 'hollowcountryanims.pbo'])
+                base_extra_pbos=base_extras)
 
 
 CLIENT_STATE_READS = 3

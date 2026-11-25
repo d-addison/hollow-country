@@ -41,20 +41,186 @@ GUI tools must be opened deliberately by the lead, outside automated worker gate
 | --- | --- | --- | --- |
 | Workbench / `Workbench/WorkbenchApp.exe` | Script, resource and UI development | Compile/resource diagnostics; existing animation plugin | GUI; project-specific headless plugin prior art in `tools/anim/workbench/HC_TxaBuild.c`; no run this round |
 | CfgConvert / `CfgConvert/CfgConvert.exe` | Text config ↔ RAP conversion | Config syntax gate; scratch output only | CLI command observed in installed batch file; three native conversions observed through PowerShell with local staging |
-| ImageToPAA / `ImageToPAA` | Texture conversion | Original GUI icon textures | CLI/GUI workflow unverified; see icon guide |
+| ImageToPAA / `ImageToPAA` | Texture conversion | Original icons and CC0 asset maps | **To verify natively**: `ImageToPAA.exe <source.tga> <destination.paa>`; exact commands/logs below |
 | CeEditor / `CeEditor` | Central Economy map editing | Inspect staged loot/event geography | GUI recipe below unverified; no assumed headless mode |
 | ObjectBuilder / `ObjectBuilder` | Model/LOD editing and inspection | Building selections, memory points and proxies | GUI recipe below unverified; no assumed headless mode |
 | NavMeshGenerator / `NavMeshGenerator` | Build navigation meshes | Investigate terrain pathing inputs; no stock replacement shipped | Tool-assisted generation; GUI/CLI launch and flags unverified locally |
 | BinMake / `BinMake` | Asset build orchestration | No current pipeline adoption; preserve deterministic Python packer | CLI unverified |
-| AddonBuilder / `AddonBuilder` | Build addon PBOs with asset processing | Manual comparison if needed; current shipping packer remains authoritative | GUI; CLI unverified |
+| AddonBuilder / `AddonBuilder` | Build addon PBOs with asset processing | Native comparison; deterministic Python packer ships sealed ODOL | **To verify natively**: source/destination, `-project`, `-temp`, `-binarize`; exact commands/logs below |
 | DsUtils / `DsUtils` | Signatures and key utilities | Existing release signing process only | CLI/GUI unverified; never open private keys during inspection |
 | PboUtils / `PboUtils` | PBO archive utilities | Read-only listing/inspection, local outputs only | CLI unverified; project also has stored-PBO reader |
 | Publisher / `Publisher` | Workshop publication | Owner-approved release only | GUI/automation unverified; never part of preland |
 | TerrainBuilder / `TerrainBuilder` | Terrain authoring | No custom terrain maintained; optional inspection | GUI unverified |
 | WorkDrive / `WorkDrive` | Prepare/mount development data drive | Optional local P: setup for asset tools | CLI/GUI unverified; do not change drive mappings automatically |
-| Binarize / `Binarize` | Asset binarization | No new asset pipeline introduced here | CLI unverified |
+| Binarize / `Binarize` | Asset binarization | Required ODOL proof for the tin-can lantern | **To verify natively**: source/destination/mask, `-textures`, candidate `-binPath`; exact commands/logs below |
 | TerrainProcessor / `TerrainProcessor` | Procedural terrain processing | Not needed for our existing Chernarus mission overlays | GUI/CLI unverified |
 | Launcher / `Launcher` | Tool launch/setup entry point | Manual development environment setup | GUI unverified |
+
+## Asset tool commands: to verify natively
+
+**Every command in this section is to verify natively.** No native receipt was
+produced by this worker. The lead must take the shared native host lock, confirm
+that the owner is idle, and run these serially. Use a fresh Windows-local cache;
+never run Binarize against the checkout or an entire shared project drive.
+Prepare `src\HollowCountryAssets` with the authored MLOD, `model.cfg`, config,
+rvmats and original/CC0 TGA maps. Preserve the own-prefix directory structure.
+The filenames below define the staging convention; map the lantern worker's
+outputs to those names before running. Dependencies must resolve in this staging
+project. Nothing here permits copying installed/Workshop assets into Git.
+
+The [BI Binarize reference](https://community.bistudio.com/wiki/Binarize)
+documents positional source/destination/mask and `-textures` (plural), plus the
+importance of the working directory. `-binPath` below is a **DayZ candidate flag**,
+not established by that wiki: first capture local help and verify its spelling
+and support. If refused, record that result and revise the invocation from the
+installed tool's usage. Do not call an unknown flag verified.
+
+```powershell
+$tools = 'D:\SteamLibrary\steamapps\common\DayZ Tools'
+$assetCache = 'C:\hc-asset-cache\lantern-proof-01'
+$src = Join-Path $assetCache 'src\HollowCountryAssets'
+$dst = Join-Path $assetCache 'binarized\HollowCountryAssets'
+$logs = Join-Path $assetCache 'logs'
+$null = New-Item -ItemType Directory -Force -Path $logs,$dst
+& "$tools\Bin\Binarize\binarize.exe" -help *> "$logs\binarize-help.log"
+& "$tools\Bin\ImageToPAA\ImageToPAA.exe" -help *> "$logs\imagetopaa-help.log"
+& "$tools\Bin\AddonBuilder\AddonBuilder.exe" -help *> "$logs\addonbuilder-help.log"
+```
+
+[ImageToPAA format documentation](https://community.bistudio.com/wiki/ImageToPAA)
+and [BI developer CLI usage](https://forums.bohemia.net/forums/topic/166353-how-to-use-imagetopaa/)
+provide the source/destination form. Use power-of-two, 8-bit source maps.
+Verify all four nonempty PAA files and the asset lint's PAA header/size checks;
+normal-map channel convention still needs a native visual check.
+
+```powershell
+foreach ($map in @('co','nohq','smdi','as')) {
+    & "$tools\Bin\ImageToPAA\ImageToPAA.exe" "$src\data\lantern_$map.tga" "$src\data\lantern_$map.paa" *> "$logs\imagetopaa-$map.log"
+    if ($LASTEXITCODE -ne 0) { throw 'ImageToPAA refused' }
+}
+Push-Location (Join-Path $assetCache 'src')
+try {
+    & "$tools\Bin\Binarize\binarize.exe" "-textures=$assetCache\binarized" "-binPath=$tools\Bin\Binarize" "-addon=$assetCache\src" $src $dst '*.p3d' *> "$logs\binarize.log"
+    if ($LASTEXITCODE -ne 0) { throw 'Binarize refused' }
+} finally { Pop-Location }
+```
+
+Expected model: `$dst\models\lantern.p3d`, beginning with `ODOL`.
+The offline builder parses the whole model using the clean-room ODOL56 reader;
+other ODOL versions fail closed and require a separately scoped reader update.
+A `.p3d` suffix or exit zero is insufficient. Copy/admit the resulting ODOL and
+PAA bytes into a **new** sealed provenance candidate; do not mutate the original
+sealed MLOD candidate. Admit unchanged source config/notice/prefix/model.cfg
+alongside them. Binarize's model output does not replace source-coverage checks.
+
+The [BI Addon Builder reference](https://community.bistudio.com/wiki/Addon_Builder)
+documents this comparison invocation. AddonBuilder binarizes by default;
+`-binarize` selects the executable, while `-packonly` would bypass binarization.
+It does not establish an AddonBuilder `-binPath` option. Keep this native output
+separate from the Python release packer output; compare members and load results,
+not PBO bytes.
+
+```powershell
+& "$tools\Bin\AddonBuilder\AddonBuilder.exe" $src "$assetCache\addonbuilder" -clear "-prefix=HollowCountryAssets" "-project=$assetCache\src" "-temp=$assetCache\addonbuilder-temp" "-binarize=$tools\Bin\Binarize\binarize.exe" *> "$logs\addonbuilder.log"
+if ($LASTEXITCODE -ne 0) { throw 'AddonBuilder refused' }
+```
+
+Expected comparison output: `addonbuilder\HollowCountryAssets.pbo`. All console
+logs above are explicitly redirected into `$logs`. Also retain any per-model
+`.log`/`.rpt` under `$dst`, the AddonBuilder temp tree and the installed
+`Bin\Logs` directory (in particular `AddonBuilder.rpt`) if generated; their exact
+native locations remain to verify. Help output, exit codes, output hashes and
+read-back/load evidence must be recorded before changing these rows' status.
+
+### Offline scores and opt-in package proof
+
+The shared switch is **`HC_ASSETS_PLAN`**, unset by default. Set it to an absolute
+sealed-plan path only for the lead's proof. Python release and compile staging,
+and `tools/package/Build-Sign-Verify.ps1`, then add `hollowcountryassets.pbo`
+beside animations inside `@HollowCountry/addons`. The compile staging list is
+`tools/release/compile_gate.py:stage_release_pbos`. With the switch absent the
+legacy catalogue, animation commands and PBO bytes are unchanged. The release
+helper builds optional companion assets during `ship_inputs.build_anims`, before
+the existing release caller iterates the shared signing catalogue.
+
+The score loop consumes PNG directories with `views.json` (schema and examples
+in `tools/assets/score_loop.py`). Front, side, top and three-quarter must have
+matching fixed metres/pixel, orthographic cameras and an opaque black frame.
+It never aligns/resizes inputs or starts Blender. The existing six-view renderer
+uses automatic framing and cannot supply this contract: the lead must prepare
+fixed cameras/PNGs separately. Silhouette/edge/palette scores are deterministic;
+palette uses foreground-weighted, nearest reference-colour CIE76 Delta E with a
+16-colour histogram palette. LOD triangle counts come from the exporter and must
+be supplied for every budgeted LOD; PNGs cannot establish mesh complexity.
+Edge/palette thresholds require explicit calibration in the reference manifest.
+
+```sh
+python3 -B -m tools.assets.score_loop --reference build/lantern/reference --candidates build/lantern/round-1 build/lantern/round-2 --max-iterations 6 --max-renders 24 --max-seconds 120 --out build/lantern/score.json
+python3 -B -m tools.package.build_assets_addon --plan build/lantern/plan.json --out build/lantern/packed
+python3 -B -m tools.package.pbo verify --prefix HollowCountryAssets build/lantern/packed/addons/HollowCountryAssets.pbo
+```
+
+The loop stops on pass, six iterations, two rounds without any normalized metric
+improving by more than .01, or its render/wall budget. Four submitted views charge
+four renders, even for repeated candidates. Wall time covers scoring in a
+cancellable Python worker; earlier rendering time is outside this invocation.
+The lead's external rendering driver must separately cap Blender invocations by
+remaining time/count. Reports select the best iteration and its worst metric/view
+(or LOD for polycount). `engine_verified` is always false, including on pass.
+`--allow-mlod` on the standalone packer is offline development only; release
+wiring never passes it. Native acceptance remains pending.
+
+Lead-only native sequence from the repository root (substitute absolute native
+paths for the environment variables; keep keys external):
+
+```powershell
+$null = New-Item -ItemType Directory -Force -Path build/lantern
+# HC_BLENDER must point to the lead's pinned Blender 5.2.4 executable.
+foreach ($folder in @('config','scripts','extensions','temp')) {
+    $null = New-Item -ItemType Directory -Force -Path "$assetCache\blender-$folder"
+}
+$env:BLENDER_USER_CONFIG = "$assetCache\blender-config"
+$env:BLENDER_USER_SCRIPTS = "$assetCache\blender-scripts"
+$env:BLENDER_USER_EXTENSIONS = "$assetCache\blender-extensions"
+$env:TEMP = "$assetCache\blender-temp"
+$env:TMP = $env:TEMP
+& $env:HC_BLENDER -b --factory-startup --disable-autoexec --python-exit-code 1 -P tools/assets/blender_ops_script.py -- --recipe assets_src/test/hc_testcube.ops.json --output build/lantern/mesh.json --render *> build/lantern/blender.log
+# This exercises the existing cube exporter: mesh.json plus six auto-framed TGA
+# views, not the fixed-camera lantern scoring set. Use the lantern recipe once
+# authored and prepare its four fixed-camera PNGs before running score_loop.
+$env:HC_ASSETS_PLAN = 'C:\hc-asset-cache\lantern-proof-01\plan.json'
+python -B -m tools.package.build_assets_addon --plan $env:HC_ASSETS_PLAN --out build/lantern/native-pack
+python -B tools/package/sign.py --pbo build/lantern/native-pack/addons/HollowCountryAssets.pbo --tools $tools --private-key $env:HC_PRIVATE_KEY --public-key $env:HC_PUBLIC_KEY --out build/lantern/signed-assets
+```
+
+Run these environment changes in a disposable PowerShell session. Use the runner's
+isolated setup when integrating the lantern recipe. Expected
+pack/sign outputs are `addons/HollowCountryAssets.pbo`, its `.bisign`, a public
+`.bikey`, `signing-report.json` and `verification.log` with a positive exact
+signature result. No private key contents are read or printed by this recipe.
+Run the native compile gate serially from WSL after preparing the same sealed
+plan with WSL-readable absolute paths:
+
+```sh
+HC_ASSETS_PLAN=/mnt/c/hc-asset-cache/lantern-proof-01/plan.json agent-run --memory 12G -- python3 -B -m tools.release.compile_gate --tree .
+```
+
+Expected gate result is Mission loaded and assets listed among staged PBOs.
+For a normal load, install the signed assets PBO/signature beside the existing
+animations in an isolated signed proof bundle, then use the existing boot helper
+(the bundle's server launcher loads `@HollowCountry`):
+
+```sh
+python3 -B -m tools.release.checkstart --bundle 'C:\hc-asset-cache\lantern-proof-01\bundle' --server-root 'C:\hc-asset-cache\lantern-proof-01\server' --profiles /mnt/c/hc-asset-cache/lantern-proof-01/server/profiles --start
+```
+
+The bundle must already contain its mission/dependencies and valid launcher
+configuration. Join with at most one client loading the identical signed addon;
+spawn the lantern, hold it and toggle its light using the authored actions.
+Require zero script/VM errors, missing textures and missing models, correct
+materials/light, and the feature's `[HC Use]` evidence. Record the actual item
+class/actions when the lantern worker supplies them. This worker neither starts
+that load nor claims it passed; multiplayer remains unproven.
 
 ## Worker and lead gates
 
