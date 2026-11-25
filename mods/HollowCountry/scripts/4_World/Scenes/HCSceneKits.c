@@ -182,6 +182,10 @@ class HCSceneKits
 
     // Last Preflight refusal, for one bounded diagnostic line per chain and reason.
     protected static string s_Refusal;
+    // Kit vocabulary is finite; bound this diagnostic cache even for note kits.
+    // Native scripts-1.30.164289/1_Core/proto/EnScript.c:852 Count,
+    // :902 Set, :917 Contains; EnDebug.c:96 Print.
+    protected static ref map<string, bool> s_BoxNoneKits = new map<string, bool>;
     static string Refusal() { return s_Refusal; }
     protected static bool HCSceneRefuse(string reason)
     {
@@ -206,6 +210,7 @@ class HCSceneKits
         array<vector> doors = new array<vector>();
         array<vector> occupied = new array<vector>();
         array<float> footprints = new array<float>();
+        bool boxNone;
         foreach (Object candidate : nearby)
         {
             Building building = Building.Cast(candidate);
@@ -220,13 +225,37 @@ class HCSceneKits
             // bounding radius rather than rejecting the entire reviewed site.
             // Preserve stairs/doorless structures as well as named doors.
             vector bounds[2];
-            if (!building.GetCollisionBox(bounds)) { return HCSceneRefuse("no-collision-box " + building.GetType()); }
+            if (!building.GetCollisionBox(bounds))
+            {
+                // A boxless wreck decal is scenery, not a structure footprint.
+                // Native scripts-1.30.164289/3_Game/Entities/Object.c:287 GetPosition,
+                // :467 GetType; 1_Core/proto/EnString.c:199 Length, :240 IndexOf.
+                // Unknown structures still require a box for building overlap.
+                string boxlessType = building.GetType();
+                if (count > 0 || boxlessType.Length() > 96) { return HCSceneRefuse("no-collision-box"); }
+                if (boxlessType.IndexOf("StaticObj_Wreck_Decal_") != 0) { return HCSceneRefuse("no-collision-box " + boxlessType); }
+                vector point;
+                bool pointTerrain;
+                vector decalPosition = building.GetPosition();
+                if (!HCPointPreflight(decalPosition, 1, boxlessType, point, pointTerrain)) { return false; }
+                // Reserve the point plus the existing 2m margin, without
+                // inventing bounds. All kit props still pass overlap checks.
+                occupied.Insert(point);
+                footprints.Insert(2);
+                boxNone = true;
+                continue;
+            }
             if (!HCEventRuntimePolicy.PositionValid(bounds[0]) || !HCEventRuntimePolicy.PositionValid(bounds[1])) { return HCSceneRefuse("bounds-invalid " + building.GetType()); }
             float extentX = Math.Max(Math.AbsFloat(bounds[0][0]), Math.AbsFloat(bounds[1][0]));
             float extentZ = Math.Max(Math.AbsFloat(bounds[0][2]), Math.AbsFloat(bounds[1][2]));
             if (extentX == 0 && extentZ == 0) { return HCSceneRefuse("zero-extent " + building.GetType()); }
             occupied.Insert(building.GetPosition());
             footprints.Insert(Math.Sqrt(extentX * extentX + extentZ * extentZ) + 2);
+        }
+        if (boxNone && !s_BoxNoneKits.Contains(kit.Id) && s_BoxNoneKits.Count() < 16)
+        {
+            s_BoxNoneKits.Set(kit.Id, true);
+            Print("[HC Scenes] preflight reason=decor_point box=none");
         }
         // Kit offsets are world-axis aligned, not tied to a site heading: try the
         // authored layout first, then the same kit rotated in quarter turns about
@@ -289,11 +318,10 @@ class HCSceneKits
             if (!GetGame().ConfigIsExisting(configPath)) { return HCSceneRefuse("class-missing " + prop.Type); }
             vector offset = LayoutOffset(prop.Offset, variant);
             vector position = site.Position + offset;
-            vector support;
             bool terrain;
-            if (!HCGroundSnap.Support(position, null, 3, support, terrain)) { return HCSceneRefuse("no-support " + prop.Type); }
-            position[1] = support[1];
-            if (!HCEventRuntimePolicy.PositionValid(position) || GetGame().SurfaceIsSea(position[0], position[2])) { return HCSceneRefuse("position-or-sea " + prop.Type); }
+            vector checkedPosition;
+            if (!HCPointSupport(position, prop.Type, checkedPosition, terrain)) { return false; }
+            position = checkedPosition;
             // The world east/west access strip stays clear in every layout: test the turned offset, not the authored one.
             if (InAccessStrip(offset, prop.Radius)) { return HCSceneRefuse("corridor " + prop.Type); }
             foreach (vector door : doors)
@@ -308,25 +336,49 @@ class HCSceneKits
                 float keepout = prop.Radius + footprints[footprintIndex];
                 if (dx * dx + dz * dz <= keepout * keepout) { return HCSceneRefuse("building-footprint " + prop.Type); }
             }
-            // Refuse steep/uneven ground instead of making stairs or floating props.
-            float east = GetGame().SurfaceY(position[0] + prop.Radius, position[2]);
-            float west = GetGame().SurfaceY(position[0] - prop.Radius, position[2]);
-            float north = GetGame().SurfaceY(position[0], position[2] + prop.Radius);
-            float south = GetGame().SurfaceY(position[0], position[2] - prop.Radius);
-            if (east != east || west != west || north != north || south != south) { return HCSceneRefuse("surface-nan " + prop.Type); }
-            float ground = position[1];
-            float rise = Math.AbsFloat(east - ground);
-            float riseWest = Math.AbsFloat(west - ground);
-            float riseNorth = Math.AbsFloat(north - ground);
-            float riseSouth = Math.AbsFloat(south - ground);
-            if (riseWest > rise) { rise = riseWest; }
-            if (riseNorth > rise) { rise = riseNorth; }
-            if (riseSouth > rise) { rise = riseSouth; }
-            if (terrain && rise > 0.8) { return HCSceneRefuse("slope " + prop.Type + " rise=" + rise.ToString()); }
+            if (!HCPointSlope(position, prop.Radius, prop.Type, terrain)) { return false; }
             if (!HCObserverTransitionGate.CanTransition(position, 500)) { return HCSceneRefuse("observed-prop " + prop.Type); }
             positions.Insert(position);
         }
         return true;
+    }
+
+    // Native scripts-1.30.164289/3_Game/Global/Game.c:1196 SurfaceIsSea,
+    // :1176 SurfaceY; 1_Core/proto/EnMath.c:225 AbsFloat.
+    protected static bool HCPointSupport(vector position, string type, out vector point, out bool terrain)
+    {
+        vector support;
+        if (!HCGroundSnap.Support(position, null, 3, support, terrain)) { return HCSceneRefuse("no-support " + type); }
+        point = position;
+        point[1] = support[1];
+        if (!HCEventRuntimePolicy.PositionValid(point) || GetGame().SurfaceIsSea(point[0], point[2])) { return HCSceneRefuse("position-or-sea " + type); }
+        return true;
+    }
+
+    protected static bool HCPointSlope(vector position, float radius, string type, bool terrain)
+    {
+        // Refuse steep/uneven ground instead of making stairs or floating props.
+        float east = GetGame().SurfaceY(position[0] + radius, position[2]);
+        float west = GetGame().SurfaceY(position[0] - radius, position[2]);
+        float north = GetGame().SurfaceY(position[0], position[2] + radius);
+        float south = GetGame().SurfaceY(position[0], position[2] - radius);
+        if (east != east || west != west || north != north || south != south) { return HCSceneRefuse("surface-nan " + type); }
+        float ground = position[1];
+        float rise = Math.AbsFloat(east - ground);
+        float riseWest = Math.AbsFloat(west - ground);
+        float riseNorth = Math.AbsFloat(north - ground);
+        float riseSouth = Math.AbsFloat(south - ground);
+        if (riseWest > rise) { rise = riseWest; }
+        if (riseNorth > rise) { rise = riseNorth; }
+        if (riseSouth > rise) { rise = riseSouth; }
+        if (terrain && rise > 0.8) { return HCSceneRefuse("slope " + type + " rise=" + rise.ToString()); }
+        return true;
+    }
+
+    protected static bool HCPointPreflight(vector position, float radius, string type, out vector point, out bool terrain)
+    {
+        if (!HCPointSupport(position, type, point, terrain)) { return false; }
+        return HCPointSlope(point, radius, type, terrain);
     }
 
     // Caller retains the lease BEFORE calling: partial creation is never orphaned.

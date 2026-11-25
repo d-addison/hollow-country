@@ -214,6 +214,8 @@ class HCLeadModule : HCModule
     protected ref array<ref HCWorldLead> m_Catalog = new array<ref HCWorldLead>();
     protected ref array<ref HCWorldFact> m_Facts = new array<ref HCWorldFact>();
     protected int m_Cursor;
+    protected int m_ReceiptCursor;
+    protected ref HCWorkBudget m_ReceiptWork = new HCWorkBudget;
     protected int m_SelectionCursor;
     protected int m_ShelterCursor;
     protected float m_Elapsed = 60;
@@ -260,6 +262,17 @@ class HCLeadModule : HCModule
     {
         if (!Get() || deltaTime <= 0) { return; }
         m_Store.HCPumpCheckpoint();
+        // Receipt telemetry follows durability, even when the offer never repeats.
+        // Four rows per tick, with the shared cooperative time slice and a
+        // retained cursor. The existing store ceiling bounds a full sweep to 64.
+        m_ReceiptWork.HCReset(4);
+        for (int receiptIndex = 0; receiptIndex < 4 && receiptIndex < m_Store.Data.Leads.Count(); receiptIndex++)
+        {
+            if (!m_ReceiptWork.HCContinue()) { break; }
+            if (m_ReceiptCursor >= m_Store.Data.Leads.Count()) { m_ReceiptCursor = 0; }
+            HCCountDurableReceipt(m_Store.Data.Leads[m_ReceiptCursor].Id);
+            m_ReceiptCursor++;
+        }
         m_Elapsed += deltaTime;
         m_LogElapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
@@ -270,6 +283,8 @@ class HCLeadModule : HCModule
         {
             if (m_Store.Data.Leads[expiredIndex].Expires <= now)
             {
+                // Do not lose a durable receipt if expiry precedes its sweep slot.
+                HCCountDurableReceipt(m_Store.Data.Leads[expiredIndex].Id);
                 m_PendingReceipts.Remove(m_Store.Data.Leads[expiredIndex].Id);
                 m_Store.Data.Leads.RemoveOrdered(expiredIndex);
                 HCReached.Mark("leads.expired_item");
@@ -403,7 +418,7 @@ class HCLeadModule : HCModule
                 int pending;
                 if (!m_PendingReceipts.Find(prior.Id, pending)) { return HCLeadReceiveResult.HELD; }
                 if (!m_Store.HCDurable(pending)) { return HCLeadReceiveResult.PENDING; }
-                m_PendingReceipts.Remove(prior.Id);
+                HCCountDurableReceipt(prior.Id);
                 return HCLeadReceiveResult.RETAINED;
             }
         }
@@ -427,11 +442,18 @@ class HCLeadModule : HCModule
         string groupId = HCLeadPolicy.SoloGroup(player.GetIdentity().GetId());
         if (groups) { groupId = groups.HCLeadGroup(player); }
         if (groupId == "") { return; }
-        if (Receive(offer, groupId, source))
-        {
-            Print("[HollowCountry] V2 lead received source=" + source + " place=" + offer.TargetPlaceId);
-            HCModuleReadiness.HCUse("Leads", "lead_received");
-        }
+        Receive(offer, groupId, source);
+    }
+
+    // Native scripts-1.30.164289/1_Core/proto/EnScript.c:877 Find, :906 Remove;
+    // 1_Core/proto/EnDebug.c:96 Print. Removing the receipt owns the single count.
+    protected void HCCountDurableReceipt(string leadId)
+    {
+        int revision;
+        if (!m_PendingReceipts.Find(leadId, revision) || !m_Store.HCDurable(revision)) { return; }
+        m_PendingReceipts.Remove(leadId);
+        Print("[HollowCountry] V2 lead received reason=durable");
+        HCModuleReadiness.HCUse("Leads", "lead_received");
     }
 
     void GroupLeads(string groupId, out array<ref HCWorldLead> output)

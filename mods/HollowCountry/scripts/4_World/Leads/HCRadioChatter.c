@@ -173,6 +173,8 @@ class HCRadioChatter : HCModule
     protected bool m_Committed;
     protected int m_ChannelReceipt = -1;
     protected bool m_ReceiptPending;
+    protected PlayerBase m_ReceiptListener;
+    protected string m_ReceiptGroup;
     protected bool m_FromFallback;
     protected bool m_Ready;
     protected int m_SeedRevision = -1;
@@ -410,6 +412,8 @@ class HCRadioChatter : HCModule
         HCClueLead clue = HCLeadPolicy.Copy(m_Report);
         HCClueLocation.HCResolve(clue, "0 0 0", false);
         m_Report = clue;
+        m_ReceiptListener = null;
+        m_ReceiptGroup = "";
         m_Text = HCLeadPolicy.Text(m_Report);
         if (m_Report.TextId == "morse_lead")
         {
@@ -433,9 +437,15 @@ class HCRadioChatter : HCModule
         string groupId = HCLeadPolicy.SoloGroup(listener.GetIdentity().GetId());
         if (groups) { groupId = groups.HCLeadGroup(listener); }
         if (groupId == "") { return false; }
+        bool awaitingReceipt = m_ReceiptListener == listener && m_ReceiptGroup == groupId;
+        m_ReceiptListener = null;
+        m_ReceiptGroup = "";
         int result = leads.ReceiveResult(report, groupId, "radio");
         m_ReceiptPending = result == HCLeadReceiveResult.PENDING;
-        return result == HCLeadReceiveResult.RETAINED;
+        if (m_ReceiptPending) { m_ReceiptListener = listener; m_ReceiptGroup = groupId; }
+        // The lead module may have counted and cleared the pending receipt in
+        // its tick. Only this listener's outstanding retry may accept HELD.
+        return result == HCLeadReceiveResult.RETAINED || (awaitingReceipt && result == HCLeadReceiveResult.HELD);
     }
 
     void HCRefuse(string reason)
@@ -544,6 +554,8 @@ class HCRadioChatter : HCModule
 
     override void OnStop()
     {
+        m_ReceiptListener = null;
+        m_ReceiptGroup = "";
         s_Instance = null;
         m_Ready = false;
         m_SeedRevision = -1;
