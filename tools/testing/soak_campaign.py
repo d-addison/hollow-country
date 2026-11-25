@@ -1215,6 +1215,12 @@ class Campaign:
                 if follow['path'] != path:
                     follow.update(path=path, offset=0)
                 lines, follow['offset'] = tail_lines(path, follow['offset'])
+                from tools.release import client_compile_check
+                # Script logs can contain the error even when the RPT only shows a modal dialog.
+                compile_result = client_compile_check.scan(path)
+                if compile_result['errors']:
+                    self.log(client_compile_check.verdict_line(compile_result))
+                    raise Refused('client compile check failed: compile_errors')
                 for line in lines:
                     trace = CONNECT_TRACE.search(line)
                     if trace:
@@ -1436,6 +1442,11 @@ def render_report(rows, drivers, release_summary, selection=None):
 def build_report(phases, server_rpt, client_rpt, selection=None):
     legacy, release, errors = activity_results(server_rpt, client_rpt)
     rows = report_rows(phases, legacy, release, errors, selection)
+    from tools.release import client_compile_check
+    compile_result = client_compile_check.scan(client_rpt)
+    rows.append(('audit', 'client_compile', 'join',
+                 'active' if compile_result['passed'] else 'zero',
+                 client_compile_check.verdict_line(compile_result)))
     drivers = driver_lines(client_rpt) if client_rpt else []
     summary = None
     if release:

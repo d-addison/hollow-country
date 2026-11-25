@@ -62,7 +62,11 @@ Order:
 6. Print the client checklist and wait up to 900 seconds (configurable with
    `--client-timeout`, maximum 3600) for all mapped client features to be ACTIVE
    with positive counts. Apply `client_max_vme`, `max_script_errors` and `client_max_missing_textures`
-   from the targets file to client errors.
+   from the targets file to client errors. Also require the
+   [client compile evidence check](CLIENT_COMPILE_CHECK.md) on the fresh client
+   RPT and all sibling script logs, on each poll and before success. Missing
+   completion or any compile error is a hard failure regardless of counters;
+   use a fresh isolated client profile to avoid mixing sessions.
 
 ### Client mode
 

@@ -13,7 +13,7 @@ import threading
 import time
 
 from tools.audit import rpt_config_audit
-from tools.release import activity_check, checkstart, friendcycle, rpt_summary
+from tools.release import activity_check, checkstart, client_compile_check, friendcycle, rpt_summary
 from tools.release.acceptance_targets import load_targets, parse_targets, TargetsError
 from tools.release.host_lock import host_lock, LockRefused
 from tools.setup import winproc
@@ -488,6 +488,10 @@ class NativeSteps:
             raise Refused('six distinct smoke signal mappings required; see RELEASE_GATE.md')
         deadline = time.monotonic() + self.args.client_timeout
         while True:
+            result = client_compile_check.scan(self.client_rpt)
+            emit(client_compile_check.verdict_line(result))
+            if not result['passed']:
+                raise Refused('client compile check failed: ' + result['reason'])
             audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries)
             # Delegate shared [HC Use] parsing to the activity checker. Release
             # mode owns the signal format and reports per-feature active counts.
@@ -498,6 +502,10 @@ class NativeSteps:
             if required <= active:
                 audit(self.rpt, targets=self.targets, entries=self.entries)
                 audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries)
+                result = client_compile_check.scan(self.client_rpt)
+                emit(client_compile_check.verdict_line(result))
+                if not result['passed']:
+                    raise Refused('client compile check failed: ' + result['reason'])
                 return
             if time.monotonic() >= deadline:
                 raise Refused('client smoke timeout')

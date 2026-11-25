@@ -533,6 +533,22 @@ class CampaignTests(Tmp):
     def snapshot(self):
         return {p: p.read_bytes() for p in self.server.rglob('*') if p.is_file()}
 
+    def test_client_script_compile_failure_refuses_during_join_and_restores(self):
+        run, host = self.campaign(join=False)
+        launch = host.launch_client
+
+        def broken_client(root, arguments):
+            launch(root, arguments)
+            profile = self.stager.client_parent / camp.CLIENT_PROFILE
+            (profile / 'script_1.log').write_text("Multiple declaration of function 'Connect'\n")
+
+        host.launch_client = broken_client
+        with self.assertRaisesRegex(camp.Refused, 'client compile check failed: compile_errors'):
+            run.run()
+        self.assertFalse(host.running[camp.CLIENT_IMAGE])
+        self.assertFalse(host.running[camp.SERVER_IMAGE])
+        self.assertEqual(self.snapshot(), self.original)
+
     def test_full_run_drives_idles_stops_gracefully_and_restores(self):
         run, host = self.campaign()
         self.assertTrue(run.run())
