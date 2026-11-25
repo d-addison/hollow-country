@@ -17,8 +17,10 @@ WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
 NATIVE_SCRIPTS = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 NAMES_INDEX_CHECK = 'vanilla_names_index'
 LOOT_OUTPUT = 'mission/hollow-country/loot-points/additions-interiors.json'
-# Historical inputs documented in docs/LOOT_POINTS.md, Reproduction and validation.
-LOOT_REVISIONS = (('prior', '335915c6'), ('candidate', 'fa0c2ac8'))
+# Preserve the complete integration baseline, then audit the geometry-generated
+# #348 candidates. None denotes a repo input, never an installed mission snapshot.
+LOOT_REVISIONS = (('prior', 'd5ff0870c71c'), ('candidate', None))
+LOOT_CANDIDATE = 'tools/package/interior_points_townshelf.json'
 # Full-client checks took 671 s and 393 s on the release host. Allow about 3x headroom when opted in.
 GEOMETRY_COMPARE_TIMEOUTS = {'loot_point_preserve': 2100, 'new_buildings': 1200}
 
@@ -109,6 +111,17 @@ def diagnostic(result):
     return 'no publishable diagnostic'
 
 
+def preservation_input(label, revision, timeout):
+    """Exact historical baseline or the committed, geometry-evidenced candidates."""
+    if revision is None:
+        return (ROOT / LOOT_CANDIDATE).read_bytes()
+    result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
+                            capture_output=True, text=True, errors='replace', timeout=timeout)
+    if result.returncode:
+        raise ValueError(f'historical {label} input unavailable: ' + diagnostic(result))
+    return result.stdout.encode() if isinstance(result.stdout, str) else result.stdout
+
+
 def missing_inputs(generator, values):
     for name in generator.inputs:
         if name == 'ai_roads':
@@ -148,12 +161,12 @@ def check_generator(generator, values, timeout):
         arguments = dict(values)
         if generator.name == 'loot_point_preserve':
             for name, revision in LOOT_REVISIONS:
-                result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
-                                        capture_output=True, text=True, errors='replace', timeout=timeout)
-                if result.returncode:
-                    return 'FAIL', f'historical {name} input unavailable: ' + diagnostic(result)
+                try:
+                    raw = preservation_input(name, revision, timeout)
+                except ValueError as exc:
+                    return 'FAIL', str(exc)
                 path = Path(scratch) / (name + '.json')
-                path.write_text(result.stdout)
+                path.write_bytes(raw)
                 arguments[name] = path
         command = [sys.executable, '-B', '-m', generator.package + '.' + generator.name,
                    *(arg.format_map(arguments) for arg in generator.arguments)]

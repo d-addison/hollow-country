@@ -230,13 +230,9 @@ def installed_snapshot(contract, values):
         except FileNotFoundError as exc:
             raise MissingInput('installed variety pack or stock types unavailable') from exc
     if name == 'loot_point_preserve':
-        from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
+        from tools.package.regenerate_all import LOOT_REVISIONS, preservation_input
         for label, revision in LOOT_REVISIONS:
-            result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
-                                    capture_output=True, timeout=values.get('timeout', 60))
-            if result.returncode:
-                raise ValueError('historical ' + label + ' input unavailable')
-            identities['history/' + label] = sha(result.stdout)
+            identities['history/' + label] = sha(preservation_input(label, revision, values.get('timeout', 60)))
     if name in {'new_buildings', 'loot_point_preserve'}:
         # The geometry reader is in-repo (tools/audit/odol56.py); its bytes are the reader identity.
         identities['geometry_reader'] = file_sha(ROOT / 'tools/audit/odol56.py')
@@ -271,6 +267,29 @@ def installed_snapshot(contract, values):
         from tools.package.admin_world_catalog import UPSTREAM
         identities['official_ce_source'] = UPSTREAM
     return identities
+
+
+def targeted_preservation(prior, candidate, audited):
+    """Keep baseline provenance and layout outside the explicitly audited extension.
+
+    The preservation pass re-audits all coordinates, but a targeted reservation
+    scan does not replace the original generation/selection provenance. Refuse
+    unexpected changes to any unselected building rather than shipping them.
+    """
+    for name, group in prior['groups'].items():
+        if name not in candidate['groups'] and audited['groups'].get(name) != group:
+            raise ValueError('preservation changed untargeted group: ' + name)
+    result = dict(prior, groups=dict(prior['groups']), sources=dict(prior['sources']))
+    for name in candidate['groups']:
+        result['groups'][name] = audited['groups'][name]
+    # The prior receipt is reproducible from the LOOT_REVISIONS baseline in git; inlining it nearly
+    # quadrupled the shipped overlay, so bind it by digest only.
+    prior_receipt = json.dumps(prior['sources']['point_preservation'], sort_keys=True, separators=(',', ':'))
+    result['sources']['prior_point_preservation_sha256'] = hashlib.sha256(prior_receipt.encode()).hexdigest()
+    result['sources']['point_preservation'] = audited['sources']['point_preservation']
+    # Candidate input hashes in the receipt bind the reservation scan; historical
+    # generation_partitions and prior_overlay_selection still describe the baseline.
+    return result
 
 
 def regenerate(contract, values, scratch):
@@ -365,19 +384,15 @@ def regenerate(contract, values, scratch):
         data = module.generate(addons, source, scratch / 'geometry', values.get('native_census', []))
         return {contract.outputs[0]: data}
     if name == 'loot_point_preserve':
-        from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
+        from tools.package.regenerate_all import LOOT_REVISIONS, preservation_input
         addons = values.get('geometry_addons', values['addons'])
         history = []
         for label, revision in LOOT_REVISIONS:
-            result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
-                                    capture_output=True, timeout=values.get('timeout', 60))
-            if result.returncode:
-                raise ValueError('historical ' + label + ' input unavailable')
             path = scratch / (label + '.json')
-            path.write_bytes(result.stdout)
+            path.write_bytes(preservation_input(label, revision, values.get('timeout', 60)))
             history.append(path)
-        # Shipped bytes are the merge of four --refresh-models partitions (docs/LOOT_POINTS.md,
-        # Reproduction and validation); the hash-bound loss audit is read from the committed output.
+        # Audit every baseline and candidate coordinate, preserving passing prior
+        # points before filling remaining space. No live mission supplies bundle data.
         parts = []
         for index in range(4):
             doc = module.preserve(*history, addons, source / 'mapgroupproto.xml', (index, 4),
@@ -390,6 +405,8 @@ def regenerate(contract, values, scratch):
         if audit is not None:
             doc['sources']['point_preservation']['historical_candidate_loss_audit'] = audit
         module.check(*history, doc)  # the merge path of the CLI annotates the receipt in place
+        prior, candidate = [json.loads(path.read_bytes()) for path in history]
+        doc = targeted_preservation(prior, candidate, doc)
         return {contract.outputs[0]: module.encode(doc)}
     raise ValueError('no regeneration adapter: ' + name)
 

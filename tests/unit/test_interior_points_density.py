@@ -1,6 +1,7 @@
 """Point-density lootmax rule of the interior point generator (offline arithmetic only)."""
 import json
 import unittest
+import xml.etree.ElementTree as ET
 
 from tools.package import interior_points_gen as gen
 from tools.package import loot_boost as boost
@@ -38,6 +39,25 @@ class DensityLootmax(unittest.TestCase):
         self.assertEqual(gen.density_lootmax(8, 600.0, gen.FLOOR_DENSITY), 4)
         self.assertEqual(gen.density_lootmax(30, 600.0), boost.MAX_ADDED_LOOTMAX)
         self.assertEqual(gen.density_lootmax(1, 3.0), 1)
+
+
+class OccupiedPoints(unittest.TestCase):
+    def test_reserves_both_surface_and_floor_additions(self):
+        group = ET.fromstring('<group name="Land_Test"/>')
+        spec = overlay(2, 1)['groups']['Land_Test']
+        spec['stock_sha256'] = boost.group_pin(group)
+        self.assertEqual([[0, 0., 0.], [1, 0., 0.], [0, 0., 5.]],
+                         gen.occupied_points(group, {'Land_Test': spec}))
+        self.assertEqual([], list(group.iter('point')))  # no synthetic native anchors
+
+    def test_refuses_coordinates_for_a_different_native_group(self):
+        group = ET.fromstring('<group name="Land_Test"/>')
+        with self.assertRaisesRegex(ValueError, 'stock pin mismatch'):
+            gen.occupied_points(group, overlay(2, 0)['groups'])
+
+    def test_uncovered_group_has_no_reservations(self):
+        self.assertEqual([], gen.occupied_points(ET.fromstring('<group name="Land_Other"/>'),
+                                               overlay(2, 0)['groups']))
 
 
 class ResizeOverlay(unittest.TestCase):

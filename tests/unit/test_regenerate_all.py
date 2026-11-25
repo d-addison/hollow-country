@@ -111,7 +111,8 @@ class RegenerateAllTests(unittest.TestCase):
                 self.assertNotIn('--write', command)
                 if 'tools.package.loot_point_preserve' in command:
                     for flag in ('--prior', '--candidate'):
-                        self.assertEqual('{}', Path(command[command.index(flag) + 1]).read_text())
+                        expected_input = '{}' if flag == '--prior' else (regen.ROOT / regen.LOOT_CANDIDATE).read_text()
+                        self.assertEqual(expected_input, Path(command[command.index(flag) + 1]).read_text())
                     self.assertEqual(regen.LOOT_OUTPUT, command[-1])
                 self.assertTrue('--check' in command or 'check' in command or '--compare' in command)
                 return subprocess.CompletedProcess(command, 0, 'ok', '')
@@ -119,7 +120,8 @@ class RegenerateAllTests(unittest.TestCase):
                 for generator in regen.GENERATORS:
                     current[0] = generator
                     self.assertEqual('PASS', regen.check_generator(generator, values, 7)[0])
-            expected = sum(bool(g.arguments) + bool(g.digest) for g in regen.GENERATORS) + len(regen.LOOT_REVISIONS)
+            expected = sum(bool(g.arguments) + bool(g.digest) for g in regen.GENERATORS) + sum(
+                revision is not None for _, revision in regen.LOOT_REVISIONS)
             self.assertEqual(expected, child.call_count)
 
     def test_generator_timeout_only_raises_the_global_default(self):
@@ -143,6 +145,16 @@ class RegenerateAllTests(unittest.TestCase):
             status, reason = regen.check_generator(generator, {}, 2)
         self.assertEqual('FAIL', status)
         self.assertIn('historical prior input unavailable', reason)
+
+    def test_preservation_candidate_reads_repo_bytes_without_git(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = root / regen.LOOT_CANDIDATE
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b'{"candidate": true}\n')
+            with patch.object(regen, 'ROOT', root), patch.object(regen.subprocess, 'run') as child:
+                self.assertEqual(path.read_bytes(), regen.preservation_input('candidate', None, 2))
+                child.assert_not_called()
 
     def test_failure_output_is_private_and_one_line(self):
         generator = regen.GENERATORS[0]
