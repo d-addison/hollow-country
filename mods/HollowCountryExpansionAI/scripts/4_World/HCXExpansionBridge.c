@@ -1493,6 +1493,10 @@ class HCXAIGroupHold
         }
     }
     // Entries are weak and turn null once the entity is deleted.
+    // Finish-only retain check (#375): Group is protected, so HCXAIGroupHolds asks the hold.
+    // eAIGroup.Count is m_Members.Count (no native call); a listed corpse keeps the hold.
+    bool HCListsMember() { return Group && Group.Count() > 0; }
+
     bool Settled()
     {
         foreach (DayZPlayerImplement member : Members)
@@ -1563,7 +1567,7 @@ class HCXAIGroupHolds
                 HCXAIGroupHold held = s_Retired[at];
                 if (held)
                 {
-                    if (!GetGame() || held.HCNamesLiveSlot() || !held.Settled() || (held.Group && held.Group.Count() > 0) || held.SettledAtMs < 0 || nowMs - held.SettledAtMs < HC_SETTLE_MS || held.SettledSeen < 3)
+                    if (!GetGame() || held.HCNamesLiveSlot() || !held.Settled() || held.HCListsMember() || held.SettledAtMs < 0 || nowMs - held.SettledAtMs < HC_SETTLE_MS || held.SettledSeen < 3)
                     {
                         retained++;
                         continue;
