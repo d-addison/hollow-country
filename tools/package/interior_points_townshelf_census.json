@@ -1,0 +1,1516 @@
+{
+  "by_usage": {
+    "Coast": {
+      "after": {
+        "budget_point_slots": 38.6,
+        "map_points": 193,
+        "map_shelf_slot_upper_bound": 193
+      },
+      "before": {
+        "budget_point_slots": 38.6,
+        "map_points": 193,
+        "map_shelf_slot_upper_bound": 193
+      },
+      "classes": {
+        "Land_Boat_Small1": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 109,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 109,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Boat_Small2": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 72,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 72,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Boat_Small3": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 72,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 72,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Boathouse": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 4,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 4,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Container_1Aoh": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 79,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 79,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Container_1Bo": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 128,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 128,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Ship_Big_BackA": {
+          "after": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          },
+          "before": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          }
+        },
+        "Land_Ship_Big_BackB": {
+          "after": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          },
+          "before": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          }
+        },
+        "Land_Ship_Big_Castle": {
+          "after": {
+            "budget_point_slots": 9.0,
+            "instances": 1,
+            "map_points": 45,
+            "map_shelf_slot_upper_bound": 45,
+            "points_per_instance": 45,
+            "shelf_slot_upper_bound_per_instance": 45
+          },
+          "before": {
+            "budget_point_slots": 9.0,
+            "instances": 1,
+            "map_points": 45,
+            "map_shelf_slot_upper_bound": 45,
+            "points_per_instance": 45,
+            "shelf_slot_upper_bound_per_instance": 45
+          }
+        },
+        "Land_Ship_Big_FrontA": {
+          "after": {
+            "budget_point_slots": 10.6,
+            "instances": 1,
+            "map_points": 53,
+            "map_shelf_slot_upper_bound": 53,
+            "points_per_instance": 53,
+            "shelf_slot_upper_bound_per_instance": 53
+          },
+          "before": {
+            "budget_point_slots": 10.6,
+            "instances": 1,
+            "map_points": 53,
+            "map_shelf_slot_upper_bound": 53,
+            "points_per_instance": 53,
+            "shelf_slot_upper_bound_per_instance": 53
+          }
+        },
+        "Land_Ship_Big_FrontB": {
+          "after": {
+            "budget_point_slots": 8.2,
+            "instances": 1,
+            "map_points": 41,
+            "map_shelf_slot_upper_bound": 41,
+            "points_per_instance": 41,
+            "shelf_slot_upper_bound_per_instance": 41
+          },
+          "before": {
+            "budget_point_slots": 8.2,
+            "instances": 1,
+            "map_points": 41,
+            "map_shelf_slot_upper_bound": 41,
+            "points_per_instance": 41,
+            "shelf_slot_upper_bound_per_instance": 41
+          }
+        }
+      },
+      "supplied_ce_snapshot": {
+        "budget_point_slots": 38.6,
+        "map_points": 193,
+        "map_shelf_slot_upper_bound": 193
+      }
+    },
+    "Town": {
+      "after": {
+        "budget_point_slots": 13770.236,
+        "map_points": 25046,
+        "map_shelf_slot_upper_bound": 21218
+      },
+      "before": {
+        "budget_point_slots": 13704.589,
+        "map_points": 24974,
+        "map_shelf_slot_upper_bound": 21146
+      },
+      "classes": {
+        "Land_Airfield_Small_Control": {
+          "after": {
+            "budget_point_slots": 87.826087,
+            "instances": 2,
+            "map_points": 202,
+            "map_shelf_slot_upper_bound": 202,
+            "points_per_instance": 101,
+            "shelf_slot_upper_bound_per_instance": 101
+          },
+          "before": {
+            "budget_point_slots": 87.826087,
+            "instances": 2,
+            "map_points": 202,
+            "map_shelf_slot_upper_bound": 202,
+            "points_per_instance": 101,
+            "shelf_slot_upper_bound_per_instance": 101
+          }
+        },
+        "Land_BusStation_building": {
+          "after": {
+            "budget_point_slots": 16.0,
+            "instances": 4,
+            "map_points": 16,
+            "map_shelf_slot_upper_bound": 16,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          },
+          "before": {
+            "budget_point_slots": 16.0,
+            "instances": 4,
+            "map_points": 16,
+            "map_shelf_slot_upper_bound": 16,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          }
+        },
+        "Land_BusStation_wall_bench": {
+          "after": {
+            "budget_point_slots": 49.285714,
+            "instances": 23,
+            "map_points": 69,
+            "map_shelf_slot_upper_bound": 69,
+            "points_per_instance": 3,
+            "shelf_slot_upper_bound_per_instance": 3
+          },
+          "before": {
+            "budget_point_slots": 49.285714,
+            "instances": 23,
+            "map_points": 69,
+            "map_shelf_slot_upper_bound": 69,
+            "points_per_instance": 3,
+            "shelf_slot_upper_bound_per_instance": 3
+          }
+        },
+        "Land_BusStop_City": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 51,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 51,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Chapel": {
+          "after": {
+            "budget_point_slots": 30.0,
+            "instances": 15,
+            "map_points": 60,
+            "map_shelf_slot_upper_bound": 60,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          },
+          "before": {
+            "budget_point_slots": 30.0,
+            "instances": 15,
+            "map_points": 60,
+            "map_shelf_slot_upper_bound": 60,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          }
+        },
+        "Land_Church1_Yellow": {
+          "after": {
+            "budget_point_slots": 44.0,
+            "instances": 8,
+            "map_points": 88,
+            "map_shelf_slot_upper_bound": 88,
+            "points_per_instance": 11,
+            "shelf_slot_upper_bound_per_instance": 11
+          },
+          "before": {
+            "budget_point_slots": 44.0,
+            "instances": 8,
+            "map_points": 88,
+            "map_shelf_slot_upper_bound": 88,
+            "points_per_instance": 11,
+            "shelf_slot_upper_bound_per_instance": 11
+          }
+        },
+        "Land_Church2_1": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 3,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 3,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Church2_2": {
+          "after": {
+            "budget_point_slots": 12.0,
+            "instances": 6,
+            "map_points": 24,
+            "map_shelf_slot_upper_bound": 24,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          },
+          "before": {
+            "budget_point_slots": 12.0,
+            "instances": 6,
+            "map_points": 24,
+            "map_shelf_slot_upper_bound": 24,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          }
+        },
+        "Land_Church3": {
+          "after": {
+            "budget_point_slots": 38.5,
+            "instances": 7,
+            "map_points": 77,
+            "map_shelf_slot_upper_bound": 77,
+            "points_per_instance": 11,
+            "shelf_slot_upper_bound_per_instance": 11
+          },
+          "before": {
+            "budget_point_slots": 38.5,
+            "instances": 7,
+            "map_points": 77,
+            "map_shelf_slot_upper_bound": 77,
+            "points_per_instance": 11,
+            "shelf_slot_upper_bound_per_instance": 11
+          }
+        },
+        "Land_City_School": {
+          "after": {
+            "budget_point_slots": 161.487384,
+            "instances": 5,
+            "map_points": 895,
+            "map_shelf_slot_upper_bound": 760,
+            "points_per_instance": 179,
+            "shelf_slot_upper_bound_per_instance": 152
+          },
+          "before": {
+            "budget_point_slots": 161.487384,
+            "instances": 5,
+            "map_points": 895,
+            "map_shelf_slot_upper_bound": 760,
+            "points_per_instance": 179,
+            "shelf_slot_upper_bound_per_instance": 152
+          }
+        },
+        "Land_City_Stand_FastFood": {
+          "after": {
+            "budget_point_slots": 261.0,
+            "instances": 29,
+            "map_points": 261,
+            "map_shelf_slot_upper_bound": 261,
+            "points_per_instance": 9,
+            "shelf_slot_upper_bound_per_instance": 9
+          },
+          "before": {
+            "budget_point_slots": 261.0,
+            "instances": 29,
+            "map_points": 261,
+            "map_shelf_slot_upper_bound": 261,
+            "points_per_instance": 9,
+            "shelf_slot_upper_bound_per_instance": 9
+          }
+        },
+        "Land_City_Stand_Grocery": {
+          "after": {
+            "budget_point_slots": 514.285714,
+            "instances": 45,
+            "map_points": 540,
+            "map_shelf_slot_upper_bound": 540,
+            "points_per_instance": 12,
+            "shelf_slot_upper_bound_per_instance": 12
+          },
+          "before": {
+            "budget_point_slots": 514.285714,
+            "instances": 45,
+            "map_points": 540,
+            "map_shelf_slot_upper_bound": 540,
+            "points_per_instance": 12,
+            "shelf_slot_upper_bound_per_instance": 12
+          }
+        },
+        "Land_City_Stand_News1": {
+          "after": {
+            "budget_point_slots": 306.0,
+            "instances": 34,
+            "map_points": 306,
+            "map_shelf_slot_upper_bound": 306,
+            "points_per_instance": 9,
+            "shelf_slot_upper_bound_per_instance": 9
+          },
+          "before": {
+            "budget_point_slots": 306.0,
+            "instances": 34,
+            "map_points": 306,
+            "map_shelf_slot_upper_bound": 306,
+            "points_per_instance": 9,
+            "shelf_slot_upper_bound_per_instance": 9
+          }
+        },
+        "Land_City_Stand_News2": {
+          "after": {
+            "budget_point_slots": 180.0,
+            "instances": 45,
+            "map_points": 180,
+            "map_shelf_slot_upper_bound": 180,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          },
+          "before": {
+            "budget_point_slots": 180.0,
+            "instances": 45,
+            "map_points": 180,
+            "map_shelf_slot_upper_bound": 180,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          }
+        },
+        "Land_City_Store": {
+          "after": {
+            "budget_point_slots": 256.567029,
+            "instances": 11,
+            "map_points": 1133,
+            "map_shelf_slot_upper_bound": 1133,
+            "points_per_instance": 103,
+            "shelf_slot_upper_bound_per_instance": 103
+          },
+          "before": {
+            "budget_point_slots": 256.567029,
+            "instances": 11,
+            "map_points": 1133,
+            "map_shelf_slot_upper_bound": 1133,
+            "points_per_instance": 103,
+            "shelf_slot_upper_bound_per_instance": 103
+          }
+        },
+        "Land_City_Store_WithStairs": {
+          "after": {
+            "budget_point_slots": 172.0,
+            "instances": 8,
+            "map_points": 752,
+            "map_shelf_slot_upper_bound": 688,
+            "points_per_instance": 94,
+            "shelf_slot_upper_bound_per_instance": 86
+          },
+          "before": {
+            "budget_point_slots": 172.0,
+            "instances": 8,
+            "map_points": 752,
+            "map_shelf_slot_upper_bound": 688,
+            "points_per_instance": 94,
+            "shelf_slot_upper_bound_per_instance": 86
+          }
+        },
+        "Land_FuelStation_Build": {
+          "after": {
+            "budget_point_slots": 76.0,
+            "instances": 19,
+            "map_points": 152,
+            "map_shelf_slot_upper_bound": 152,
+            "points_per_instance": 8,
+            "shelf_slot_upper_bound_per_instance": 8
+          },
+          "before": {
+            "budget_point_slots": 76.0,
+            "instances": 19,
+            "map_points": 152,
+            "map_shelf_slot_upper_bound": 152,
+            "points_per_instance": 8,
+            "shelf_slot_upper_bound_per_instance": 8
+          }
+        },
+        "Land_Garage_Office": {
+          "after": {
+            "budget_point_slots": 352.666667,
+            "instances": 23,
+            "map_points": 1104,
+            "map_shelf_slot_upper_bound": 1058,
+            "points_per_instance": 48,
+            "shelf_slot_upper_bound_per_instance": 46
+          },
+          "before": {
+            "budget_point_slots": 352.666667,
+            "instances": 23,
+            "map_points": 1104,
+            "map_shelf_slot_upper_bound": 1058,
+            "points_per_instance": 48,
+            "shelf_slot_upper_bound_per_instance": 46
+          }
+        },
+        "Land_Hotel": {
+          "after": {
+            "budget_point_slots": 27.058824,
+            "instances": 1,
+            "map_points": 46,
+            "map_shelf_slot_upper_bound": 30,
+            "points_per_instance": 46,
+            "shelf_slot_upper_bound_per_instance": 30
+          },
+          "before": {
+            "budget_point_slots": 27.058824,
+            "instances": 1,
+            "map_points": 46,
+            "map_shelf_slot_upper_bound": 30,
+            "points_per_instance": 46,
+            "shelf_slot_upper_bound_per_instance": 30
+          }
+        },
+        "Land_Hotel_Damaged": {
+          "after": {
+            "budget_point_slots": 14.0,
+            "instances": 1,
+            "map_points": 19,
+            "map_shelf_slot_upper_bound": 14,
+            "points_per_instance": 19,
+            "shelf_slot_upper_bound_per_instance": 14
+          },
+          "before": {
+            "budget_point_slots": 14.0,
+            "instances": 1,
+            "map_points": 19,
+            "map_shelf_slot_upper_bound": 14,
+            "points_per_instance": 19,
+            "shelf_slot_upper_bound_per_instance": 14
+          }
+        },
+        "Land_HouseBlock_1F1": {
+          "after": {
+            "budget_point_slots": 1007.4,
+            "instances": 73,
+            "map_points": 1533,
+            "map_shelf_slot_upper_bound": 1314,
+            "points_per_instance": 21,
+            "shelf_slot_upper_bound_per_instance": 18
+          },
+          "before": {
+            "budget_point_slots": 1007.4,
+            "instances": 73,
+            "map_points": 1533,
+            "map_shelf_slot_upper_bound": 1314,
+            "points_per_instance": 21,
+            "shelf_slot_upper_bound_per_instance": 18
+          }
+        },
+        "Land_HouseBlock_1F2": {
+          "after": {
+            "budget_point_slots": 675.818182,
+            "instances": 59,
+            "map_points": 708,
+            "map_shelf_slot_upper_bound": 708,
+            "points_per_instance": 12,
+            "shelf_slot_upper_bound_per_instance": 12
+          },
+          "before": {
+            "budget_point_slots": 675.818182,
+            "instances": 59,
+            "map_points": 708,
+            "map_shelf_slot_upper_bound": 708,
+            "points_per_instance": 12,
+            "shelf_slot_upper_bound_per_instance": 12
+          }
+        },
+        "Land_HouseBlock_1F3": {
+          "after": {
+            "budget_point_slots": 420.0,
+            "instances": 70,
+            "map_points": 420,
+            "map_shelf_slot_upper_bound": 420,
+            "points_per_instance": 6,
+            "shelf_slot_upper_bound_per_instance": 6
+          },
+          "before": {
+            "budget_point_slots": 420.0,
+            "instances": 70,
+            "map_points": 420,
+            "map_shelf_slot_upper_bound": 420,
+            "points_per_instance": 6,
+            "shelf_slot_upper_bound_per_instance": 6
+          }
+        },
+        "Land_HouseBlock_1F4": {
+          "after": {
+            "budget_point_slots": 288.0,
+            "instances": 48,
+            "map_points": 288,
+            "map_shelf_slot_upper_bound": 288,
+            "points_per_instance": 6,
+            "shelf_slot_upper_bound_per_instance": 6
+          },
+          "before": {
+            "budget_point_slots": 288.0,
+            "instances": 48,
+            "map_points": 288,
+            "map_shelf_slot_upper_bound": 288,
+            "points_per_instance": 6,
+            "shelf_slot_upper_bound_per_instance": 6
+          }
+        },
+        "Land_HouseBlock_1F_Corner": {
+          "after": {
+            "budget_point_slots": 462.875,
+            "instances": 23,
+            "map_points": 805,
+            "map_shelf_slot_upper_bound": 529,
+            "points_per_instance": 35,
+            "shelf_slot_upper_bound_per_instance": 23
+          },
+          "before": {
+            "budget_point_slots": 462.875,
+            "instances": 23,
+            "map_points": 805,
+            "map_shelf_slot_upper_bound": 529,
+            "points_per_instance": 35,
+            "shelf_slot_upper_bound_per_instance": 23
+          }
+        },
+        "Land_HouseBlock_2F1": {
+          "after": {
+            "budget_point_slots": 533.647059,
+            "instances": 36,
+            "map_points": 792,
+            "map_shelf_slot_upper_bound": 648,
+            "points_per_instance": 22,
+            "shelf_slot_upper_bound_per_instance": 18
+          },
+          "before": {
+            "budget_point_slots": 468.0,
+            "instances": 36,
+            "map_points": 720,
+            "map_shelf_slot_upper_bound": 576,
+            "points_per_instance": 20,
+            "shelf_slot_upper_bound_per_instance": 16
+          }
+        },
+        "Land_HouseBlock_2F2": {
+          "after": {
+            "budget_point_slots": 613.421053,
+            "instances": 37,
+            "map_points": 962,
+            "map_shelf_slot_upper_bound": 777,
+            "points_per_instance": 26,
+            "shelf_slot_upper_bound_per_instance": 21
+          },
+          "before": {
+            "budget_point_slots": 613.421053,
+            "instances": 37,
+            "map_points": 962,
+            "map_shelf_slot_upper_bound": 777,
+            "points_per_instance": 26,
+            "shelf_slot_upper_bound_per_instance": 21
+          }
+        },
+        "Land_HouseBlock_2F3": {
+          "after": {
+            "budget_point_slots": 324.0,
+            "instances": 21,
+            "map_points": 609,
+            "map_shelf_slot_upper_bound": 378,
+            "points_per_instance": 29,
+            "shelf_slot_upper_bound_per_instance": 18
+          },
+          "before": {
+            "budget_point_slots": 324.0,
+            "instances": 21,
+            "map_points": 609,
+            "map_shelf_slot_upper_bound": 378,
+            "points_per_instance": 29,
+            "shelf_slot_upper_bound_per_instance": 18
+          }
+        },
+        "Land_HouseBlock_2F4": {
+          "after": {
+            "budget_point_slots": 494.0,
+            "instances": 38,
+            "map_points": 836,
+            "map_shelf_slot_upper_bound": 570,
+            "points_per_instance": 22,
+            "shelf_slot_upper_bound_per_instance": 15
+          },
+          "before": {
+            "budget_point_slots": 494.0,
+            "instances": 38,
+            "map_points": 836,
+            "map_shelf_slot_upper_bound": 570,
+            "points_per_instance": 22,
+            "shelf_slot_upper_bound_per_instance": 15
+          }
+        },
+        "Land_HouseBlock_2F5": {
+          "after": {
+            "budget_point_slots": 242.272727,
+            "instances": 41,
+            "map_points": 861,
+            "map_shelf_slot_upper_bound": 533,
+            "points_per_instance": 21,
+            "shelf_slot_upper_bound_per_instance": 13
+          },
+          "before": {
+            "budget_point_slots": 242.272727,
+            "instances": 41,
+            "map_points": 861,
+            "map_shelf_slot_upper_bound": 533,
+            "points_per_instance": 21,
+            "shelf_slot_upper_bound_per_instance": 13
+          }
+        },
+        "Land_HouseBlock_2F6": {
+          "after": {
+            "budget_point_slots": 635.526316,
+            "instances": 35,
+            "map_points": 910,
+            "map_shelf_slot_upper_bound": 805,
+            "points_per_instance": 26,
+            "shelf_slot_upper_bound_per_instance": 23
+          },
+          "before": {
+            "budget_point_slots": 635.526316,
+            "instances": 35,
+            "map_points": 910,
+            "map_shelf_slot_upper_bound": 805,
+            "points_per_instance": 26,
+            "shelf_slot_upper_bound_per_instance": 23
+          }
+        },
+        "Land_HouseBlock_2F7": {
+          "after": {
+            "budget_point_slots": 76.0,
+            "instances": 19,
+            "map_points": 152,
+            "map_shelf_slot_upper_bound": 152,
+            "points_per_instance": 8,
+            "shelf_slot_upper_bound_per_instance": 8
+          },
+          "before": {
+            "budget_point_slots": 76.0,
+            "instances": 19,
+            "map_points": 152,
+            "map_shelf_slot_upper_bound": 152,
+            "points_per_instance": 8,
+            "shelf_slot_upper_bound_per_instance": 8
+          }
+        },
+        "Land_HouseBlock_2F8": {
+          "after": {
+            "budget_point_slots": 277.586207,
+            "instances": 25,
+            "map_points": 425,
+            "map_shelf_slot_upper_bound": 350,
+            "points_per_instance": 17,
+            "shelf_slot_upper_bound_per_instance": 14
+          },
+          "before": {
+            "budget_point_slots": 277.586207,
+            "instances": 25,
+            "map_points": 425,
+            "map_shelf_slot_upper_bound": 350,
+            "points_per_instance": 17,
+            "shelf_slot_upper_bound_per_instance": 14
+          }
+        },
+        "Land_HouseBlock_2F9": {
+          "after": {
+            "budget_point_slots": 180.0,
+            "instances": 18,
+            "map_points": 270,
+            "map_shelf_slot_upper_bound": 234,
+            "points_per_instance": 15,
+            "shelf_slot_upper_bound_per_instance": 13
+          },
+          "before": {
+            "budget_point_slots": 180.0,
+            "instances": 18,
+            "map_points": 270,
+            "map_shelf_slot_upper_bound": 234,
+            "points_per_instance": 15,
+            "shelf_slot_upper_bound_per_instance": 13
+          }
+        },
+        "Land_HouseBlock_2F_Corner": {
+          "after": {
+            "budget_point_slots": 224.0,
+            "instances": 56,
+            "map_points": 224,
+            "map_shelf_slot_upper_bound": 224,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          },
+          "before": {
+            "budget_point_slots": 224.0,
+            "instances": 56,
+            "map_points": 224,
+            "map_shelf_slot_upper_bound": 224,
+            "points_per_instance": 4,
+            "shelf_slot_upper_bound_per_instance": 4
+          }
+        },
+        "Land_HouseBlock_3F1": {
+          "after": {
+            "budget_point_slots": 184.0,
+            "instances": 23,
+            "map_points": 184,
+            "map_shelf_slot_upper_bound": 184,
+            "points_per_instance": 8,
+            "shelf_slot_upper_bound_per_instance": 8
+          },
+          "before": {
+            "budget_point_slots": 184.0,
+            "instances": 23,
+            "map_points": 184,
+            "map_shelf_slot_upper_bound": 184,
+            "points_per_instance": 8,
+            "shelf_slot_upper_bound_per_instance": 8
+          }
+        },
+        "Land_HouseBlock_3F2": {
+          "after": {
+            "budget_point_slots": 546.0,
+            "instances": 20,
+            "map_points": 720,
+            "map_shelf_slot_upper_bound": 560,
+            "points_per_instance": 36,
+            "shelf_slot_upper_bound_per_instance": 28
+          },
+          "before": {
+            "budget_point_slots": 546.0,
+            "instances": 20,
+            "map_points": 720,
+            "map_shelf_slot_upper_bound": 560,
+            "points_per_instance": 36,
+            "shelf_slot_upper_bound_per_instance": 28
+          }
+        },
+        "Land_HouseBlock_3F_Corner1": {
+          "after": {
+            "budget_point_slots": 343.698113,
+            "instances": 12,
+            "map_points": 780,
+            "map_shelf_slot_upper_bound": 396,
+            "points_per_instance": 65,
+            "shelf_slot_upper_bound_per_instance": 33
+          },
+          "before": {
+            "budget_point_slots": 343.698113,
+            "instances": 12,
+            "map_points": 780,
+            "map_shelf_slot_upper_bound": 396,
+            "points_per_instance": 65,
+            "shelf_slot_upper_bound_per_instance": 33
+          }
+        },
+        "Land_HouseBlock_3F_Corner2": {
+          "after": {
+            "budget_point_slots": 320.294118,
+            "instances": 11,
+            "map_points": 440,
+            "map_shelf_slot_upper_bound": 363,
+            "points_per_instance": 40,
+            "shelf_slot_upper_bound_per_instance": 33
+          },
+          "before": {
+            "budget_point_slots": 320.294118,
+            "instances": 11,
+            "map_points": 440,
+            "map_shelf_slot_upper_bound": 363,
+            "points_per_instance": 40,
+            "shelf_slot_upper_bound_per_instance": 33
+          }
+        },
+        "Land_HouseBlock_5F": {
+          "after": {
+            "budget_point_slots": 51.0,
+            "instances": 2,
+            "map_points": 74,
+            "map_shelf_slot_upper_bound": 68,
+            "points_per_instance": 37,
+            "shelf_slot_upper_bound_per_instance": 34
+          },
+          "before": {
+            "budget_point_slots": 51.0,
+            "instances": 2,
+            "map_points": 74,
+            "map_shelf_slot_upper_bound": 68,
+            "points_per_instance": 37,
+            "shelf_slot_upper_bound_per_instance": 34
+          }
+        },
+        "Land_House_1B01_Pub": {
+          "after": {
+            "budget_point_slots": 1564.0,
+            "instances": 68,
+            "map_points": 3128,
+            "map_shelf_slot_upper_bound": 3128,
+            "points_per_instance": 46,
+            "shelf_slot_upper_bound_per_instance": 46
+          },
+          "before": {
+            "budget_point_slots": 1564.0,
+            "instances": 68,
+            "map_points": 3128,
+            "map_shelf_slot_upper_bound": 3128,
+            "points_per_instance": 46,
+            "shelf_slot_upper_bound_per_instance": 46
+          }
+        },
+        "Land_Lunapark_Autodrome": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 2,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 2,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Lunapark_Carousel_Swan": {
+          "after": {
+            "budget_point_slots": 0.0,
+            "instances": 3,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0.0,
+            "instances": 3,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Lunapark_Ferris_wheel": {
+          "after": {
+            "budget_point_slots": 3.0,
+            "instances": 2,
+            "map_points": 6,
+            "map_shelf_slot_upper_bound": 6,
+            "points_per_instance": 3,
+            "shelf_slot_upper_bound_per_instance": 3
+          },
+          "before": {
+            "budget_point_slots": 3.0,
+            "instances": 2,
+            "map_points": 6,
+            "map_shelf_slot_upper_bound": 6,
+            "points_per_instance": 3,
+            "shelf_slot_upper_bound_per_instance": 3
+          }
+        },
+        "Land_Lunapark_Shooting_Gallery": {
+          "after": {
+            "budget_point_slots": 32.666667,
+            "instances": 7,
+            "map_points": 98,
+            "map_shelf_slot_upper_bound": 98,
+            "points_per_instance": 14,
+            "shelf_slot_upper_bound_per_instance": 14
+          },
+          "before": {
+            "budget_point_slots": 32.666667,
+            "instances": 7,
+            "map_points": 98,
+            "map_shelf_slot_upper_bound": 98,
+            "points_per_instance": 14,
+            "shelf_slot_upper_bound_per_instance": 14
+          }
+        },
+        "Land_Office1": {
+          "after": {
+            "budget_point_slots": 111.370787,
+            "instances": 7,
+            "map_points": 693,
+            "map_shelf_slot_upper_bound": 336,
+            "points_per_instance": 99,
+            "shelf_slot_upper_bound_per_instance": 48
+          },
+          "before": {
+            "budget_point_slots": 111.370787,
+            "instances": 7,
+            "map_points": 693,
+            "map_shelf_slot_upper_bound": 336,
+            "points_per_instance": 99,
+            "shelf_slot_upper_bound_per_instance": 48
+          }
+        },
+        "Land_Office2": {
+          "after": {
+            "budget_point_slots": 123.882353,
+            "instances": 9,
+            "map_points": 693,
+            "map_shelf_slot_upper_bound": 351,
+            "points_per_instance": 77,
+            "shelf_slot_upper_bound_per_instance": 39
+          },
+          "before": {
+            "budget_point_slots": 123.882353,
+            "instances": 9,
+            "map_points": 693,
+            "map_shelf_slot_upper_bound": 351,
+            "points_per_instance": 77,
+            "shelf_slot_upper_bound_per_instance": 39
+          }
+        },
+        "Land_Office_Municipal1": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 1,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 1,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        },
+        "Land_Office_Municipal2": {
+          "after": {
+            "budget_point_slots": 2.5,
+            "instances": 1,
+            "map_points": 32,
+            "map_shelf_slot_upper_bound": 5,
+            "points_per_instance": 32,
+            "shelf_slot_upper_bound_per_instance": 5
+          },
+          "before": {
+            "budget_point_slots": 2.5,
+            "instances": 1,
+            "map_points": 32,
+            "map_shelf_slot_upper_bound": 5,
+            "points_per_instance": 32,
+            "shelf_slot_upper_bound_per_instance": 5
+          }
+        },
+        "Land_Radio_building": {
+          "after": {
+            "budget_point_slots": 19.0,
+            "instances": 1,
+            "map_points": 42,
+            "map_shelf_slot_upper_bound": 38,
+            "points_per_instance": 42,
+            "shelf_slot_upper_bound_per_instance": 38
+          },
+          "before": {
+            "budget_point_slots": 19.0,
+            "instances": 1,
+            "map_points": 42,
+            "map_shelf_slot_upper_bound": 38,
+            "points_per_instance": 42,
+            "shelf_slot_upper_bound_per_instance": 38
+          }
+        },
+        "Land_Ship_Big_BackA": {
+          "after": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          },
+          "before": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          }
+        },
+        "Land_Ship_Big_BackB": {
+          "after": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          },
+          "before": {
+            "budget_point_slots": 5.4,
+            "instances": 1,
+            "map_points": 27,
+            "map_shelf_slot_upper_bound": 27,
+            "points_per_instance": 27,
+            "shelf_slot_upper_bound_per_instance": 27
+          }
+        },
+        "Land_Ship_Big_Castle": {
+          "after": {
+            "budget_point_slots": 9.0,
+            "instances": 1,
+            "map_points": 45,
+            "map_shelf_slot_upper_bound": 45,
+            "points_per_instance": 45,
+            "shelf_slot_upper_bound_per_instance": 45
+          },
+          "before": {
+            "budget_point_slots": 9.0,
+            "instances": 1,
+            "map_points": 45,
+            "map_shelf_slot_upper_bound": 45,
+            "points_per_instance": 45,
+            "shelf_slot_upper_bound_per_instance": 45
+          }
+        },
+        "Land_Ship_Big_FrontA": {
+          "after": {
+            "budget_point_slots": 10.6,
+            "instances": 1,
+            "map_points": 53,
+            "map_shelf_slot_upper_bound": 53,
+            "points_per_instance": 53,
+            "shelf_slot_upper_bound_per_instance": 53
+          },
+          "before": {
+            "budget_point_slots": 10.6,
+            "instances": 1,
+            "map_points": 53,
+            "map_shelf_slot_upper_bound": 53,
+            "points_per_instance": 53,
+            "shelf_slot_upper_bound_per_instance": 53
+          }
+        },
+        "Land_Ship_Big_FrontB": {
+          "after": {
+            "budget_point_slots": 8.2,
+            "instances": 1,
+            "map_points": 41,
+            "map_shelf_slot_upper_bound": 41,
+            "points_per_instance": 41,
+            "shelf_slot_upper_bound_per_instance": 41
+          },
+          "before": {
+            "budget_point_slots": 8.2,
+            "instances": 1,
+            "map_points": 41,
+            "map_shelf_slot_upper_bound": 41,
+            "points_per_instance": 41,
+            "shelf_slot_upper_bound_per_instance": 41
+          }
+        },
+        "Land_Tenement_Big": {
+          "after": {
+            "budget_point_slots": 190.0,
+            "instances": 38,
+            "map_points": 266,
+            "map_shelf_slot_upper_bound": 190,
+            "points_per_instance": 7,
+            "shelf_slot_upper_bound_per_instance": 5
+          },
+          "before": {
+            "budget_point_slots": 190.0,
+            "instances": 38,
+            "map_points": 266,
+            "map_shelf_slot_upper_bound": 190,
+            "points_per_instance": 7,
+            "shelf_slot_upper_bound_per_instance": 5
+          }
+        },
+        "Land_Tenement_Small": {
+          "after": {
+            "budget_point_slots": 660.0,
+            "instances": 132,
+            "map_points": 924,
+            "map_shelf_slot_upper_bound": 660,
+            "points_per_instance": 7,
+            "shelf_slot_upper_bound_per_instance": 5
+          },
+          "before": {
+            "budget_point_slots": 660.0,
+            "instances": 132,
+            "map_points": 924,
+            "map_shelf_slot_upper_bound": 660,
+            "points_per_instance": 7,
+            "shelf_slot_upper_bound_per_instance": 5
+          }
+        },
+        "Land_Village_Pub": {
+          "after": {
+            "budget_point_slots": 527.0,
+            "instances": 34,
+            "map_points": 1054,
+            "map_shelf_slot_upper_bound": 1054,
+            "points_per_instance": 31,
+            "shelf_slot_upper_bound_per_instance": 31
+          },
+          "before": {
+            "budget_point_slots": 527.0,
+            "instances": 34,
+            "map_points": 1054,
+            "map_shelf_slot_upper_bound": 1054,
+            "points_per_instance": 31,
+            "shelf_slot_upper_bound_per_instance": 31
+          }
+        },
+        "Land_Wreck_Ikarus": {
+          "after": {
+            "budget_point_slots": 0,
+            "instances": 75,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          },
+          "before": {
+            "budget_point_slots": 0,
+            "instances": 75,
+            "map_points": 0,
+            "map_shelf_slot_upper_bound": 0,
+            "points_per_instance": 0,
+            "shelf_slot_upper_bound_per_instance": 0
+          }
+        }
+      },
+      "supplied_ce_snapshot": {
+        "budget_point_slots": 13681.589,
+        "map_points": 24974,
+        "map_shelf_slot_upper_bound": 21077
+      }
+    }
+  },
+  "floor_policy_unplaced_before_after": [
+    911,
+    911
+  ],
+  "geometry_missing_inputs": [],
+  "geometry_scan_targets": [
+    "Land_Boathouse",
+    "Land_BusStation_building",
+    "Land_BusStation_wall_bench",
+    "Land_BusStop_City",
+    "Land_Chapel",
+    "Land_Church1_Yellow",
+    "Land_Church2_2",
+    "Land_Church3",
+    "Land_City_Stand_FastFood",
+    "Land_City_Stand_Grocery",
+    "Land_City_Stand_News1",
+    "Land_City_Stand_News2",
+    "Land_FuelStation_Build",
+    "Land_HouseBlock_1F1",
+    "Land_HouseBlock_1F2",
+    "Land_HouseBlock_1F3",
+    "Land_HouseBlock_1F4",
+    "Land_HouseBlock_2F1",
+    "Land_HouseBlock_2F2",
+    "Land_HouseBlock_2F4",
+    "Land_HouseBlock_2F5",
+    "Land_HouseBlock_2F6",
+    "Land_HouseBlock_2F7",
+    "Land_HouseBlock_2F8",
+    "Land_HouseBlock_2F_Corner",
+    "Land_HouseBlock_3F1",
+    "Land_Lunapark_Autodrome",
+    "Land_Lunapark_Carousel_Swan",
+    "Land_Lunapark_Ferris_wheel",
+    "Land_Lunapark_Shooting_Gallery",
+    "Land_Tenement_Big",
+    "Land_Tenement_Small"
+  ],
+  "installer_rehearsal": {
+    "installed_files": 4,
+    "new_rollback_exact": true,
+    "previous_rollback_exact": true,
+    "receipt_point_hash_changed": true
+  },
+  "issue": 348,
+  "method": "controlled stock-mission loot_boost.plan before/after, identical settings and type inputs; raw shelf slots are bounded by shelf points, container and group lootmax; budget slots additionally divide shared group headroom proportionally and split usages/tags as economy.placement_budget does",
+  "native_experiments_pending": [
+    "CE hard-to-place comparison on unchanged nominals",
+    "standing-player pickup and collision inspection of new coordinates",
+    "stopped-server friend_install upgrade then rollback, followed by retail boot"
+  ],
+  "runtime_acceptance": "pending",
+  "schema": 1,
+  "sources": {
+    "after_overlay_sha256": "7500242e6391f6223403ca98abfa1d557c7f5b7b16f72329e30624147bbffed7",
+    "controlled_map_pos_sha256": "8f069ce7751de161ba8a1b98329262f275b3b33a2e749e7b464d4e88d36fcabc",
+    "prior_overlay_sha256": "f8c6dfca466900bf46f2da208f355b827c324490b7ede21a8c3090242b504492",
+    "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6",
+    "supplied_ce_proto_sha256": "96f52c2c6d52e957042ce3ddb4ff83602c58557541e050da0780e1c1bb52eea7",
+    "supplied_overlay_map_pos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+  },
+  "town_sparse_ranked_by_vanilla_placements": [
+    {
+      "class": "Land_Tenement_Small",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 132
+    },
+    {
+      "class": "Land_Wreck_Ikarus",
+      "native_raised_shelf_points_per_instance": 10,
+      "vanilla_map_instances": 75
+    },
+    {
+      "class": "Land_HouseBlock_1F3",
+      "native_raised_shelf_points_per_instance": 4,
+      "vanilla_map_instances": 70
+    },
+    {
+      "class": "Land_HouseBlock_1F2",
+      "native_raised_shelf_points_per_instance": 9,
+      "vanilla_map_instances": 59
+    },
+    {
+      "class": "Land_HouseBlock_2F_Corner",
+      "native_raised_shelf_points_per_instance": 4,
+      "vanilla_map_instances": 56
+    },
+    {
+      "class": "Land_BusStop_City",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 51
+    },
+    {
+      "class": "Land_HouseBlock_1F4",
+      "native_raised_shelf_points_per_instance": 6,
+      "vanilla_map_instances": 48
+    },
+    {
+      "class": "Land_City_Stand_Grocery",
+      "native_raised_shelf_points_per_instance": 9,
+      "vanilla_map_instances": 45
+    },
+    {
+      "class": "Land_City_Stand_News2",
+      "native_raised_shelf_points_per_instance": 4,
+      "vanilla_map_instances": 45
+    },
+    {
+      "class": "Land_Tenement_Big",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 38
+    },
+    {
+      "class": "Land_City_Stand_News1",
+      "native_raised_shelf_points_per_instance": 7,
+      "vanilla_map_instances": 34
+    },
+    {
+      "class": "Land_City_Stand_FastFood",
+      "native_raised_shelf_points_per_instance": 7,
+      "vanilla_map_instances": 29
+    },
+    {
+      "class": "Land_BusStation_wall_bench",
+      "native_raised_shelf_points_per_instance": 3,
+      "vanilla_map_instances": 23
+    },
+    {
+      "class": "Land_HouseBlock_3F1",
+      "native_raised_shelf_points_per_instance": 8,
+      "vanilla_map_instances": 23
+    },
+    {
+      "class": "Land_FuelStation_Build",
+      "native_raised_shelf_points_per_instance": 4,
+      "vanilla_map_instances": 19
+    },
+    {
+      "class": "Land_HouseBlock_2F7",
+      "native_raised_shelf_points_per_instance": 7,
+      "vanilla_map_instances": 19
+    },
+    {
+      "class": "Land_Chapel",
+      "native_raised_shelf_points_per_instance": 2,
+      "vanilla_map_instances": 15
+    },
+    {
+      "class": "Land_Church1_Yellow",
+      "native_raised_shelf_points_per_instance": 11,
+      "vanilla_map_instances": 8
+    },
+    {
+      "class": "Land_Church3",
+      "native_raised_shelf_points_per_instance": 11,
+      "vanilla_map_instances": 7
+    },
+    {
+      "class": "Land_Lunapark_Shooting_Gallery",
+      "native_raised_shelf_points_per_instance": 9,
+      "vanilla_map_instances": 7
+    },
+    {
+      "class": "Land_Church2_2",
+      "native_raised_shelf_points_per_instance": 4,
+      "vanilla_map_instances": 6
+    },
+    {
+      "class": "Land_BusStation_building",
+      "native_raised_shelf_points_per_instance": 3,
+      "vanilla_map_instances": 4
+    },
+    {
+      "class": "Land_Lunapark_Carousel_Swan",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 3
+    },
+    {
+      "class": "Land_Lunapark_Autodrome",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 2
+    },
+    {
+      "class": "Land_Lunapark_Ferris_wheel",
+      "native_raised_shelf_points_per_instance": 3,
+      "vanilla_map_instances": 2
+    },
+    {
+      "class": "Land_Office_Municipal2",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 1
+    },
+    {
+      "class": "Land_Ship_Big_BackA",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 1
+    },
+    {
+      "class": "Land_Ship_Big_BackB",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 1
+    },
+    {
+      "class": "Land_Ship_Big_FrontA",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 1
+    },
+    {
+      "class": "Land_Ship_Big_FrontB",
+      "native_raised_shelf_points_per_instance": 0,
+      "vanilla_map_instances": 1
+    }
+  ]
+}

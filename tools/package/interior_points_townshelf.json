@@ -1,0 +1,896 @@
+{
+  "caps": {
+    "added_container_lootmax": 12,
+    "surface_per_group": 32,
+    "total_points": 16000
+  },
+  "frame": "stock-mapgroupproto",
+  "groups": {
+    "Land_HouseBlock_2F1": {
+      "building_model": "dz\\structures\\residential\\houseblocks\\houseblock_2f1.p3d",
+      "building_model_sha256": "46720308eaa9de0b42886b2ff7476ff3e69c1c45ad4f17103142f96fc2f76642",
+      "collision_support": {
+        "lootHCSurface": [
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 2,
+              "model": "dz\\structures\\furniture\\various\\rack_dz.p3d",
+              "sha256": "611a11aee4de59688e86e32be9ab9675f1da684d38c51e7278640139359f63e1",
+              "transform": [
+                -0.9999796748161316,
+                0.0,
+                0.006363869644701481,
+                0.0,
+                0.9999999403953552,
+                0.0,
+                -0.006363870110362768,
+                0.0,
+                -0.9999797344207764,
+                5.450952529907227,
+                -6.229180812835693,
+                -3.988015651702881
+              ]
+            },
+            "support_height_m": -4.737535
+          },
+          {
+            "gap_m": 0.005,
+            "open_structure": false,
+            "support": {
+              "kind": "geometry",
+              "lod": 2,
+              "model": "dz\\structures\\furniture\\various\\rack_dz.p3d",
+              "sha256": "611a11aee4de59688e86e32be9ab9675f1da684d38c51e7278640139359f63e1",
+              "transform": [
+                -0.9999796748161316,
+                0.0,
+                0.006363869644701481,
+                0.0,
+                0.9999999403953552,
+                0.0,
+                -0.006363870110362768,
+                0.0,
+                -0.9999797344207764,
+                5.450952529907227,
+                -6.229180812835693,
+                -3.988015651702881
+              ]
+            },
+            "support_height_m": -4.737535
+          }
+        ]
+      },
+      "containers": {
+        "lootHCSurface": {
+          "categories": [
+            "books",
+            "tools",
+            "containers"
+          ],
+          "lootmax": 1,
+          "points": [
+            [
+              -3.488627,
+              -4.732535,
+              -5.548543
+            ],
+            [
+              -4.188612,
+              -4.732535,
+              -5.544088
+            ]
+          ],
+          "tags": [
+            "shelves"
+          ]
+        }
+      },
+      "family": "residential",
+      "interior_area_m2": 112.25,
+      "interior_template": {
+        "box": {
+          "Max": [
+            5.652,
+            4.546,
+            6.041
+          ],
+          "Min": [
+            -5.7,
+            -6.336,
+            -5.983
+          ]
+        },
+        "file": "mission/hollow-country/interiors/templates/t-0075.json",
+        "sha256": "6ed6590e7d348b977d4e6c8ea836489123c246e9c24b7722e4655df44b7cb919"
+      },
+      "map_instances": 36,
+      "stock_sha256": "5b86384783e3b3203799fd68fb2ac348af28d1f0a40e4d6db55593d9c5225e7d",
+      "surface_sources": [
+        {
+          "collision_lift_m": 0.013735,
+          "face": 72,
+          "local_point": [
+            -0.09441009,
+            1.49664581,
+            -0.5
+          ],
+          "lod": 0,
+          "model": "dz\\structures\\furniture\\various\\rack_dz.p3d",
+          "model_center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "support_model": "dz\\structures\\furniture\\various\\rack_dz.p3d",
+          "support_triangle": [
+            [
+              -0.21941,
+              1.487,
+              -0.677659
+            ],
+            [
+              -0.21941,
+              1.4633,
+              -0.214427
+            ],
+            [
+              0.23559,
+              1.4633,
+              -0.214427
+            ]
+          ],
+          "surface": "cabinet-shelf",
+          "transform": [
+            -0.99997967,
+            0.0,
+            0.00636387,
+            0.0,
+            0.99999994,
+            0.0,
+            -0.00636387,
+            0.0,
+            -0.99997973,
+            5.45095253,
+            -6.22918081,
+            -3.98801565
+          ]
+        },
+        {
+          "collision_lift_m": 0.030361,
+          "face": 46,
+          "local_point": [
+            -0.09441009,
+            1.49664581,
+            0.2
+          ],
+          "lod": 0,
+          "model": "dz\\structures\\furniture\\various\\rack_dz.p3d",
+          "model_center": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "support_model": "dz\\structures\\furniture\\various\\rack_dz.p3d",
+          "support_triangle": [
+            [
+              -0.21941,
+              1.4633,
+              -0.214427
+            ],
+            [
+              -0.21941,
+              1.461,
+              0.258592
+            ],
+            [
+              0.23559,
+              1.461,
+              0.258592
+            ]
+          ],
+          "surface": "cabinet-shelf",
+          "transform": [
+            -0.99997967,
+            0.0,
+            0.00636387,
+            0.0,
+            0.99999994,
+            0.0,
+            -0.00636387,
+            0.0,
+            -0.99997973,
+            5.45095253,
+            -6.22918081,
+            -3.98801565
+          ]
+        }
+      ]
+    }
+  },
+  "kind": "hollow-country-loot-points",
+  "runtime_acceptance": "pending",
+  "schema": 1,
+  "sources": {
+    "collision_support": {
+      "floor_policy_sha256": "903cd95c90afc2bdec441ccc25a4e89b02d83fa8b6d41af15687f29d66d7770b",
+      "method": "collision-support-v3: Geometry/Roadway/View-Geometry support; near-horizontal Geometry/Roadway slopes use local footprint heights, not whole-triangle height span; 0..0.08m below; 12cm footprint; 50cm vertical clearance against Geometry/Roadway only (View-Geometry occluder boxes never block); building roof and eight wall rays; stock proxy tables only; proxy marker faces excluded; no visual fallback",
+      "native_acceptance": "pending",
+      "reader_revision": "e272780131dc10fe798bad321dca2c96894e993e",
+      "reader_sha256": {
+        "binary_handler.py": "bb512f19fe61a951f798465a4966a2ea2c8a7cfc53d38b28aa2b0611cc8d0206",
+        "compression.py": "1b518489b63246d8e6dbdb019d6450dcbd035a5cbb59134df4738541c3aa8a10",
+        "data_p3d_odol.py": "275fb16b687d91920a5b024cbd96f6507c475b1d6a510efb55cb3293f9cd8252"
+      },
+      "result": {
+        "after_groups": 1,
+        "after_points": 2,
+        "before_groups": 1,
+        "before_points": 2,
+        "checked_points": 2,
+        "failure_counts": {},
+        "groups": [
+          {
+            "after": 2,
+            "before": 2,
+            "dropped": 0,
+            "group": "Land_HouseBlock_2F1",
+            "point_refusals": [],
+            "reasons": {}
+          }
+        ],
+        "refused_points": 0
+      },
+      "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+    },
+    "eligible_map_instances": 285,
+    "eligible_placed_groups": 7,
+    "eligible_stock_groups": 7,
+    "map_pos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+    "method": "ODOL56 visual horizontal face support with 12cm footprint; bounded decoded visual/collision proxy tables, composite interior and exposed cabinet tiers; proxy marker faces excluded; raw building frame, restored furniture centres; 0.10m candidate lattice and measured prop centres snapped to mesh tops; 5mm lift; Z-edge-first plane ordering with .60m separation; collision and reach audits before spacing/cap including full optional-prop item/body volumes, swept corridor and eye obstruction; optional props never support; final collision-only support/enclosure gate (see collision_support)",
+    "model_surfaces": {
+      "dz\\structures\\furniture\\bathroom\\basin_a\\basin_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "0c86f026c2afe793efcdaba6c526a2f5d2c07442a500c38e8945cff17a886dbd"
+      },
+      "dz\\structures\\furniture\\cases\\almara\\almara.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "7e72c71521d3acfe7aa5fb7b81450a055afae0395fecde9fd94337a5bb0ea4fb"
+      },
+      "dz\\structures\\furniture\\cases\\case_bedroom_a\\case_bedroom_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          -0.010817810893058777,
+          0.28141510486602783,
+          -0.00345785915851593
+        ],
+        "sha256": "4fb8165b9ab63a63bdf8aaa3c93aa36ea438f1a1425ce2e612a182a833927e15"
+      },
+      "dz\\structures\\furniture\\cases\\case_d\\case_d.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "262c039065ab7d623bc4cd0f3e21e3808356e80f6c7d5b6a160de8b07409ac5f"
+      },
+      "dz\\structures\\furniture\\cases\\dhangar_borwnskrin\\dhangar_brownskrin.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "a91503cd9fb554691edea2c73825fda299eacede8b200720a8cf60334f21f720"
+      },
+      "dz\\structures\\furniture\\cases\\dhangar_borwnskrin_old\\dhangar_brownskrin_old.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "6b1d1433f2fb76b22c51c1747ecb2ca6fecdb960dab9d00ddb81d076366e00af"
+      },
+      "dz\\structures\\furniture\\cases\\library_a\\library_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "dc8dec0760abe19c11cae9ccdff6fe6ff7d13502ad0b8842250a5848721e8e05"
+      },
+      "dz\\structures\\furniture\\cases\\locker\\locker_closed_blue_v1.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "c36b01a1779650db2ff73805e9179640407da146fd6c8f5f4e903a693bf80717"
+      },
+      "dz\\structures\\furniture\\cases\\locker\\locker_open_blue_v2.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "84c9b01cf5c8a112621268045776833c3b20dae830a7fcda2f11c70edcf0aa77"
+      },
+      "dz\\structures\\furniture\\cases\\metalcrate\\metalcrate.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "ce4855ea6d554d4159e401031c61a5306155798d1d2ec59809a905a2aa9a7ac3"
+      },
+      "dz\\structures\\furniture\\cases\\metalcrate_02\\metalcrate_02.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "2254fd81e425405864267eaee4aab9fd05ccdbd5d98c4610f1384fa37db0f3f9"
+      },
+      "dz\\structures\\furniture\\cases\\skrin_bar\\skrin_bar.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "583906644cd6810e487d31816072526a7cdb81b3c79c3c9175188991c09ac193"
+      },
+      "dz\\structures\\furniture\\chairs\\kitchen_chair_a\\kitchen_chair_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "83e7bc4106d2ce0295fc370c4e20f540275af521fd7ad27402ca146b3f8a094a"
+      },
+      "dz\\structures\\furniture\\chairs\\postel_panelak1\\postel_panelak1.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "2112bea0672e92f42b5a4ac84c84994a8d6e07b30e186259ba8162447cbd6a47"
+      },
+      "dz\\structures\\furniture\\chairs\\sofacorner\\sofacorner.p3d": {
+        "lod": 0,
+        "model_center": [
+          -0.22367846965789795,
+          0.4125027656555176,
+          0.21990501880645752
+        ],
+        "sha256": "9dd2b54bd07026fb75cbc4ac6281eb6d38f5ce73bde68209305d3791e5759b93"
+      },
+      "dz\\structures\\furniture\\decoration\\box_c\\box_c.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "5aa66cbddbaa10dea745a0c9097c2705afc3beec9e942f331638d3a5936d800b"
+      },
+      "dz\\structures\\furniture\\decoration\\bucket\\bucket.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "db711304173e9489aff4353f1f07289cd5ae0c3f156b9397ce57c52b8e176286"
+      },
+      "dz\\structures\\furniture\\decoration\\carpet_big\\carpet_big.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "f1715d75173938815bc1df3b1f1509581a830800b778e49e4efc1a963a665f4b"
+      },
+      "dz\\structures\\furniture\\decoration\\flowers\\flower_01.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "593b943209fb3d131cfee67f2a44b99a8626f245b97baabfc95e3153c5fddfc1"
+      },
+      "dz\\structures\\furniture\\decoration\\flowers\\flower_02.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "2e56b9dddaac2e94b3a14bd11e26029455934774c4efe8b005db25a8f77a592d"
+      },
+      "dz\\structures\\furniture\\decoration\\lekarnicka\\lekarnicka.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "6c7eeaae95ee84bbef17eaa129d31e44d20e699ee541c68e112afd59edd7aa7f"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_a\\picture_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "3ead987af51eaf4e12a07042bef8d4c2c033627f31860e7d49896148cf34b245"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_a_02\\picture_a_02.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "80d459a938c3ae2ead1a3c8ca8ddf209e37072da6dd20ec4fca9911e0e5520b9"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_a_03\\picture_a_03.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "956aed76aed915d7691ce8b8c39a276af937440ab2a67073a732806160e6a46e"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_a_04\\picture_a_04.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "7aba78189646ddca88545edd87548171e7270deb93bbc299c83464a9a06bd9ff"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_a_05\\picture_a_05.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "584eac2b70d68fe96a36ef33591f2eaa560de346eed6067ad3cbf1ba1b33495f"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_b_02\\picture_b_02.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "3fadbbcc07d7618e52cb1e54e3a2fb9b197ce1eed23552a0c475b4ad0d75e5ba"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_c\\picture_c.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "abd5a9b39748a7bd72054fe13924ede68357c86d2f43d808b59a3ffc869d632c"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_c_02\\picture_c_02.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "ecf4975f8eec32d708a2f9f0dcdaf14a8788ec9b3cea27d14a271066d3363b29"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\picture_e\\picture_e.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "b039631ca5d158963519f8f71b0e4c8cf299496034b698aa441455b831d3b029"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\wall_board\\wall_board.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "1942cd3b4b3dbeb1d4fe52ca922329075693eac0321ded3eba7c6b6c34d4c416"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\wall_board_02\\wall_board_02.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "fcda80a12bd59d448fb76b3981605b3ab02172a4073ad40ee4a13df9042e1ebf"
+      },
+      "dz\\structures\\furniture\\decoration\\wallboards\\wall_board_03\\wall_board_03.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "1e10c7ba5438368d7380a64781302780333dc47f02770ca7f7812a5b3c244963"
+      },
+      "dz\\structures\\furniture\\eletrical_appliances\\pc\\pc.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "aed2fe1fa0ba745423eff296f55046945631c7c789b62eb28e1c5fa10424f476"
+      },
+      "dz\\structures\\furniture\\eletrical_appliances\\radio_b\\radio_b.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "b03372ab9e7ee1ecda94ec5259159c6b5a6e1a461789ed047955c0afe239fcbd"
+      },
+      "dz\\structures\\furniture\\eletrical_appliances\\washing_machine\\washing_machine.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "255a85a2908a05b21f053167c27b85165e3d6b6dea6b94f55ab77a66a3309456"
+      },
+      "dz\\structures\\furniture\\generalstore\\pultskasou.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.632302463054657,
+          -0.006033420562744141
+        ],
+        "sha256": "361df0a05888833db7b26d813afc22a2fbd0f60e06792f3dbf532a62b7d3195e"
+      },
+      "dz\\structures\\furniture\\generalstore\\shelf.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "27b9425e0746aa04b2965df46aec27b7ace8274752c2498ad88465d2a94f7995"
+      },
+      "dz\\structures\\furniture\\kitchen\\case_sink_a\\case_sink_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "cc7c5f32b90847a93210b970f1a17d0384322206bc8b71f8b473aa7be05fdb6e"
+      },
+      "dz\\structures\\furniture\\kitchen\\fridge\\fridge.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "43a330f4a2a174ee911a070e05263bea23b8f6491206cd464b8b9a785084a9f5"
+      },
+      "dz\\structures\\furniture\\kitchen\\kitchendesk\\kicthen_desk_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          1.062849760055542,
+          -0.5175755023956299
+        ],
+        "sha256": "a60c8a269a54434d8c8fcc6c824e4d212ddb8e8729dff4a94f91257719f1ac8f"
+      },
+      "dz\\structures\\furniture\\kitchen\\kitchendesk\\kicthen_desk_b.p3d": {
+        "lod": 0,
+        "model_center": [
+          -0.047827012836933136,
+          1.06284499168396,
+          0.9237725138664246
+        ],
+        "sha256": "58994ebf9e6853e48c1f5426bb06a82e05739ab32c239a4ac9d32c7474abfc95"
+      },
+      "dz\\structures\\furniture\\kitchen\\kitchenstove_elec\\kitchenstove_elec.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "bafc2c31ba6da9a973fbca1ea12039bb7e940b2d160b4e9b29b07b48843bab57"
+      },
+      "dz\\structures\\furniture\\lighting\\fluor_lamp\\fluor_lamp.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "db1f256e9fc9417305201ac268c77ac372ea581dd3f6223f16247936ddfd27b7"
+      },
+      "dz\\structures\\furniture\\lighting\\light_bathroom\\light_bathroom.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0013519041240215302,
+          -0.08544940501451492,
+          -0.0013402514159679413
+        ],
+        "sha256": "31630f64710c1b8433dfd87cb2693e01440b327a0452428fa171aa790d278aef"
+      },
+      "dz\\structures\\furniture\\lighting\\light_kitchen_03\\light_kitchen_03.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "2d595a9755a754ea306599bfd14b832b74c2047f8ae1547e029e91e050b96ec0"
+      },
+      "dz\\structures\\furniture\\lighting\\luxury_light\\luxury_light.p3d": {
+        "lod": 0,
+        "model_center": [
+          -2.9802322387695312e-08,
+          0.11143530905246735,
+          0.0
+        ],
+        "sha256": "a3b36caa9f084e6f7054be5254ceaa49403c90d801084242faafa56d11b2cdd7"
+      },
+      "dz\\structures\\furniture\\tables\\conference_table_a\\conference_table_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          -0.0019006133079528809,
+          0.34232544898986816,
+          0.0009971857070922852
+        ],
+        "sha256": "4842dba2e10afde1b081281d978101bd2a58a842914991b00dbdc549b9d920bb"
+      },
+      "dz\\structures\\furniture\\tables\\kitchen_table_a\\kitchen_table_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "831ff0bfd9b9387502ef725cef1c424e4cb93015d98290001c52481d85e2986e"
+      },
+      "dz\\structures\\furniture\\tables\\lobby_table\\lobby_table.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "582a603e0e17c2af4e69186562e196ff42a55c0744736d7bb1fbd931ae287d4c"
+      },
+      "dz\\structures\\furniture\\tables\\office_table_a\\office_table_a.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "122cc3f9c4d4cfbc7506104eb70befa95bf9c051e7e65116c6cd65f472903d16"
+      },
+      "dz\\structures\\furniture\\tables\\stul_kuch1\\stul_kuch1.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "a201b28a3757cb4f7a534473930dd7c4e9b5cc82c5be6e7c9572938847aedf4b"
+      },
+      "dz\\structures\\furniture\\tables\\table_drawer\\table_drawer.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "ec478a122c14705ff2dc3a44bcc77b0b8017014578ba5da880784071fbbc11c8"
+      },
+      "dz\\structures\\furniture\\various\\bag_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          -0.006405472755432129,
+          0.41712990403175354,
+          -0.014817818999290466
+        ],
+        "sha256": "290ec1bc8825ee1a8744a8a2d507f87c2e960bde226fc168238f5c338833af3e"
+      },
+      "dz\\structures\\furniture\\various\\boots_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0019154995679855347,
+          0.07473227381706238,
+          0.008696496486663818
+        ],
+        "sha256": "e32ed4754aa72cdd4375faeda6136bcf41e556fce6a53b54f79622ab1b76d135"
+      },
+      "dz\\structures\\furniture\\various\\canister_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.3643477261066437,
+          -0.0036039352416992188
+        ],
+        "sha256": "b34338e32a750305e22ab6aca9982b6438497ee0e93568451dcb9af003bff7a9"
+      },
+      "dz\\structures\\furniture\\various\\carpet_2_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          2.9802322387695312e-08,
+          0.07747623324394226,
+          -2.682209014892578e-07
+        ],
+        "sha256": "0336ea6a9490a840f65ee3d63895b8edbd232a2ef810a1b1c9a228dcb5602d54"
+      },
+      "dz\\structures\\furniture\\various\\couch_beige84x213x75_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "68e0d87520894c8e88dbe5b71549dfde976f1b512401a02bf29e8bd19b4b3cd4"
+      },
+      "dz\\structures\\furniture\\various\\couch_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "69b61ee1ec53ca86fd7995943959e4b63650254146ed25690947c9b53e61eb99"
+      },
+      "dz\\structures\\furniture\\various\\kitchen_unit_a_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "a4c041857512c129f017ad976aecfd41cd1831e891db3d612ba044561ec976db"
+      },
+      "dz\\structures\\furniture\\various\\rack_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "611a11aee4de59688e86e32be9ab9675f1da684d38c51e7278640139359f63e1"
+      },
+      "dz\\structures\\furniture\\various\\sawhorse_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "375e0cb647b4a0b653beb0ab070d594c24c394d0f3cd9326755945b61863f3e0"
+      },
+      "dz\\structures\\furniture\\various\\shelf_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "2f2c7a7545a04874c9dd7c0e12339a02639c0d13ae12dbc1e3cdbd7905d367c7"
+      },
+      "dz\\structures\\furniture\\various\\table_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0012911856174468994,
+          0.408672034740448,
+          0.005186855792999268
+        ],
+        "sha256": "fef47726188143140c2f92b5ab4cfe5e836980d1838449f64ac043c87f793eab"
+      },
+      "dz\\structures\\furniture\\various\\tools_racking_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "8a1dcaf143bcf392d77b730b71b060065e6bbf4eaeec8902c0faa83ce98b08be"
+      },
+      "dz\\structures\\furniture\\various\\wheel_cart_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sha256": "fd44c41cb58aa553f79b6037a6e80fe1761a3eacf1f6432bc64de9293e3cc646"
+      },
+      "dz\\structures\\furniture\\various\\workbench_dz.p3d": {
+        "lod": 0,
+        "model_center": [
+          0.0,
+          0.4750116467475891,
+          0.0
+        ],
+        "sha256": "c7b3d4f69520092a40dc5eec94abc95673313e28662c3406f3b08a7d66efeadd"
+      }
+    },
+    "occupied_overlay_sha256": "f8c6dfca466900bf46f2da208f355b827c324490b7ede21a8c3090242b504492",
+    "prop_boxes_sha256": "a6e1379b86231cd8872ff9e60536a930949a6d4960cd22f8d00f1c8c1fbb6c7f",
+    "reach_generation": {
+      "checked_candidates": 8246,
+      "refusal_counting": "collision support/enclosure, then visual/room/clearance/reach; stop on refusal; all checks before spacing/cap; final read-only audit collects all reach reasons",
+      "refusal_counts": {
+        "above_reach_or_no_floor_anchor": 2285,
+        "collision_above_item_support": 874,
+        "collision_support_footprint_edge": 995,
+        "no_clear_floor_approach": 49,
+        "no_clear_standing_space": 367,
+        "no_collision_support_within_8cm": 2950,
+        "outside_enclosing_building_walls": 324,
+        "outside_supported_room_footprint": 140,
+        "wall_or_furniture_box_overlap": 142,
+        "wall_or_furniture_occluded": 118
+      }
+    },
+    "reader_repository": "https://github.com/SXDIST/DayZObjectBuilder",
+    "reader_revision": "e272780131dc10fe798bad321dca2c96894e993e",
+    "reader_sha256": {
+      "binary_handler.py": "bb512f19fe61a951f798465a4966a2ea2c8a7cfc53d38b28aa2b0611cc8d0206",
+      "compression.py": "1b518489b63246d8e6dbdb019d6450dcbd035a5cbb59134df4738541c3aa8a10",
+      "data_p3d_odol.py": "275fb16b687d91920a5b024cbd96f6507c475b1d6a510efb55cb3293f9cd8252"
+    },
+    "rejected_counts": {
+      "no-admissible-top": 6
+    },
+    "rejected_groups": {
+      "Land_HouseBlock_1F1": "no-admissible-top",
+      "Land_HouseBlock_2F2": "no-admissible-top",
+      "Land_HouseBlock_2F4": "no-admissible-top",
+      "Land_HouseBlock_2F5": "no-admissible-top",
+      "Land_HouseBlock_2F6": "no-admissible-top",
+      "Land_HouseBlock_2F8": "no-admissible-top"
+    },
+    "stock_proto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
+  }
+}

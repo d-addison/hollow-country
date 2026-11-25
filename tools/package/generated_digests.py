@@ -230,13 +230,9 @@ def installed_snapshot(contract, values):
         except FileNotFoundError as exc:
             raise MissingInput('installed variety pack or stock types unavailable') from exc
     if name == 'loot_point_preserve':
-        from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
+        from tools.package.regenerate_all import LOOT_REVISIONS, preservation_input
         for label, revision in LOOT_REVISIONS:
-            result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
-                                    capture_output=True, timeout=values.get('timeout', 60))
-            if result.returncode:
-                raise ValueError('historical ' + label + ' input unavailable')
-            identities['history/' + label] = sha(result.stdout)
+            identities['history/' + label] = sha(preservation_input(label, revision, values.get('timeout', 60)))
     if name in {'new_buildings', 'loot_point_preserve'}:
         # The geometry reader is in-repo (tools/audit/odol56.py); its bytes are the reader identity.
         identities['geometry_reader'] = file_sha(ROOT / 'tools/audit/odol56.py')
@@ -365,19 +361,15 @@ def regenerate(contract, values, scratch):
         data = module.generate(addons, source, scratch / 'geometry', values.get('native_census', []))
         return {contract.outputs[0]: data}
     if name == 'loot_point_preserve':
-        from tools.package.regenerate_all import LOOT_REVISIONS, LOOT_OUTPUT
+        from tools.package.regenerate_all import LOOT_REVISIONS, preservation_input
         addons = values.get('geometry_addons', values['addons'])
         history = []
         for label, revision in LOOT_REVISIONS:
-            result = subprocess.run(['git', 'show', f'{revision}:{LOOT_OUTPUT}'], cwd=ROOT,
-                                    capture_output=True, timeout=values.get('timeout', 60))
-            if result.returncode:
-                raise ValueError('historical ' + label + ' input unavailable')
             path = scratch / (label + '.json')
-            path.write_bytes(result.stdout)
+            path.write_bytes(preservation_input(label, revision, values.get('timeout', 60)))
             history.append(path)
-        # Shipped bytes are the merge of four --refresh-models partitions (docs/LOOT_POINTS.md,
-        # Reproduction and validation); the hash-bound loss audit is read from the committed output.
+        # Audit every baseline and candidate coordinate, preserving passing prior
+        # points before filling remaining space. No live mission supplies bundle data.
         parts = []
         for index in range(4):
             doc = module.preserve(*history, addons, source / 'mapgroupproto.xml', (index, 4),

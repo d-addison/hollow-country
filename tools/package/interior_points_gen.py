@@ -6,6 +6,8 @@ support evidence, not native collision/clearance or CE acceptance. Optional
 runtime furnishings never count as unconditional support. Use --partition INDEX COUNT
 with a separate --out for bounded scans; --merge-partitions joins a complete set.
 --prior-overlay re-audits and adds compatible points from a previous layout.
+--occupied-overlay excludes existing authored points before sampling a targeted
+extension; it never turns those points into native room-floor anchors.
 """
 import argparse
 from collections import Counter, deque
@@ -496,7 +498,18 @@ def near(point, others):
                for q in others)
 
 
-def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None, only=None):
+def occupied_points(group, occupied):
+    """Reserve authored coordinates only against their exact native group."""
+    spec = occupied.get(group.get('name'))
+    if spec is None:
+        return []
+    if spec['stock_sha256'] != loot.group_pin(group):
+        raise ValueError('occupied overlay stock pin mismatch: ' + group.get('name'))
+    return [point for container in spec['containers'].values() for point in container['points']]
+
+
+def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None, only=None,
+             occupied_overlay=None):
     # Reuse the independent audit without relaxing any of its limits. Evaluate
     # before spacing/capping so refused candidates do not crowd out good tops.
     from tools.package.loot_reach_audit import Audit
@@ -512,6 +525,8 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None, o
     furniture_tops = {}
     stock_bytes = Path(stock_proto).read_bytes()
     stock = ET.fromstring(stock_bytes)
+    occupied_raw = Path(occupied_overlay).read_bytes() if occupied_overlay else None
+    occupied = loot.parse_overlay(occupied_raw)['groups'] if occupied_raw else {}
     placements = Counter()
     if map_pos is not None:
         placements.update(g.get('name') for g in ET.fromstring(Path(map_pos).read_bytes()).findall('group'))
@@ -561,9 +576,11 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None, o
         print('generate ' + name, file=sys.stderr, flush=True)
         data = assets.read(model)
         existing = [[float(v) for v in p.get('pos').split()] for p in group.iter('point')]
+        has_native_points = bool(existing)
+        existing += occupied_points(group, occupied)
         floor = loot.stock_floor(group)
         memory_anchors = None
-        if not existing:
+        if not has_native_points:
             # No native point at all (stock lootmax 0): the model's own loot
             # memory points on its collision floors locate rooms instead.
             anchor_context = auditor.scene(name, {'stock_sha256': loot.group_pin(group),
@@ -731,6 +748,8 @@ def generate(addons, stock_proto, reader_folder, map_pos=None, partition=None, o
         'rejected_groups': dict(sorted(refused.items()))}, 'groups': groups}
     if map_pos is not None:
         doc['sources']['map_pos_sha256'] = sha(Path(map_pos).read_bytes())
+    if occupied_raw is not None:
+        doc['sources']['occupied_overlay_sha256'] = sha(occupied_raw)
     # Visual meshes only propose candidates. Collision support and building
     # enclosure are mandatory final admission, including stock proxy furniture.
     doc, _ = SupportAudit(addons, reader_folder, stock_proto).filter(doc)
@@ -1311,13 +1330,15 @@ def main():
                         help='scan disjoint sorted stock-group partition (0-based index; count <= 32)')
     parser.add_argument('--merge-partitions', nargs='+', type=Path, help='join every partition from one complete scan')
     parser.add_argument('--prior-overlay', type=Path, help='re-audit and combine complementary prior points when merging')
+    parser.add_argument('--occupied-overlay', type=Path,
+                        help='surface pass: exclude existing overlay points before candidate selection')
     parser.add_argument('--out', type=Path, default=OUTPUT)
     parser.add_argument('--floors', action='store_true',
                         help='floor pass: supported floor points for stock groups without HC points (writes additions.json)')
     parser.add_argument('--base', type=Path, help='floor pass: existing floor overlay to keep and re-audit')
     parser.add_argument('--surface-overlay', type=Path, help='floor pass: surface overlay whose groups are skipped')
     parser.add_argument('--only', type=Path,
-                        help='floor pass: file of group names (one per line). Adds floor containers to exactly these groups, '
+                        help='file of group names (one per line). Floor pass adds containers to exactly these groups, '
                              'even ones that already have surface points; writes only the new groups unless --merge-partitions with --base')
     parser.add_argument('--replace', action='store_true',
                         help='floor pass with --only: regenerate groups that already have a floor container (replaces them)')
@@ -1334,6 +1355,8 @@ def main():
             report(raw)
         return
     if args.floors:
+        if args.occupied_overlay:
+            parser.error('--occupied-overlay is a surface-pass option')
         out = args.out if args.out != OUTPUT else FLOOR_OUTPUT
         if args.prior_overlay:
             parser.error('--prior-overlay is a surface-pass option')
@@ -1365,11 +1388,14 @@ def main():
         parser.error('--partition requires a separate --out; never replace the shipped overlay with one partition')
     if args.merge_partitions and args.partition:
         parser.error('--merge-partitions and --partition are mutually exclusive')
+    if args.merge_partitions and args.occupied_overlay:
+        parser.error('--occupied-overlay applies during generation, not partition merging')
     if args.prior_overlay and not args.merge_partitions:
         parser.error('--prior-overlay requires --merge-partitions')
     only = [line.strip() for line in args.only.read_text().splitlines() if line.strip()] if args.only else None
     raw = (merge_partitions(args.merge_partitions, args.addons, args.stock_proto, args.reader, args.prior_overlay)
-           if args.merge_partitions else generate(args.addons, args.stock_proto, args.reader, args.map_pos, args.partition, only))
+           if args.merge_partitions else generate(args.addons, args.stock_proto, args.reader, args.map_pos,
+                                                  args.partition, only, args.occupied_overlay))
     args.out.write_bytes(raw)
     report(raw)
 
