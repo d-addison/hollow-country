@@ -1,13 +1,15 @@
 // #303: HC-27 numeric presentation companion. Server -> client only.
 // Native scripts-1.30.164289: gameplay.c:104-117 ScriptRPC.Send;
 // DayZGame.c:1497/1506/1533 session events, :3141 OnRPC; tools/JsonFileLoader.c
-// :69/88 LoadData/MakeData. A single <=4096-character JSON image carries all
-// presentation fields; HCApply retains the same field/range/cross-field checks.
+// :69/88 LoadData/MakeData. Send the numeric config as a deep-serialized class,
+// as CfgGameplayHandler.c:90/97 does, rather than a raw JSON string. Serializer.c
+// :3-9 documents class serialization; static storage is not a wire field.
+// Recreate JSON locally for HCApply's field/range/cross-field checks.
 // Game-level receipt buffers one newest snapshot before MissionGameplay exists.
 class HCPresentationTuningSync
 {
     static const int RPC_TUNING = 4854011;
-    static const int VERSION = 1;
+    static const int VERSION = 2;
     static const int WIRE_LIMIT = 4096;
     protected static int s_ClientRevision;
     protected static bool s_ClientReady;
@@ -31,18 +33,27 @@ class HCPresentationTuningSync
     {
         int version;
         int revision;
-        string image;
-        if (!ctx || !ctx.Read(version) || version != VERSION || !ctx.Read(revision)) { return; }
-        if (revision <= s_ClientRevision || !ctx.Read(image)) { return; }
-        if (image.Length() < 2 || image.Length() > WIRE_LIMIT) { return; }
+        if (!ctx || !ctx.Read(version)) { HCRefuse("version_read"); return; }
+        if (version != VERSION) { HCRefuse("version"); return; }
+        if (!ctx.Read(revision)) { HCRefuse("revision_read"); return; }
+        if (revision < 1 || revision > 2000000000) { HCRefuse("revision"); return; }
+        if (revision <= s_ClientRevision) { return; }
         HCc2PresentationConfig received;
+        if (!ctx.Read(received) || !received) { HCRefuse("config_read"); return; }
+        string image;
         string error;
-        if (!JsonFileLoader<HCc2PresentationConfig>.LoadData(image, received, error) || !received) { return; }
+        if (!JsonFileLoader<HCc2PresentationConfig>.MakeData(received, image, error, false)) { HCRefuse("serialization"); return; }
+        if (image.Length() < 2 || image.Length() > WIRE_LIMIT) { HCRefuse("wire_limit"); return; }
         HCc2PresentationConfig checked = new HCc2PresentationConfig;
         checked.HCApply(image, received);
         s_ClientRevision = revision;
         s_Pending = checked;
         HCApplyPending();
+    }
+
+    protected static void HCRefuse(string reason)
+    {
+        Print("[HC Config] atmosphere-presentation sync=refused reason=" + reason + " last_snapshot_retained runtime=PENDING");
     }
 
     protected static void HCApplyPending()
@@ -58,13 +69,12 @@ modded class DayZGame
 {
     override void OnRPC(PlayerIdentity sender, Object target, int rpc_type, ParamsReadContext ctx)
     {
-        if (rpc_type != HCPresentationTuningSync.RPC_TUNING)
+        if (rpc_type == HCPresentationTuningSync.RPC_TUNING)
         {
-            super.OnRPC(sender, target, rpc_type, ctx);
-            return;
+            if (!IsServer() && !sender && !target) { HCPresentationTuningSync.HCReceive(ctx); }
         }
-        if (IsServer() || sender || target) { return; }
-        HCPresentationTuningSync.HCReceive(ctx);
+        // Consume our stream before native Event_OnRPC observers; none owns this ID.
+        super.OnRPC(sender, target, rpc_type, ctx);
     }
 
     override void OnEvent(EventType eventTypeId, Param params)

@@ -9,6 +9,7 @@ class HCPresentationTuningServer
 {
     protected static string s_Image;
     protected static string s_SourceImage;
+    protected static ref HCc2PresentationConfig s_Config;
     protected static int s_Revision;
     protected static ref HCUnitBudget s_Units = new HCUnitBudget;
     protected static ref HCWorkBudget s_Work = new HCWorkBudget;
@@ -17,6 +18,7 @@ class HCPresentationTuningServer
     {
         s_Image = "";
         s_SourceImage = "";
+        s_Config = null;
         s_Revision = 0;
         HCRefresh();
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCPresentationTuningServer.HCCheckChanges);
@@ -53,6 +55,7 @@ class HCPresentationTuningServer
         }
         HCc2PresentationConfig.HCSet(config);
         s_Image = image;
+        s_Config = config;
         s_SourceImage = sourceImage;
         s_Revision = s_Revision + 1;
         return true;
@@ -66,11 +69,17 @@ class HCPresentationTuningServer
 
     protected static void HCSend(PlayerIdentity identity, string reason)
     {
-        if (!GetGame() || !GetGame().IsServer() || s_Image == "") { return; }
+        if (!GetGame() || !GetGame().IsServer() || !s_Config) { return; }
         ScriptRPC rpc = new ScriptRPC;
-        rpc.Write(HCPresentationTuningSync.VERSION);
-        rpc.Write(s_Revision);
-        rpc.Write(s_Image);
+        // Ordinary local ints avoid passing static/const expressions to void Write.
+        int version = HCPresentationTuningSync.VERSION;
+        int revision = s_Revision;
+        HCc2PresentationConfig config = s_Config;
+        if (!rpc.Write(version) || !rpc.Write(revision) || !rpc.Write(config))
+        {
+            Print("[HC Config] atmosphere-presentation sync=refused reason=write last_snapshot_retained runtime=PENDING");
+            return;
+        }
         rpc.Send(null, HCPresentationTuningSync.RPC_TUNING, true, identity);
         // No identities in diagnostics. A null recipient is one native broadcast.
         Print("[HC Config] atmosphere-presentation sync=sent reason=" + reason + " revision=" + s_Revision.ToString() + " chars=" + s_Image.Length().ToString() + " runtime=PENDING");
@@ -130,12 +139,14 @@ modded class MissionGameplay
         // Do not reset here: the game-level receiver may already hold the snapshot.
         if (!GetGame().IsServer()) { HCPresentationTuningSync.HCClientReady(); }
         super.OnInit();
+        if (!GetGame().IsServer()) { HCStaminaConfiguration.ClientReady(); }
     }
 
     override void OnMissionFinish()
     {
         super.OnMissionFinish();
         if (!GetGame().IsServer()) { HCPresentationTuningSync.HCResetClient(); }
+        if (!GetGame().IsServer()) { HCStaminaConfiguration.Reset(false, false); }
     }
 }
 
