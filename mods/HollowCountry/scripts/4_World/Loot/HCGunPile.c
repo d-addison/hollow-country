@@ -21,7 +21,10 @@ class HCGunPileShape
 
 class HCGunPile
 {
-    static const int QUEUE_CAP = 2048;
+    // Soak 191: 2055 queued + 2716 dropped = 4771 arrivals. 8192 fits that entire
+    // burst even before the 0.75 admission roll; deferral reuses slots, never grows the ring.
+    static const int QUEUE_CAP = 8192;
+    static const int MAGAZINE_LIMIT = 32;
     static const float MIN_AGE_SECONDS = 1.0;
     static const int SUMMARY_MS = 300000;
     static const float OFFSET_MIN = 0.2;
@@ -61,6 +64,10 @@ class HCGunPile
     protected static int s_Mags;
     protected static int s_Ammo;
     protected static int s_Dropped;
+    protected static int s_ChanceSkip;
+    // Lifetime distinct-shape receipt, capped at CACHE_CAP (summary saturates at 512).
+    // Unlike the resolver caches, never cleared: cache churn must not count a shape twice.
+    protected static ref map<string, bool> s_TruncatedShapes = new map<string, bool>;
     protected static string s_LastSummary;
 
     // Module start: read the validated settings. Guns queued before this wait in the queue.
@@ -82,13 +89,21 @@ class HCGunPile
         return s_Configured && s_Enabled;
     }
 
-    // Called from the CE create hook only. Cheap: one append, no world query.
+    // Called from the CE create hook only. One chance roll and at most one append; no world query.
     static void Enqueue(Weapon_Base gun)
     {
         if (!GetGame() || !GetGame().IsServer() || !gun) { return; }
         if (s_Configured && !s_Enabled) { return; }
         if (gun.m_HCGunPileQueued) { return; }
         gun.m_HCGunPileQueued = true;
+        // 1_Core/proto/EnMath.c:106 RandomFloatInclusive (1.30.164289); roll once,
+        // before occupying a slot. Deferred guns retain this decision and their original age.
+        ScheduleSummary();
+        if (Math.RandomFloatInclusive(0, 1) >= s_Chance)
+        {
+            s_ChanceSkip++;
+            return;
+        }
         if (s_Count >= QUEUE_CAP)
         {
             s_Dropped++;
@@ -106,7 +121,6 @@ class HCGunPile
         s_Count++;
         s_Queued++;
         ScheduleDrain();
-        ScheduleSummary();
     }
 
     protected static void ScheduleDrain(int delayMs = 250)
@@ -242,14 +256,79 @@ class HCGunPile
         return null;
     }
 
-    // Only bounded inherited arrays are accepted. Missing arrays mean no entries.
-    protected static bool ReadList(string path, int limit, out TStringArray values)
+    // Missing arrays mean no entries. Only magazine candidates may use a prefix;
+    // muzzle/chamber validation must see the entire bounded list or refuse it.
+    // 3_Game/Global/Game.c:612/:546/:558; 1_Core/proto/EnScript.c:476 Resize
+    // (1.30.164289): shrinking discards only the tail, retaining config order.
+    protected static bool ReadList(string path, int limit, out TStringArray values, out bool truncated, bool allowTruncate = false)
     {
+        truncated = false;
         values = new TStringArray;
         if (!GetGame().ConfigIsExisting(path)) { return true; }
         if (GetGame().ConfigGetType(path) != CT_ARRAY) { return false; }
         GetGame().ConfigGetTextArray(path, values);
-        return values.Count() <= limit;
+        if (values.Count() <= limit) { return true; }
+        if (!allowTruncate) { return false; }
+        values.Resize(limit);
+        truncated = true;
+        return true;
+    }
+
+    protected static void RecordMagazineTruncation(string key)
+    {
+        if (s_TruncatedShapes.Contains(key) || s_TruncatedShapes.Count() >= CACHE_CAP) { return; }
+        s_TruncatedShapes.Set(key, true);
+        if (s_TruncatedShapes.Count() == 1)
+        {
+            Print("[HC Loot] gun pile truncate reason=magazines_limit limit=" + MAGAZINE_LIMIT.ToString());
+        }
+    }
+
+    protected static bool ValidMuzzles(string root, TStringArray rootAmmo)
+    {
+        TStringArray muzzles;
+        bool truncated;
+        if (!ReadList(root + " muzzles", 8, muzzles, truncated)) { return false; }
+        if (!GetGame().ConfigIsExisting(root + " muzzles")) { return true; }
+        if (muzzles.Count() == 0) { return false; }
+        // weapons_pistols.pbo, magnum/config.bin (pbo_config.py inspection): Magnum_Base
+        // has this, SecondMuzzle .. SixthMuzzle. SecondMuzzle has magazines[]={},
+        // chamberableFrom[]={Ammo_357}; the other four inherit it. Root also accepts
+        // Mag_357Speedloader_6Rnd. Accept chamber subsets, never separate launcher ammo.
+        for (int u = 0; u < muzzles.Count(); u++)
+        {
+            string muzzle = muzzles[u];
+            if (!ValidToken(muzzle)) { return false; }
+            muzzle.ToLower();
+            if (u == 0)
+            {
+                if (muzzle != "this") { return false; }
+                continue;
+            }
+            if (muzzle == "this") { return false; }
+            string child = root + " " + muzzle;
+            if (!GetGame().ConfigIsExisting(child)) { return false; }
+            TStringArray childMags;
+            TStringArray childAmmo;
+            if (!ReadList(child + " magazines", 0, childMags, truncated)) { return false; }
+            if (!ReadList(child + " chamberableFrom", 16, childAmmo, truncated)) { return false; }
+            if (childAmmo.Count() == 0) { return false; }
+            for (int a = 0; a < childAmmo.Count(); a++)
+            {
+                string round = childAmmo[a];
+                if (!ValidToken(round)) { return false; }
+                round.ToLower();
+                bool shared = false;
+                for (int r = 0; r < rootAmmo.Count(); r++)
+                {
+                    string rootRound = rootAmmo[r];
+                    rootRound.ToLower();
+                    if (round == rootRound) { shared = true; break; }
+                }
+                if (!shared) { return false; }
+            }
+        }
+        return true;
     }
 
     protected static bool ReadChain(string path, out TStringArray chain)
@@ -310,23 +389,15 @@ class HCGunPile
         {
             if (SpecialFamily(ancestry[n])) { return RejectShape(key, "special_family"); }
         }
-        TStringArray muzzles;
-        if (!ReadList(root + " muzzles", 4, muzzles)) { return RejectShape(key, "shape_muzzles"); }
-        if (GetGame().ConfigIsExisting(root + " muzzles"))
-        {
-            if (muzzles.Count() == 0) { return RejectShape(key, "shape_muzzles"); }
-            for (int u = 0; u < muzzles.Count(); u++)
-            {
-                if (!ValidToken(muzzles[u])) { return RejectShape(key, "shape_muzzles"); }
-            }
-            string first = muzzles[0];
-            first.ToLower();
-            if (first != "this") { return RejectShape(key, "shape_muzzles"); }
-        }
         TStringArray magazines;
         TStringArray ammo;
-        if (!ReadList(root + " magazines", 32, magazines)) { return RejectShape(key, "shape_magazines"); }
-        if (!ReadList(root + " chamberableFrom", 16, ammo)) { return RejectShape(key, "shape_chamberable"); }
+        bool truncated;
+        if (!ReadList(root + " chamberableFrom", 16, ammo, truncated)) { return RejectShape(key, "shape_chamberable"); }
+        if (!ValidMuzzles(root, ammo)) { return RejectShape(key, "shape_muzzles"); }
+        // SNAFU_Guns_02.pbo: SNAFUMDAR_Base and its nine variants inherit 33 entries.
+        // Keep the first 32 in config order, then validate candidates individually as before.
+        if (!ReadList(root + " magazines", MAGAZINE_LIMIT, magazines, truncated, true)) { return RejectShape(key, "shape_magazines"); }
+        if (truncated) { RecordMagazineTruncation(key); }
         HCGunPileShape shape = new HCGunPileShape;
         map<string, bool> bullets = new map<string, bool>;
         for (int a = 0; a < ammo.Count(); a++)
@@ -379,7 +450,6 @@ class HCGunPile
             Refuse("site_verdict", gun.GetType());
             return;
         }
-        if (Math.RandomFloatInclusive(0, 1) >= s_Chance) { return; }
         HCGunPileShape shape = ResolveShape(gun.GetType());
         if (!shape)
         {
@@ -534,6 +604,7 @@ class HCGunPile
     static void Summary()
     {
         string line = "[HC Loot] gun pile queued=" + s_Queued.ToString() + " placed=" + s_Placed.ToString() + " skipped=" + s_Skipped.ToString() + " dropped=" + s_Dropped.ToString() + " mags=" + s_Mags.ToString() + " ammo=" + s_Ammo.ToString();
+        line += " chance_skip=" + s_ChanceSkip.ToString() + " magazine_truncated_shapes=" + s_TruncatedShapes.Count().ToString();
         line += " deferred_guard=" + s_DeferredGuard.ToString() + " deferred_ground=" + s_DeferredGround.ToString() + " deferred_cold=" + s_DeferredCold.ToString();
         // Reasons have a fixed vocabulary; this bounded summary is emitted outside per-item loops.
         foreach (string reason, int count : s_Reasons) { line += " " + reason + "=" + count.ToString(); }
