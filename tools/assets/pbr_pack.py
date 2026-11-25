@@ -22,7 +22,7 @@ import zlib
 
 from tools.assets import licence_gate
 from tools.assets.blender_runner import build_directory
-from tools.assets.mlod import virtual_path
+from tools.assets.mlod import OWN_PREFIXES, virtual_path
 from tools.assets.ops_runner import name
 from tools.assets.provenance import digest, load_json, read_regular, verify_candidate
 
@@ -213,7 +213,7 @@ def rvmat(prefix):
     later converter output; this packer never claims those files already exist.
     """
     virtual_path(prefix + '_co.paa')
-    if not prefix.startswith('HollowCountry\\'):
+    if prefix.split('\\')[0].casefold() not in {p.casefold() for p in OWN_PREFIXES}:
         raise ValueError('pack.owned_prefix_required')
     text = ('// UNVERIFIED normal green convention and shader: lead P0-6 required\n'
             'ambient[]={1,1,1,1};\ndiffuse[]={1,1,1,1};\n'
@@ -230,7 +230,26 @@ def rvmat(prefix):
     return text
 
 
-def pack(candidate, sources, output, *, asset_name, virtual_prefix):
+def rvmat_on(prefix, *, emissive=(1, 1, 1, 1)):
+    """On/off material swap pattern: DZ gear/tools/data/flashlight_glass_on.rvmat.
+
+    The vanilla path is cited by 4_World/Entities/ItemBase/Flashlight.c:8-11
+    in the installed scripts-1.30.164289 snapshot. Its rvmat contents have not
+    been inspected here. Super + emmisive[] (BI spelling) and this intensity
+    are unverified until the lead's native load; no light entity is created.
+    """
+    from tools.assets.ops_runner import number
+    if not isinstance(emissive, (list, tuple)) or len(emissive) != 4:
+        raise ValueError('pack.emissive_rgba')
+    values = tuple(number(v, 0, 100) for v in emissive)
+    colour = ','.join(format(v, '.9g') for v in values)
+    return ('// Emissive shader parameters unverified until the lead native load; '
+            'vanilla swap pattern: dz/gear/tools/data/flashlight_glass_on.rvmat\n'
+            + rvmat(prefix).replace('emmisive[]={0,0,0,1};',
+                                    'emmisive[]={' + colour + '};'))
+
+
+def pack(candidate, sources, output, *, asset_name, virtual_prefix, emissive=None):
     """Immutable sealed candidate required; only pinned input components are maps.
 
     Re-audits real bytes, not a supplied verdict dict. Callers must keep candidate
@@ -264,6 +283,8 @@ def pack(candidate, sources, output, *, asset_name, virtual_prefix):
     payloads = {asset_name + '_' + suffix + '.tga': encode_tga(image)
                 for suffix, image in packed.items()}
     payloads[asset_name + '.rvmat'] = material.encode('ascii')
+    if emissive is not None:
+        payloads[asset_name + '_on.rvmat'] = rvmat_on(virtual_prefix, emissive=emissive).encode('ascii')
     report = {'schema': 'pbr-pack.v1', 'licence_gate': document['licence_gate'],
               'normal_green': 'unverified_preserved_P0_6',
               'material_conversion': 'approximation_unverified',

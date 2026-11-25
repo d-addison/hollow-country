@@ -223,3 +223,124 @@ unverified. Ground/contact targets (sleep pelvis <=0.25 m, quiet lying sway <=2 
 standing seam <=SEAM_METRES) are checked offline on our FK (2026-11-22 build: sleep pelvis 0.20 m,
 lying sway <= 8 mm); the in-game look still requires the lead's client inspection, and no
 animation fidelity or performance acceptance is claimed.
+
+## Asset pipeline (#349, 2026-11-25)
+
+The first asset is the original tin-can lantern, with its own model and materials;
+#58 remains config-only. Only original team work and CC0 sources are allowed, with
+sealed provenance; no generative-model output. See [the source policy](PROVENANCE_AND_LICENSES.md).
+Generated models, textures, materials and renders belong under ignored `build/`.
+Nothing in this section establishes native acceptance.
+
+`finisher.finish` accepts visual neutral meshes plus budgets. Physical assets now
+emit Geometry, View Geometry (6e15), Fire Geometry (7e15), Shadow volume (1e4), and
+Memory when points exist. View/Fire reuse Geometry's convex box components, mass
+and component selections unless `view_geometry_primitives` or
+`fire_geometry_primitives` supplies separate boxes. `shadow_mesh` supplies a
+separate shadow mesh; otherwise the lowest-detail visual is used. Shadow must be
+closed, triangulated and manifold, including at vertices; refusal codes begin
+`finish.shadow.`. Damage-zone selections beyond `componentNN` must still be authored
+and cross-checked against the item config. Values follow [BI LOD resolutions](https://community.bistudio.com/wiki/LOD_resolutions)
+(the full wiki fetch returned HTTP 403 during this work).
+
+Neutral faces optionally carry `smooth: true`; omitted/false remains flat with
+unchanged visual LOD bytes. Optional top-level `sharp_edges: [[a,b], ...]` uses
+neutral vertex indices, remapped during weld/compaction. Smooth normals are
+corner-angle weighted across smooth faces sharing non-sharp edges. Flat faces
+split smoothing fans. The MLOD reader/writer preserves normals and #SharpEdges#.
+The lantern worker owns exporting these fields from Blender's recipe operations;
+this change does not modify `blender_ops_script.py`.
+
+`pbr_pack.pack(..., emissive=(1, 0.5, 0, 1))` adds `<asset>_on.rvmat`; omitting it
+preserves existing pack output. `rvmat_on(prefix, emissive=...)` is also available.
+The off rvmat remains byte-identical. Super shader `emmisive[]` (BI spelling),
+intensity and normal-map convention are **unverified until the lead's native load**.
+The vanilla swap pattern is `dz\gear\tools\data\flashlight_glass.rvmat` to
+`flashlight_glass_on.rvmat`, referenced by installed
+`4_World/Entities/ItemBase/Flashlight.c:8-11`; the vanilla rvmat contents were not
+inspected. Emissive material does not create a scripted light.
+
+Lead-only commands below are templates with explicit installation inputs, not a
+recorded successful native run. Run serially under `tools.release.host_lock.host_lock`
+while the owner is not playing. Use an exact committed tree, fresh output folders,
+and retain tool versions, hashes, command logs and BUILD_MANIFEST.json in build
+output. First set `HC_ASSET_RECIPE` to the lantern worker's recipe and `HC_BLENDER`
+to portable Blender **5.2.4**. This runs the isolated runner (TMP/TEMP/TMPDIR are
+created inside that run's build directory), producing neutral mesh and six renders:
+
+```sh
+python3 -B - <<'PY'
+import json, os
+from tools.assets.blender_runner import build, build_directory
+from tools.release.host_lock import host_lock
+from pathlib import Path
+with host_lock('asset_blender'):
+    result = build(json.loads(Path(os.environ['HC_ASSET_RECIPE']).read_text()), render=True)
+    out = build_directory('build/assets349/blender')
+    (out / 'mesh.json').write_text(json.dumps(result.mesh, sort_keys=True))
+    for view, data in result.renders.items():
+        (out / (view + '.tga')).write_bytes(data)
+PY
+```
+
+After the lantern integration finishes/seals the model and PBR outputs, stage
+`build/assets349/project/HollowCountryAssets` with its config, model.cfg,
+$PBOPREFIX$, MLOD, rvmats and TGAs. The project root must resolve the virtual paths
+used by Binarize, including installed vanilla dependencies. Set Windows environment
+variables `HC_REPO`, `HC_DAYZ_TOOLS` and `HC_ASSET_PROJECT` to this checkout, official
+tools installation and that project root. In a lead-held host lease, PowerShell:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$src = Join-Path $env:HC_ASSET_PROJECT 'HollowCountryAssets'
+$bin = Join-Path $env:HC_REPO 'build\assets349\binarized\HollowCountryAssets'
+$pbo = Join-Path $env:HC_REPO 'build\assets349\packed'
+New-Item -ItemType Directory -Path $bin, $pbo | Out-Null
+Get-ChildItem $src -Recurse -Filter '*.tga' | ForEach-Object {
+    & "$env:HC_DAYZ_TOOLS\Bin\ImageToPAA\ImageToPAA.exe" $_.FullName ([IO.Path]::ChangeExtension($_.FullName, '.paa'))
+    if ($LASTEXITCODE -ne 0) { throw 'ImageToPAA failed' }
+}
+Copy-Item "$src\*" $bin -Recurse
+Get-ChildItem $bin -Recurse -Filter '*.p3d' | Remove-Item
+Push-Location $env:HC_ASSET_PROJECT
+try {
+    & "$env:HC_DAYZ_TOOLS\Bin\Binarize\Binarize.exe" "-addon=$src" $src $bin '*.p3d'
+    if ($LASTEXITCODE -ne 0) { throw 'Binarize failed' }
+} finally { Pop-Location }
+& "$env:HC_DAYZ_TOOLS\Bin\AddonBuilder\AddonBuilder.exe" $bin $pbo '-packonly' '-prefix=HollowCountryAssets'
+if ($LASTEXITCODE -ne 0) { throw 'Asset pack failed' }
+& "$env:HC_DAYZ_TOOLS\Bin\DsUtils\DSSignFile.exe" $env:HC_PRIVATE_KEY "$pbo\HollowCountryAssets.pbo"
+if ($LASTEXITCODE -ne 0) { throw 'Asset signing failed' }
+& "$env:HC_DAYZ_TOOLS\Bin\DsUtils\DSCheckSignatures.exe" $pbo $env:HC_PUBLIC_KEYS_DIR
+if ($LASTEXITCODE -ne 0) { throw 'Asset signature verification failed' }
+```
+
+ImageToPAA's source/destination form follows `tools/package/gui_icons.py:100`.
+The [Binarize](https://community.bistudio.com/wiki/Binarize) and
+[Addon Builder](https://community.bistudio.com/wiki/Addon_Builder) argument forms
+above are documentation-based and **unverified on installed DayZ Tools**. Expected:
+nonempty valid PAA maps, every output P3D begins `ODOL`, no missing resource errors,
+all LODs survive read-back, and DSCheckSignatures positively says the exact signature
+is OK. Validate those bytes, not exit status alone. The existing
+`tools.package.build_assets_addon` refuses ODOL; the lead must update that packaging
+boundary and its provenance/build manifest handling before a release. It is outside
+this worker's file scope. The commands above are a native probe, not a bypass of
+sealed admission or a release route. Do not publish its outputs.
+
+For the one-server/one-client load, place the verified addon and its signature in
+the lead's isolated test mod, with its public key in the test server's keys folder.
+Set `HC_TEST_MODS` to the full ordered test mod list including this mod, and set
+`HC_DAYZ_SERVER`, `HC_DAYZ_CLIENT`, `HC_TEST_SERVER_CFG`, `HC_TEST_SERVER_PROFILES`
+and `HC_TEST_CLIENT_PROFILES` to the isolated executable/config/profile locations:
+
+```powershell
+& $env:HC_DAYZ_SERVER "-config=$env:HC_TEST_SERVER_CFG" "-profiles=$env:HC_TEST_SERVER_PROFILES" '-port=2302' "-mod=$env:HC_TEST_MODS" '-dologs' '-adminlog'
+# Separate terminal, at most one client, while the server holds the host lease:
+& $env:HC_DAYZ_CLIENT '-connect=127.0.0.1' '-port=2302' "-profiles=$env:HC_TEST_CLIENT_PROFILES" "-mod=$env:HC_TEST_MODS" '-dologs'
+```
+
+Expected: Mission reached, lantern spawns/works in hands, light and material swap
+align, smooth cylinder sides/cap boundaries and shadows look correct, no client
+VMEs, missing textures or cannot-open-object messages. Quote the feature's [HC Use]
+evidence and keep the issue implemented-unverified until lead acceptance. Offline
+Python checks and an ODOL read-back never prove DayZ behaviour or multiplayer.

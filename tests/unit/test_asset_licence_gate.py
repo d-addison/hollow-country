@@ -69,13 +69,37 @@ class AssetLicenceTests(unittest.TestCase):
         self.assertEqual(process.stderr, '')
 
     def test_seeded_restricted_and_unknown_licences_refuse(self):
-        licences = ['CC-BY-NC-4.0', 'CC-BY-ND-4.0', 'GPL-3.0-only',
+        licences = ['CC-BY-4.0', 'MIT', 'BSD-3-Clause', 'Apache-2.0', 'CC-BY-NC-4.0', 'CC-BY-ND-4.0', 'GPL-3.0-only',
                     'LGPL-2.1-only', 'unstated', 'MIT OR GPL-3.0-only', '', None, {}]
         for licence in licences:
             with self.subTest(licence=licence):
                 record = copy.deepcopy(self.input)
                 record['licence_id'] = licence
                 self.assertBlocked(self.document(record))
+
+    def test_original_requires_pinned_provenance_and_authorship_notice(self):
+        record = self.component('HC-Original')
+        self.assertTrue(gate.audit(self.seal(self.document(record)))['shippable'])
+        self.assertBlocked(self.document(dict(record, attribution='')))
+        record.pop('licence_path')
+        self.assertBlocked(self.document(record))
+
+    def test_asset_lint_licence_request_requires_provenance(self):
+        from tools.assets import finisher
+        from tools.validate import asset_lint
+        from tests.unit.test_asset_pipeline import cube
+        asset = finisher.finish({0: cube()}, budgets={0: 12})
+        def checked(licence, path=None):
+            result = asset_lint.lint(asset, source_licence=licence, provenance_path=path)
+            return not any(f['id'] == 'HC-A016' for f in result['findings'])
+        self.assertFalse(checked('HC-Original'))
+        path = self.seal(self.document(self.component('HC-Original')))
+        self.assertTrue(checked('HC-Original', path))
+        self.assertFalse(checked('CC0-1.0', path))
+        path = self.seal(self.document(self.component('CC-BY-4.0')))
+        self.assertFalse(checked('CC-BY-4.0', path))
+        path = self.seal(self.document(self.component('CC0-1.0')))
+        self.assertTrue(checked('CC0-1.0', path))
 
     def test_every_policy_source_licence_with_notice_passes(self):
         for licence in gate.load_policy()['source_licences']:

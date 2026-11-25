@@ -1,5 +1,8 @@
 """Offline tests for original asset tooling. No Blender/native process is run."""
 import copy
+import hashlib
+import sys
+from types import SimpleNamespace
 from dataclasses import replace
 import itertools
 import json
@@ -181,6 +184,92 @@ class FinisherTests(unittest.TestCase):
         mlod.validate(mlod.Asset({mlod.GEOMETRY: lod}))
 
 
+    def test_full_lod_set_roundtrip_and_fire_audit(self):
+        from tools.validate import p3d_firegeom_audit as audit
+        asset = finisher.finish({0: cube()}, budgets={0: 12}, mass=3)
+        raw = mlod.write_mlod(asset)
+        restored = mlod.read_mlod(raw)
+        self.assertEqual(set(restored.lods), {0, mlod.MEMORY, mlod.GEOMETRY,
+                         mlod.VIEW_GEOMETRY, mlod.FIRE_GEOMETRY, mlod.SHADOW})
+        self.assertEqual(audit.audit_model(audit.load_model(raw)), [])
+        for resolution in (mlod.GEOMETRY, mlod.VIEW_GEOMETRY, mlod.FIRE_GEOMETRY):
+            lod = restored.lods[resolution]
+            self.assertAlmostEqual(sum(lod.masses), 3)
+            self.assertIn('component01', lod.selections)
+        self.assertTrue(all(len(f.vertices) == 3 for f in restored.lods[mlod.SHADOW].faces))
+        separate = [{'kind': 'box', 'center': [0, 0, 0], 'size': [.5, .5, .5]}]
+        other = finisher.finish({0: cube()}, budgets={0: 12},
+                                view_geometry_primitives=separate, fire_geometry_primitives=separate)
+        self.assertNotEqual(other.lods[mlod.VIEW_GEOMETRY], other.lods[mlod.GEOMETRY])
+        self.assertEqual(other.lods[mlod.VIEW_GEOMETRY], other.lods[mlod.FIRE_GEOMETRY])
+
+    def test_open_shadow_refused_even_for_nonphysical_visual(self):
+        mesh = cube()
+        mesh['faces'].pop()
+        mesh['selections'] = {}
+        for physical in (True, False):
+            with self.assertRaisesRegex(ValueError, 'finish.shadow.finish.nonmanifold_or_open'):
+                finisher.finish({0: cube()}, budgets={0: 12}, shadow_mesh=mesh, physical=physical)
+        with self.assertRaisesRegex(ValueError, 'finish.shadow'):
+            finisher.finish({0: mesh}, budgets={0: 12}, physical=False)
+
+    def test_smooth_cylinder_flat_caps_sharp_edges_and_reader(self):
+        count = 12
+        vertices = [(math.cos(2*math.pi*i/count), y, math.sin(2*math.pi*i/count))
+                    for y in (-.5, .5) for i in range(count)]
+        faces = []
+        for i in range(count):
+            j = (i+1) % count
+            faces.append(dict(vertices=[i, j, j+count, i+count], uv=[[0, 0]]*4,
+                              texture='', material='', smooth=True))
+        vertices.extend([(0, -.5, 0), (0, .5, 0)])
+        for i in range(count):
+            j = (i+1) % count
+            for center, a, b in ((2*count, i, j), (2*count+1, i+count, j+count)):
+                faces.append(dict(vertices=[center, a, b], uv=[[0, 0]]*3, texture='', material=''))
+        mesh = dict(schema='neutral.v1', vertices=vertices, faces=faces,
+                    selections={}, points={}, proxies=[], sharp_edges=[[0, count]])
+        lod = finisher.clean(mesh)
+        raw = mlod.write_mlod(mlod.Asset({0: lod}, physical=False))
+        decoded = mlod.read_mlod(raw, physical=False).lods[0]
+        self.assertEqual(decoded.sharp_edges, ((0, count),))
+        self.assertEqual(mlod.write_mlod(mlod.Asset({0: decoded}, physical=False)), raw)
+        # Away from the sharp seam, side corner normals follow the cylinder radius.
+        normals = [normal for face in decoded.faces[:2*count] for v, normal in zip(face.vertices, face.normals)
+                   if v == 3]
+        self.assertGreater(len(normals), 1)
+        for normal in normals:
+            self.assertAlmostEqual(normal[0], 0, places=6)
+            self.assertAlmostEqual(normal[1], 0, places=6)
+            self.assertAlmostEqual(normal[2], 1, places=6)
+        seam = [normal for face in decoded.faces[:2*count] for v, normal in zip(face.vertices, face.normals)
+                if v == 0]
+        self.assertGreater(max(n[2] for n in seam)-min(n[2] for n in seam), .1)
+        self.assertTrue(all(abs(f.normals[0][1]) == 1 for f in decoded.faces[2*count:]))
+
+    def test_shadow_refuses_pinched_vertex(self):
+        mesh, other = cube(), cube()
+        # Two shells touching only at one vertex have closed edges but no manifold fan.
+        other['vertices'] = [tuple(v + 1 for v in p) for p in other['vertices']]
+        offset = len(mesh['vertices'])
+        mesh['vertices'] += other['vertices']
+        mesh['faces'] += [{**f, 'vertices': [v+offset for v in f['vertices']]} for f in other['faces']]
+        mesh['selections'] = {}
+        with self.assertRaisesRegex(ValueError, 'finish.shadow.finish.nonmanifold_vertex'):
+            finisher.finish({0: cube()}, budgets={0: 12}, shadow_mesh=mesh)
+
+    def test_explicit_flat_is_byte_identical_to_default(self):
+        original = cube()
+        flat = copy.deepcopy(original)
+        for face in flat['faces']:
+            face['smooth'] = False
+        def encoded(mesh):
+            return mlod.write_mlod(mlod.Asset({0: finisher.clean(mesh)}, physical=False))
+        self.assertEqual(encoded(flat), encoded(original))
+        self.assertEqual(hashlib.sha256(encoded(original)).hexdigest(),
+                         'd4066a8024ae6c874547e43dca6ff9570d64846de76f26cd9272a6281583b5c4')
+
+
 class TestCubeRecipeTests(unittest.TestCase):
     """The checked-in HC_TestCube recipe feeds finisher and asset_lint end to end.
 
@@ -276,6 +365,23 @@ class FinisherGuardAuditTests(unittest.TestCase):
 
 
 class ImageTests(unittest.TestCase):
+    def test_owned_prefixes_and_emissive_variant(self):
+        self.assertEqual(hashlib.sha256(pbr_pack.rvmat(r'HollowCountry\data\lens').encode()).hexdigest(),
+                         'ea497ea7d71e556ecf31b9195bacdfb3028f03f8defcf6bff1020cd52a35cd08')
+        for prefix in (r'HollowCountry\data\lens', r'HollowCountryAssets\data\lens'):
+            off = pbr_pack.rvmat(prefix)
+            on = pbr_pack.rvmat_on(prefix, emissive=(2, .5, 0, 1))
+            self.assertIn('emmisive[]={2,0.5,0,1};', on)
+            self.assertIn('unverified until the lead', on)
+            self.assertEqual(on.split('\n', 1)[1].replace('emmisive[]={2,0.5,0,1};',
+                                                       'emmisive[]={0,0,0,1};'), off)
+        for prefix in (r'DZ\data\lens', r'OtherMod\data\lens', r'HollowCountryAssetsEvil\lens'):
+            with self.assertRaises(ValueError):
+                pbr_pack.rvmat_on(prefix)
+        for value in ((float('nan'), 1, 1, 1), (1, 2), (-1, 1, 1, 1)):
+            with self.assertRaises(ValueError):
+                pbr_pack.rvmat_on(r'HollowCountryAssets\lens', emissive=value)
+
     def test_tga_roundtrip_and_origins(self):
         pixels = bytes(range(4*3*4))
         image = pbr_pack.Image(4, 3, pixels)
@@ -403,6 +509,13 @@ class AdmissionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'licence_not_shippable'):
             self.pack()
 
+    def test_pack_writes_optional_on_material(self):
+        report = pbr_pack.pack(self.candidate, self.sources, self.root / 'on',
+                              asset_name='fixture', virtual_prefix=r'HollowCountryAssets\data\fixture',
+                              emissive=(1, .5, 0, 1))
+        self.assertIn('fixture_on.rvmat', report['files'])
+        self.assertIn('emmisive[]={1,0.5,0,1};', (self.root / 'on/fixture_on.rvmat').read_text())
+
     def test_false_claim_and_unpinned_map_refused(self):
         self.document['inputs'][0]['licence_id'] = 'CC-BY-NC-4.0'
         self.seal()
@@ -423,6 +536,17 @@ class AdmissionTests(unittest.TestCase):
 
 
 class RunnerTests(unittest.TestCase):
+    def test_hitbox_requires_exact_patch_without_blender(self):
+        from tools.validate import blender_hitbox_check as hitbox
+        fake = {'bmesh': SimpleNamespace(), 'mathutils': SimpleNamespace(Vector=None),
+                'mathutils.bvhtree': SimpleNamespace(BVHTree=None)}
+        for version in ((5, 2, 3), (5, 2, 5), (5, 3, 0), (5, 2, 4)):
+            fake['bpy'] = SimpleNamespace(app=SimpleNamespace(version=version))
+            with patch.dict(sys.modules, fake):
+                expected = 'hitbox.request_schema' if version == (5, 2, 4) else 'blender.version_requires_5_2_4'
+                with self.assertRaisesRegex(ValueError, expected):
+                    hitbox.blender_measure({})
+
     def test_missing_and_validation_never_launch(self):
         with patch.object(blender_runner.shutil, 'which', return_value=None), patch.object(
                 blender_runner.subprocess, 'run') as run:
@@ -438,7 +562,7 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(path.name, 'env')
 
     def test_native_subprocess_flags_timeout_and_private_capture(self):
-        with tempfile.TemporaryDirectory() as temp:
+        with tempfile.TemporaryDirectory(dir=blender_runner.build_directory(provenance.ROOT / 'build/runner-tests')) as temp:
             directory = Path(temp)
             completed = subprocess.CompletedProcess([], 0, 'private stdout', 'private stderr')
             with patch.object(blender_runner.subprocess, 'run', return_value=completed) as run:
@@ -450,12 +574,16 @@ class RunnerTests(unittest.TestCase):
                     self.assertIn(flag, command)
                 self.assertEqual(run.call_args.kwargs['cwd'], directory)
                 self.assertEqual(run.call_args.kwargs['timeout'], 10)
+                env = run.call_args.kwargs['env']
+                for key in ('TMP', 'TEMP', 'TMPDIR'):
+                    self.assertEqual(Path(env[key]), directory / 'tmp')
+                    self.assertTrue(Path(env[key]).is_dir())
             with patch.object(blender_runner.subprocess, 'run', side_effect=subprocess.TimeoutExpired([], 10)):
                 with self.assertRaisesRegex(blender_runner.BlenderRefusal, 'timeout'):
                     blender_runner._execute(Path('/fake/blender'), Path('script.py'), [], directory, 10)
 
     def test_failure_logs_are_private_and_timeout_bounds_refuse(self):
-        with tempfile.TemporaryDirectory() as temp:
+        with tempfile.TemporaryDirectory(dir=blender_runner.build_directory(provenance.ROOT / 'build/runner-tests')) as temp:
             completed = subprocess.CompletedProcess([], 1, 'private output', 'private diagnostic')
             with patch.object(blender_runner.subprocess, 'run', return_value=completed):
                 with self.assertRaises(blender_runner.BlenderRefusal) as caught:
@@ -491,7 +619,7 @@ class RunnerTests(unittest.TestCase):
     def test_windows_uses_winproc_and_converts_paths_without_launch(self):
         from tools.setup import winproc
         result = winproc.Result(0, 'captured', '', 1)
-        with tempfile.TemporaryDirectory() as temp, patch.object(
+        with tempfile.TemporaryDirectory(dir=blender_runner.build_directory(provenance.ROOT / 'build/runner-tests')) as temp, patch.object(
                 blender_runner, '_windows_path', side_effect=lambda p: 'Z:\\synthetic\\' + Path(p).name), patch.object(
                 winproc, 'run', return_value=result) as run:
             actual = blender_runner._execute(Path('/fake/blender.exe'), Path('script.py'),
@@ -503,6 +631,8 @@ class RunnerTests(unittest.TestCase):
             self.assertIn('WaitForExit', command)
             self.assertIn('Kill()', command)
             self.assertIn('--factory-startup', command)
+            for key in ('TMP', 'TEMP', 'TMPDIR'):
+                self.assertIn('$env:' + key + "='Z:\\synthetic\\tmp'", command)
 
     def test_every_module_offline_selftest(self):
         for module in (ops_runner, blender_runner, blender_ops_script, finisher, pbr_pack, visual_diff):
