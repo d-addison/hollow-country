@@ -326,7 +326,9 @@ class ReleaseGateTests(unittest.TestCase):
                     steps.upgrade()
                 steps.boot.assert_not_called()
 
-    def test_client_smoke_waits_for_all_mapped_positive_features(self):
+    @patch.object(gate.client_compile_check, 'scan', return_value=dict(
+        passed=True, reason='clean', logs=1, errors=0, complete=True))
+    def test_client_smoke_waits_for_all_mapped_positive_features(self, compile_scan):
         mappings = [f'{category}=Core/{category}' for category in gate.CATEGORIES]
         args = self.args(smoke_use=mappings, client_timeout=10)
         steps = gate.NativeSteps(args, self.targets, self.entries)
@@ -336,6 +338,7 @@ class ReleaseGateTests(unittest.TestCase):
         with patch.object(gate, 'audit'), patch.object(gate, 'emit'), \
                 patch.object(gate.activity_check, 'scan', return_value={'features': rows}) as scan:
             steps.client()
+        self.assertEqual(compile_scan.call_count, 2)
         scan.assert_called_once_with(steps.rpt, client_rpt=steps.client_rpt, entries=self.entries)
         rows[0]['value'] = 0
         with patch.object(gate, 'audit'), patch.object(gate, 'emit'), \
