@@ -355,7 +355,14 @@ class HCClientDriver
         float inputAngle;
         string rawInput = "idle";
         if (move.GetCurrentInputAngle(inputAngle)) { rawInput = CalibNumber(inputAngle); }
-        if (Math.AbsFloat(HCDriverWalker.Wrap180(currentAngle - m_ProbeAngle)) <= 15.0) { m_ProbeAngleMatches++; }
+        // The human.c comment says degrees, but soak 191 read 1.57 for every sample of a 90-degree
+        // strafe (input_angle=90), so this build returns radians. Accept either unit; the motion
+        // check below still compares the measured displacement bearings, so a wrong match here
+        // cannot calibrate on its own.
+        float degAngle = currentAngle * Math.RAD2DEG;
+        bool degMatch = Math.AbsFloat(HCDriverWalker.Wrap180(currentAngle - m_ProbeAngle)) <= 15.0;
+        bool radMatch = Math.AbsFloat(HCDriverWalker.Wrap180(degAngle - m_ProbeAngle)) <= 15.0;
+        if (degMatch || radMatch) { m_ProbeAngleMatches++; }
         string separator = "";
         if (m_ProbeSamples > 0) { separator = ";"; }
         m_ProbeTimes += separator + CalibNumber(m_CalibAge);
