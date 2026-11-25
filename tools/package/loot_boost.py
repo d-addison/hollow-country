@@ -36,7 +36,9 @@ file or dump is shipped. One install edits, in place and with byte-exact backups
 * Category targets (``CategoryMultiplier``): a target multiple of the stock nominal per category (food, tools,
   medical, containers, clothes, books; 1.0 up to Multiplier x 1.5), applied to boosted rows whose factor is lower.
 * Scoped shelf limit: when a usage's shelf slots are over-subscribed, only shelf-routed rows whose usages are
-  all over-subscribed are held at their native quantities; rows with any usage that has slack keep the boost.
+  all over-subscribed are held at their native quantities. A final, non-reinvesting cap after balance
+  reduces shelf demand to placed-map usage/tag slots and unfulfilled floor-transfer support, retaining
+  pre-boost nominal/min floors and existing firearm scarcity. Unavoidable excess is reported and gated.
 
 The overlay is produced offline by ``points`` from native interior sampler censuses (model-frame floor
 hits; furniture surfaces need a ``--intersect view`` census). Nothing here observes DayZ: whether the CE
@@ -65,7 +67,7 @@ from tools.package import economy  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Bump with any change to loot_boost logic that alters the boosted bytes for unchanged inputs: friend_install folds it
 # into the overlay fingerprint, so an upgrade re-derives the boost (rollback, then apply from stock bytes).
-LOOT_BOOST_VERSION = 5  # 5: count_in_hoarder=1 on guns, magazines and ammo (#347); 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
+LOOT_BOOST_VERSION = 6  # 6: final shelf/supply-gap caps (#372); 5: count_in_hoarder=1 on guns, magazines and ammo (#347); 4: capacity-aware reinvest (loot_slack.json); 3: loot balance pass-2 reinvest; 2: loot balance (R1/R2b/R3/R4, family table, equal Military/Police gun share)
 MANAGED = 'hollow-country-loot-boost'
 POINTS_DIR = Path('mission/hollow-country/loot-points')
 SETTINGS = POINTS_DIR / 'settings.json'
@@ -1557,9 +1559,10 @@ def _effective_knobs(knobs, root=None):
     return knobs_of(doc)
 
 
-def set_nominals(data, new):
+def set_nominals(data, new, minimums=None):
     """Set the nominal of named rows ({lowercase class: nominal}); min follows proportionally (at least 1, never above
-    the nominal). Returns (bytes, rows changed); the same masked in-place edit and verification as scale_types."""
+    the nominal); optional minimums preserve pre-boost min floors. Returns (bytes, rows changed);
+    the same masked in-place edit and verification as scale_types."""
     economy.xml(data, 'types')
     text = data.decode('utf-8-sig')
     masked = _mask(text)
@@ -1584,9 +1587,14 @@ def set_nominals(data, new):
             continue
         old_nominal, old_min = int(found['nominal'].group(2)), int(found['min'].group(2))
         nominal = new[name.lower()]
-        if nominal == old_nominal or old_nominal <= 0:
+        if old_nominal <= 0 and minimums is None:
             continue
-        minimum = old_min if not old_min else max(1, min(nominal, ceil_scaled(old_min, nominal / old_nominal)))
+        if nominal == old_nominal and (minimums is None or old_min >= minimums.get(name.lower(), 0)):
+            continue
+        minimum = (old_min if not old_min or not old_nominal else
+                   max(1, min(nominal, ceil_scaled(old_min, nominal / old_nominal))))
+        if minimums is not None:
+            minimum = max(minimum, minimums.get(name.lower(), 0))
         for field, value in (('nominal', nominal), ('min', minimum)):
             start = opening.end() + found[field].start(2)
             edits.append((start, start + len(found[field].group(2)), str(value)))
@@ -1638,6 +1646,27 @@ def _balance_rows(layers, roster, locked):
     return rows
 
 
+def _reinvest_slack(rows, slack, previous_nominals):
+    """Rebase building-loot headroom from the prior plan onto current scaled demand.
+
+    The generated table describes slack AFTER the previous balance and cap.
+    Treating that as slack before this balance double-spends or withholds the
+    changed nominal, causing a feedback cycle (#372). Preserve exact firearm
+    bucket weights; building buckets reserve their current pre-balance demand.
+    """
+    if slack is None:
+        return None
+    building, protected, demand = set(), set(), {}
+    for name, row in rows.items():
+        bucket = slack['class'].get(name)
+        if bucket is not None:
+            (building if row['category'] in TARGET_CATEGORIES else protected).add(bucket)
+            demand[bucket] = demand.get(bucket, 0) + row['nominal']
+    return dict(slack, bucket={b: max(0, n + previous_nominals.get(b, 0) - demand.get(b, 0))
+                               if b in building - protected else n
+                               for b, n in slack['bucket'].items()})
+
+
 def _balance_layers(layers, roster, balance, locked, root=None):
     """Loot balance (owner 2026-11-22) over the scaled layers: R3/R1/re-investment/R2b by family and category, then
     R4 (ammo and magazines per gun). Returns (layers, report); see loot_balance for the rules.
@@ -1647,9 +1676,13 @@ def _balance_layers(layers, roster, balance, locked, root=None):
     rows only; the optional packs' guns and rows are counted from their install-time estimate."""
     from tools.package import loot_balance, loot_slack, military_loot
     rows = _balance_rows(layers, roster, locked)
+    slack = loot_slack.load(root)
+    if slack is not None:
+        previous = json.loads((Path(root or REPO_ROOT) / loot_slack.TABLE).read_bytes())
+        slack = _reinvest_slack(rows, slack, {b: v['nominal'] for b, v in previous['buckets'].items()})
     changed, report = loot_balance.balance(
         {low: row for low, row in rows.items()}, k=balance['FamilyFactor'], floor=balance['FamilyFloor'],
-        share=balance['ShareCap'], stock_factor=balance['StockFactor'], slack=loot_slack.load(root), slack_share=balance['SlackShare'],
+        share=balance['ShareCap'], stock_factor=balance['StockFactor'], slack=slack, slack_share=balance['SlackShare'],
         pass2_share=balance['Pass2Share'])
     nominal = {low: changed.get(low, row['nominal']) for low, row in rows.items()}
     catalog = military_loot.catalog()
@@ -1720,6 +1753,99 @@ def _attachment_report(mission, layers, fits):
     return counts, {n: g for n, g in coverage['gaps'].items() if g['kind'] != 'norow'}
 
 
+def _cap_shelf_supply(outputs, floor, proto, positions, policy, roster):
+    """Final, non-reinvesting cap. Pre-boost quantities and firearm scarcity are hard floors.
+
+    Floor transfers are an offline allocation, not a census of placed buildings.
+    Use their fulfilled fraction as a conservative bound on displaced supply;
+    usage/tag limits separately use the placed-map census. Never add these two
+    different capacity estimates together.
+    """
+    rows = {}
+    for index, (file, before, after) in enumerate(outputs):
+        if not file.endswith('.xml') or file not in policy['type_files']:
+            continue
+        stock = {n.get('name').lower(): n for n in economy.xml(before, 'types').findall('type')}
+        for node in economy.xml(after, 'types').findall('type'):
+            low = node.get('name').lower()
+            old = stock[low]
+            cats = [c.get('name') for c in node.findall('category')]
+            tags = [t.get('name') for t in node.findall('tag')] or ['*']
+            usages = [u.get('name') for u in node.findall('usage')] or ['*']
+            rows[low] = {'name': node.get('name'), 'layer': index,
+                         'nominal': int(node.findtext('nominal') or 0),
+                         'stock': int(old.findtext('nominal') or 0),
+                         'minimum': int(old.findtext('min') or 0),
+                         'mutable': _scales(cats, node.get('name'), roster)
+                                    and not file.startswith(OPTIONAL_FOLDER + '/'),
+                         'weights': {u + '/' + t: 1 / (len(usages) * len(tags))
+                                     for u in usages for t in tags}}
+    original = {n: r['nominal'] for n, r in rows.items()}
+    # Balance may itself have reduced a shelf row below its installed floor.
+    # Restore that floor before computing reducible boost; firearm rules stay intact.
+    for row in rows.values():
+        if row['mutable'] and any(k.endswith('/' + policy['shelf_tag']) for k in row['weights']):
+            row['nominal'] = max(row['stock'], row['nominal'])
+    gaps = floor.get('supply_gaps', {})
+    for name, gap in gaps.items():
+        row = rows.get(name.lower())
+        if row is None or not gap['unplaced_slots']:
+            continue
+        from tools.package.loot_floor_policy import supported_nominal
+        supported = supported_nominal(gap)
+        gap['supported_nominal'] = supported
+        gap['nominal_before_cap'] = gap['nominal']
+        if row['mutable']:
+            row['nominal'] = max(row['stock'], min(row['nominal'], supported))
+    layers = [a for n, b, a in outputs if n in policy['type_files']]
+    budget = economy.placement_budget(layers, proto, positions)
+    # Every reduction only helps other buckets. Deterministic proportional cuts
+    # preserve the distribution of the boost; integer rounding always cuts up.
+    for key, values in budget['by_usage_tag'].items():
+        if not key.endswith('/' + policy['shelf_tag']):
+            continue
+        members = [r for r in rows.values() if key in r['weights']]
+        demand = sum(r['nominal'] * r['weights'][key] for r in members)
+        excess = demand - values['point_slots']
+        candidates = [r for r in members if r['mutable'] and r['nominal'] > r['stock']]
+        reducible = sum((r['nominal'] - r['stock']) * r['weights'][key] for r in candidates)
+        if excess > 0 and reducible > 0:
+            fraction = min(1, excess / reducible)
+            for row in candidates:
+                row['nominal'] -= min(row['nominal'] - row['stock'],
+                                      math.ceil((row['nominal'] - row['stock']) * fraction))
+    capped = []
+    for index, (file, before, after) in enumerate(outputs):
+        changes = {n: r['nominal'] for n, r in rows.items()
+                   if r['layer'] == index and r['nominal'] != original[n]}
+        if changes:
+            after, _ = set_nominals(after, changes, {n: rows[n]['minimum'] for n in changes})
+        capped.append((file, before, after))
+    for name, gap in floor.get('supply', gaps).items():
+        if name.lower() in rows:
+            row = rows[name.lower()]
+            gap['nominal'] = row['nominal']
+            if 'supported_nominal' in gap:
+                gap['preboost_nominal'] = row['stock']
+                gap['protected_supply'] = not row['mutable']
+        if 'supported_nominal' in gap:
+            gap['above_capacity'] = max(0, gap['nominal'] - gap['supported_nominal'])
+    final = economy.placement_budget([a for n, b, a in capped if n in policy['type_files']], proto, positions)
+    final['remaining_pressure'] = [k for k, v in final['by_usage_tag'].items()
+                                   if k.endswith('/' + policy['shelf_tag']) and v['nominal'] > v['point_slots']]
+    report = {'rows': {r['name']: {'before': original[n], 'after': r['nominal'], 'stock': r['stock']}
+                       for n, r in rows.items() if r['nominal'] != original[n]},
+              'unreinvested_nominal': sum(max(0, original[n] - r['nominal']) for n, r in rows.items()),
+              'restored_stock_nominal': sum(max(0, r['nominal'] - original[n]) for n, r in rows.items()),
+              'stock_or_protected_pressure': {k: dict(final['by_usage_tag'][k],
+                  preboost_nominal=round(sum(r['stock'] * r['weights'].get(k, 0) for r in rows.values()), 3),
+                  protected_nominal=round(sum(r['nominal'] * r['weights'].get(k, 0)
+                                             for r in rows.values() if not r['mutable']), 3))
+                  for k in final['remaining_pressure']},
+              'stock_or_protected_gaps': {n: g for n, g in gaps.items() if g.get('above_capacity', 0)}}
+    return capped, final, report
+
+
 def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_shelves=False, buildings=SHIPPED,
          military_multiplier=None, capacity=None, categories=None, knobs=None, fits=None, root=None):
     """All edits computed in memory from the mission's current bytes; nothing written.
@@ -1746,7 +1872,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     overlay = parse_overlay(points) if points is not None else None
     roster = _roster_names(root)
     policy, policy_sha = _floor_policy(floor_policy, root)
-    outputs, counts, tag_rows, type_layers = [], {'types': {}}, [], []
+    outputs, counts, tag_rows = [], {'types': {}}, []
     hoarder = dict.fromkeys(HOARDER_KINDS, 0)
     scaled_layers = []
     from tools.package import military_loot
@@ -1775,8 +1901,6 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
             after, rows = loot_floor_policy.retag_types(after, policy, roster)
             tag_rows.append(rows)
         outputs.append((name, before, after))
-        # Keep every registered type layer in CE load order, irrespective of filename.
-        type_layers.append(after)
     before = economy.read_plain(mission, GLOBALS)
     after, report = scale_globals(before, multiplier, knobs['loot_damage_max'], knobs['refill']['RespawnTypesFactor'])
     counts['globals'] = report
@@ -1820,7 +1944,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     if pos_after is not None:
         outputs.append(('mapgrouppos.xml', pos_before, pos_after))
     if policy is not None and pos_after is not None:
-        budget = economy.placement_budget(type_layers, proto_after, pos_after)
+        budget = economy.placement_budget([a for n, b, a in outputs if n in counts['types']], proto_after, pos_after)
         pressure = [k for k, v in budget['by_usage_tag'].items()
                     if not k.startswith('*/') and k.endswith('/' + policy['shelf_tag'])
                     and v['nominal'] > v['point_slots']]
@@ -1840,16 +1964,19 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         if (pressure and not _limit_shelves and multiplier > 1
                 and frozenset(k.split('/')[0] for k in pressure) - set(knobs['usage'])):
             # A usage with a UsageMultiplier is sized to the owner's target, not to today's slots (wh-points adds
-            # the slots); its shelf pressure stays in the report (remaining_pressure) and is never held back.
+            # the slots). The final cap below still applies after this scoped holdback pass.
             pressured = frozenset(k.split('/')[0] for k in pressure) - set(knobs['usage'])
             limited = plan(mission, multiplier, points, floor_policy, _limit_shelves=pressured, buildings=buildings,
                            capacity=capacity, categories=categories, knobs=knobs, fits=fits, root=root)
             limited['counts']['placement_budget']['before_shelf_limit'] = budget
             limited['counts']['placement_budget']['trigger_usages'] = pressure
             return limited
-        budget['shelf_boost_limited'] = sorted(held) if held else []
-        budget['remaining_pressure'] = pressure
-        counts['placement_budget'] = budget
+        outputs, final, counts['supply_cap'] = _cap_shelf_supply(
+            outputs, floor, proto_after, pos_after,
+            dict(policy, type_files=set(counts['types'])), roster)
+        final['before_capacity_cap'] = budget
+        final['shelf_boost_limited'] = sorted(held) if held else []
+        counts['placement_budget'] = final
     else:
         counts['placement_budget'] = {'runtime_acceptance': 'pending',
                                     'unavailable': 'usage/tag budgeting needs mapgrouppos and floor policy'}
@@ -1858,6 +1985,67 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
             'knobs': knobs,
             'points_sha256': _sha(points) if points is not None else None,
             'floor_policy_sha256': policy_sha, 'files': files, 'counts': counts, 'proto_before': _sha(proto_before)}
+
+
+def capacity_check(mission):
+    """Read-only installed-input gate; replay receipt backups in a disposable mission.
+
+    Later overlays may own live proto bytes; validated pre-boost backups are the
+    boost's actual inputs. Never roll back or modify the installed mission here.
+    """
+    import tempfile
+    if mission is None:
+        print('loot_boost_capacity: not available (mission inputs not provided)')
+        return 2
+    mission = Path(mission)
+    required = {CORE, GLOBALS, PROTO, STOCK_TYPES, 'mapgrouppos.xml'}
+    if not all((mission / name).is_file() for name in required):
+        print('loot_boost_capacity: not available (mission inputs missing)')
+        return 2
+    try:
+        with tempfile.TemporaryDirectory(prefix='hc-loot-capacity-') as directory:
+            scratch = Path(directory)
+            names = required | set(types_files(mission, include_optional=True)) | set(spawnable_files(mission))
+            names |= {n for n in (LIMITS, 'cfgrandompresets.xml') if (mission / n).is_file()}
+            for name in names:
+                target = economy.child(scratch, name)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(economy.read_plain(mission, name))
+            managed = economy.child(mission, MANAGED)
+            if os.path.lexists(managed):
+                _preflight(managed)
+                receipt = _receipt(managed)
+                if receipt is None:
+                    raise ValueError('receipt missing')
+                for row in receipt['files']:
+                    data = economy.read_plain(managed, row['backup'])
+                    if _sha(data) != row['before']:
+                        raise ValueError('backup drifted')
+                    target = economy.child(scratch, row['name'])
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+            result = plan(scratch, points=shipped_points())
+    except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as error:
+        print('loot_boost_capacity: FAIL (invalid inputs: %s)' % type(error).__name__)
+        return 1
+    budget = result['counts']['placement_budget']
+    if 'unavailable' in budget:
+        print('loot_boost_capacity: not available (placement budget unavailable)')
+        return 2
+    pressure = budget['remaining_pressure']
+    gaps = result['counts']['supply_cap']['stock_or_protected_gaps']
+    print('loot_boost_capacity: %s shelves_over_capacity=%d unplaced_gaps_above_capacity=%d '
+          'unreinvested_nominal=%d (offline estimate; runtime PENDING)'
+          % ('FAIL' if pressure or gaps else 'PASS', len(pressure), len(gaps),
+             result['counts']['supply_cap']['unreinvested_nominal']))
+    for key in pressure:
+        row = budget['by_usage_tag'][key]
+        print('  %s nominal=%s point_slots=%s (pre-boost or protected supply retained)'
+              % (key, row['nominal'], row['point_slots']))
+    for name, row in sorted(gaps.items()):
+        print('  %s nominal=%d supported_nominal=%d (pre-boost or protected supply retained)'
+              % (name, row['nominal'], row['supported_nominal']))
+    return 1 if pressure or gaps else 0
 
 
 def _check_coverage_above(mission, proto_after_sha, proto_before_sha):
@@ -2344,8 +2532,12 @@ def main(argv=None):
     sub.add_parser('validate')
     h = sub.add_parser('check', help='hoarder coverage: every stock weapons-category row is flagged or listed in NOT_HOARDED')
     h.add_argument('--source', required=True, type=Path, help='stock mission directory (read only)')
+    c = sub.add_parser('capacity-check', help='offline final shelf and unplaced supply capacity gate')
+    c.add_argument('--mission', type=Path, default=os.environ.get('HC_CE_MISSION') or None)
     args = parser.parse_args(argv)
     try:
+        if args.command == 'capacity-check':
+            return capacity_check(args.mission)
         if args.command == 'points':
             from tools.package import ce_coverage
             geom, geom_sources = _load_censuses(args.census, print)

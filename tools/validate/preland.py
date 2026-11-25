@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 CHECKS = ('enforce_lint', 'enforce_perf', 'layout_lint', 'cfgconvert_check',
           'settings_consistency', 'wiring_audit', 'regenerate_all', 'generated_digests',
-          'mission_sources', 'hygiene', 'hc_events', 'ce_slot_pressure', 'world_mesh_audit',
+          'mission_sources', 'hygiene', 'hc_events', 'ce_slot_pressure', 'loot_boost_capacity', 'world_mesh_audit',
           'asset_lint')
 # Checks whose entry point is not tools.validate.<name>. hygiene runs the whole repository
 # scan (secrets, local paths, banned provider text in mods/mission/config); hc_events and
@@ -31,10 +31,11 @@ COMMANDS = {
     'hygiene': ('tools.validate.hygiene', ['--summary']),
     'hc_events': ('tools.validate.mission_sources', ['--events']),
     'ce_slot_pressure': ('tools.validate.mission_sources', ['--ce-slots']),
+    'loot_boost_capacity': ('tools.package.loot_boost', ['capacity-check']),
     'world_mesh_audit': ('tools.audit.world_mesh_audit', []),
 }
 # Gates that need installed or staged inputs; the CI profile lists them as exclusions.
-CI_ONLY_EXCLUDED = ('cfgconvert_check', 'wb_compile', 'ce_slot_pressure', 'world_mesh_audit')
+CI_ONLY_EXCLUDED = ('cfgconvert_check', 'wb_compile', 'ce_slot_pressure', 'loot_boost_capacity', 'world_mesh_audit')
 # Built assets for asset_lint: <stem>.p3d (or <stem>.ir.json) beside <stem>.model.cfg and
 # <stem>.sources.json; the config is the owned assets addon's config.cpp. assets_src holds
 # only ops recipes today, so the gate reports no applicable inputs until a built asset lands.
@@ -47,6 +48,7 @@ CI_EXCLUSIONS = {
     'cfgconvert_check': 'requires the installed Windows DayZ Tools cfgconvert executable',
     'wb_compile': 'requires installed Windows Workbench; engine compilation is a separate lead gate',
     'ce_slot_pressure': 'requires a staged mission (stock files plus installed overlays); pass --ce-mission locally',
+    'loot_boost_capacity': 'requires installed mission inputs; reports not available without HC_CE_MISSION',
     'world_mesh_audit': 'requires installed vanilla Addons (the in-repo ODOL reader is used)',
     'enforce_lint.native': 'installed native and Workshop APIs are absent; use pinned names with --no-native',
     'layout_lint.textures': 'installed vanilla/Workshop texture index is absent; owned UI checks still run',
@@ -340,6 +342,9 @@ def execute(args, paths, scratch):
                 arguments.append(str(Path(args.ce_mission).expanduser()))
             else:
                 gap = 'staged CE mission not provided (--ce-mission or HC_CE_MISSION)'
+        elif name == 'loot_boost_capacity':
+            if args.ce_mission:
+                arguments += ['--mission', str(Path(args.ce_mission).expanduser())]
         elif name == 'world_mesh_audit':
             addons = Path(os.environ.get('HC_GENERATED_GEOMETRY_ADDONS') or args.addons).expanduser().resolve()
             gap = world_mesh_gap(addons)

@@ -1238,6 +1238,32 @@ by `tools/package/loot_boost.py` (`scale_capacity_proto`, `scale_types`, the sco
   slots; the re-plan holds a shelf-routed row at 1x only when all of its usages are in that pressured set (a row
   with a usage that has slack keeps the boost), instead of holding every shelf row on the map. The describe line
   reports `shelf_boost_limited=[...]`.
+- Final supply cap (#372): after balance, route spreading and the scoped shelf limit, cap
+  boosted rows against every placed-map `usage/shelves` bucket's `point_slots`, including
+  the wildcard bucket. Multi-usage/tag demand keeps the budget's even split. Reduce only
+  the excess over pre-boost nominal, proportionally with integer cuts rounded upward.
+  A floor-policy supply gap with unplaced requests also caps supply to
+  `min(compatible_shelf_points, floor(nominal * transferred_slots / requested_slots))`.
+  Compatible points are shared capacity, not an independent allowance per class; the
+  fulfilled fraction is a conservative offline bound, not native placement evidence.
+  The original requested/unplaced counts remain as provenance; `nominal_before_cap`,
+  `supported_nominal`, final `nominal` and `above_capacity` explain the cap.
+  Min follows proportionally but never falls below its pre-boost value. Firearms,
+  ammunition, magazines, roster rows and optional-pack quantities retain their existing
+  scarcity rules. Building-loot balance rebases the generated table's spare headroom
+  onto current scaled demand: prior slack plus prior nominal minus current nominal,
+  bounded below by zero. This avoids treating post-cap headroom as pre-balance
+  headroom and feeding the same changed nominal back into reinvestment. Buckets
+  shared with firearm supply retain their exact weights. No nominal freed by the
+  final cap is reinvested. `counts.supply_cap` records cuts,
+  unreinvested nominal and unavoidable pre-boost/protected gaps and bucket pressure.
+  `loot_boost_capacity` runs `loot_boost.plan` on the strict environment's `HC_CE_MISSION`
+  inputs, replaying hash-verified pre-boost receipt backups in a disposable mission when
+  installed. It fails on every remaining shelf bucket excess or unplaced gap above its
+  supported nominal, including retained pre-boost/protected exceptions. Missing inputs
+  report “not available”, never pass. These are offline estimates; runtime stays pending.
+  Boost version 6 invalidates the install fingerprint: the existing upgrade rollback
+  restores verified backups before regenerating, without wiping the server.
 
 A target at or below the factor a row already gets is a no-op for that row (`rows=` in the describe line counts the
 rows it lifted). Held shelf rows are never raised by a target.
@@ -1248,7 +1274,8 @@ five more knobs, all read by `loot_boost.default_knobs` and recorded in the rece
 - `UsageMultiplier` is `{usage: factor}` (1.0 to 8.0). A building-loot row's nominal and min factor is the largest
   entry over its usages; a usage without an entry counts as `Multiplier`, a row without usages keeps `Multiplier`.
   A usage with an entry replaces the legacy Military-adjacent step for rows that use it, and is sized to its owner
-  target rather than to today's slots: it is never shelf-held (its remaining pressure stays in the budget report).
+  target rather than to today's slots during the scoped shelf pass. The final capacity cap still applies;
+  pre-boost/protected pressure stays in the receipt and fails the capacity gate.
 - `MilitaryTierMultiplier` is `{TierN: factor}` (0.5 to 4.0). A row with the Military usage gets an extra factor
   equal to the mean over its tier values (a row without tier values counts as 1.0), so Tier3/Tier4 rows outweigh
   Tier1/Tier2 rows. Groups carry no tier in `mapgroupproto.xml`, so this widens what a Tier3/Tier4 zone can draw,

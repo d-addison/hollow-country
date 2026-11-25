@@ -539,10 +539,6 @@ class FloorBound(unittest.TestCase):
                     self.assertGreaterEqual(p[1], floors[name] - self.lb.MAX_BELOW_STOCK_FLOOR, (name, cname, p))
 
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class VillageHouseTarget(unittest.TestCase):
     """The owner's 5-6 items per Village house (economy interview 2026-11-22), as the offline fill model sees it."""
     STOCK = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/mpmissions/dayzOffline.chernarusplus')
@@ -559,3 +555,104 @@ class VillageHouseTarget(unittest.TestCase):
         self.assertLessEqual(house['median'], 6.0, result)
         self.assertLessEqual(house['p90'], 10.5, result)
         self.assertGreater(result['nominal'], 15000, result)
+
+
+class FinalShelfCapacity(unittest.TestCase):
+    """Synthetic final supply cuts must survive balance and preserve installed floors."""
+
+    def test_final_cap_shares_buckets_respects_stock_min_and_never_reinvests(self):
+        from tools.package import loot_boost as lb
+        stock = b'''<types>
+          <type name="Pipe"><nominal>4</nominal><min>3</min><category name="tools"/><usage name="Industrial"/><tag name="shelves"/></type>
+          <type name="Hammer"><nominal>2</nominal><min>2</min><category name="tools"/><usage name="Industrial"/><tag name="shelves"/></type>
+          <type name="SyntheticRifle"><nominal>1</nominal><min>1</min><category name="weapons"/><usage name="Industrial"/><tag name="shelves"/></type>
+        </types>'''
+        boosted, _ = lb.set_nominals(stock, {'pipe': 12, 'hammer': 8, 'syntheticrifle': 3})
+        proto = b'''<prototype><group name="Synthetic" lootmax="9"><usage name="Industrial"/>
+          <container name="shelf" lootmax="9"><tag name="shelves"/>''' + b'<point/>' * 9 + b'</container></group></prototype>'
+        positions = b'<map><group name="Synthetic"/></map>'
+        gap = {'nominal': 12, 'requested_slots': 4, 'unplaced_slots': 2,
+               'compatible_shelf_points': 20}
+        floor = {'supply_gaps': {'Pipe': gap}}
+        outputs, budget, report = lb._cap_shelf_supply(
+            [('db/types.xml', stock, boosted)], floor, proto, positions,
+            {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {'syntheticrifle': 'weapon'})
+        rows = {n.get('name'): (int(n.findtext('nominal')), int(n.findtext('min')))
+                for n in ET.fromstring(outputs[0][2])}
+        self.assertLessEqual(sum(n for n, m in rows.values()), 9)
+        self.assertGreaterEqual(rows['Pipe'][0], 4)
+        self.assertGreaterEqual(rows['Pipe'][1], 3)
+        self.assertGreaterEqual(rows['Hammer'][1], 2)
+        self.assertEqual(rows['SyntheticRifle'], (3, 3))
+        self.assertLessEqual(rows['Pipe'][0], 6)
+        self.assertEqual(gap['nominal'], rows['Pipe'][0])
+        self.assertFalse(budget['remaining_pressure'])
+        self.assertEqual(report['unreinvested_nominal'], 23 - sum(n for n, m in rows.values()))
+
+    def test_stock_and_firearm_excess_is_reported_and_missing_inputs_never_pass(self):
+        from tools.package import loot_boost as lb
+        stock = b'''<types><type name="Pipe"><nominal>8</nominal><min>6</min>
+          <category name="tools"/><tag name="shelves"/></type></types>'''
+        boosted, _ = lb.set_nominals(stock, {'pipe': 16})
+        floor = {'supply_gaps': {'Pipe': {'nominal': 16, 'requested_slots': 4,
+                 'unplaced_slots': 4, 'compatible_shelf_points': 1}}}
+        outputs, budget, report = lb._cap_shelf_supply(
+            [('db/types.xml', stock, boosted)], floor, b'<prototype/>', b'<map/>',
+            {'type_files': {'db/types.xml'}, 'shelf_tag': 'shelves'}, {})
+        row = ET.fromstring(outputs[0][2]).find('type')
+        self.assertEqual((row.findtext('nominal'), row.findtext('min')), ('8', '6'))
+        self.assertEqual(budget['remaining_pressure'], ['*/shelves'])
+        self.assertEqual(report['stock_or_protected_gaps']['Pipe']['above_capacity'], 8)
+        self.assertEqual(lb.capacity_check(None), 2)
+
+    def test_upgrade_rollback_uses_verified_preboost_bytes_then_replans(self):
+        from tools.package import loot_boost as lb
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'mission'
+            original = mission(target)
+            with mock.patch.object(lb, 'default_knobs', return_value=dict(lb.default_knobs(), balance=None, usage={}, tier={}, firearms={})), \
+                    mock.patch.object(lb, 'default_category_map', return_value={}), \
+                    mock.patch.object(lb, 'default_capacity_map', return_value={}):
+                lb.install(target, multiplier=2, points=None, floor_policy=None)
+                self.assertEqual(lb.installed_before(target)['db/types.xml'], original['db/types.xml'])
+                lb.rollback(target)
+                for name, data in original.items():
+                    self.assertEqual((target / name).read_bytes(), data)
+                # A changed generator/setting is applied to the original 3, never to the boosted 6.
+                lb.install(target, multiplier=3, points=None, floor_policy=None)
+                self.assertEqual(types_of(target / 'db/types.xml')['Hammer'], (9, 3))
+
+    def test_reinvest_headroom_rebases_demand_and_preserves_firearm_weights(self):
+        from tools.package import loot_boost as lb
+        rows = {'kit': {'category': 'containers', 'nominal': 80},
+                'rifle': {'category': 'weapons', 'nominal': 10}}
+        slack = {'class': {'kit': 'medic', 'rifle': 'weapon'}, 'bucket': {'medic': 97, 'weapon': 97}}
+        first = lb._reinvest_slack(rows, slack, {'medic': 130, 'weapon': 10})
+        slack['bucket']['medic'] = 98
+        second = lb._reinvest_slack(rows, slack, {'medic': 129, 'weapon': 10})
+        self.assertEqual(first, second)
+        self.assertEqual(first['bucket'], {'medic': 147, 'weapon': 97})
+        self.assertEqual(slack['bucket']['medic'], 98)
+
+    def test_plan_caps_the_emitted_layers_and_reports_their_actual_budget(self):
+        from tools.package import loot_boost as lb, economy
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'mission'
+            mission(target)
+            (target / 'mapgrouppos.xml').write_bytes(b'<map><group name="Land_House_Synthetic"/></map>')
+            knobs = dict(lb.default_knobs(), balance=None, usage={}, tier={}, firearms={})
+            result = lb.plan(target, multiplier=2, points=None, buildings=None,
+                             capacity={}, categories={}, knobs=knobs)
+            layers = []
+            for name in lb.types_files(target, include_optional=True):
+                layers.append(next((a for n, b, a in result['files'] if n == name),
+                                   (target / name).read_bytes()))
+            proto = next((a for n, b, a in result['files'] if n == lb.PROTO),
+                         (target / lb.PROTO).read_bytes())
+            budget = economy.placement_budget(layers, proto, (target / 'mapgrouppos.xml').read_bytes())
+            self.assertEqual(result['counts']['placement_budget']['by_usage_tag'], budget['by_usage_tag'])
+            self.assertIn('supply_cap', result['counts'])
+
+
+if __name__ == '__main__':
+    unittest.main()

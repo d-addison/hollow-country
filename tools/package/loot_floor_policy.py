@@ -33,6 +33,19 @@ MAX_CONTAINER_LOOTMAX = 40
 MAX_LIST = 256
 
 
+def supported_nominal(record):
+    """Conservative supply bound for an unfulfilled floor-to-shelf allocation.
+
+    Compatible points are shared, not an entitlement for each class. Restrict
+    nominal to the fulfilled fraction of requested slots as well as that point
+    ceiling. This estimate is frozen before the final supply cap so a receipt
+    retains the evidence that caused the cut.
+    """
+    requested = record['requested_slots']
+    return min(record['compatible_shelf_points'],
+               record['nominal'] * max(0, requested - record['unplaced_slots']) // max(1, requested))
+
+
 def _names(value, what):
     if (not isinstance(value, list) or len(value) > MAX_LIST
             or any(not isinstance(v, str) or not NAME.fullmatch(v) for v in value)):
