@@ -32,7 +32,10 @@ class HCStaminaConfiguration
     protected static ref HCStaminaSettings s_Pending;
     protected static bool s_PendingExperimental;
     protected static bool s_ReceiptLogged;
-    protected static bool s_Requested;
+    protected static int s_RequestAttempts;
+    protected static int s_LastRequestTime;
+    protected static bool s_RequestRefused;
+    protected static string s_ReceiptFailure;
     protected static bool s_Active;
     protected static bool s_Server;
     protected static bool s_LoadAttempted;
@@ -56,7 +59,12 @@ class HCStaminaConfiguration
         s_Pending = null;
         s_PendingExperimental = false;
         s_ReceiptLogged = false;
-        s_Requested = false;
+        if (GetGame())
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCStaminaConfiguration.RequestClientReceipt);
+        s_RequestAttempts = 0;
+        s_LastRequestTime = 0;
+        s_RequestRefused = false;
+        s_ReceiptFailure = "no_native_receipt";
         s_RequestTimes = null;
         s_Active = active;
         s_Server = server;
@@ -263,7 +271,7 @@ class HCStaminaConfiguration
     static void ServerLoaded()
     {
         Reset(true, true);
-        Print("[HollowCountry] Stamina CFG sync vanilla passthrough active; HC receipt gated; runtime acceptance PENDING");
+        Print("[HollowCountry] Stamina CFG sync vanilla passthrough active; HC receipt validation active; runtime acceptance PENDING");
         CfgGameplayJson data = CfgGameplayHandler.m_Data;
         if (data && data.PlayerData && data.PlayerData.StaminaData)
         {
@@ -280,16 +288,19 @@ class HCStaminaConfiguration
 
     static bool NativeReceipt(CfgGameplayJson data, CfgGameplayJson previous)
     {
-        // Only called after the authenticated native handler replaces its DTO.
-        // A failed native read must not erase an earlier valid receipt.
+        // DayZGame.c:3159-3162 dispatches global CFG through the native reader.
+        // Retain the previous DTO strongly across that call so replacement can
+        // be detected. Never clear a good receipt on an unchanged/invalid DTO.
         if (s_Server || !data || data == previous)
+        {
+            s_ReceiptFailure = "native_unchanged";
             return false;
-        s_Candidate = null;
-        s_Experimental = false;
-        s_Pending = null;
-        s_PendingExperimental = false;
+        }
         if (!data.PlayerData || !data.PlayerData.StaminaData)
+        {
+            s_ReceiptFailure = "native_stamina_missing";
             return false;
+        }
         ITEM_StaminaData item = data.PlayerData.StaminaData;
         HCStaminaSettings settings = new HCStaminaSettings;
         settings.SchemaVersion = item.HCSchemaVersion;
@@ -297,10 +308,18 @@ class HCStaminaConfiguration
         settings.ContinuousExertionScale = item.HCContinuousExertionScale;
         settings.RecoveryScale = item.HCRecoveryScale;
         settings.WeightPenaltyScale = item.HCWeightPenaltyScale;
-        s_Pending = Copy(settings);
-        s_PendingExperimental = item.HCExperimental;
-        if (!s_Active)
+        HCStaminaSettings checked = Copy(settings);
+        if (!checked)
+        {
+            s_ReceiptFailure = "native_stamina_invalid";
             return false;
+        }
+        s_Pending = checked;
+        s_PendingExperimental = item.HCExperimental;
+        // A validated server receipt itself admits this connection. SessionStart
+        // is not player readiness (DayZGame.c:1497-1505); WorldCleanup can clear
+        // s_Active and previously left this receipt pending with no later drain.
+        s_Active = true;
         return StageClientReceipt();
     }
 
@@ -309,6 +328,8 @@ class HCStaminaConfiguration
         bool staged = Stage(s_Pending, s_PendingExperimental);
         s_Pending = null;
         s_PendingExperimental = false;
+        if (staged && GetGame())
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCStaminaConfiguration.RequestClientReceipt);
         if (!s_ReceiptLogged)
         {
             s_ReceiptLogged = true;
@@ -317,15 +338,56 @@ class HCStaminaConfiguration
         return staged;
     }
 
+    static void ClientReady()
+    {
+        if (!GetGame() || GetGame().IsServer())
+            return;
+        s_Active = true;
+        if (s_Pending)
+            StageClientReceipt();
+        if (s_Candidate || s_RequestRefused)
+            return;
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCStaminaConfiguration.RequestClientReceipt);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCStaminaConfiguration.RequestClientReceipt, 1000, true);
+    }
+
     static void RequestClientReceipt()
     {
-        if (!ClientActive() || s_Candidate || s_Requested)
+        if (!GetGame() || GetGame().IsServer() || !ClientActive() || s_Candidate)
             return;
-        s_Requested = true;
+        int now = GetGame().GetTime();
+        if (s_RequestAttempts > 0)
+        {
+            // A clock reset must not bring the next attempt forward.
+            if (now < s_LastRequestTime) { s_LastRequestTime = now; return; }
+            if (now - s_LastRequestTime < REQUEST_COOLDOWN_MS) { return; }
+        }
+        if (s_RequestAttempts >= 3)
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCStaminaConfiguration.RequestClientReceipt);
+            if (!s_RequestRefused)
+                Print("[HollowCountry] Stamina client config refused reason=" + s_ReceiptFailure + " attempts=3 runtime=PENDING");
+            s_RequestRefused = true;
+            return;
+        }
+        // CGame.GetPlayer is native Game.c:944. SessionStart alone is too early
+        // for a client->server RPC; poll quietly until the local player exists.
+        if (!GetGame().GetPlayer())
+            return;
+        s_RequestAttempts++;
+        s_LastRequestTime = now;
         ScriptRPC rpc = new ScriptRPC;
-        rpc.Write(1);
+        int version = 1;
+        if (!rpc.Write(version))
+        {
+            s_ReceiptFailure = "request_write";
+            return;
+        }
         rpc.Send(null, RPC_REQUEST, true, null);
-        Print("[HollowCountry] Stamina client config requested runtime=PENDING");
+        if (s_RequestAttempts == 1)
+            Print("[HollowCountry] Stamina client config requested attempt=1 runtime=PENDING");
+        else
+            Print("[HollowCountry] Stamina client config retry attempt=" + s_RequestAttempts.ToString() + " runtime=PENDING");
     }
 
     static void ResendClientReceipt(PlayerIdentity sender)
@@ -367,14 +429,10 @@ class HCStaminaConfiguration
         }
         if (eventTypeId == MPSessionStartEventTypeID)
         {
-            // SyncDataSendEx can precede session start. Preserve only the
-            // validated receipt from this connection, never stale native data.
-            s_Active = true;
+            // Prepare-time native CFG may precede session start. ClientReady
+            // also runs at MissionGameplay.OnInit after world transitions.
             s_Suspended = false;
-            if (s_Pending)
-                StageClientReceipt();
-            else
-                RequestClientReceipt();
+            ClientReady();
         }
         if (eventTypeId == MPSessionEndEventTypeID || eventTypeId == MPSessionFailEventTypeID)
             Reset(false, false);
@@ -409,6 +467,7 @@ modded class DayZGame
             int version;
             if (IsServer() && sender && !target && ctx && ctx.Read(version) && version == 1)
                 HCStaminaConfiguration.ResendClientReceipt(sender);
+            super.OnRPC(sender, target, rpc_type, ctx);
             return;
         }
         if (rpc_type != ERPCs.RPC_CFG_GAMEPLAY_SYNC)
@@ -421,7 +480,7 @@ modded class DayZGame
             super.OnRPC(sender, target, rpc_type, ctx);
             return;
         }
-        CfgGameplayJson previous = CfgGameplayHandler.m_Data;
+        ref CfgGameplayJson previous = CfgGameplayHandler.m_Data;
         super.OnRPC(sender, target, rpc_type, ctx);
         HCStaminaConfiguration.NativeReceipt(CfgGameplayHandler.m_Data, previous);
     }
