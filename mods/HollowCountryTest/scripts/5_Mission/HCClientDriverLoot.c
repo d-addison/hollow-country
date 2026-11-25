@@ -224,7 +224,7 @@ class HCDriverLoot
 
     int Tick(PlayerBase player, float dt, HCDriverWalker walker)
     {
-        if (!player || !player.IsAlive() || player.IsUnconscious()) { return End(player, walker, HCDriverResult.REFUSED, "player-unavailable "); }
+        if (!player || !player.IsAlive()) { return End(player, walker, HCDriverResult.REFUSED, "player-dead "); }
         if (player.IsRestrained()) { return End(player, walker, HCDriverResult.REFUSED, "restrained "); }
         ActionManagerClient manager = ActionManagerClient.Cast(player.GetActionManager());
         if (!manager) { return End(player, walker, HCDriverResult.UNSUPPORTED, "no-client-action-manager "); }

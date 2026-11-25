@@ -213,10 +213,10 @@ class HCDriverEnter
             if (m_Stage == HCDriverEnter.E_PICK && m_Elapsed <= 0) { m_Detail = "already-server-confirmed zone=" + m_Zone; }
             return HCDriverResult.OK;
         }
-        if (!player || !player.IsAlive() || player.IsUnconscious())
+        if (!player || !player.IsAlive())
         {
             walker.Release(player);
-            m_Detail = "player-unavailable";
+            m_Detail = "player-dead";
             return HCDriverResult.REFUSED;
         }
         if (player.IsRestrained())
@@ -316,28 +316,17 @@ class HCDriverEnter
     }
 }
 
-// Multi-waypoint walk with a stuck ladder (kind route). points = flat x,z pairs from driver_script.py.
-// Each leg is an HCDriverWalker leg in hand-over mode: after HANDOVER_SECONDS without 1 m of progress
-// the walker reports stuck and the route climbs one rung:
-//   1 side-right  2 s strafe to the right of the target heading (calibrated angle sign)
-//   2 side-left   2 s strafe to the left (calibrated angle sign)
-//   3 back-up     2 s walking backwards                    (180, speed 1 per human.c:467)
-//   4 door        ActionOpenDoors on a door in reach of where the player stands, through the
-//                 client action manager (HCDriverActions.BeginInReach; ActionOpenDoors.c:1); a
-//                 locked or open door fails Can() and is skipped, never forced
-//   5 skip        once per route: give up the current waypoint and head for the next one
-// then the step ends refused stuck:<last rung>. Progress of 10 m since the last stuck spell starts
-// the ladder again at rung 1; reaching a waypoint resets it. Collisions stay engine-owned: no
-// SetPosition, no teleport, no physics change. Per frame: one walker update or one input override
-// (plus one ray during the door rung); nothing is allocated after Begin.
+// Multi-waypoint walk. Each 8 s spell without 1 m progress advances a bounded ladder:
+// back off 2 s, side +45 for 2 s, side -45 for 2 s, then scan doors in reach for up
+// to 6 s. Four unsuccessful rungs refuse stuck-exhausted; no waypoint is skipped.
+// Ten metres of fresh progress or a completed waypoint resets the ladder.
 class HCDriverRoute
 {
     static const int R_WALK = 0;
-    static const int R_SIDE_RIGHT = 1;
-    static const int R_SIDE_LEFT = 2;
-    static const int R_BACK = 3;
+    static const int R_BACK = 1;
+    static const int R_SIDE_RIGHT = 2;
+    static const int R_SIDE_LEFT = 3;
     static const int R_DOOR = 4;
-    static const int R_SKIP = 5;
     static const float MOVE_SECONDS = 2.0;
     static const float DOOR_SECONDS = 6.0;
     static const float FRESH_PROGRESS = 10.0;
@@ -352,7 +341,6 @@ class HCDriverRoute
     protected int m_Mode;
     protected float m_ModeAge;
     protected float m_StuckAt;
-    protected bool m_Skipped;
     protected int m_Climbs;
     protected int m_Doors;
     protected bool m_DoorStarted;
@@ -369,7 +357,6 @@ class HCDriverRoute
         if (rung == HCDriverRoute.R_SIDE_LEFT) { return "side-left"; }
         if (rung == HCDriverRoute.R_BACK) { return "back-up"; }
         if (rung == HCDriverRoute.R_DOOR) { return "door"; }
-        if (rung == HCDriverRoute.R_SKIP) { return "skip"; }
         return "none";
     }
 
@@ -387,7 +374,6 @@ class HCDriverRoute
         m_Mode = HCDriverRoute.R_WALK;
         m_ModeAge = 0;
         m_StuckAt = 1000000;
-        m_Skipped = false;
         m_Climbs = 0;
         m_Doors = 0;
         m_DoorStarted = false;
@@ -442,22 +428,22 @@ class HCDriverRoute
         if (remaining < m_StuckAt - HCDriverRoute.FRESH_PROGRESS) { m_Rung = 0; }
         m_StuckAt = remaining;
         m_Rung = m_Rung + 1;
-        if (m_Rung == HCDriverRoute.R_SKIP && (m_Skipped || m_Waypoint + 1 >= Legs())) { return false; }
-        if (m_Rung > HCDriverRoute.R_SKIP) { return false; }
+        if (m_Rung > HCDriverRoute.R_DOOR) { return false; }
         m_Climbs = m_Climbs + 1;
         walker.Release(player);
         m_Mode = m_Rung;
         m_ModeAge = 0;
         m_DoorStarted = false;
+        Print("[HC Driver] step=" + HCDriverMovement.StepLabel + " stuck rung=" + m_Rung.ToString() + " maneuver=" + HCDriverRoute.RungName(m_Rung));
         return true;
     }
 
     int Tick(PlayerBase player, float dt, HCDriverWalker walker, HCDriverActions actions)
     {
-        if (!player || !player.IsAlive() || player.IsUnconscious())
+        if (!player || !player.IsAlive())
         {
             walker.Release(player);
-            m_Detail = "player-unavailable";
+            m_Detail = "player-dead";
             return HCDriverResult.REFUSED;
         }
         if (player.IsRestrained())
@@ -500,7 +486,7 @@ class HCDriverRoute
             if (!Climb(player, walker))
             {
                 walker.Release(player);
-                m_Detail = "stuck:" + HCDriverRoute.RungName(m_Rung - 1) + Tail(player);
+                m_Detail = "stuck-exhausted" + Tail(player);
                 return HCDriverResult.REFUSED;
             }
             return HCDriverResult.RUNNING;
@@ -513,8 +499,8 @@ class HCDriverRoute
                 Leg(walker);
                 return HCDriverResult.RUNNING;
             }
-            if (m_Mode == HCDriverRoute.R_SIDE_RIGHT) { Maneuver(player, 90.0, 2.0); }
-            if (m_Mode == HCDriverRoute.R_SIDE_LEFT) { Maneuver(player, -90.0, 2.0); }
+            if (m_Mode == HCDriverRoute.R_SIDE_RIGHT) { Maneuver(player, 45.0, 2.0); }
+            if (m_Mode == HCDriverRoute.R_SIDE_LEFT) { Maneuver(player, -45.0, 2.0); }
             if (m_Mode == HCDriverRoute.R_BACK) { Maneuver(player, 180.0, 1.0); }
             return HCDriverResult.RUNNING;
         }
@@ -532,12 +518,8 @@ class HCDriverRoute
             Leg(walker);
             return HCDriverResult.RUNNING;
         }
-        // R_SKIP: the current waypoint is given up once; the next leg is the re-route.
-        m_Skipped = true;
-        m_Waypoint = m_Waypoint + 1;
-        m_Rung = 0;
-        m_StuckAt = 1000000;
-        Leg(walker);
-        return HCDriverResult.RUNNING;
+        walker.Release(player);
+        m_Detail = "stuck-exhausted" + Tail(player);
+        return HCDriverResult.REFUSED;
     }
 }

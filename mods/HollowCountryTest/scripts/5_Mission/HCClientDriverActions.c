@@ -39,6 +39,14 @@ class HCDriverWalker
     static const float HANDOVER_SECONDS = 8.0;
     protected bool m_Handover;
     protected bool m_Stuck;
+    protected bool m_LongLeg;
+    protected bool m_LegMeasured;
+    protected bool m_FrameSampling;
+    protected int m_FrameSince;
+    protected vector m_FrameStart;
+    protected float m_FrameWant;
+    protected float m_FrameError;
+    protected int m_FrameBad;
 
     bool IsActive()
     {
@@ -68,6 +76,17 @@ class HCDriverWalker
         m_Detail = "";
         m_Handover = false;
         m_Stuck = false;
+        m_LongLeg = false;
+        m_LegMeasured = false;
+        Pause();
+    }
+
+    // Hold preserves navigation and progress timers but discards interrupted motion samples.
+    void Pause()
+    {
+        HCDriverMovement.Stop();
+        m_FrameSampling = false;
+        m_FrameBad = 0;
     }
 
     void HandOverStuck()
@@ -147,10 +166,10 @@ class HCDriverWalker
     int Update(PlayerBase player, float dt)
     {
         if (!m_Active) { return HCDriverResult.OK; }
-        if (!player || !player.IsAlive() || player.IsUnconscious())
+        if (!player || !player.IsAlive())
         {
             Release(player);
-            m_Detail = "player-unavailable";
+            m_Detail = "player-dead";
             return HCDriverResult.REFUSED;
         }
         HumanInputController input = player.GetInputController();
@@ -228,11 +247,61 @@ class HCDriverWalker
             m_SideLeft = m_SideLeft - dt;
             diff = HCDriverWalker.Wrap180(diff + 90.0 * m_SideSign);
         }
-        // The fit, not a native doc, gives +/-90 requests for a full circle when |scale|=2.
-        // Native 1_Core/proto/EnMath.c:540 Math.Clamp.
-        HCDriverMovement.Request(m_Speed, Math.Clamp(diff / HCDriverMovement.AngleScale, -180.0, 180.0));
+        float angle = Math.Clamp(diff / HCDriverMovement.AngleScale, -180.0, 180.0);
+        if (!m_LegMeasured) { m_LongLeg = dist > 15.0; m_LegMeasured = true; }
+        if (m_LongLeg && m_SideLeft <= 0)
+        {
+            float oldOffset = HCDriverMovement.HeadingOffset;
+            ObserveFrame(pos, HCDriverWalker.Wrap180(frame + angle * HCDriverMovement.AngleScale));
+            // Apply a corrected offset to this frame's command as well.
+            diff = HCDriverWalker.Wrap180(diff - HCDriverWalker.Wrap180(HCDriverMovement.HeadingOffset - oldOffset));
+            angle = Math.Clamp(diff / HCDriverMovement.AngleScale, -180.0, 180.0);
+        }
+        else { m_FrameSampling = false; m_FrameBad = 0; }
+        HCDriverMovement.Request(m_Speed, angle);
         return HCDriverResult.RUNNING;
     }
+    // Position-only feedback: a 3.5-second window of steady commands. Turns, holds,
+    // obstacles (<3 m displacement) and recovery maneuvers invalidate the window.
+    // Native 3_Game/Entities/Object.c:287 GetPosition; 1_Core/proto/EnMath.c:540 Clamp;
+    // 3_Game/Global/Game.c:1535 GetTime. No body/heading readout estimates actual travel.
+    protected void ObserveFrame(vector pos, float commanded)
+    {
+        int now = GetGame().GetTime();
+        if (!m_FrameSampling)
+        {
+            m_FrameStart = pos;
+            m_FrameWant = commanded;
+            m_FrameSince = now;
+            m_FrameSampling = true;
+            return;
+        }
+        // A long hitch cannot turn an old position into a valid 3-5 s observation.
+        if (now - m_FrameSince > 5000 || Math.AbsFloat(Wrap180(commanded - m_FrameWant)) > 10.0)
+        {
+            m_FrameSampling = false;
+            m_FrameBad = 0;
+            return;
+        }
+        if (now - m_FrameSince < 3500) { return; }
+        vector travelled = pos - m_FrameStart;
+        m_FrameSampling = false;
+        if (FlatLength(travelled) < 3.0) { m_FrameBad = 0; return; }
+        float actual = Math.Atan2(travelled[0], travelled[2]) * Math.RAD2DEG;
+        float error = Wrap180(actual - m_FrameWant);
+        if (Math.AbsFloat(error) <= 20.0) { m_FrameBad = 0; return; }
+        if (m_FrameBad > 0 && error * m_FrameError < 0) { m_FrameBad = 0; }
+        m_FrameBad++;
+        m_FrameError = error;
+        if (m_FrameBad < 2) { return; }
+        if (now - HCDriverMovement.LastFrameCorrection < 5000) { return; }
+        float correction = Math.Clamp(error, -30.0, 30.0);
+        HCDriverMovement.HeadingOffset = Wrap180(HCDriverMovement.HeadingOffset + correction);
+        HCDriverMovement.LastFrameCorrection = now;
+        m_FrameBad = 0;
+        Print("[HC Driver] frame_correct step=" + HCDriverMovement.StepLabel + " delta=" + correction.ToString() + " offset=" + HCDriverMovement.HeadingOffset.ToString());
+    }
+
 }
 
 class HCDriverActions
@@ -313,6 +382,16 @@ class HCDriverActions
     protected ActionManagerClient Manager(PlayerBase player)
     {
         return ActionManagerClient.Cast(player.GetActionManager());
+    }
+
+    // Release action input during a temporary hold without changing the step's phase.
+    void SuspendInput(PlayerBase player)
+    {
+        if (!player) { return; }
+        ActionManagerClient manager = Manager(player);
+        if (!manager) { return; }
+        manager.SetIgnoreAutomaticInputEnd(false);
+        if (manager.GetRunningAction()) { manager.EndActionInput(); }
     }
 
     // Ends whatever this step started; safe to call at any time.
@@ -492,7 +571,7 @@ class HCDriverActions
     // One call per frame; returns RUNNING until the step has a final result.
     int Tick(PlayerBase player, float dt, HCDriverWalker walker)
     {
-        if (!player || !player.IsAlive() || player.IsUnconscious()) { return Finish(HCDriverResult.REFUSED, "player-unavailable"); }
+        if (!player || !player.IsAlive()) { return Finish(HCDriverResult.REFUSED, "player-dead"); }
         ActionManagerClient manager = Manager(player);
         if (!manager) { return Finish(HCDriverResult.UNSUPPORTED, "no-client-action-manager"); }
         m_Dt = dt;

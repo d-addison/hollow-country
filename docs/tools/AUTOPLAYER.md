@@ -298,7 +298,7 @@ Native `[HC Driver]` lines are required to prove each step.
 | Kind | Fields | Behaviour | OK detail |
 |---|---|---|---|
 | `enter` | `zone` (site or mission), `sites` (flat x,z,r list, site only), `gait`, `hold_s`, `timeout_s` | Picks the nearest candidate the player is outside of. For a mission, the candidates are the published rows already on the client. Walks in, then holds inside. If the server has not confirmed, it walks out to radius + 40 m, holds outside, and walks back in. Each round doubles the hold, until `timeout_s`. One hold at least as long as the server's sampling cycle guarantees an outside sample followed by an inside sample. | `server-confirmed zone=<site\|mission> rounds=<n>` |
-| `route` | `points` (flat x,z list of 2..64 waypoints), `gait`, `arrive_m`, `timeout_s` | `HCDriverRoute` (HCClientDriverNav.c) walks the waypoints in order; the default route uses the `scav-chernogorsk` site's own waypoint line (`route:site:scav-chernogorsk`, walk_town phase). Each leg is a walker leg in hand-over mode: 8 s without 1 m of progress climbs one rung of the stuck ladder: side-right 2 s, side-left 2 s, back up 2 s (walk speed, angle 180), door (`open_door` on a door in reach of where the player stands, 72 rays, never walking), then skip the waypoint once (the re-route; not for the last waypoint). Still stuck: REFUSED `stuck:<last rung>`. 10 m of progress since the last stuck spell restarts the ladder; a reached waypoint resets it. | `arrived waypoint=<n>/<n> climbs=<n> doors=<n> remaining_m=<m>` |
+| `route` | `points` (flat x,z list of 2..64 waypoints), `gait`, `arrive_m`, `timeout_s` | `HCDriverRoute` (HCClientDriverNav.c) walks the waypoints in order; the default route uses the `scav-chernogorsk` site's own waypoint line (`route:site:scav-chernogorsk`, walk_town phase). Each leg is a walker leg in hand-over mode: 8 s without 1 m of progress climbs one rung of the stuck ladder: back up 2 s (walk speed, angle 180), sidestep +45 degrees for 2 s, sidestep -45 degrees for 2 s, then door (`open_door` on a door in reach of where the player stands, 72 rays, at most 6 s, never walking). Still stuck after four rungs: REFUSED `stuck-exhausted`. 10 m of progress since the last stuck spell restarts the ladder; a reached waypoint resets it. | `arrived waypoint=<n>/<n> climbs=<n> doors=<n> remaining_m=<m>` |
 | `combat` | `range_m` (10..150), `timeout_s` | `HCDriverCombat` (HCClientDriverCombat.c). Takes the first rifle from the inventory to the hands (`PredictiveTakeEntityToHands`, 8 s), then reloads once with the vanilla reload key path `PlayerBase.QuickReloadWeapon` when `GetMagazineToReload` finds a magazine (Unjam, AttachMagazine, SwapMagazine or the bullet action, with the WeaponManager checks). Scans every second (`GetObjectsAtPosition3D`, reused arrays) for the nearest live `DayZInfected` or identity-less `PlayerBase` (a server AI) that one `RaycastRV` from the head can see. Raises with `OverrideRaise` and turns and pitches the camera onto it with `OverrideAimChangeX/Y` (an axis whose error does not shrink in a second flips its sign). On target for 0.5 s counts `engaged`. A target that dies while tracked counts `dead_seen`; 3 s out of sight or beyond 1.2 x range counts `lost`; 20 s per target; at most 3 targets and 3 reloads (re-reload when the magazine and chamber are empty). Bleeding, a falling health tendency or a critical health level lowers the weapon and sprints 40 m away from the threat (`retreated=1`). Fire and melee are never attempted. OK with `engaged` > 0 or after a retreat; refused `no-target-within-<range>m` when nothing was in sight; timeout `not-aimed` otherwise. Default route: the `combat` phase, right after walk_town (`range_m` 60, 180 s). | `engaged=<n> lost=<n> dead_seen=<n> reloads=<n> armed=<0\|1> retreated=<0\|1> fire=unsupported` |
 | `loot` | `range_m` (5..80), `max_items` (1..10), `timeout_s` | `HCDriverLoot` (HCClientDriverLoot.c). One `GetObjectsAtPosition3D` query per pick (reused arrays, at most 512 objects read) for loose items (`GetHierarchyParent` null, not ruined, within 2.5 m of the player's height). Picks the lowest tier, then the nearest: 0 a magazine the carried rifle takes (`WeaponManager.CanAttachMagazine`/`CanSwapMagazine`), 1 ammunition, 2 food (`Edible_Base`), 3 drink (`Bottle_Base`, `SodaCan_ColorBase`), 4 medical (bandage, rag, disinfectant, tablets, morphine, epinephrine), 5 a map (`ItemMap`); everything else is left lying. Walks to it and takes it with `ActionTakeItem` through `Can` and `PerformActionStart` (the F key). A take counts only once the synced hierarchy puts the item under the player (`GetHierarchyRootPlayer`). When `Can` fails (pockets full) it drops one junk item with `PredictiveDropEntity` and tries once more; junk is a carried cargo item that is not worn, held, attached, a weapon, magazine, food, drink, medical, map or part of the test kit. A failed walk or take skips that item (64-entry skip map). OK with `taken` > 0; refused `no-loot-within-<range>m` when nothing wanted lies in range, `could-not-take` when nothing could be taken; timeout `nothing-taken`. Default route: the `loot` phase, after `combat` (40 m, 4 items, 300 s). | `taken=<n> dropped=<n> seen=<n> skipped=<n> mag/ammo/food/drink/med/map=<a/b/c/d/e/f>` |
 | `survive` | `mode` (need or always), `timeout_s` (10..600) | `HCDriverSurvive` (HCClientDriverSurvive.c). Three tasks in order: bandage when `IsBleeding()` (a `BandageDressing` or `Rag`), drink (`Bottle_Base`/`SodaCan_ColorBase` with quantity), eat (`Edible_Base` that is not a medical edible). Mode `need` drinks or eats only when the HUD's water or energy tendency falls or its level is at least WARNING (VirtualHud, the client's own display state); `always` drinks and eats whatever it carries. Each task takes the item to the hands (`PredictiveTakeEntityToHands`, 8 s), then starts the first of the item's own `ContinuousDefaultActionInput` actions whose `Can` passes (`ActionBandageSelf`, `ActionDrink`, `ActionEat*`) through `PerformActionStart`, the hold-left-mouse path. Eating and drinking release the button (`EndActionInput`) after 8 s; a bandage runs until the bleeding stops (30 s cap). Credit comes from synced state only: bleeding stopped, or the item's quantity dropped or the item was used up. OK when any task was credited or nothing was needed; refused `none-done` otherwise; the reasons are listed (`no-bandage`, `no-drink`, `no-food`, `<task>-not-allowed`, `<task>-not-consumed`, `still-bleeding`). Default route: the `survive` phase after forest, mode `always` (after the town loot and the forage pickup). | `bandaged=<0\|1> ate=<0\|1> drank=<0\|1> missing=<reasons\|none>` |
@@ -309,9 +309,9 @@ Native `[HC Driver]` lines are required to prove each step.
 
 | State | How the bot sees it (client-visible) | Recovery |
 |---|---|---|
-| Stuck | `walk`: no 1 m of progress for 20 s, two alternating sidesteps, then timeout `stuck sidesteps=2`. `route`: 8 s without progress per rung | `route` climbs side-right, side-left, back up, open a door in reach through the vanilla action, skip the waypoint once. Then `refused detail=stuck:<rung>`. Never a teleport or a position fix. |
-| Dead | `!player.IsAlive()` or no player | The current step ends `refused detail=player-unavailable`. The driver waits for a new character. It never respawns itself. The rest of the run continues once a player exists (the `IsPlayerLoaded` gate). |
-| Unconscious | `IsUnconscious()` | Same as dead for the current step: all overrides are released and the step is refused. The next step waits for the player. |
+| Stuck | `walk`: no 1 m of progress for 20 s, two alternating sidesteps, then timeout `stuck sidesteps=2`. `route`: 8 s without progress per rung | `route` backs off 2 s, sidesteps +45 and -45 degrees for 2 s each, then scans doors in reach for up to 6 s. Then `refused detail=stuck-exhausted`. Never a teleport or a position fix. |
+| Dead | `!player.IsAlive()` or no player | The current step ends `refused detail=player-dead`. The driver waits for a new character. It never respawns itself. The rest of the run continues once a player exists (the `IsPlayerLoaded` gate). |
+| Unconscious or hit/stagger | `IsUnconscious()`, `GetCommand_Damage()` or `GetCommandModifier_Damage()` | Release movement, aim, raise, vehicle and action input; hold the same step with its timers frozen for up to 60 s, then resume. One `hold reason=unconscious` or `hold reason=hit` line per continuous hold; timeout `hold-timeout reason=<state>` if it does not recover. |
 | Bleeding | `IsBleeding()` | `combat` retreats. `survive` bandages with a bandage or rag from the inventory (`ActionBandageSelf`). With no bandage, it refuses with `no-bandage`. |
 | Hungry or thirsty | VirtualHud energy/water seriousness of at least WARNING, or a falling tendency | `survive` eats or drinks the best item in the inventory. With none, it refuses with `no-food` / `no-drink`, and the next `loot` step looks for some. |
 | In a car | `GetCommand_Vehicle()` | `vehicle` brakes and gets out with the vanilla action even when its time runs out; a car that will not start (`engine=0 note=engine-did-not-start`) is left as it is and the player gets out. Other steps run on foot only. |
@@ -346,7 +346,7 @@ same dev key as the local build, so it is in the server's keys. This is unverifi
    `... zone=mission ...`, with `optional-expansion-human-ai/site_radius_entered` and
    `Events/mission_radius_entered` above 0 in the client RPT.
 3. `route`: `kind=route result=ok detail=arrived waypoint=4/4 climbs=... doors=...`. A
-   `refused detail=stuck:<rung>` line names the last rung tried; `doors` above 0 shows the door rung
+   `refused detail=stuck-exhausted` line follows four logged rungs; `doors` above 0 shows the door rung
    opened one. `kind=action ... open_door result=ok` follows `close_door` in the actions phase.
 4. `combat`: `kind=combat result=ok detail=engaged=... fire=unsupported`. Expect `engaged` to be
    at least 1 near town infected.
@@ -491,7 +491,7 @@ Round 5 remains implemented-unverified until the lead's native checks.
    | Lease outside 0..0.5 seconds, including nonfinite values | `lease-range` |
    | Refresh after deadline, or deadline reached in callback | `lease-expired` |
    | Missing identity or disconnected player | `disconnected` |
-   | Dead / unconscious / not in move command / missing controller | `dead` / `unconscious` / `command-change` / `no-controller` |
+   | Dead / unconscious / hit command / not in move command / missing controller | `dead` / `unconscious` / `hit` / `command-change` / `no-controller` |
    | New serial replaces active request | Previous serial closes as `superseded` |
    | Stop (lease=0), otherwise valid | `none`, both overrides disabled |
    | Already closed or older serial | Ignored; keeps existing summary and cannot renew lease |
@@ -505,6 +505,80 @@ Round 5 remains implemented-unverified until the lead's native checks.
    serial=0 when they cannot be safely correlated. No per-frame logging, position writes,
    teleports or increased speeds are used. Walk/route/sprint results retain `start`, `end`,
    `moved_m`, `cmd` and `controls`; sprint requires displacement.
+
+### Round 10a: movement robustness (#368)
+
+Sprint requests speed 3 at angle 0 regardless of calibration success. It never triggers an
+on-demand probe. It still requires the move command, controller and ready controls; result
+reasons are `no-move-command`, `no-input-controller`, `not-ready` or `no-movement`.
+The existing startup calibration remains; this change removes sprint's mapping dependency.
+
+`HCDriverStepHold` gates every step before any step or nested-loop timer advances. Alive
+unconscious players and full-body/additive hit commands release input without discarding the
+walker leg or route/action phase. Native evidence: `3_Game/human.c:1559` returns
+`HumanCommandFullBodyDamage` from `GetCommand_Damage()`; `:1616` returns the light-hit
+`HumanCommandDamage` modifier from `GetCommandModifier_Damage()`; `3_Game/Entities/Man.c:63`
+provides `IsUnconscious()`. A continuous hold logs once, lasts at most 60 s, and resumes the
+same step; death refuses the current step with `player-dead` and waits for a new character.
+Native actions can be interrupted by the engine: their existing completion checks still
+apply after recovery; frozen driver timers do not pause the engine's action animation.
+
+Every walker leg initially longer than 15 m watches 3.5-second position-delta windows of
+steady commands (at most 10 degrees of heading change, at least 3 m displacement). Holds,
+turns, hitches longer than 5 s and sidestep recovery discard these windows. Two consecutive windows with >20-degree
+error in the same direction correct `HeadingOffset` by `Clamp(actual-commanded,-30,30)`.
+Corrections are globally spaced by at least 5 s, including across route legs. The next
+command uses the corrected offset. Actual bearing uses positions only, even when heading,
+body and movement readouts are dead; no position is written.
+
+A new loaded player entity clears calibration results, run/attempt counters, retry waits,
+angle scale/sign, frame selection/offset and walker observations. The first player is
+initialization; subsequent entities log `calib reset reason=respawn` and receive the normal
+readiness wait and fresh four-probe calibration. Missing-player ticks preserve the prior
+entity marker so the reset is detected after a gap.
+
+The existing **4854091** RPC now carries a server-to-owner close reply `(serial, reason)`;
+request schema is unchanged. It is reliable and sent once per closed serial to the owning
+identity only (`3_Game/gameplay.c:104-117`). The client drops stale replies and expected
+`none` Stop replies. A matching abnormal close releases input, reports the server reason
+and refuses the active step (or calibration probe), without waiting for its movement timeout.
+Serials explicitly stopped for a temporary hold log abnormal closes but cannot refuse the
+suspended step, even if the reply arrives after recovery. Server-observed `hit` and
+`unconscious` closes release movement and remain recoverable, including a short hit that
+finishes between client ticks; the server checks both native damage commands before applying input.
+
+Route recovery has exactly four rungs: back-up, side-right (+45), side-left (-45), door.
+Each new 8 s no-progress spell advances one rung; movement rungs last 2 s and the door scan
+lasts at most 6 s. Another stuck spell after rung 4 refuses `stuck-exhausted`. Ten metres
+of fresh progress or a completed waypoint resets the ladder. No waypoint is skipped.
+
+Lead-only native evidence to collect (placeholders S, D, O, N are step/number fields):
+
+```text
+[HC Driver] step=S kind=sprint result=ok detail=start=<...> end=<...> moved_m=N cmd=N controls=0 sprinted-Ns
+[HC Driver] step=S hold reason=unconscious
+[HC Driver] step=S hold reason=hit
+[HC Driver] frame_correct step=S delta=D offset=O
+[HC Driver] calib reset reason=respawn
+[HC Driver] lease_closed reason=lease-expired
+[HC Driver] step=S stuck rung=1 maneuver=back-up
+[HC Driver] step=S stuck rung=2 maneuver=side-right
+[HC Driver] step=S stuck rung=3 maneuver=side-left
+[HC Driver] step=S stuck rung=4 maneuver=door
+[HC Driver] step=S kind=route result=refused detail=start=<...> end=<...> moved_m=N cmd=N controls=0 stuck-exhausted waypoint=... climbs=4 doors=... remaining_m=...
+```
+
+Use one server/client: sprint after refused calibration; interrupt each step family with a
+light hit, full-body stagger and recoverable unconsciousness; verify one hold line and the
+same step resumes, then check a >60 s hold and a death. On a long straight leg with dead
+readouts, perturb the frame offset and confirm two qualifying windows before a correction,
+<=30 degrees per correction and >=5 s spacing. Respawn after reaching the calibration cap
+and observe a fresh run=1 / attempt=1 probe sequence. Delay movement refreshes beyond 500 ms
+and verify the server's `lease-expired` summary is followed by client `lease_closed` and
+step refusal; ensure normal Stop and stale replies do not refuse later steps. Obstruct a
+town route and verify all four rungs, their durations, exhaustion and progress resets.
+These are test-driver diagnostics: **no new `[HC Use]` counters**; existing `[HC Ready]` and
+feature-owned `[HC Use]` lines remain the evidence for the actual features reached.
 
 `fx_site_patrol_kill` is registered with the same dev fixture flags as `fx_shoot`/`fx_melee`.
 The existing `enforce_lint` gate now checks every test addon `HCOwns` literal `fx_` comparison

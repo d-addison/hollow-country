@@ -335,7 +335,7 @@ class HCDriverCombat
 
     int Tick(PlayerBase player, float dt, HCDriverWalker walker)
     {
-        if (!player || !player.IsAlive() || player.IsUnconscious()) { return End(player, walker, HCDriverResult.REFUSED, "player-unavailable "); }
+        if (!player || !player.IsAlive()) { return End(player, walker, HCDriverResult.REFUSED, "player-dead "); }
         if (player.IsRestrained()) { return End(player, walker, HCDriverResult.REFUSED, "restrained "); }
         HumanInputController input = player.GetInputController();
         if (!input) { return End(player, walker, HCDriverResult.UNSUPPORTED, "no-input-controller "); }

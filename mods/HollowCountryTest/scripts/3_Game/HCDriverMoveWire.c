@@ -3,5 +3,7 @@
 // 1_Core/proto/Serializer.c:57-58 Write/Read. No product RPC is reused.
 class HCDriverMoveWire
 {
+    // Direction selects schema: client request = serial/speed/angle/lease/apply;
+    // owner-only server close reply = serial/reason. Both ends reject stale serials.
     static const int RPC_MOVE = 4854091;
 }

@@ -109,3 +109,42 @@ class HCDriverLog
         return text;
     }
 }
+
+// Shared step gate, called before any step timer or input producer is ticked. The walker
+// stays active: stopping its lease must not discard the leg or any nested step state.
+class HCDriverStepHold
+{
+    protected int m_Since;
+    protected string m_Reason;
+    string Detail;
+
+    void Reset()
+    {
+        m_Since = 0;
+        m_Reason = "";
+        Detail = "";
+    }
+
+    int Check(PlayerBase player, string stepLabel)
+    {
+        if (!player || !player.IsAlive()) { Detail = "player-dead"; return HCDriverResult.REFUSED; }
+        string reason = "";
+        // Native 3_Game/Entities/Man.c:63 IsUnconscious; 3_Game/human.c:1559
+        // GetCommand_Damage returns HumanCommandFullBodyDamage (full-body hit/stagger);
+        // :1616 GetCommandModifier_Damage returns HumanCommandDamage (additive light hit).
+        if (player.IsUnconscious()) { reason = "unconscious"; }
+        else if (player.GetCommand_Damage() || player.GetCommandModifier_Damage()) { reason = "hit"; }
+        if (reason == "") { Reset(); return HCDriverResult.OK; }
+        if (m_Reason == "")
+        {
+            m_Reason = reason;
+            // Native 3_Game/Global/Game.c:1535 GetTime uses receiver-local milliseconds.
+            m_Since = GetGame().GetTime();
+            Print("[HC Driver] step=" + stepLabel + " hold reason=" + reason);
+        }
+        HCDriverMovement.HeldSerial = HCDriverMovement.Serial;
+        HCDriverMovement.Stop();
+        if (GetGame().GetTime() - m_Since >= 60000) { Detail = "hold-timeout reason=" + reason; return HCDriverResult.TIMEOUT; }
+        return HCDriverResult.RUNNING;
+    }
+}

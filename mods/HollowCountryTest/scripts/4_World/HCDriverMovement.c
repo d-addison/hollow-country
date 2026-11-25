@@ -9,6 +9,13 @@ class HCDriverMovement
     static const int CLIENT_ONLY = 2;
     static int Variant = 0;
     static bool Pending;
+    static string StepLabel;
+    static string ClosedReason;
+    static int LastClosedSerial;
+    static int HeldSerial;
+    static int FinishedSerial;
+    // Monotonic client time shared by walker legs, so a new leg cannot bypass log spacing.
+    static int LastFrameCorrection = -5000;
     static float Speed;
     static float Angle;
     static int CommandId;
@@ -56,6 +63,24 @@ class HCDriverMovement
     }
 #endif
 
+#ifndef SERVER
+    static void Closed(PlayerBase player, int serial, string reason)
+    {
+        if (player != GetGame().GetPlayer() || serial != Serial || serial <= LastClosedSerial || serial <= FinishedSerial) { return; }
+        LastClosedSerial = serial;
+        // Normal Stop replies are expected. Interrupted serials still report the
+        // server reason, but cannot refuse the step that is holding for that hit.
+        if (reason == "none") { return; }
+        Print("[HC Driver] lease_closed reason=" + reason);
+        if (serial == HeldSerial) { return; }
+        Stop();
+        // A short server-observed hit can finish between client ticks. It must not
+        // become a terminal step refusal merely because its local command was missed.
+        if (reason == "hit" || reason == "unconscious") { return; }
+        ClosedReason = reason;
+    }
+#endif
+
     static void Request(float speed, float angle)
     {
 #ifndef SERVER
@@ -100,11 +125,12 @@ class HCDriverMovement
     }
 
 #ifndef SERVER
+    // Native 3_Game/human.c:1559,1616: full-body and additive damage commands.
     static bool Guard(PlayerBase player, float dt)
     {
         Lease = Lease - dt;
         Mission mission = GetGame().GetMission();
-        if (player != GetGame().GetPlayer() || !player.IsAlive() || player.IsUnconscious() || !player.GetCommand_Move() || !player.GetInputController() || !mission || mission.IsControlDisabled() || Lease <= 0)
+        if (player != GetGame().GetPlayer() || !player.IsAlive() || player.IsUnconscious() || player.GetCommand_Damage() || player.GetCommandModifier_Damage() || !player.GetCommand_Move() || !player.GetInputController() || !mission || mission.IsControlDisabled() || Lease <= 0)
         {
             Stop();
             return false;
@@ -148,6 +174,8 @@ modded class PlayerBase
         if (!GetIdentity() || IsPlayerDisconnected()) { return "disconnected"; }
         if (!IsAlive()) { return "dead"; }
         if (IsUnconscious()) { return "unconscious"; }
+        // Native 3_Game/human.c:1559 full-body hit/stagger; :1616 additive light hit.
+        if (GetCommand_Damage() || GetCommandModifier_Damage()) { return "hit"; }
         if (!GetCommand_Move()) { return "command-change"; }
         if (!GetInputController()) { return "no-controller"; }
         return "none";
@@ -167,6 +195,17 @@ modded class PlayerBase
         if (m_HCMoveRefused == "none" && reason != "none") { m_HCMoveRefused = reason; }
         // One summary per serial, hard cap per player lifetime; no identity data.
         HCMoveLog(m_HCMoveFrames, m_HCMoveRefused, m_HCMoveSerial);
+        // Reply on the same test RPC, in the opposite direction. Native 3_Game/gameplay.c:
+        // 104-117 ScriptRPC.Send(target, type, guaranteed, recipient) targets only the owner;
+        // 1_Core/proto/Serializer.c:57-58 Write/Read. No identity data enters the payload.
+        PlayerIdentity recipient = GetIdentity();
+        if (recipient)
+        {
+            ScriptRPC reply = new ScriptRPC;
+            reply.Write(m_HCMoveSerial);
+            reply.Write(reason);
+            reply.Send(this, HCDriverMoveWire.RPC_MOVE, true, recipient);
+        }
         m_HCMoveClosed = m_HCMoveSerial;
         m_HCMoveDeadline = 0;
         m_HCMoveApply = false;
@@ -243,6 +282,15 @@ modded class PlayerBase
     {
         HCMoveClose("dead");
         super.EEKilled(killer);
+    }
+#else
+    override void OnRPC(PlayerIdentity sender, int rpc_type, ParamsReadContext ctx)
+    {
+        if (rpc_type != HCDriverMoveWire.RPC_MOVE) { super.OnRPC(sender, rpc_type, ctx); return; }
+        int serial;
+        string reason;
+        if (!ctx.Read(serial) || !ctx.Read(reason)) { return; }
+        HCDriverMovement.Closed(this, serial, reason);
     }
 #endif
 
