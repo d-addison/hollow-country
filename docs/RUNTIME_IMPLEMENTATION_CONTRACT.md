@@ -266,3 +266,51 @@ migrate or duplicate. Rollback removes partial candidates before another variant
 Native compile-to-Mission, retail placement receipts (especially Bor, Nagornoye,
 Orlovets and Tisy military), one-client access/rain checks and restart verification
 remain pending with the lead. Offline validation does not establish placement.
+
+## Teardown
+
+`HCServer.HCMissionFinishing()` is latched only by `MissionServer.OnMissionFinish`,
+before `Stop`, and never reset. Clock-jump stops, Start retries and live module
+stops retain their existing behavior. One intended exception: GunPile disables
+admission, removes Drain/Summary and clears its queue on **every** OnStop;
+OnStart re-enables it through Configure(true, settings...). This prevents a queued
+ECE_PLACE_ON_SURFACE creation from persisting loot or rebuilding the pathgraph
+after stop (native 3_Game/CE/CentralEconomy.c:38).
+After a live (non-finish) stop, guns that were already queued keep their queued
+mark and never get a pile, guns spawned before the next OnStart are refused at
+Enqueue, and no final GunPile Summary line prints. All three are accepted.
+
+At mission finish, GroundCELoot removes Drain, DrainHeld and Summary; entry
+points refuse further work. Restored items re-enter through EnqueueRestored for
+position correction. Scenes removes any stopped owner's queued cleanup before
+releasing that owner and schedules no new cleanup. Scene props are created with
+ECE_NOPERSISTENCY_WORLD (HCSceneKits.c:427; native CentralEconomy.c:31), so leaving
+them for world destruction cannot add stored props. Shelter deletes and all
+interior, forage and probe deletes remain intact. Shelter stop clears pending
+pathgraph regions without applying them (native Global/Game.c:1206). Forage and
+probe retain ECE_DYNAMIC_PERSISTENCY cleanup before native storage writes.
+Infected release drops script references without SetWaypoints or group moves;
+Holdouts skips its final light RPC. Existing save/flush calls retain their order:
+ReleasePacks still clears routed horde records (HasRoute=false, dirty), so the
+shutdown adoption save runs. The finish pass also retains any hold whose group
+still lists a member, whether tracked or not.
+
+The bridge keeps retirement active throughout module OnStop persistence. Only
+after super.Stop does it release existing retired holds with no live slot/member,
+2 seconds settled and at least three observed frames, using the PruneStep rule.
+It explicitly clears the held group before removing the handle, so all later
+handle resolutions refuse without provider access. All other holds remain
+retained; live owners are never scanned. After this pass Retire refuses without
+allocating, including during static cleanup while the game pointer still exists.
+
+Finish prints once, after `Server modules stopped`:
+`[HC XAI Bridge] teardown retired_released=<n> retained=<n>` (bridge installed),
+and `[HC Teardown] shelters_skipped=<n> pathgraph_skipped=<n> callbacks_removed=<n> packs_released=<n> rpc_skipped=<n>`.
+Shelter deletes remain enabled, so shelters_skipped is zero; pathgraph_skipped
+counts discarded regions. callbacks_removed counts scheduled callback kinds
+cancelled, including a repeating kind once. packs_released counts owned native
+packs whose script handles were dropped. These are teardown diagnostics, not new
+feature-use counters; existing [HC Ready] and [HC Use] receipts stay unchanged.
+Clock-jump stops print neither teardown line. Native acceptance requires the
+lead's #375 five client-join/stop repetitions with AI integration on and off;
+static checks do not establish the cause of either heap corruption.

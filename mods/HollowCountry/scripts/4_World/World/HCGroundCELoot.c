@@ -62,6 +62,22 @@ class HCGroundCELoot
     protected static string s_LastPlacedStats;
     protected static float s_LastPlacedStatsAt;
 
+    static void HCFinish()
+    {
+        if (!HCServer.HCMissionFinishing() || !GetGame()) { return; }
+        // Native 2_GameLib/tools.c:57-65: queued arguments live until execution/removal.
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCGroundCELoot.Drain);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCGroundCELoot.DrainHeld);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCGroundCELoot.Summary);
+        if (s_Scheduled) { HCServer.HCTeardownCallbacksRemoved++; }
+        if (s_HeldScheduled) { HCServer.HCTeardownCallbacksRemoved++; }
+        if (s_Reporting) { HCServer.HCTeardownCallbacksRemoved++; }
+        s_Scheduled = false;
+        s_HeldScheduled = false;
+        s_Reporting = false;
+        // Pending position correction is safe to skip: EnqueueRestored redoes settling on restore.
+    }
+
     static bool Eligible(ItemBase item)
     {
         return item && !item.IsPendingDeletion() && !item.GetHierarchyParent() && !item.IsTransport() && !item.IsBuilding();
@@ -71,16 +87,21 @@ class HCGroundCELoot
     // admitting restored/script-created objects or scanning the world/backlog.
     static void StartReporting()
     {
-        if (!GetGame() || !GetGame().IsServer()) { return; }
-        if (!s_Reporting)
+        // Reporting has no work after finish; the holder already removed its callback.
+        if (!HCServer.HCMissionFinishing())
         {
-            s_Reporting = true;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
+            if (!GetGame() || !GetGame().IsServer()) { return; }
+            if (!s_Reporting)
+            {
+                s_Reporting = true;
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.Summary, 60000, false);
+            }
         }
     }
 
     static void ObserveCECreate()
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         s_CECalls++;
         StartReporting();
@@ -98,6 +119,7 @@ class HCGroundCELoot
     // player-built structures or buried stashes.
     static void EnqueueRestored(ItemBase item)
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (!Eligible(item) || item.IsInherited(BaseBuildingBase) || item.IsInherited(TentBase) || item.IsInherited(UndergroundStash)) { return; }
         float shift;
@@ -107,6 +129,7 @@ class HCGroundCELoot
 
     static void Enqueue(ItemBase item, int kind = 0)
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (!Eligible(item)) { RecordRejection(item); return; }
         if (!s_Tail)
@@ -144,6 +167,7 @@ class HCGroundCELoot
     // are only dropped onto a surface, never lifted or shifted: storage already holds their last position.
     static void Correct(ItemBase item, int kind)
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         vector pos = item.GetPosition();
         float shift;
         bool ours = HCGroundPlaced.Find(pos, shift);
@@ -189,6 +213,7 @@ class HCGroundCELoot
     // footprint, never deleted), so a site that never decides cannot trap loot and the queue cannot grow.
     static void SiteRoute(ItemBase item)
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         int verdict = HCSiteGuard.HCLootVerdict(item);
         if (verdict == HCSiteGuard.LOOT_DROP)
         {
@@ -216,6 +241,7 @@ class HCGroundCELoot
 
     protected static void ScheduleHeld()
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         if (s_HeldScheduled || s_Held.Count() < 1) { return; }
         s_HeldScheduled = true;
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCGroundCELoot.DrainHeld, 1000, false);
@@ -225,6 +251,7 @@ class HCGroundCELoot
     // until its hold times out.
     static void DrainHeld()
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         s_HeldScheduled = false;
         if (!GetGame() || !GetGame().IsServer()) { return; }
         float now = GetGame().GetTickTime();
@@ -267,6 +294,7 @@ class HCGroundCELoot
 
     static void Drain()
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         s_Budget.HCReset(4, HCPerfConfig.HCGet().SliceMs);
         while (s_Count > 0 && s_Budget.HCContinue())
@@ -295,6 +323,7 @@ class HCGroundCELoot
 
     static void Summary()
     {
+        if (HCServer.HCMissionFinishing()) { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         // processed counts dequeued entries, including deleted/reparented items.
         // enqueued = processed + pending; overflow is zero (no capacity drops).

@@ -1196,6 +1196,8 @@ class HCInfectedModule : HCModule
 
     protected void ReleasePacks()
     {
+        // Finish: Release() (HCInfectedNavigation.c) skips native work itself; the route
+        // records below still clear so the shutdown save runs (Opus review, #375).
         foreach (HCNativeInfectedPack pack : m_Packs)
         {
             if (pack)

@@ -84,6 +84,29 @@ class HCGunPile
         if (s_Count > 0) { ScheduleDrain(); }
     }
 
+    static void HCStop()
+    {
+        s_Enabled = false;
+        s_Configured = true;
+        // Native 2_GameLib/tools.c:65 Remove(func); stop must also cancel repeating Summary.
+        if (GetGame())
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCGunPile.Drain);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCGunPile.Summary);
+            if (HCServer.HCMissionFinishing())
+            {
+                if (s_Scheduled) { HCServer.HCTeardownCallbacksRemoved++; }
+                if (s_SummaryScheduled) { HCServer.HCTeardownCallbacksRemoved++; }
+            }
+        }
+        s_Scheduled = false;
+        s_SummaryScheduled = false;
+        s_Queue.Clear();
+        s_QueuedAt.Clear();
+        s_Head = 0;
+        s_Count = 0;
+    }
+
     static bool IsRunning()
     {
         return s_Configured && s_Enabled;
@@ -656,6 +679,7 @@ class HCGunPileModule : HCModule
 
     override void OnStop()
     {
+        HCGunPile.HCStop();
         m_Running = false;
     }
 }

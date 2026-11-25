@@ -159,6 +159,8 @@ class HCShelterModule : HCModule
 
     protected void HCApplyPathgraph(HCPathgraphRefresh region)
     {
+        // Native 3_Game/Global/Game.c:1206 UpdatePathgraphRegion: no rebuild at mission finish.
+        if (HCServer.HCMissionFinishing()) { HCServer.HCTeardownPathgraphSkipped++; return; }
         if (!GetGame() || !region) { return; }
         region.Update();
         m_PathgraphRegions++;
@@ -369,7 +371,11 @@ class HCShelterModule : HCModule
         m_Objects.Clear();
         // Shutdown already drains owned objects synchronously; no callbacks
         // survive stop or carry stale regions into a later service lifetime.
-        foreach (HCPathgraphRefresh stoppedRegion : m_PathgraphPending) { HCApplyPathgraph(stoppedRegion); }
+        if (HCServer.HCMissionFinishing()) { HCServer.HCTeardownPathgraphSkipped += m_PathgraphPending.Count(); }
+        else
+        {
+            foreach (HCPathgraphRefresh stoppedRegion : m_PathgraphPending) { HCApplyPathgraph(stoppedRegion); }
+        }
         m_PathgraphPending.Clear();
         m_HeaviestTicks = 0;
         m_HeaviestStep = "idle";

@@ -804,8 +804,21 @@ class HCScenesModule : HCModule
 
     // HCServer may drop stopped modules; keep ownership and a bounded queue
     // retry until all native references disappear. Never delete in front of players.
+    static void HCFinish()
+    {
+        if (!HCServer.HCMissionFinishing() || !s_CleanupOwner) { return; }
+        // Native 2_GameLib/tools.c:57-65: remove the queued owner before releasing the static ref.
+        if (GetGame())
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(s_CleanupOwner.CleanupStopped);
+            HCServer.HCTeardownCallbacksRemoved++;
+        }
+        s_CleanupOwner = null;
+    }
+
     void CleanupStopped()
     {
+        if (HCServer.HCMissionFinishing()) { HCFinish(); return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (m_Leases.Count() > 0) { Cleanup(m_Leases[0]); }
         if (m_Leases.Count() == 0)
@@ -817,6 +830,7 @@ class HCScenesModule : HCModule
 
     override void OnStop()
     {
+        if (HCServer.HCMissionFinishing()) { HCFinish(); }
         if (m_Stopping) { return; }
         m_Stopping = true;
         if (m_State)
@@ -841,6 +855,9 @@ class HCScenesModule : HCModule
         m_Running = false;
         HCDebugRelease();
         if (!GetGame() || !GetGame().IsServer() || m_Leases.Count() == 0) { return; }
+        // Scene props use ECE_NOPERSISTENCY_WORLD (HCSceneKits); leave them to world destruction.
+        // Native 3_Game/CE/CentralEconomy.c:31 excludes them from world storage.
+        if (HCServer.HCMissionFinishing()) { return; }
         s_CleanupOwner = this;
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(CleanupStopped);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CleanupStopped, 10000, true);

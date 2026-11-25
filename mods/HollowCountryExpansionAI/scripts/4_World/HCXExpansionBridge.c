@@ -1358,6 +1358,11 @@ class HCXAIGroupHold
     {
         return other != null && Group != null && Group == other.Group;
     }
+    // Only the settled retired pass may release the strong provider ref.
+    void HCReleaseSettled()
+    {
+        Group = null;
+    }
     bool HCHasGroup()
     {
         return Group != null;
@@ -1507,12 +1512,14 @@ class HCXAIGroupHolds
     protected static ref array<ref HCXAIGroupHold> s_Retired;
     protected static int s_Cursor;
     protected static bool s_HighLogged;
+    protected static bool s_FinishReleased;
     static const int HC_SETTLE_MS = 2000;
     static const int HC_HIGH_COUNT = 256;
     static void Retire(HCXAIGroupHold hold)
     {
-        // At shutdown (destructors) there is no game: never re-create the static list then.
-        if (!hold || !hold.HCHasGroup() || !GetGame()) { return; }
+        // Retirement stays active during OnStop, but never re-creates the list after the
+        // finish release pass, even while the game pointer still exists during static cleanup.
+        if (s_FinishReleased || !hold || !hold.HCHasGroup() || !GetGame()) { return; }
         hold.Retired = true;
         if (!s_Retired) { s_Retired = new array<ref HCXAIGroupHold>; }
         // One retired hold per group: a group retired again (leases, jobs, replans) merges its
@@ -1537,6 +1544,42 @@ class HCXAIGroupHolds
             Print("[HCX Bridge] retired group holds high count=" + s_Retired.Count().ToString() + " reason=corpses_outlive_sites");
         }
     }
+    static void HCFinish()
+    {
+        if (!HCServer.HCMissionFinishing() || s_FinishReleased) { return; }
+        // Native 3_Game/Global/Game.c:1535 GetTime; 1_Core/proto/EnScript.c:463
+        // Remove is unordered: reverse traversal needs no retained order. EnDebug.c:96 Print.
+        int released = 0;
+        int retained = 0;
+        int nowMs = 0;
+        if (GetGame()) { nowMs = GetGame().GetTime(); }
+        // One shutdown pass over the existing retired list; never walk live owners.
+        // Identical release evidence to PruneStep: no live slot/member, 2 s and 3 frames; finish
+        // also keeps any group that still lists a member, tracked or not (Opus review, #375).
+        if (s_Retired)
+        {
+            for (int at = s_Retired.Count() - 1; at >= 0; at--)
+            {
+                HCXAIGroupHold held = s_Retired[at];
+                if (held)
+                {
+                    if (!GetGame() || held.HCNamesLiveSlot() || !held.Settled() || (held.Group && held.Group.Count() > 0) || held.SettledAtMs < 0 || nowMs - held.SettledAtMs < HC_SETTLE_MS || held.SettledSeen < 3)
+                    {
+                        retained++;
+                        continue;
+                    }
+                    // Clear even if another owner still holds this retired handle: every resolver
+                    // refuses a null Group before touching the provider, including Final reads.
+                    held.HCReleaseSettled();
+                    released++;
+                }
+                s_Retired.Remove(at);
+            }
+        }
+        s_FinishReleased = true;
+        Print("[HC XAI Bridge] teardown retired_released=" + released.ToString() + " retained=" + retained.ToString());
+    }
+
     static void PruneStep()
     {
         if (!s_Retired || !GetGame()) { return; }
@@ -2119,6 +2162,7 @@ modded class HCServer
     {
         bool firstStop = HCXExpansionBridge.HCLifecycleStop();
         super.Stop();
+        if (HCServer.HCMissionFinishing()) { HCXAIGroupHolds.HCFinish(); }
         if (firstStop) { HCXExpansionBridge.HCLifecycleFinal(); }
     }
 }

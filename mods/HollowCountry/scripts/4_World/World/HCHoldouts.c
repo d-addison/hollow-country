@@ -1776,7 +1776,9 @@ class HCHoldouts : HCModule
         m_Ready = false;
         m_Operational.HCPublish("off", "stopped");
         Print("[HC Plan] HC-16 camp=none level=-1 supply=0 roles=0 state=off runtime=PENDING");
-        HCSyncLights();
+        // Native 3_Game/gameplay.c:117 ScriptRPC.Send: no light publication at finish.
+        if (HCServer.HCMissionFinishing()) { HCServer.HCTeardownRPCSkipped++; }
+        else { HCSyncLights(); }
         m_Bodies.Clear();
         m_CampRefusals.Clear();
         m_FixtureRows.Clear();
