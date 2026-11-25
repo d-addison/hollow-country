@@ -294,7 +294,7 @@ class HCAdminModule : HCModule
 
     // Existing fixed ingress/session arrays serve both authorization sources.
     // No COT id is appended to the durable allowlist. Revocation is checked on
-    // every request, queued dispatch and delayed send; reconnect resets tickets.
+    // every request, queued dispatch and delayed send; cleared weak peers reset tickets.
     protected int HCAuthSlot(PlayerIdentity sender)
     {
         if (!HCAuthorized(sender)) { return -1; }
@@ -302,7 +302,7 @@ class HCAdminModule : HCModule
         for (int authIndex = 0; authIndex < m_Identities.Count(); authIndex++)
         {
             PlayerIdentity known = m_Identities[authIndex];
-            if (known && known.GetPlainId() == sender.GetPlainId()) { return authIndex; }
+            if (HCPlayerIdentity.Same(known, sender)) { return authIndex; }
             if (reusable < 0 && (!known || !HCAuthorized(known))) { reusable = authIndex; }
         }
         return reusable;
@@ -453,7 +453,7 @@ class HCAdminModule : HCModule
         if (target || !ctx) { return; }
         int slot = HCAuthSlot(sender);
         if (slot < 0) { HCRefused(sender); return; }
-        if (m_Identities[slot] != sender)
+        if (!HCPlayerIdentity.Same(m_Identities[slot], sender))
         {
             m_Identities[slot] = sender;
             m_Tickets[slot] = 0;
@@ -491,7 +491,7 @@ class HCAdminModule : HCModule
             // Match by identity id: the RPC sender and the player's identity are not
             // guaranteed to be the same script reference (playtest: kit/list refused).
             PlayerIdentity identity = player.GetIdentity();
-            if (identity && sender && identity.GetId() == sender.GetId()) { return player; }
+            if (HCPlayerIdentity.Same(identity, sender)) { return player; }
         }
         return null;
     }

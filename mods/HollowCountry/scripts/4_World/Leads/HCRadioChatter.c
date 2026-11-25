@@ -508,7 +508,7 @@ class HCRadioChatter : HCModule
         }
         // Revalidate after both durable receipts. Never pass a null identity
         // to native notification: null there means ALL players, not a refusal.
-        if (listener.GetIdentity() != identity || !Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { m_Activity.HCRefuse("revalidation"); return; }
+        if (!HCPlayerIdentity.Same(listener.GetIdentity(), identity) || !Receiving(listener, HCRadioDefaults.Tuned(m_Channel.Frequency)) || !InReportRange(listener, m_Report) || m_Report.Expires <= HCWorldClock.UTC()) { m_Activity.HCRefuse("revalidation"); return; }
         float receiveFrequency = HCRadioDefaults.Tuned(m_Channel.Frequency);
         NotificationSystem.SendNotificationToPlayerIdentityExtended(identity, 12, "Radio " + receiveFrequency.ToString() + " MHz", m_Text);
         m_Activity.HCHit("delivered");

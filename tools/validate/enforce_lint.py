@@ -82,6 +82,7 @@ RULES = {
     'HC-E035': 'StartCommand_ScriptInst on a DayZInfected (engine builds the command with null constructor arguments); use StartCommand_Script(new Command(this))',
     'HC-E036': 'new X passed directly as an argument to a call that does not store it (the temporary has no owner)',
     'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
+    'HC-E049': 'PlayerIdentity script references compared; use HCPlayerIdentity.Same with non-empty GetId values',
     'HC-E048': 'foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first',
     'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
@@ -1727,6 +1728,113 @@ def rule_fresh_arguments(project, source):
                 yield Finding(**dict(asdict(finding), severity='warning'))
 
 
+def rule_identity_comparisons(project, source):
+    """Compare player IDs, never script wrappers; reuse declared receiver bindings.
+
+    Balanced operands include calls, fields, indexed collections and parentheses.
+    The native symbol index has method names but no return signatures, so pin
+    only the inspected Man.GetIdentity port (3_Game/Entities/Man.c:21).
+    """
+    ownership = _Ownership(project)
+
+    def element(kind):
+        collection = re.fullmatch(r'(array|set|map)<(.+)>', kind)
+        if not collection:
+            return ''
+        parts = es.split_top(collection[2], ',')
+        return re.sub(r'^ref', '', parts[-1].strip())
+
+    def kind(expression, method, offset):
+        expression = expression.strip()
+        if expression.startswith('(') and es.matching_paren(expression, 0) == len(expression) - 1:
+            return kind(expression[1:-1], method, offset)
+        if expression.endswith(']'):
+            depth = 0
+            for index in range(len(expression) - 1, -1, -1):
+                depth += (expression[index] == ']') - (expression[index] == '[')
+                if depth == 0:
+                    return element(kind(expression[:index], method, offset))
+        call = ownership.call(expression, method, offset)
+        if call:
+            candidates, receiver, name = call
+            if candidates:
+                returns = {ownership.kind(m.return_type) for m in candidates}
+                return returns.pop() if len(returns) == 1 else ''
+            if name == 'GetIdentity' and any(t in {'Man', 'DayZPlayer', 'PlayerBase'}
+                                           for t in project.lineage(receiver)):
+                return 'PlayerIdentity'
+            if name == 'Get':
+                return element(receiver)
+        parts = es.split_top(expression, '.')
+        if len(parts) > 1:
+            receiver = kind('.'.join(parts[:-1]), method, offset)
+            return ownership.kind(project.receiver_members(receiver, source.layer)[1].get(parts[-1].strip(), ''))
+        return ownership.receiver(expression, method, offset)
+
+    for method in _all_methods(source):
+        body = source.body(method)
+        tokens = list(re.finditer(r'[A-Za-z_]\w*|==|!=|[^\s]', body))
+        pairs, stack = {}, []
+        for index, token in enumerate(tokens):
+            if token[0] in {'(', '['}:
+                stack.append(index)
+            elif token[0] in {')', ']'} and stack:
+                opening = stack.pop()
+                pairs[opening], pairs[index] = index, opening
+
+        def start_at(end):
+            if end < 0:
+                return None
+            token = tokens[end][0]
+            if token in {')', ']'}:
+                opening = pairs.get(end)
+                if opening is None:
+                    return None
+                start = opening
+                before = opening - 1
+                if before >= 0 and (re.fullmatch(r'[A-Za-z_]\w*', tokens[before][0])
+                                    and tokens[before][0] not in _KEYWORDS or token == ']'):
+                    start = start_at(before)
+            elif re.fullmatch(r'[A-Za-z_]\w*', token):
+                start = end
+            else:
+                return None
+            if start is not None and start > 0 and tokens[start - 1][0] == '.':
+                return start_at(start - 2)
+            return start
+
+        def end_at(start):
+            if start >= len(tokens):
+                return None
+            end = start
+            if tokens[end][0] == '(':
+                end = pairs.get(end)
+            elif not re.fullmatch(r'[A-Za-z_]\w*', tokens[end][0]):
+                return None
+            while end is not None and end + 1 < len(tokens):
+                following = tokens[end + 1][0]
+                if following in {'(', '['}:
+                    end = pairs.get(end + 1)
+                elif following == '.' and end + 2 < len(tokens):
+                    end += 2
+                else:
+                    break
+            return end
+
+        for index, token in enumerate(tokens):
+            if token[0] not in {'==', '!='}:
+                continue
+            start, end = start_at(index - 1), end_at(index + 1)
+            if start is None or end is None:
+                continue
+            left = body[tokens[start].start():tokens[index - 1].end()]
+            right = body[tokens[index + 1].start():tokens[end].end()]
+            offset = method.body_start + token.start()
+            if kind(left, method, offset) == kind(right, method, offset) == 'PlayerIdentity':
+                yield _finding('HC-E049', source, offset, _symbol(method),
+                               f'{left} {token[0]} {right}: {RULES["HC-E049"]}')
+
+
 def rule_receiver_methods(project, source):
     """Resolve explicit typed receivers; no cast, return-type or auto inference.
 
@@ -2661,7 +2769,7 @@ def rule_config_get(project, source):
 
 ALL_RULES = (rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
-             rule_collection_keys, rule_handle_null, rule_vanilla_storage,
+             rule_collection_keys, rule_handle_null, rule_identity_comparisons, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,

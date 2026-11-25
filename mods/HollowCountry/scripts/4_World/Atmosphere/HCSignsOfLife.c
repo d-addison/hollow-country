@@ -393,7 +393,7 @@ class HCSignsHoldoutRPC
     static void SendTo(PlayerIdentity identity, PlayerBase player)
     {
         if (!GetGame().IsServer() || !identity || !player) { return; }
-        if (player.GetIdentity() != identity || s_Occupied.Count() > 24) { return; }
+        if (!HCPlayerIdentity.Same(player.GetIdentity(), identity) || s_Occupied.Count() > 24) { return; }
         // Same ambience radius as client house scans, with a 25 m edge margin.
         // Filter before serialization; remote house coordinates never go on wire.
         float radius = HCSignsConfig.HCGet().HouseRadius + 25.0;
