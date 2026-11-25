@@ -1196,6 +1196,26 @@ class HCInfectedModule : HCModule
 
     protected void ReleasePacks()
     {
+        if (HCServer.HCMissionFinishing())
+        {
+            // Release's finish branch drops script refs only; no native SetWaypoints
+            // (3_Game/AI/AIGroupBehaviour.c:27) or group moves during mission destruction.
+            foreach (HCNativeInfectedPack finishingPack : m_Packs)
+            {
+                if (finishingPack) { finishingPack.Release(); }
+            }
+            foreach (HCInfectedActor finishingActor : m_Actors)
+            {
+                if (finishingActor.SearchPack)
+                {
+                    finishingActor.SearchPack.Release();
+                    finishingActor.SearchPack = null;
+                }
+            }
+            m_Packs.Clear();
+            m_Investigators.Clear();
+            return;
+        }
         foreach (HCNativeInfectedPack pack : m_Packs)
         {
             if (pack)

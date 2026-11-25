@@ -24,7 +24,11 @@ modded class MissionServer
 
     override void OnMissionFinish()
     {
+        HCServer.HCBeginMissionFinish();
+        HCGroundCELoot.HCFinish();
+        HCScenesModule.HCFinish();
         HCServer.Get().Stop();
+        HCServer.HCReportTeardown();
         HCModuleReadiness.HCUseShutdown();
         super.OnMissionFinish();
     }

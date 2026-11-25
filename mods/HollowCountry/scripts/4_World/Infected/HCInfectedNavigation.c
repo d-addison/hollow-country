@@ -952,6 +952,18 @@ class HCNativeInfectedPack
 
     bool Release()
     {
+        if (HCServer.HCMissionFinishing())
+        {
+            // Native 3_Game/AI/AIGroupBehaviour.c:27 SetWaypoints must not run at finish.
+            if (!m_Releasing && Group) { HCServer.HCTeardownPacksReleased++; }
+            m_Releasing = true;
+            m_Members.Clear();
+            m_ReleaseFallbacks.Clear();
+            m_Tracks.Clear();
+            m_PackDoors = null;
+            Group = null;
+            return true;
+        }
         if (RouteResult == 1) RouteResult = 5;
         // Crash fix (both build-152 boots, 2026-11-21): moving agents out of the
         // pack group (RemoveAgent + AIWorld.CreateDefaultGroup + AddAgent) crashed
