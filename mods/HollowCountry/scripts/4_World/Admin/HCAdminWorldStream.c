@@ -100,7 +100,7 @@ modded class HCAdminModule
         {
             // A disconnected peer keeps a null identity until it expires.
             PlayerIdentity known = m_WorldPeers[index].Identity;
-            if (known && known.GetPlainId() == sender.GetPlainId()) { peer = m_WorldPeers[index]; break; }
+            if (HCPlayerIdentity.Same(known, sender)) { peer = m_WorldPeers[index]; break; }
         }
         float now = GetGame().GetTickTime();
         HCAdminWorldRequest request;
@@ -115,7 +115,7 @@ modded class HCAdminModule
             peer.Identity = sender;
             m_WorldPeers.Insert(peer);
         }
-        if (peer.Identity != sender)
+        if (!HCPlayerIdentity.Same(peer.Identity, sender))
         {
             peer.Identity = sender;
             peer.Session = 0;
@@ -161,7 +161,7 @@ modded class HCAdminModule
         for (int index = 0; index < count; index++)
         {
             Man player = players[index];
-            if (player && player.GetIdentity() && player.GetIdentity().GetId() == peer.Identity.GetId()) { return true; }
+            if (player && HCPlayerIdentity.Same(player.GetIdentity(), peer.Identity)) { return true; }
         }
         peer.Until = 0;
         return false;

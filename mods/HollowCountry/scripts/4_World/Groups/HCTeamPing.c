@@ -338,7 +338,7 @@ modded class HCGroupService
     }
     override void Connected(PlayerIdentity identity, PlayerBase player)
     {
-        if (m_Healthy && identity && player && player.GetIdentity() == identity)
+        if (m_Healthy && identity && player && HCPlayerIdentity.Same(player.GetIdentity(), identity))
         {
             HCTeamPingModule pings = HCTeamPingModule.Get();
             if (pings) { pings.HCForget(identity.GetId()); }
@@ -351,7 +351,7 @@ modded class HCGroupService
         {
             HCGroupPeer peer = Peer(identity.GetId());
             HCTeamPingModule pings = HCTeamPingModule.Get();
-            if (pings && peer && peer.Identity == identity) { pings.HCForget(peer.Id); }
+            if (pings && peer && (!peer.Identity || HCPlayerIdentity.Same(peer.Identity, identity))) { pings.HCForget(peer.Id); }
         }
         super.Disconnected(identity);
     }

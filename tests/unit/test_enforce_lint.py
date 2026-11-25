@@ -91,6 +91,44 @@ class DuplicateRPCIdRule(unittest.TestCase):
         '''}))
 
 
+class IdentityComparisonRule(unittest.TestCase):
+    def test_typed_comparisons_and_allowed_checks(self):
+        source = """
+class Man {}
+class PlayerBase : Man {}
+class HCPartyIdentity {}
+class HCPeer { PlayerIdentity Identity; }
+class HCProbe
+{
+    ref array<PlayerIdentity> Identities;
+    ref map<string, PlayerIdentity> ById;
+    PlayerIdentity Current() {}
+    void Run(PlayerIdentity sender, PlayerBase player, HCPeer peer)
+    {
+        PlayerIdentity local = sender;
+        if (local == sender) {}
+        if (peer.Identity != sender) {}
+        if (player.GetIdentity() != sender) {}
+        if (Identities[0] == sender) {}
+        if ((sender) == (local)) {}
+        if (Current() == player.GetIdentity()) {}
+        if (ById.Get("key") != sender) {}
+        if (!sender || sender == null || null != local) {}
+        if (sender.GetId() == local.GetId()) {}
+        if (player == player || peer == peer) {}
+        HCPartyIdentity party;
+        if (party == party) {}
+        string text = "sender == local";
+        // if (local == sender) {}
+    }
+}
+"""
+        findings = lint.lint_texts({W + 'Identity.c': source},
+                                   rules=(lint.rule_identity_comparisons,))
+        self.assertEqual(['HC-E056'] * 7, [f.rule for f in findings])
+        self.assertIn(lint.rule_identity_comparisons, lint.ALL_RULES)
+
+
 class BooleanStringFormulaRule(unittest.TestCase):
     def findings(self, body, rules=None):
         return lint.lint_texts({W + 'Formula.c':

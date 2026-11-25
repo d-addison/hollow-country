@@ -252,9 +252,9 @@ class HCSearchPreviewServer
             // A disconnected identity is released by the engine, so the weak pointer reads null.
             PlayerBase player;
             if (tracked.Identity) player = PlayerBase.Cast(tracked.Identity.GetPlayer());
-            if (!player || player.GetIdentity() != tracked.Identity)
+            if (!player || !HCPlayerIdentity.Same(player.GetIdentity(), tracked.Identity))
                 m_Peers.Remove(index);
-            else if (tracked.Identity == sender)
+            else if (HCPlayerIdentity.Same(tracked.Identity, sender))
                 found = tracked;
             index = index - 1;
         }
@@ -270,7 +270,7 @@ class HCSearchPreviewServer
     {
         if (!m_Listening || !GetGame().IsServer() || !sender || rpcType != HCSearchPreviewSites.RPC_REQUEST || !ctx) return;
         PlayerBase player = PlayerBase.Cast(sender.GetPlayer());
-        if (!player || player.GetIdentity() != sender) return;
+        if (!player || !HCPlayerIdentity.Same(player.GetIdentity(), sender)) return;
         HCSearchPreviewPeer peer = PeerOf(sender);
         // Admission precedes payload parsing/lookup, including malformed requests.
         if (!peer || !peer.Budget.Accept(GetGame().GetTickTime())) return;

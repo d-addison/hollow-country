@@ -358,12 +358,12 @@ class HCGroupService
 
     bool Live(HCGroupPeer peer)
     {
-        return peer && peer.Identity && peer.Player && peer.Player.GetIdentity() == peer.Identity;
+        return peer && peer.Identity && peer.Player && HCPlayerIdentity.Same(peer.Player.GetIdentity(), peer.Identity);
     }
 
     void Connected(PlayerIdentity identity, PlayerBase player)
     {
-        if (!m_Healthy || !identity || !player || player.GetIdentity() != identity) return;
+        if (!m_Healthy || !identity || !player || !HCPlayerIdentity.Same(player.GetIdentity(), identity)) return;
         string uid = identity.GetId();
         if (!HCGroupRules.TextValid(uid, 128, false)) return;
         HCGroupPeer previous = Peer(uid);
@@ -390,7 +390,8 @@ class HCGroupService
     {
         if (!identity) return;
         HCGroupPeer peer = Peer(identity.GetId());
-        if (!peer || peer.Identity != identity) return;
+        // A cleared weak identity still belongs to this id-keyed disconnect cleanup.
+        if (!peer || (peer.Identity && !HCPlayerIdentity.Same(peer.Identity, identity))) return;
         // Persist batched discovery while the leaving explorer is still live.
         if (m_Healthy && FlushBatch() == HCGroupCode.STORAGE) { Stop(); return; }
         m_Peers.Remove(m_Peers.Find(peer));
@@ -468,7 +469,7 @@ class HCGroupService
             Connected(sender, PlayerBase.Cast(sender.GetPlayer()));
             peer = Peer(uid);
         }
-        if (!Live(peer) || peer.Identity != sender) return;
+        if (!Live(peer) || !HCPlayerIdentity.Same(peer.Identity, sender)) return;
         // Over-budget packets must not allocate/serialize a reliable reply.
         if (!Admit(peer)) { return; }
         HCGroupRequest request;
@@ -547,11 +548,11 @@ class HCGroupService
         if (!m_Healthy || !GetGame().IsServer()) return HCGroupCode.DISABLED;
         if (!actor || !actor.GetIdentity() || !actor.IsAlive() || actor.IsUnconscious()) return HCGroupCode.DENIED;
         HCGroupPeer peer = Peer(actor.GetIdentity().GetId());
-        if (!Live(peer) || peer.Player != actor || peer.Identity != actor.GetIdentity()) return HCGroupCode.DENIED;
+        if (!Live(peer) || peer.Player != actor || !HCPlayerIdentity.Same(peer.Identity, actor.GetIdentity())) return HCGroupCode.DENIED;
         if (!Admit(peer)) return HCGroupCode.RATE;
         if (!target || target == actor || !target.IsAlive() || !target.GetIdentity()) return HCGroupCode.NOT_FOUND;
         HCGroupPeer invitee = Peer(target.GetIdentity().GetId());
-        if (!Live(invitee) || invitee.Player != target || invitee.Identity != target.GetIdentity()) return HCGroupCode.NOT_FOUND;
+        if (!Live(invitee) || invitee.Player != target || !HCPlayerIdentity.Same(invitee.Identity, target.GetIdentity())) return HCGroupCode.NOT_FOUND;
         vector reach = target.GetPosition() - actor.GetPosition();
         if (reach[0] * reach[0] + reach[1] * reach[1] + reach[2] * reach[2] > 9.0) return HCGroupCode.DENIED;
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
