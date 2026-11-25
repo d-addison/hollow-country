@@ -1308,6 +1308,38 @@ CE spawning; the evidence after a boot is the census totals and the install line
 
 ## Balance rules R1, R2b, R3, R4 (wh-econ rounds 5-6, 2026-11-23)
 
+
+Engine-evidence override (#372, soak/build 192, 2026-11-25): the `ce_engine_caps` evidence table in
+`mission/hollow-country/loot-points/settings.json` records the lead's measured steady retries/hour after
+16:00 (fresh world, one server/client, about 21 minutes), separately from initial fill. A rate **>= 50/hour**
+selects the class. After balance and all other supply changes, `loot_boost` restores its exact source-mission
+nominal/min from the pre-boost bytes; it never cuts below those values. This final override neither receives
+nor donates nominal through balance: freed nominal is **not reinvested** this round. Other classes keep identical
+generated types bytes. The settings belong here because the boost already reads them from the applied bundle
+and friend_install fingerprints them; version 7 forces receipt-backed regeneration on upgrade.
+
+| Class | Steady retries/hour | Soak installed nominal/min | Source cap nominal/min |
+| --- | ---: | ---: | ---: |
+| Pipe | 12,669 | 280/210 | 80/60 |
+| CableReel | 12,666 | 281/176 | 80/50 |
+| GardenLime | 1,837 | 185/111 | 50/30 |
+| Izh43Shotgun | 76 | 144/125 | 90/78 |
+| geb_SmallTackle | 63 | 1/0 | 1/0 |
+
+These inputs free **590 nominal**. Caps are read from each installation's own source, not hard-coded quantities.
+SmallTackle's authored row is tools / Coast / shelves, with count_in_map=1 and cargo/hoarder/player/crafted/deloot=0.
+It reaches 200 prototype shelf points, placed upper bound 193; there is no demonstrated usage/tag/flag mismatch.
+Physical fit and occupancy remain unobserved. A single nominal-1 item is not a density-driven performance problem;
+its routing stays unchanged. Retry counts do not measure missing items.
+
+`python3 -B -m tools.package.ce_slot_pressure MISSION --engine-caps` verifies loaded nominal/min against
+hash-verified receipt backups, including old receipts; exceeded caps fail. The ordinary pressure and feasibility
+CLI checks also fail exceeded caps on receipt-bearing missions. The receipt reports `counts.engine_caps` and the
+installer prints `engine caps freed_nominal=... reinvested_nominal=0`. The next paired soak must show these classes'
+**steady hard-to-place rates near zero**, with initial fill reported separately. R3's CE hard-to-place census
+category is unchanged; the lead sets ceilings from that paired capture. There are no new runtime logs or HC Use
+counters for this Python/config-only change.
+
 Owner answers 2026-11-22 apply to every category the boost scales (weapons, clothes, containers, tools,
 attachments) and to ammo and magazines. They live in `tools/package/loot_balance.py` (plain data in, plain data
 out, shared by `loot_boost.py` and `military_loot.py`), are driven by the `Balance` map in `settings.json` and run in

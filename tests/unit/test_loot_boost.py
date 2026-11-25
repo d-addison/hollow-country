@@ -874,3 +874,116 @@ class BundleRoot(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class EngineEvidenceCaps(unittest.TestCase):
+    SOURCE = {'Pipe': (80, 60), 'CableReel': (80, 50), 'GardenLime': (50, 30),
+              'Izh43Shotgun': (90, 78), 'geb_SmallTackle': (1, 0)}
+
+    def fixture(self, tmp):
+        mission = stock_mission(tmp)
+        extra = ''.join(type_row(n, ['Town'], *values, 'weapons' if n == 'Izh43Shotgun' else 'tools')
+                        for n, values in self.SOURCE.items())
+        path = mission / 'db/types.xml'
+        path.write_bytes(path.read_bytes().replace(b'</types>', extra.encode() + b'</types>'))
+        return mission
+
+    def test_post_balance_caps_change_only_selected_rows_and_do_not_reinvest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = self.fixture(tmp)
+            with mock.patch.object(boost, 'engine_caps', return_value={}):
+                old = boost.plan(mission, **PLAN)
+            new = boost.plan(mission, **PLAN)
+            old_bytes = dict((n, a) for n, _, a in old['files'])['db/types.xml']
+            new_bytes = dict((n, a) for n, _, a in new['files'])['db/types.xml']
+            for name, values in self.SOURCE.items():
+                self.assertEqual(rows_of(new_bytes)[name], values)
+            # Remove precisely the selected XML rows; every remaining byte must match, including whitespace.
+            import re
+            def peers(data):
+                return re.sub(rb'<type\b[^>]*name="(?:Pipe|CableReel|GardenLime|Izh43Shotgun|geb_SmallTackle)"[^>]*>.*?</type>',
+                              b'', data, flags=re.S)
+            self.assertEqual(peers(new_bytes), peers(old_bytes))
+            self.assertEqual(old['counts']['balance'], new['counts']['balance'])
+            cap = new['counts']['engine_caps']
+            self.assertEqual(cap['reinvested_nominal'], 0)
+            self.assertEqual(cap['freed_nominal'], sum(max(0, rows_of(old_bytes)[n][0] - v[0])
+                                                      for n, v in self.SOURCE.items()))
+
+    def test_friend_reinstall_restores_receipt_source_and_is_idempotent(self):
+        # Exercise friend_install's actual upgrade orchestration. Only the bundle transport is replaced;
+        # its loot receipt rollback/apply use the real installer on the synthetic mission.
+        from types import SimpleNamespace
+        from tools.setup import friend_install as friend
+        with tempfile.TemporaryDirectory() as tmp:
+            mission = self.fixture(tmp)
+            # Seed a genuine receipt/backups with the measured old installed quantities.
+            # The synthetic mission supplies all five source rows without committing game dumps.
+            import re
+            measured = {'Pipe': (280, 210), 'CableReel': (281, 176), 'GardenLime': (185, 111),
+                        'Izh43Shotgun': (144, 125), 'geb_SmallTackle': (1, 0)}
+            with mock.patch.object(boost, 'engine_caps', return_value={}):
+                legacy = boost.plan(mission, **PLAN)
+            files = []
+            for filename, before, after in legacy['files']:
+                if filename == 'db/types.xml':
+                    for name, values in measured.items():
+                        def measured_row(hit):
+                            block = hit.group(0)
+                            for field, value in zip(('nominal', 'min'), values):
+                                block = re.sub(rb'<' + field.encode() + rb'>[0-9]+</' + field.encode() + rb'>',
+                                               ('<%s>%d</%s>' % (field, value, field)).encode(), block)
+                            return block
+                        after = re.sub(rb'<type name="' + name.encode() + rb'">.*?</type>',
+                                       measured_row, after, flags=re.S)
+                files.append((filename, before, after))
+            legacy['files'] = files
+            with mock.patch.object(boost, 'plan', return_value=legacy):
+                boost.install(mission, None, None, floor_policy=None)
+            self.assertEqual({n: rows_of((mission / 'db/types.xml').read_bytes())[n] for n in measured}, measured)
+            ctx = SimpleNamespace(replaced_done={}, receipt={}, args=SimpleNamespace(), server=Path(tmp),
+                                  bundle=Path(tmp) / 'bundle')
+            calls = []
+            def transport(_ctx, argv):
+                calls.append(argv[0])
+                if argv[0] == 'bundle-rollback':
+                    boost.rollback(mission)
+                elif argv[0] == 'bundle-apply':
+                    boost.install(mission, None, None, floor_policy=None)
+                return 0, '', ''
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(mock.patch.object(friend, 'replaced_layers', return_value=[]))
+                stack.enter_context(mock.patch.object(friend.hc_events, 'rollback'))
+                stack.enter_context(mock.patch.object(friend.tactical_flava_optional, 'rollback_weapon_packs'))
+                stack.enter_context(mock.patch.object(friend.infected_variety, 'rollback'))
+                stack.enter_context(mock.patch.object(friend.infected_variety, 'install'))
+                stack.enter_context(mock.patch.object(friend.infected_variety, 'season_from_profile', return_value='autumn'))
+                stack.enter_context(mock.patch.object(friend, 'overlay_pack_dir', return_value=(Path(tmp), [])))
+                stack.enter_context(mock.patch.object(friend, 'save_receipt'))
+                stack.enter_context(mock.patch.object(friend, 'run_overlay', side_effect=transport))
+                friend._do_overlay_with_variety(ctx, None, mission, True, 'new')
+                capped = mission_bytes(mission)
+                receipt = json.loads((mission / boost.MANAGED / 'receipt.json').read_bytes())
+                self.assertEqual(receipt['counts']['engine_caps']['reinvested_nominal'], 0)
+                for name, values in self.SOURCE.items():
+                    self.assertEqual(rows_of(capped['db/types.xml'])[name], values)
+                friend._do_overlay_with_variety(ctx, None, mission, True, 'new')
+                self.assertEqual(mission_bytes(mission), capped)
+                self.assertEqual(calls, ['bundle-rollback', 'bundle-plan', 'bundle-apply'] * 2)
+
+    def test_exact_minimum_restore_and_no_below_source_cut(self):
+        # A cap restores source values even when balance lowered nominal, or min changed alone.
+        before = ('<types>' + type_row('Pipe', ['Town'], 80, 0) + '</types>').encode()
+        after = before.replace(b'<nominal>80', b'<nominal>60').replace(b'<min>0', b'<min>3')
+        output, _ = boost.cap_engine_types(before, after, boost.engine_caps())
+        self.assertEqual(output, before)
+        output, _ = boost.cap_engine_types(before, output, boost.engine_caps())
+        self.assertEqual(output, before)
+
+    def test_threshold_and_bundle_source(self):
+        rows = [dict(row, steady_per_hour=49 if row['class'] == 'Pipe' else 50)
+                for row in boost.engine_caps().values()]
+        body = ', "ce_engine_caps": ' + json.dumps({'steady_per_hour_threshold': 50, 'rows': rows})
+        with settings_file(body):
+            self.assertNotIn('pipe', boost.engine_caps())
+            self.assertIn('cablereel', boost.engine_caps())

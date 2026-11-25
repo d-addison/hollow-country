@@ -398,6 +398,11 @@ def feasibility(mission, military_weapons=False, limit=LIMIT, slack=False):
                 nominal=demands[usages, tiers, cats, tags], compatible_capacity=compatible_capacity,
                 slack=0 if unassigned_here else spare,
                 unassigned=unassigned_here, classes=sorted(name for name, _ in route_names[usages, tiers, cats, tags])))
+    # Also reached by mission_sources / preland, which calls feasibility directly.
+    if (mission / 'hollow-country-loot-boost').exists():
+        result['engine_caps'] = engine_cap_check(mission)
+        if result['engine_caps']['status'] != 'pass':
+            result['status'] = 'fail'
     return result
 
 
@@ -502,6 +507,44 @@ def calibration(mission, rpts, initial_fill_seconds=120):
                            'No calibrated engine capacity or expected post-fix rate is established.')
 
 
+def engine_cap_check(mission, root=None):
+    """Audit final loaded quantities against verified pre-boost receipt backups, including old receipts."""
+    from tools.package import loot_boost as boost
+    mission = Path(mission).absolute()
+    managed = mission / boost.MANAGED
+    boost._preflight(managed)
+    receipt = boost._receipt(managed)
+    if receipt is None:
+        raise ValueError('engine caps require a loot boost receipt')
+    backups = {}
+    for row in receipt['files']:
+        data = boost.economy.read_plain(managed, row['backup'])
+        if boost._sha(data) != row['before']:
+            raise ValueError('engine cap source backup drifted')
+        backups[row['name']] = data
+    selected = boost.engine_caps(root or boost.REPO_ROOT)
+    # Unchanged types files have no backup. New receipts still record each selected source row.
+    recorded = {(r['file'], r['class'].lower()): r
+                for r in receipt.get('counts', {}).get('engine_caps', {}).get('rows', [])}
+    source, current = {}, {}
+    for name in boost.types_files(mission, include_optional=True):
+        data = boost.economy.read_plain(mission, name)
+        for node in boost.economy.xml(backups.get(name, data), 'types').findall('type'):
+            low = node.get('name', '').lower()
+            pinned = recorded.get((name, low)) if name not in backups else None
+            source[low] = ({field: int(pinned[field]) for field in ('nominal', 'min')} if pinned else
+                           {field: int(node.findtext(field) or 0) for field in ('nominal', 'min')})
+        for node in boost.economy.xml(data, 'types').findall('type'):
+            current[node.get('name', '').lower()] = node
+    violations = []
+    for low in sorted(selected.keys() & current.keys()):
+        for field in ('nominal', 'min'):
+            actual, cap = int(current[low].findtext(field)), source[low][field]
+            if actual > cap:
+                violations.append({'class': current[low].get('name'), 'field': field, 'actual': actual, 'cap': cap})
+    return {'status': 'fail' if violations else 'pass', 'violations': violations}
+
+
 def problems(mission, category='weapons', limit=LIMIT):
     return ['%s demand %d over %d slots (%.2f > %.2f) layers=%s'
             % (','.join(r['route']) if len(r['route']) <= 8 else '%d routes' % len(r['route']),
@@ -519,6 +562,7 @@ def main(argv=None):
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument('--military-weapons', action='store_true', help='joint Military/Police/Prison weapon bound with LIMIT headroom and named unrouted types')
     modes.add_argument('--all-categories', '--feasibility', action='store_true', help='joint shared-capacity bound across all building-routed categories; exit 1 on deficit')
+    modes.add_argument('--engine-caps', action='store_true', help='verify engine caps against loot boost receipt backups')
     modes.add_argument('--coverage', action='store_true', help='report modded usage/container eligibility')
     modes.add_argument('--calibrate-rpt', type=Path, action='append', help='read-only RPT comparison; repeat in run order')
     parser.add_argument('--initial-fill-seconds', type=int, default=120)
@@ -528,6 +572,14 @@ def main(argv=None):
         parser.error('--limit must be greater than zero and at most one')
     if args.initial_fill_seconds < 0:
         parser.error('--initial-fill-seconds must be nonnegative')
+    if args.engine_caps:
+        try:
+            result = engine_cap_check(args.mission)
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, ET.ParseError):
+            print(json.dumps({'status': 'error', 'reason': 'engine cap receipt inputs unreadable or invalid'}))
+            return 2
+        print(json.dumps(result, sort_keys=True))
+        return int(result['status'] == 'fail')
     if args.calibrate_rpt:
         try:
             report = calibration(args.mission, args.calibrate_rpt, args.initial_fill_seconds)
@@ -552,6 +604,12 @@ def main(argv=None):
     for row in pressure(args.mission, args.category)[:args.top]:
         print(json.dumps(row, sort_keys=True))
     found = problems(args.mission, args.category, args.limit)
+    if (args.mission / 'hollow-country-loot-boost').exists():
+        try:
+            if engine_cap_check(args.mission)['status'] != 'pass':
+                found.append('engine-evidence cap exceeded')
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, ET.ParseError):
+            found.append('engine-evidence receipt invalid')
     for line in found:
         print('HC_CE_SLOT_PRESSURE: ' + line)
     print('slot pressure: %s (limit %.2f, offline estimate)' % ('fail' if found else 'pass', args.limit))

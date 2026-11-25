@@ -70,5 +70,71 @@
     "food": 4.2,
     "medical": 5.7,
     "tools": 2.0
+  },
+  "ce_engine_caps": {
+    "steady_per_hour_threshold": 50,
+    "note": "Lead-supplied soak 192, fresh world, one server and one client, about 21 minutes; steady sample after 16:00 excludes initial fill. Retry rates are not missing-item counts. Freed nominal is not reinvested. All other classes were at most 6 retries/hour; WoodAxe no longer floods. Initial fill: 177525 of 186153 warnings in first two minutes; later about 430/minute and 613 search-overtime lines overall.",
+    "rows": [
+      {
+        "class": "Pipe",
+        "steady_per_hour": 12669,
+        "soak": 192,
+        "build": 192,
+        "date": "2026-11-25",
+        "cap_rule": "pre_boost",
+        "installed_nominal": 280,
+        "installed_min": 210,
+        "prototype_shelf_points": 785,
+        "placed_upper_bound": 10838
+      },
+      {
+        "class": "CableReel",
+        "steady_per_hour": 12666,
+        "soak": 192,
+        "build": 192,
+        "date": "2026-11-25",
+        "cap_rule": "pre_boost",
+        "installed_nominal": 281,
+        "installed_min": 176,
+        "prototype_shelf_points": 785,
+        "placed_upper_bound": 10838
+      },
+      {
+        "class": "GardenLime",
+        "steady_per_hour": 1837,
+        "soak": 192,
+        "build": 192,
+        "date": "2026-11-25",
+        "cap_rule": "pre_boost",
+        "installed_nominal": 185,
+        "installed_min": 111,
+        "prototype_shelf_points": 181,
+        "placed_upper_bound": 5146
+      },
+      {
+        "class": "Izh43Shotgun",
+        "steady_per_hour": 76,
+        "soak": 192,
+        "build": 192,
+        "date": "2026-11-25",
+        "cap_rule": "pre_boost",
+        "installed_nominal": 144,
+        "installed_min": 125,
+        "prototype_shelf_points": 487,
+        "placed_upper_bound": 6274
+      },
+      {
+        "class": "geb_SmallTackle",
+        "steady_per_hour": 63,
+        "soak": 192,
+        "build": 192,
+        "date": "2026-11-25",
+        "cap_rule": "pre_boost",
+        "installed_nominal": 1,
+        "installed_min": 0,
+        "prototype_shelf_points": 200,
+        "placed_upper_bound": 193
+      }
+    ]
   }
 }
