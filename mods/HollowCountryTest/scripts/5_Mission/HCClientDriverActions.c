@@ -110,13 +110,15 @@ class HCDriverWalker
         return Math.Atan2(facing[0], facing[2]) * Math.RAD2DEG;
     }
 
-    // Native 3_Game/human.c:28 GetHeadingAngle is radians; Global/Game.c:732 camera direction.
+    // Native 3_Game/human.c:28 GetHeadingAngle is radians and counter-clockwise: vanilla negates it
+    // (5_Mission/GUI/CrossHairSelector.c:247, DayZPlayerCamera3rdPerson.c:478), so the frame is
+    // clockwise like Atan2(x, z) bearings. Global/Game.c:732 camera direction.
     static float MovementFrame(PlayerBase player)
     {
 #ifndef SERVER
         if (HCDriverMovement.HeadingFrame && player.GetInputController())
         {
-            return player.GetInputController().GetHeadingAngle() * Math.RAD2DEG;
+            return player.GetInputController().GetHeadingAngle() * -Math.RAD2DEG;
         }
         return CameraYaw();
 #else

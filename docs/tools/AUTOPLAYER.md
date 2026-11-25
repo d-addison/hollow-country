@@ -428,7 +428,7 @@ Round 5 remains implemented-unverified until the lead's native checks.
    `GetCurrentInputAngle` returned false. Command-angle matching tolerates degrees or radians
    (build 192 reports movement radians and input degrees). `dir` is body direction x,z.
    New lists, appended after all existing keys, use two decimals: `heading` is controller
-   `GetHeadingAngle` converted from radians to degrees; `local_dir` and `move_speed` are
+   `GetHeadingAngle` converted from radians to degrees and negated to clockwise yaw, as vanilla does (CrossHairSelector.c:247, DayZPlayerCamera3rdPerson.c:478 "negative to yaw"); `local_dir` and `move_speed` are
    `GetMovement` local x,z and speed; `model_speed` is `GetModelSpeed` local x,z; `movement`
    pairs `HumanMovementState.m_iMovement/m_iStanceIdx`. Native proofs: `3_Game/human.c:22,28`,
    `:1183-1184,1470`, `3_Game/Entities/Object.c:338`.

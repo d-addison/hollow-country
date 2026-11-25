@@ -322,7 +322,7 @@ class HCClientDriver
         m_ResidM90 = 0;
         // Native 3_Game/human.c:28 GetHeadingAngle returns radians.
 #ifndef SERVER
-        m_FirstHeading = player.GetInputController().GetHeadingAngle() * Math.RAD2DEG;
+        m_FirstHeading = player.GetInputController().GetHeadingAngle() * -Math.RAD2DEG;
 #endif
         m_HeadingLive = false;
         m_HeadingMin = 0;
@@ -406,7 +406,7 @@ class HCClientDriver
         // :1183-1184 state fields, :1470 GetMovementState; Object.c:338 GetModelSpeed.
 #ifndef SERVER
         HumanInputController input = player.GetInputController();
-        float heading = input.GetHeadingAngle() * Math.RAD2DEG;
+        float heading = input.GetHeadingAngle() * -Math.RAD2DEG;
         float movementSpeed;
         vector localDirection;
         input.GetMovement(movementSpeed, localDirection);
