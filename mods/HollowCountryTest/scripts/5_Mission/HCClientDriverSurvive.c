@@ -36,6 +36,7 @@ class HCDriverSurvive
     protected int m_Task;
     protected int m_Stage;
     protected float m_StageAge;
+    protected float m_HandsRetry;
     protected ItemBase m_Item;
     protected float m_QuantityBefore;
     protected bool m_SawRunning;
@@ -220,7 +221,8 @@ class HCDriverSurvive
                 Next();
                 return HCDriverResult.RUNNING;
             }
-            if (player.GetItemInHands() != m_Item) { player.PredictiveTakeEntityToHands(m_Item); }
+            HCDriverActions.RequestHands(player, m_Item);
+            m_HandsRetry = 1.0;
             m_Stage = HCDriverSurvive.S_HOLD;
             m_StageAge = 0;
             return HCDriverResult.RUNNING;
@@ -235,6 +237,11 @@ class HCDriverSurvive
         {
             if (player.GetItemInHands() != m_Item)
             {
+                if (m_StageAge >= m_HandsRetry && m_StageAge < HCDriverSurvive.HOLD_SECONDS)
+                {
+                    m_HandsRetry = m_StageAge + 1.0;
+                    HCDriverActions.RequestHands(player, m_Item);
+                }
                 if (m_StageAge < HCDriverSurvive.HOLD_SECONDS) { return HCDriverResult.RUNNING; }
                 Miss(TaskName(m_Task) + "-not-in-hands");
                 Next();

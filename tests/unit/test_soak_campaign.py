@@ -104,6 +104,20 @@ class PhaseMapTests(unittest.TestCase):
         self.assertEqual(PHASES['debug_snapshot_seconds'], 300)
         self.assertEqual(camp.phase_of(PHASES, 'DebugSnapshot', 'snapshot_saved'), ('phase', 'idle'))
 
+    def test_campaign_index_preserves_phase_boundaries_after_shared_approaches(self):
+        script, index = camp._campaign_driver_plan(camp.PHASE_ORDER)
+        by_id = {step['id']: step for step in script['steps']}
+        for phase in ('combat', 'loot', 'vehicle', 'survive'):
+            ids = index[phase][phase]
+            self.assertEqual(len(ids), 1)
+            self.assertEqual(by_id[ids[0]]['kind'], phase)
+        self.assertIn('admin:fx_site_patrol_kill', index['walk_ai'])
+        self.assertEqual(set(index['walk_town']),
+                         {'walk:site:scav-chernogorsk', 'route:site:scav-chernogorsk', 'stand'})
+        indexed = {step_id for tokens in index.values() for ids in tokens.values() for step_id in ids}
+        self.assertEqual(indexed, set(by_id))
+        self.assertEqual(len(by_id), len(script['steps']))
+
     def test_bad_phase_file_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'p.json'
@@ -199,7 +213,7 @@ class BuilderTests(Tmp):
     def test_gear_preset_holds_every_item_the_actions_need(self):
         text = json.dumps(camp.gear_preset())
         for item in ('KitchenKnife', 'CamoNet', 'PersonalRadio', 'Battery9V', 'Mich2001Helmet', 'UniversalLight',
-                     'DuctTape', 'Crowbar', 'Wrench', 'TortillaBag', 'Paper', 'Pen_Black', 'AKM', 'Mag_AKM_30Rnd', 'Ammo_762x39'):
+                     'DuctTape', 'Crowbar', 'Wrench', 'TortillaBag', 'Paper', 'Pen_Black', 'AKM', 'Mag_AKM_30Rnd', 'Ammo_762x39', 'ChernarusMap', 'BakedBeansCan_Opened', 'WaterBottle'):
             self.assertIn(item, text)
 
     def test_settings_and_gameplay_edits(self):
@@ -208,6 +222,8 @@ class BuilderTests(Tmp):
         gameplay = json.loads(camp.gameplay_with_preset(json.dumps(GAMEPLAY).encode()))
         self.assertEqual(gameplay['PlayerData']['spawnGearPresetFiles'], [camp.GEAR_REL])
         self.assertEqual(gameplay['other'], 1)
+        self.assertFalse(gameplay['UIData']['use3DMap'])
+        self.assertTrue(gameplay['MapData']['ignoreMapOwnership'])
         with self.assertRaises(camp.Refused):
             camp.gameplay_with_preset(b'{}')
 
@@ -325,6 +341,7 @@ class StagerTests(Tmp):
         self.assertTrue(settings['EnableSmokeFixtures'])
         self.assertEqual(settings['Keep'], 7)
         self.assertTrue((profile / camp.CELLAR_MARKER_REL).is_file())
+        self.assertTrue((profile / camp.SPAWN_MARKER_REL).is_file())
         self.assertTrue((profile / 'Other/data.txt').is_file())
         self.assertFalse((profile / 'loose.RPT').exists())
         self.assertEqual((self.server / 'profiles/HollowCountry/settings.json').read_bytes(),

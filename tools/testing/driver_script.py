@@ -22,10 +22,11 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 MISSION = ROOT / "mission" / "hollow-country"
 VERSION = 1
-PHASES = ("join", "group", "walk_ai", "walk_zone", "walk_town", "combat", "loot", "fixtures", "actions",
-          "vehicle", "scene", "forest", "survive", "mission", "idle")
+PHASES = ("join", "group", "walk_ai", "walk_town", "combat", "loot", "fixtures", "actions",
+          "vehicle", "walk_zone", "scene", "forest", "survive", "mission", "idle")
 # A phase that needs a place walks there first unless the route already stands within this of it, so
 # every phase also runs alone (a targeted soak drives join, the phase and idle).
+SPAWN_XZ = (6500.0, 2500.0)
 NEAR_M = 400.0
 DEFAULT_PHASES = list(PHASES)
 MAX_STEPS = 400
@@ -241,7 +242,7 @@ class _Builder:
     def __init__(self):
         self.steps = []
         self.notes = {}
-        self.position = None
+        self.position = SPAWN_XZ
         self.done = set()
 
     def add(self, kind, note="", **fields):
@@ -256,10 +257,7 @@ class _Builder:
 
     def walk(self, source, gait="jog", arrive=5):
         x, z = resolve_waypoint(source)
-        if self.position is None:
-            distance = 6000.0
-        else:
-            distance = math.hypot(x - self.position[0], z - self.position[1])
+        distance = math.hypot(x - self.position[0], z - self.position[1])
         self.position = (x, z)
         self.add("walk", note=source, to=[x, z], gait=gait, arrive_m=arrive,
                  timeout_s=_timeout_for(distance, gait))
@@ -280,7 +278,7 @@ class _Builder:
     def near(self, source, gait="jog"):
         """Walk to source unless the route already stands within NEAR_M of it."""
         x, z = resolve_waypoint(source)
-        if self.position is None or math.hypot(x - self.position[0], z - self.position[1]) > NEAR_M:
+        if self.position == SPAWN_XZ or math.hypot(x - self.position[0], z - self.position[1]) > NEAR_M:
             self.walk(source, gait=gait)
 
     def action(self, name, **overrides):
@@ -432,7 +430,7 @@ _PHASE_BUILDERS = {
 }
 
 
-def build_plan(phases):
+def build_plan(phases, *, phase_ranges=None):
     """(script dict, {step id: waypoint source}) for the named phases, in the order given."""
     if not isinstance(phases, (list, tuple)) or not phases:
         raise ScriptError("phases must be a non-empty list")
@@ -440,7 +438,10 @@ def build_plan(phases):
     for phase in phases:
         if phase not in _PHASE_BUILDERS:
             raise ScriptError("unknown phase %r (known: %s)" % (phase, ", ".join(PHASES)))
+        start = len(builder.steps)
         _PHASE_BUILDERS[phase](builder)
+        if phase_ranges is not None:
+            phase_ranges[phase] = (start, len(builder.steps))
     digest = hashlib.sha256(json.dumps(builder.steps, sort_keys=True).encode("utf-8")).hexdigest()
     script = {"version": VERSION, "run_id": "r" + digest[:10], "steps": builder.steps}
     validate_script(script)

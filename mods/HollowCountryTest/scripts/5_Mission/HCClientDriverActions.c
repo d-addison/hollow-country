@@ -5,9 +5,8 @@
 //            OverrideMovementAngle (degrees, -180..180 per :459), :259 OverrideAimChangeX
 //            (radians per tick per :30); :1458 Human.GetInputController; Object.c:305
 //            GetOrientation (yaw degrees). The local player's own controller is the only one used;
-//            collisions stay engine-owned and SetPosition is never called. Whether a retail build
-//            turns the character with OverrideAimChangeX is unobserved: the aim sign adapts, and a
-//            walk that makes no progress ends as timeout (never a fake arrival).
+//            collisions stay engine-owned. HCDriverMovement applies ONE_FRAME at CommandHandler;
+//            navigation uses the measured camera frame and angle sign, with no aim feedback.
 //  actions   4_World/Classes/UserActionsComponent/ActionManagerClient.c:804 PerformActionStart
 //            (public), :1335 SetIgnoreAutomaticInputEnd, :286 EndActionInput;
 //            ActionManagerBase.c:91 GetRunningAction, :214 static GetAction(typename);
@@ -34,9 +33,6 @@ class HCDriverWalker
     protected int m_Sidesteps;
     protected float m_SideLeft;
     protected float m_SideSign = 1.0;
-    protected float m_AimSign = 1.0;
-    protected float m_DiffMark;
-    protected float m_DiffMarkAge;
     protected string m_Detail;
     // Route mode: after HANDOVER_SECONDS without progress the walker flags m_Stuck and keeps going;
     // the route's stuck ladder (HCDriverRoute) decides what to do. Begin turns it off.
@@ -69,8 +65,6 @@ class HCDriverWalker
         m_Sidesteps = 0;
         m_SideLeft = 0;
         m_SideSign = 1.0;
-        m_DiffMark = 0;
-        m_DiffMarkAge = 0;
         m_Detail = "";
         m_Handover = false;
         m_Stuck = false;
@@ -95,19 +89,35 @@ class HCDriverWalker
         if (!player) { return; }
         HumanInputController input = player.GetInputController();
         if (!input) { return; }
-        input.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, speed);
-        input.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, 0);
+        HCDriverMovement.Request(speed, 0);
     }
 
     void Release(PlayerBase player)
     {
         m_Active = false;
+        HCDriverMovement.Stop();
         if (!player) { return; }
         HumanInputController input = player.GetInputController();
         if (!input) { return; }
         input.OverrideMovementSpeed(HumanInputControllerOverrideType.DISABLED, 0);
         input.OverrideMovementAngle(HumanInputControllerOverrideType.DISABLED, 0);
         input.OverrideAimChangeX(HumanInputControllerOverrideType.DISABLED, 0);
+    }
+
+    static float CameraYaw()
+    {
+        vector facing = GetGame().GetCurrentCameraDirection();
+        return Math.Atan2(facing[0], facing[2]) * Math.RAD2DEG;
+    }
+
+    static string XZ(vector pos)
+    {
+        return Math.Round(pos[0]).ToString() + "," + Math.Round(pos[2]).ToString();
+    }
+
+    static float FlatLength(vector delta)
+    {
+        return Math.Sqrt(delta[0] * delta[0] + delta[2] * delta[2]);
     }
 
     static float Wrap180(float degrees)
@@ -181,32 +191,28 @@ class HCDriverWalker
             m_NoProgress = 0;
             m_Best = dist;
         }
-        float yaw = player.GetOrientation()[0];
-        float want = Math.Atan2(dx, dz) * Math.RAD2DEG;
-        float diff = HCDriverWalker.Wrap180(want - yaw);
-        // Adapt the aim sign: a big heading error that does not shrink over a second flips it.
-        m_DiffMarkAge = m_DiffMarkAge + dt;
-        if (m_DiffMarkAge >= 1.0)
+        if (!HCDriverMovement.Calibrated)
         {
-            float absDiff = Math.AbsFloat(diff);
-            if (absDiff > 25.0 && absDiff > m_DiffMark - 3.0) { m_AimSign = -m_AimSign; }
-            m_DiffMark = absDiff;
-            m_DiffMarkAge = 0;
+            Release(player);
+            m_Detail = "movement-uncalibrated";
+            return HCDriverResult.REFUSED;
         }
-        float aim = 0;
-        if (Math.AbsFloat(diff) > 8.0) { aim = Math.Clamp(diff * 0.0026, -0.06, 0.06) * m_AimSign; }
-        float speed = m_Speed;
-        float angle = diff;
-        if (Math.AbsFloat(diff) > 60.0 && speed > 1.0) { speed = 1.0; }
+        if (!player.GetCommand_Move())
+        {
+            Release(player);
+            m_Detail = "not-command-move id=" + HCDriverMovement.CommandId.ToString();
+            return HCDriverResult.REFUSED;
+        }
+        // Use the camera/input frame measured at calibration, never body-yaw aim feedback.
+        float want = Math.Atan2(dx, dz) * Math.RAD2DEG;
+        float frame = HCDriverWalker.CameraYaw() + HCDriverMovement.HeadingOffset;
+        float diff = HCDriverWalker.Wrap180(want - frame);
         if (m_SideLeft > 0)
         {
             m_SideLeft = m_SideLeft - dt;
-            angle = HCDriverWalker.Wrap180(diff + 90.0 * m_SideSign);
-            aim = 0;
+            diff = HCDriverWalker.Wrap180(diff + 90.0 * m_SideSign);
         }
-        input.OverrideMovementSpeed(HumanInputControllerOverrideType.ENABLED, speed);
-        input.OverrideMovementAngle(HumanInputControllerOverrideType.ENABLED, angle);
-        input.OverrideAimChangeX(HumanInputControllerOverrideType.ENABLED, aim);
+        HCDriverMovement.Request(m_Speed, diff * HCDriverMovement.AngleSign);
         return HCDriverResult.RUNNING;
     }
 }
@@ -229,6 +235,7 @@ class HCDriverActions
     protected int m_Phase;
     protected string m_Detail;
     protected bool m_Begun;
+    protected float m_HoldRetry;
     protected ItemBase m_Main;
     protected ItemBase m_Second;
     protected Object m_Approach;
@@ -264,6 +271,7 @@ class HCDriverActions
         m_PhaseAge = 0;
         m_Detail = "";
         m_Begun = false;
+        m_HoldRetry = 0;
         m_Main = null;
         m_Second = null;
         m_Approach = null;
@@ -472,6 +480,11 @@ class HCDriverActions
         m_Dt = dt;
         m_Elapsed = m_Elapsed + dt;
         m_PhaseAge = m_PhaseAge + dt;
+        if (m_Phase == HCDriverActions.P_PREP && m_Begun && m_PhaseAge > 8.0)
+        {
+            Abort(player, walker);
+            return Finish(HCDriverResult.REFUSED, "hands-request-not-confirmed:inventory-busy-or-no-room");
+        }
         if (m_Elapsed > m_Timeout)
         {
             Abort(player, walker);
@@ -496,14 +509,32 @@ class HCDriverActions
         return Finish(HCDriverResult.REFUSED, "unknown-action-kind");
     }
 
+    // Same predictive inventory requests as a player drag. The caller bounds/retries the request.
+    static void RequestHands(PlayerBase player, ItemBase item)
+    {
+        if (!item || player.GetItemInHands() == item || !ScriptInputUserData.CanStoreInputUserData()) { return; }
+        ItemBase held = player.GetItemInHands();
+        if (held)
+        {
+            if (!player.PredictiveSwapEntities(held, item) && ScriptInputUserData.CanStoreInputUserData())
+            {
+                player.PredictiveTakeEntityToInventory(FindInventoryLocationType.ANY, held);
+            }
+        }
+        else { player.PredictiveTakeEntityToHands(item); }
+    }
+
     // Puts an item in hands through the native predictive entry; true once it is held.
     protected bool Hold(PlayerBase player, ItemBase item)
     {
         if (player.GetItemInHands() == item) { return true; }
-        if (!m_Begun)
+        // A predictive request can be refused while input data is busy (Man.c:180).
+        // Retry at one-second intervals; swap when hands are occupied (Man.c:422).
+        if (!m_Begun || m_PhaseAge >= m_HoldRetry)
         {
             m_Begun = true;
-            player.PredictiveTakeEntityToHands(item);
+            m_HoldRetry = m_PhaseAge + 1.0;
+            HCDriverActions.RequestHands(player, item);
         }
         return false;
     }
@@ -537,6 +568,7 @@ class HCDriverActions
             if (!Hold(player, m_Main)) { return HCDriverResult.RUNNING; }
             m_Phase = HCDriverActions.P_FIND;
             m_Begun = false;
+            m_HoldRetry = 0;
         }
         if (m_Phase == HCDriverActions.P_FIND)
         {

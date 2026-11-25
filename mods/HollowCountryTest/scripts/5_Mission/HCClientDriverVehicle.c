@@ -42,6 +42,14 @@ class HCDriverVehicle
     protected CarScript m_Car;
     protected int m_DriverSeat;
     protected int m_Ray;
+    protected int m_CarHits;
+    protected int m_SeatHits;
+    protected int m_DoorHits;
+    protected bool m_OpeningDoor;
+    protected bool m_DoorAttempted;
+    protected bool m_OpenRejected;
+    protected bool m_GetInRejected;
+    protected ref array<string> m_Selections = new array<string>;
     protected bool m_Started;
     protected bool m_Seated;
     protected bool m_Engine;
@@ -74,6 +82,13 @@ class HCDriverVehicle
         m_Car = null;
         m_DriverSeat = -1;
         m_Ray = 0;
+        m_CarHits = 0;
+        m_SeatHits = 0;
+        m_DoorHits = 0;
+        m_OpeningDoor = false;
+        m_DoorAttempted = false;
+        m_OpenRejected = false;
+        m_GetInRejected = false;
         m_Started = false;
         m_Seated = false;
         m_Engine = false;
@@ -185,11 +200,38 @@ class HCDriverVehicle
         int contactComponent;
         m_Hits.Clear();
         if (!DayZPhysics.RaycastRV(begin, end, contactPos, contactDir, contactComponent, m_Hits, null, player, true)) { return false; }
-        // Sorted: the contact component belongs to the nearest hit, which has to be the car itself.
-        if (m_Hits.Count() == 0 || m_Hits.Get(0) != m_Car) { return false; }
+        // A closed door is a separate attachment hit, not a hit on the car body. Use the same
+        // parent/selection target as ActionCarDoorsOutside.c:21-65, then rescan for get-in.
+        if (m_Hits.Count() == 0) { return false; }
+        CarDoor door = CarDoor.Cast(m_Hits.Get(0));
+        if (door && door.GetHierarchyParent() == m_Car && !m_DoorAttempted && !m_Car.CrewCanGetThrough(m_DriverSeat))
+        {
+            m_DoorHits++;
+            m_Selections.Clear();
+            door.GetActionComponentNameList(contactComponent, m_Selections);
+            bool driverDoor = false;
+            for (int selection = 0; selection < m_Selections.Count() && selection < 16; selection++)
+            {
+                string source = m_Car.GetAnimSourceFromSelection(m_Selections[selection]);
+                if (source != "" && m_Car.GetSeatIndexFromDoor(source) == m_DriverSeat) { driverDoor = true; }
+            }
+            if (!driverDoor) { return false; }
+            ActionBase openDoor = ActionManagerBase.GetAction(ActionOpenCarDoorsOutside);
+            m_Target = new ActionTarget(door, m_Car, contactComponent, contactPos, 1.0);
+            if (!openDoor || !openDoor.Can(player, m_Target, null))
+            {
+                m_OpenRejected = true;
+                return false;
+            }
+            m_OpeningDoor = true;
+            return true;
+        }
+        if (m_Hits.Get(0) != m_Car) { return false; }
+        m_CarHits++;
         if (m_Car.CrewPositionIndex(contactComponent) != m_DriverSeat) { return false; }
+        m_SeatHits++;
         ActionTarget candidate = new ActionTarget(m_Car, null, contactComponent, contactPos, 1.0);
-        if (!getIn.Can(player, candidate, null)) { return false; }
+        if (!getIn.Can(player, candidate, null)) { m_GetInRejected = true; return false; }
         m_Target = candidate;
         return true;
     }
@@ -199,6 +241,7 @@ class HCDriverVehicle
         manager.SetIgnoreAutomaticInputEnd(true);
         manager.PerformActionStart(action, target, null);
         m_Started = true;
+        m_PhaseAge = 0;
     }
 
     int Tick(PlayerBase player, float dt, HCDriverWalker walker)
@@ -226,6 +269,8 @@ class HCDriverVehicle
             m_Car = FindCar(player);
             if (!m_Car) { return End(player, walker, HCDriverResult.REFUSED, "no-free-car-within-" + Math.Round(m_Range).ToString() + "m "); }
             m_DriverSeat = DriverSeat(m_Car);
+            if (player.GetItemInHands() && player.GetItemInHands().IsHeavyBehaviour()) { return End(player, walker, HCDriverResult.REFUSED, "hands-heavy-item "); }
+            if (!m_Car.CanGetIn()) { return End(player, walker, HCDriverResult.REFUSED, "car-cannot-get-in "); }
             vector entry;
             vector entryDir;
             m_Car.CrewEntryWS(m_DriverSeat, entry, entryDir);
@@ -250,10 +295,38 @@ class HCDriverVehicle
             {
                 ActionBase getIn = ActionManagerBase.GetAction(ActionGetInTransport);
                 if (!getIn) { return End(player, walker, HCDriverResult.UNSUPPORTED, "no-get-in-action "); }
-                if (m_Ray >= HCDriverVehicle.RAYS) { return End(player, walker, HCDriverResult.REFUSED, "driver-door-not-usable "); }
+                // A body hit can fail get-in while the door is still closed. Finish the grid:
+                // a later ray may hit the door attachment and offer the real open action.
+                if (m_Ray >= HCDriverVehicle.RAYS)
+                {
+                    string doorFailure = "driver-door-not-usable";
+                    if (m_GetInRejected) { doorFailure = "driver-get-in-condition-rejected"; }
+                    if (m_OpenRejected) { doorFailure = "driver-door-open-condition-rejected"; }
+                    doorFailure = doorFailure + " door_hits=" + m_DoorHits.ToString() + " car_hits=" + m_CarHits.ToString() + " seat_hits=" + m_SeatHits.ToString() + " ";
+                    return End(player, walker, HCDriverResult.REFUSED, doorFailure);
+                }
                 if (!LookAtDoor(player, getIn)) { return HCDriverResult.RUNNING; }
-                Start(manager, getIn, m_Target);
+                if (m_OpeningDoor)
+                {
+                    m_DoorAttempted = true;
+                    Start(manager, ActionManagerBase.GetAction(ActionOpenCarDoorsOutside), m_Target);
+                }
+                else { Start(manager, getIn, m_Target); }
                 return HCDriverResult.RUNNING;
+            }
+            if (m_OpeningDoor)
+            {
+                if (m_Car.CrewCanGetThrough(m_DriverSeat) && !manager.GetRunningAction() && m_PhaseAge > 0.5)
+                {
+                    manager.SetIgnoreAutomaticInputEnd(false);
+                    m_OpeningDoor = false;
+                    m_Note = "driver-door-opened";
+                    m_Ray = 0;
+                    Enter(HCDriverVehicle.V_DOOR);
+                    return HCDriverResult.RUNNING;
+                }
+                if (m_PhaseAge < 6.0) { return HCDriverResult.RUNNING; }
+                return End(player, walker, HCDriverResult.REFUSED, "driver-door-open-not-confirmed ");
             }
             if (vehicle && !vehicle.IsGettingIn() && m_Car.CrewDriver() == player)
             {
@@ -339,6 +412,9 @@ class HCDriverVehicle
         if (!vehicle)
         {
             m_Out = true;
+            if (m_Note == "timeout") { return End(player, walker, HCDriverResult.TIMEOUT, "drive-timeout "); }
+            if (!m_Engine) { return End(player, walker, HCDriverResult.REFUSED, "engine-not-started "); }
+            if (m_Drove < 1.0) { return End(player, walker, HCDriverResult.REFUSED, "no-driven-displacement "); }
             return End(player, walker, HCDriverResult.OK, "");
         }
         if (!m_Started)
