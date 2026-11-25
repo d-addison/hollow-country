@@ -276,6 +276,9 @@ admission, removes Drain/Summary and clears its queue on **every** OnStop;
 OnStart re-enables it through Configure(true, settings...). This prevents a queued
 ECE_PLACE_ON_SURFACE creation from persisting loot or rebuilding the pathgraph
 after stop (native 3_Game/CE/CentralEconomy.c:38).
+After a live (non-finish) stop, guns that were already queued keep their queued
+mark and never get a pile, guns spawned before the next OnStart are refused at
+Enqueue, and no final GunPile Summary line prints. All three are accepted.
 
 At mission finish, GroundCELoot removes Drain, DrainHeld and Summary; entry
 points refuse further work. Restored items re-enter through EnqueueRestored for
@@ -287,7 +290,10 @@ interior, forage and probe deletes remain intact. Shelter stop clears pending
 pathgraph regions without applying them (native Global/Game.c:1206). Forage and
 probe retain ECE_DYNAMIC_PERSISTENCY cleanup before native storage writes.
 Infected release drops script references without SetWaypoints or group moves;
-Holdouts skips its final light RPC. Existing save/flush calls retain their order.
+Holdouts skips its final light RPC. Existing save/flush calls retain their order:
+ReleasePacks still clears routed horde records (HasRoute=false, dirty), so the
+shutdown adoption save runs. The finish pass also retains any hold whose group
+still lists a member, whether tracked or not.
 
 The bridge keeps retirement active throughout module OnStop persistence. Only
 after super.Stop does it release existing retired holds with no live slot/member,
