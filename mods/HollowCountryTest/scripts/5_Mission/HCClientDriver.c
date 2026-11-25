@@ -281,6 +281,31 @@ class HCClientDriver
             code = StepSurvive(step, player, dt);
             detail = m_Survive.Detail();
         }
+        else if (step.kind == "search_site")
+        {
+            code = HCDriverExtra.Run(step, player, dt, m_Stage == 0, detail);
+            m_Stage = 1;
+        }
+        else if (step.kind == "take_lead")
+        {
+            code = HCDriverExtra.Run(step, player, dt, m_Stage == 0, detail);
+            m_Stage = 1;
+        }
+        else if (step.kind == "raise")
+        {
+            code = HCDriverExtra.Run(step, player, dt, m_Stage == 0, detail);
+            m_Stage = 1;
+        }
+        else if (step.kind == "hold_ring")
+        {
+            code = HCDriverExtra.Run(step, player, dt, m_Stage == 0, detail);
+            m_Stage = 1;
+        }
+        else if (step.kind == "respawn")
+        {
+            code = HCDriverExtra.Run(step, player, dt, m_Stage == 0, detail);
+            m_Stage = 1;
+        }
         else if (step.kind == "vehicle")
         {
             code = StepVehicle(step, player, dt);

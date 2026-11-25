@@ -31,12 +31,12 @@ class DriverScriptTests(unittest.TestCase):
         script, notes = ds.build_plan(list(ds.PHASES))
         walks = [step for step in script["steps"] if step["kind"] == "walk"]
         self.assertEqual([notes[s["id"]] for s in walks],
-                         [ds.AI_SITE, ds.TOWN, ds.ZONE, ds.SCENE, ds.FOREST])
+                         [ds.AI_SITE, ds.TOWN, ds.AI_SITE, ds.ZONE, ds.SCENE, ds.FOREST])
         first = walks[0]
         import math
         distance = math.dist(ds.SPAWN_XZ, first["to"])
         self.assertLess(distance, 100)
-        self.assertEqual(first["timeout_s"], ds._timeout_for(distance, first["gait"]))
+        self.assertEqual(first["timeout_s"], ds._timeout_for(distance + 150, first["gait"]))
 
     def test_phase_ranges_describe_combined_route_not_standalone_lengths(self):
         ranges = {}
@@ -168,7 +168,7 @@ class DriverScriptTests(unittest.TestCase):
     def test_default_route_walks_only_to_resolved_waypoints(self):
         script, notes = ds.build_plan(list(ds.PHASES))
         walks = [step for step in script["steps"] if step["kind"] == "walk"]
-        self.assertEqual(len(walks), 5)
+        self.assertEqual(len(walks), 6)
         self.assertTrue(any(notes[step["id"]].startswith("scene:") for step in walks))
         for step in walks:
             self.assertIn(step["id"], notes)
@@ -327,6 +327,71 @@ class DriverScriptTests(unittest.TestCase):
         alone = tokens_of(["join", "vehicle", "idle"])
         self.assertLess(alone.index("admin:fx_car_side"), alone.index("action:flip"))
         self.assertLess(alone.index("action:flip"), alone.index("vehicle"))
+
+
+    def test_extra_step_schemas_and_bounds(self):
+        steps = [
+            {"kind": "search_site", "site": "police-chernogorsk", "timeout_s": 240},
+            {"kind": "take_lead", "timeout_s": 180},
+            {"kind": "raise", "range_min_m": 45, "range_max_m": 75, "seconds": 3, "timeout_s": 180},
+            {"kind": "hold_ring", "to": [5264.47, 2551.96], "hold_s": 120, "timeout_s": 900},
+            {"kind": "respawn", "timeout_s": 180},
+        ]
+        for step in steps:
+            step["id"] = "s01"
+            ds.validate_step(step)
+            for invalid in (dict(step, timeout_s=True), dict(step, timeout_s=0),
+                            dict(step, timeout_s=float("nan")), dict(step, position=[1, 2])):
+                with self.subTest(invalid=invalid), self.assertRaises(ds.ScriptError):
+                    ds.validate_step(invalid)
+            missing = dict(step)
+            del missing["timeout_s"]
+            with self.assertRaises(ds.ScriptError):
+                ds.validate_step(missing)
+        invalid_steps = [dict(steps[0], site="missing"), dict(steps[0], site=True),
+                         dict(steps[2], range_min_m=40), dict(steps[2], range_max_m=81),
+                         dict(steps[2], range_min_m=75), dict(steps[2], seconds=0),
+                         dict(steps[2], seconds=30, timeout_s=20),
+                         dict(steps[3], to=[1]), dict(steps[3], to=[True, 1]),
+                         dict(steps[3], hold_s=0), dict(steps[3], timeout_s=120)]
+        for invalid in invalid_steps:
+            with self.subTest(invalid=invalid), self.assertRaises(ds.ScriptError):
+                ds.validate_step(invalid)
+
+    def test_fixtures_group_retry_death_and_car_order(self):
+        for phases in (["fixtures"], list(ds.PHASES)):
+            steps = ds.build_route(phases)["steps"]
+            commands = [(i, step["cmd"]) for i, step in enumerate(steps) if step["kind"] == "admin"]
+            index = {cmd: i for i, cmd in commands}
+            group = next(i for i, step in enumerate(steps) if step["kind"] == "group")
+            ping = next(i for i, step in enumerate(steps) if step["kind"] == "ping")
+            self.assertLess(group, ping)
+            self.assertLess(ping, index["fx_camp_setup"])
+            self.assertLess(index["fx_car_side"], index["fx_car_zeds"])
+            self.assertEqual(steps[index["fx_die"] + 1]["kind"], "respawn")
+            attempts = [i for i, cmd in commands if cmd == "fx_site_patrol_kill"]
+            self.assertEqual(len(attempts), 2)
+            self.assertTrue(any(step["kind"] == "walk" and step["to"] == list(ds.resolve_waypoint(ds.AI_SITE))
+                                for step in steps[attempts[0] + 1:attempts[1]]))
+
+    def test_uncertain_end_timeout_uses_last_walk_target_plus_margin(self):
+        for kind, fields in (("admin", {"cmd": "fx_food", "value": ""}),
+                             ("combat", {}), ("menu", {}), ("enter", {})):
+            b = ds._Builder()
+            b.walk(ds.AI_SITE)
+            origin = b.position
+            b.route(ds.TOWN)
+            b.add(kind, **fields)
+            b.add("stand", seconds=3)  # Waiting does not restore certainty.
+            b.walk(ds.ZONE)
+            distance = __import__("math").dist(origin, ds.resolve_waypoint(ds.ZONE)) + 150
+            self.assertEqual(b.steps[-1]["timeout_s"], ds._timeout_for(distance, "jog"))
+        b = ds._Builder()
+        b.walk(ds.AI_SITE)
+        origin = b.position
+        b.walk(ds.ZONE)
+        self.assertEqual(b.steps[-1]["timeout_s"], ds._timeout_for(
+            __import__("math").dist(origin, ds.resolve_waypoint(ds.ZONE)), "jog"))
 
 
 if __name__ == "__main__":

@@ -57,10 +57,11 @@ SITE_CELL_METERS = 2000.0
 MAX_SITE_CANDIDATES = 64
 
 # Setup fixtures in the order the fixture block calls them (fxsetup brief plus the existing ones).
-FIXTURES = ("fx_car_side", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict",
+FIXTURES = ("fx_car_side", "fx_car_zeds", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict",
             "fx_materialize", "fx_incident", "fx_tactic", "fx_trade", "fx_convoy_stuck",
             "fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade",
-            "fx_melee", "fx_shoot")
+            "fx_melee", "fx_shoot", "fx_shoot_held", "fx_door_press", "fx_hearth",
+            "fx_site_patrol_kill", "fx_die")
 # Server commands the player's own admin RPC runs on the real module path (HCAdminModule.HCExtra and
 # the command list): they ask a module to do its normal bounded work now, they never spawn a counter.
 ADMIN_STEPS = ("status", "snapshot", "scene", "radio", "deaddrop", "loot", "forage", "decay")
@@ -69,7 +70,7 @@ GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
 KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route",
-         "combat", "loot", "survive", "vehicle")
+         "combat", "loot", "survive", "vehicle", "search_site", "take_lead", "raise", "hold_ring", "respawn")
 # route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
 # stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
 MAX_ROUTE_POINTS = 64
@@ -153,6 +154,11 @@ _STEP_FIELDS = {
     "loot": {"range_m", "max_items", "timeout_s"},
     "survive": {"mode", "timeout_s"},
     "vehicle": {"range_m", "seconds", "throttle", "timeout_s"},
+    "search_site": {"site", "timeout_s"},
+    "take_lead": {"timeout_s"},
+    "raise": {"range_min_m", "range_max_m", "seconds", "timeout_s"},
+    "hold_ring": {"to", "hold_s", "timeout_s"},
+    "respawn": {"timeout_s"},
 }
 _TOP_FIELDS = {"version", "run_id", "steps"}
 
@@ -244,32 +250,44 @@ class _Builder:
         self.notes = {}
         self.position = SPAWN_XZ
         self.done = set()
+        self.uncertain = False
+        self.last_walk_target = SPAWN_XZ
 
     def add(self, kind, note="", **fields):
         step = {"id": "s%02d" % (len(self.steps) + 1), "kind": kind}
         step.update(fields)
         self.steps.append(step)
+        if kind == "group":
+            self.done.add("group")
+        if kind in ("menu", "enter", "combat", "loot", "vehicle", "respawn", "raise", "search_site", "take_lead") or (kind == "admin" and fields.get("cmd", "").startswith("fx_")):
+            self.uncertain = True
         if kind == "action":
             self.done.add("action:" + fields.get("name", ""))
         if note:
             self.notes[step["id"]] = note
         return step
 
+    def distance_to(self, point):
+        origin = self.last_walk_target if self.uncertain else self.position
+        return math.dist(origin, point) + (150.0 if self.uncertain else 0.0)
+
     def walk(self, source, gait="jog", arrive=5):
         x, z = resolve_waypoint(source)
-        distance = math.hypot(x - self.position[0], z - self.position[1])
-        self.position = (x, z)
+        distance = self.distance_to((x, z))
+        self.position = self.last_walk_target = (x, z)
+        self.uncertain = False
         self.add("walk", note=source, to=[x, z], gait=gait, arrive_m=arrive,
                  timeout_s=_timeout_for(distance, gait))
 
     def route(self, source, gait="jog", arrive=5):
         points = resolve_route(source)
-        distance = 0.0
-        last = self.position or points[0]
+        distance = self.distance_to(points[0])
+        last = points[0]
         for point in points:
             distance += math.hypot(point[0] - last[0], point[1] - last[1])
             last = point
         self.position = points[-1]
+        self.uncertain = False
         flat = [value for point in points for value in point]
         # Each ladder climb costs up to about 14 s (8 s stuck + a 2 s move or a 6 s door scan).
         self.add("route", note=source, points=flat, gait=gait, arrive_m=arrive,
@@ -310,6 +328,7 @@ def _phase_group(b):
 def _phase_walk_ai(b):
     b.walk(AI_SITE)
     b.add("stand", seconds=30)
+    b.add("raise", range_min_m=45, range_max_m=75, seconds=3, timeout_s=180)
 
 
 def _phase_walk_zone(b):
@@ -322,6 +341,7 @@ def _phase_walk_town(b):
     # Then the scavenger site's own street line through the town, with the stuck ladder.
     b.route(TOWN)
     b.add("stand", seconds=60)
+    b.add("search_site", site=TOWN.split(":", 1)[1], timeout_s=240)
 
 
 def _phase_combat(b):
@@ -342,8 +362,28 @@ FIXTURE_STAND = {"fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot
 
 
 def _phase_fixtures(b):
+    if "group" not in b.done:
+        _phase_group(b)
     for cmd in FIXTURES:
-        b.admin(cmd, FIXTURE_STAND.get(cmd, 3))
+        if cmd == "fx_site_patrol_kill":
+            b.admin(cmd)
+            b.walk(AI_SITE)
+            b.admin(cmd)  # One retry after approaching the authored patrol site.
+        elif cmd == "fx_die":
+            b.add("admin", cmd=cmd, value="")
+            b.add("respawn", timeout_s=180)
+        else:
+            b.admin(cmd, FIXTURE_STAND.get(cmd, 3))
+        if cmd == "fx_materialize":
+            # Ledger rows move at runtime (HCWorldMaterializer.MaterializerRow). This fixed
+            # mission-derived point is 1300 m west of the police site, not live-row evidence.
+            anchor = resolve_waypoint(AI_SITE)
+            point = [round(anchor[0] - 1300, 2), anchor[1]]
+            timeout = min(3600, _timeout_for(b.distance_to(point), "jog") + 120)
+            b.add("hold_ring", to=point, hold_s=120, timeout_s=timeout)
+            b.position = b.last_walk_target = tuple(point)
+            b.uncertain = False
+
 
 
 def _phase_actions(b):
@@ -362,6 +402,7 @@ def _phase_scene(b):
     b.walk(SCENE)
     b.add("stand", seconds=20)
     b.admin("scene", 20)
+    b.add("take_lead", timeout_s=180)
     b.action("take")
     b.action("read")
     b.action("write", use="taken")
@@ -408,6 +449,7 @@ def _phase_vehicle(b):
     # alone, it places and rights that car first (the same setup-only fixture and the real flip).
     if "action:flip" not in b.done:
         b.admin("fx_car_side", FIXTURE_STAND.get("fx_car_side", 3))
+        b.admin("fx_car_zeds")
         b.action("flip")
     b.add("vehicle", range_m=40, seconds=8, throttle=0.5, timeout_s=180)
 
@@ -627,6 +669,30 @@ def validate_step(step, label="step"):
         _number(step.get("seconds"), VEHICLE_SECONDS[0], VEHICLE_SECONDS[1], label + " seconds")
         _number(step.get("throttle"), VEHICLE_THROTTLE[0], VEHICLE_THROTTLE[1], label + " throttle")
         _number(step.get("timeout_s"), 30, 600, label + " timeout_s")
+    elif kind in ("search_site", "take_lead", "raise", "hold_ring", "respawn"):
+        _number(step.get("timeout_s"), 10, 3600, label + " timeout_s")
+        if kind == "search_site":
+            site = step.get("site")
+            if not isinstance(site, str) or not re.fullmatch(r"[a-z0-9-]{1,64}", site):
+                raise ScriptError(label + " site must be an authored site id")
+            resolve_waypoint("site:" + site)
+        elif kind == "raise":
+            _number(step.get("range_min_m"), 40.1, 79, label + " range_min_m")
+            _number(step.get("range_max_m"), 41, 80, label + " range_max_m")
+            if step["range_min_m"] >= step["range_max_m"]:
+                raise ScriptError(label + " raise ranges must be increasing")
+            _number(step.get("seconds"), 1, 30, label + " seconds")
+            if step["timeout_s"] <= step["seconds"]:
+                raise ScriptError(label + " timeout must exceed raise duration")
+        elif kind == "hold_ring":
+            point = step.get("to")
+            if not isinstance(point, list) or len(point) != 2:
+                raise ScriptError(label + " to must be [x, z]")
+            for value in point:
+                _number(value, 0, WORLD_SIZE, label + " to")
+            _number(step.get("hold_s"), 10, 600, label + " hold_s")
+            if step["timeout_s"] <= step["hold_s"]:
+                raise ScriptError(label + " timeout must exceed hold duration")
     elif kind == "action":
         name = step.get("name")
         if name not in ACTION_ARGS:
@@ -690,6 +756,8 @@ def describe(step, notes):
     elif kind == "vehicle":
         detail = "range_m=%s seconds=%s throttle=%s timeout_s=%s" % (
             step["range_m"], step["seconds"], step["throttle"], step["timeout_s"])
+    elif kind in ("search_site", "take_lead", "raise", "hold_ring", "respawn"):
+        detail = " ".join("%s=%s" % (key, value) for key, value in step.items() if key not in _COMMON)
     elif kind == "action":
         detail = "name=%s args=%s timeout_s=%s" % (
             step["name"], json.dumps(step["args"], sort_keys=True), step["timeout_s"])
