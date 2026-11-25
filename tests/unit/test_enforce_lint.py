@@ -10,6 +10,172 @@ from tools.validate import enforce_lint as lint
 W = 'mods/HollowCountryExpansionAI/scripts/4_World/'
 
 
+class MemberAccessRule(unittest.TestCase):
+    def findings(self, text, symbols=None, coverage=None):
+        source = lint.es.Source(lint.Path(W + 'Access.c'), text)
+        return lint.lint([source], rules=(lint.rule_member_access,), symbols=symbols,
+                         receiver_coverage=coverage)
+
+    def test_group_hold_shape_reads_writes_and_calls(self):
+        findings = self.findings("""
+            class HCXAIGroupHold {
+                protected ref eAIGroup Group;
+                private void Hidden() {}
+            }
+            class HCXAIGroupHolds {
+                void Run(HCXAIGroupHold held) {
+                    if (held.Group
+                        && held.Group.Count() > 0) {}
+                    held.Group = null;
+                    held.Hidden();
+                }
+            }
+        """)
+        self.assertEqual(['HC-E057'] * 4, [f.rule for f in findings])
+        self.assertTrue(all(not f.native for f in findings))
+        self.assertIn(lint.rule_member_access, lint.ALL_RULES)
+
+    def test_protected_subclass_and_same_class_access_allowed(self):
+        self.assertEqual([], self.findings("""
+            class Base {
+                protected int Value;
+                protected void Hidden() {}
+                void Own(Base other) { other.Value = 1; other.Hidden(); }
+            }
+            class Child : Base {}
+            class Grandchild : Child {
+                void Run(Base other) { other.Value = 2; other.Hidden(); this.Value = 3; }
+            }
+        """))
+
+    def test_private_subclass_and_inherited_receiver_flagged(self):
+        findings = self.findings("""
+            class Base { private int Value; private void Hidden() {} }
+            class Child : Base {
+                void Run(Child other) { other.Value = 2; other.Hidden(); }
+            }
+        """)
+        self.assertEqual(['HC-E057'] * 2, [f.rule for f in findings])
+        self.assertTrue(all('declared in Base' in f.message for f in findings))
+
+    def test_modded_class_is_declaring_class(self):
+        self.assertEqual([], self.findings("""
+            class Base { private int Value; protected void Hidden() {} }
+            modded class Base {
+                void Run(Base other) { other.Value = 2; other.Hidden(); }
+            }
+        """))
+
+    def test_modded_super_targets_previous_body_not_parent(self):
+        self.assertEqual([], self.findings("""
+            class Ancestor { private void Hidden(int value) {} }
+            class Base : Ancestor { protected void Hidden(int value, int extra) {} }
+            modded class Base {
+                override protected void Hidden(int value, int extra) { super.Hidden(value, extra); }
+            }
+        """))
+        findings = self.findings("""
+            class Base { private void Hidden() {} }
+            class Child : Base { void Run() { super.Hidden(); } }
+        """)
+        self.assertEqual(['HC-E057'], [f.rule for f in findings])
+
+    def test_static_class_access_and_public_shadow(self):
+        findings = self.findings("""
+            class Base { protected static int s_Field; private static void Hidden() {} }
+            class Child : Base { static int s_Field; }
+            class Caller {
+                void Run() { Base.s_Field = 1; Base.Hidden(); Child.s_Field = 2; }
+            }
+        """)
+        self.assertEqual(['HC-E057'] * 2, [f.rule for f in findings])
+
+    def test_static_access_in_field_initializer(self):
+        findings = self.findings("""
+            class Base { private static int s_Field; }
+            class Caller { int Value = Base.s_Field; }
+            modded class Base { int OwnValue = Base.s_Field; }
+        """)
+        self.assertEqual(['HC-E057'], [f.rule for f in findings])
+        self.assertEqual('Caller.<initializer>', findings[0].symbol)
+
+    def test_unresolved_receivers_and_coverage(self):
+        coverage = {}
+        self.assertEqual([], self.findings("""
+            class Base { private int Value; }
+            class Caller {
+                void Run(Unknown unknown, Base known) {
+                    unknown.Value = 1;
+                    missing.Hidden();
+                    Factory().Value = 2;
+                    known.ToString();
+                }
+            }
+        """, coverage=coverage))
+        self.assertEqual(dict(total=4, resolved=1, unresolved=3), coverage)
+
+    def test_field_chains_typedefs_shadowing_and_unrelated_caller(self):
+        findings = self.findings("""
+            class Base { protected int Value; }
+            typedef Base Alias;
+            class Box { ref Alias Item; }
+            class Child : Base {}
+            class Caller {
+                ref Box box;
+                void Run() { box.Item.Value = 1; }
+                void Shadow(Unknown box) { box.Item.Value = 2; }
+                void Derived(Child child) { child.Value = 3; }
+            }
+        """)
+        self.assertEqual(['HC-E057'] * 2, [f.rule for f in findings])
+
+    def test_comments_strings_and_call_result_suffix_are_ignored(self):
+        self.assertEqual([], self.findings("""
+            class Base { private int Value; }
+            class Caller {
+                void Run(Base known) {
+                    // known.Value = 1;
+                    string text = "known.Value";
+                    Factory(). known.Value = 2;
+                }
+            }
+        """))
+
+    def test_native_fields_methods_static_and_subclass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = lint.Path(directory)
+            path = root / '3_Game' / 'Native.c'
+            path.parent.mkdir()
+            path.write_text("""
+                class EngineBase {
+                    protected int Value;
+                    private int Secret;
+                    protected static int s_Field;
+                    protected proto native void Hidden();
+                }
+            """)
+            symbols = {'classes': {'EngineBase': [{
+                'layer': 2, 'modded': False, 'parent': '',
+                'fields': {'Value': 'int', 'Secret': 'int', 's_Field': 'int'},
+                'methods': ['Hidden']} ]},
+                'access_classes': lint.native_member_access(root)}
+            findings = self.findings("""
+                class Child : EngineBase {
+                    void Run(EngineBase other) { other.Value = 1; other.Secret = 2; other.Hidden(); }
+                }
+                class Caller {
+                    void Run(EngineBase other) {
+                        other.Value = 1; other.Hidden(); EngineBase.s_Field = 2;
+                    }
+                }
+                modded class EngineBase {
+                    void Own(EngineBase other) { other.Secret = 1; }
+                }
+            """, symbols=symbols)
+            self.assertEqual(['HC-E057'] * 4, [f.rule for f in findings])
+            self.assertTrue(all(f.native for f in findings))
+
+
 class DuplicateRPCIdRule(unittest.TestCase):
     def findings(self, files):
         return lint.lint_texts({W + name: text for name, text in files.items()},
