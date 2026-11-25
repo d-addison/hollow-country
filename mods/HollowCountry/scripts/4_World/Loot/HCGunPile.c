@@ -394,7 +394,7 @@ class HCGunPile
         bool truncated;
         if (!ReadList(root + " chamberableFrom", 16, ammo, truncated)) { return RejectShape(key, "shape_chamberable"); }
         if (!ValidMuzzles(root, ammo)) { return RejectShape(key, "shape_muzzles"); }
-        // SNAFU_Guns_02.pbo: SNAFUMDAR_Base and its nine variants inherit 33 entries.
+        // Optional weapon pack 02: its MDAR base and nine variants inherit 33 entries.
         // Keep the first 32 in config order, then validate candidates individually as before.
         if (!ReadList(root + " magazines", MAGAZINE_LIMIT, magazines, truncated, true)) { return RejectShape(key, "shape_magazines"); }
         if (truncated) { RecordMagazineTruncation(key); }
