@@ -3,15 +3,195 @@
 // Reuses HCProfileDefaults bounded IO and temp/readback; recovery images stay.
 // Native scripts-1.30.164289/1_Core/proto/EnSystem.c:397 FileExist,
 // :528 DeleteFile, :531 CopyFile; EnString.c:113 Substring, :199 Length,
-// :448 Get; EnScript.c:380 Count, :394 Find, :407 Insert; EnDebug.c:96 Print.
+// :448 Get; EnScript.c:380 Count, :394 Find, :399 Get, :407 Insert; EnDebug.c:96 Print.
 // Native 3_Game/tools/JsonFileLoader.c:69 LoadData. Missing SchemaVersion
 // zero-fills; an invalid/unknown schema never authorizes legacy replacement.
+// Native 2_GameLib/tools.c:61/65 CallLater/Remove;
+// 3_Game/Global/Game.c:914 GetTickTime, :1550 GetCallQueue.
 class HCXAIRespawnSchema
 {
     int SchemaVersion;
 }
+// Disposable negative-verdict receipt, never authority to replace a profile.
+// A torn receipt is just a miss: the reader requires every byte to match its
+// versioned envelope and BOTH current inputs. No origin/prior receipt changes.
+// Native EnSystem.c:417 OpenFile, :462 FPrint, :443 CloseFile (snapshot above).
+class HCXAIRespawnSchemaCacheJob : HCSaveJob
+{
+    string Path;
+    string Profile;
+    string Shipped;
+    bool Verdict;
+    string Image;
+    bool Terminal;
+    bool Released;
+    protected FileHandle m_Handle;
+    protected bool m_Open;
+    protected int m_Stage;
+    protected int m_Offset;
+
+    override string HCName() { return "AIProfileSchemaCache"; }
+
+    void ~HCXAIRespawnSchemaCacheJob()
+    {
+        if (m_Open) { CloseFile(m_Handle); }
+    }
+
+    override int HCStep()
+    {
+        if (Terminal) { return STEP_DONE; }
+        if (m_Stage == 0)
+        {
+            HCOperation = "schema_cache_open";
+            m_Handle = OpenFile(Path + ".hcdefault.schema", FileMode.WRITE);
+            if (!m_Handle)
+            {
+                Print("[HC AI Defaults] older_schema_cache reason=cache_open_failed retry=next_boot runtime=PENDING");
+                Terminal = true;
+                Image = "";
+                return STEP_DONE;
+            }
+            m_Open = true;
+            m_Stage = 1;
+            return STEP_MORE;
+        }
+        if (m_Stage == 1)
+        {
+            HCOperation = "schema_cache_write";
+            int length = Image.Length() - m_Offset;
+            if (length > 4096) { length = 4096; }
+            string piece = Image.Substring(m_Offset, length);
+            if (piece.Length() != length)
+            {
+                Print("[HC AI Defaults] older_schema_cache reason=cache_chunk_failed retry=next_boot runtime=PENDING");
+                m_Stage = 2;
+                return STEP_MORE;
+            }
+            FPrint(m_Handle, piece);
+            m_Offset = m_Offset + length;
+            if (m_Offset >= Image.Length()) { m_Stage = 2; }
+            return STEP_MORE;
+        }
+        HCOperation = "schema_cache_close";
+        CloseFile(m_Handle);
+        m_Open = false;
+        Image = "";
+        Terminal = true;
+        // FPrint has no result. Full byte equality on the NEXT lookup is the
+        // verification boundary; an incomplete cache can never grant migration.
+        return STEP_DONE;
+    }
+}
+
 class HCXAIRespawnDefaults
 {
+    protected static ref array<ref HCXAIRespawnSchemaCacheJob> s_SchemaMemos = new array<ref HCXAIRespawnSchemaCacheJob>;
+    protected static ref HCWorkBudget s_CacheBudget = new HCWorkBudget;
+    protected static int s_CacheCursor;
+    protected static int s_CacheWrites;
+    protected static bool s_BootReceiptScheduled;
+    protected static int s_SchemaScans;
+    protected static int s_SchemaHits;
+
+    protected static void HCSchemaBootReceipt()
+    {
+        string verdict = "cached";
+        if (s_SchemaScans > 0) { verdict = "scanned"; }
+        Print("[HC AI Defaults] older_schema verdict=" + verdict + " scans=" + s_SchemaScans.ToString() + " hits=" + s_SchemaHits.ToString() + " key=exact_content reason=native_file_metadata_unavailable runtime=PENDING");
+    }
+
+    // Snapshot EnSystem.c:397-531 has no file size/mtime API. Exact bytes are
+    // the invalidation key, including shipped bytes so an addon update misses.
+    // This still reads on a warm boot; it skips JSON decode and key scans only.
+    // Bump the envelope version whenever HCScanOlderSchema semantics change.
+    protected static string HCSchemaImage(string profile, string shipped)
+    {
+        string image = "HC_OLDER_SCHEMA_V1_FALSE\n";
+        image += profile.Length().ToString() + "\n";
+        image += shipped.Length().ToString() + "\n";
+        image += profile;
+        image += shipped;
+        return image;
+    }
+
+    protected static bool HCSchemaReceiptMatches(string path, string expected)
+    {
+        // Native EnSystem.c:417/425/443. Two <=1 MiB inputs plus <=64
+        // envelope bytes; bounded probe rejects trailing data as well as tears.
+        FileHandle handle = OpenFile(path + ".hcdefault.schema", FileMode.READ);
+        if (!handle) { return false; }
+        string image;
+        int count = ReadFile(handle, image, 2097217);
+        CloseFile(handle);
+        return count == expected.Length() && image == expected;
+    }
+
+    protected static HCXAIRespawnSchemaCacheJob HCSchemaMemo(string path, string profile, string shipped)
+    {
+        // At most eight profile/legacy inputs; no eviction or retry loop.
+        for (int index = 0; index < 8; index++)
+        {
+            if (index >= s_SchemaMemos.Count()) { break; }
+            HCXAIRespawnSchemaCacheJob memo = s_SchemaMemos.Get(index);
+            if (memo.Path == path && memo.Profile == profile && memo.Shipped == shipped) { return memo; }
+        }
+        return null;
+    }
+
+    protected static void HCStepSchemaCaches()
+    {
+        s_CacheBudget.HCReset(1);
+        if (!s_CacheBudget.HCContinue() || s_SchemaMemos.Count() == 0) { return; }
+        if (s_CacheCursor >= s_SchemaMemos.Count()) { s_CacheCursor = 0; }
+        HCXAIRespawnSchemaCacheJob memo = s_SchemaMemos.Get(s_CacheCursor);
+        s_CacheCursor++;
+        HCSaveScheduler.HCPumpFallback(memo);
+        if (memo.Terminal && !memo.Released)
+        {
+            HCSaveScheduler.HCUnregister(memo);
+            memo.Released = true;
+            s_CacheWrites--;
+        }
+        if (s_CacheWrites == 0)
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCXAIRespawnDefaults.HCStepSchemaCaches);
+        }
+    }
+
+    static bool HCOlderSchema(string profile, string shipped, string path)
+    {
+        HCXAIRespawnSchemaCacheJob memo = HCSchemaMemo(path, profile, shipped);
+        if (memo) { s_SchemaHits++; return memo.Verdict; }
+        string image = HCSchemaImage(profile, shipped);
+        bool cached = HCSchemaReceiptMatches(path, image);
+        bool verdict = false;
+        if (cached) { s_SchemaHits++; }
+        else { s_SchemaScans++; verdict = HCScanOlderSchema(profile, shipped); }
+        if (s_SchemaMemos.Count() >= 8) { return verdict; }
+        memo = new HCXAIRespawnSchemaCacheJob;
+        memo.Path = path;
+        memo.Profile = profile;
+        memo.Shipped = shipped;
+        memo.Verdict = verdict;
+        s_SchemaMemos.Insert(memo);
+        // Persist only negative verdicts. A disposable receipt can suppress an
+        // unnecessary scan, but can NEVER authorize replacing an operator file.
+        // Positive results are memoized in memory; migration retains its own
+        // existing origin/prior/backup protocol and warms via origin equality.
+        if (!cached && !verdict)
+        {
+            memo.Image = image;
+            HCSaveScheduler.HCRegister(memo);
+            memo.HCDirty = true;
+            memo.HCUrgent = true;
+            memo.HCDue = GetGame().GetTickTime();
+            s_CacheWrites++;
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCXAIRespawnDefaults.HCStepSchemaCaches);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCXAIRespawnDefaults.HCStepSchemaCaches, 1000, true);
+        }
+        return verdict;
+    }
+
     // Top-level schema only. Escaped keys are conservatively kept for an
     // operator, never interpreted as permission to overwrite their file.
     static array<string> HCKeys(string text, bool allDepths = false)
@@ -62,7 +242,7 @@ class HCXAIRespawnDefaults
         return schema.SchemaVersion;
     }
 
-    static bool HCOlderSchema(string profile, string shipped)
+    protected static bool HCScanOlderSchema(string profile, string shipped)
     {
         int profileVersion = HCXAIRespawnDefaults.HCVersion(profile);
         int shippedVersion = HCXAIRespawnDefaults.HCVersion(shipped);
@@ -126,6 +306,13 @@ class HCXAIRespawnDefaults
     static bool HCEnsure(string relative, string source, bool localities = false)
     {
         if (!HCProfileDefaults.Valid(relative)) { return false; }
+        if (!s_BootReceiptScheduled)
+        {
+            s_BootReceiptScheduled = true;
+            // All four provisioning calls run on this startup stack. One deferred
+            // line reports whether ANY required schema lookup actually scanned.
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCXAIRespawnDefaults.HCSchemaBootReceipt, 1, false);
+        }
         string refused = "[HC AI Defaults] refused file=" + relative + " reason=";
         string shipped = HCProfileDefaults.ReadText(source);
         if (shipped == "") { Print(refused + "shipped_unreadable"); return false; }
@@ -230,7 +417,7 @@ class HCXAIRespawnDefaults
                     string legacy = HCProfileDefaults.ReadText(target + ".legacy.bak");
                     if (legacy != "" && profile == legacy)
                     {
-                        matchesBackup = HCXAIRespawnDefaults.HCOlderSchema(legacy, shipped);
+                        matchesBackup = HCXAIRespawnDefaults.HCOlderSchema(legacy, shipped, target + ".legacy.bak");
                         if (!matchesBackup && localities) { matchesBackup = HCXAIRespawnDefaults.HCOlderLocalities(legacy, shipped); }
                     }
                 }
@@ -252,7 +439,7 @@ class HCXAIRespawnDefaults
                 if (profile == "") { Print(refused + "profile_empty_unprovenanced"); return false; }
                 if (origin == "")
                 {
-                    bool older = HCXAIRespawnDefaults.HCOlderSchema(profile, shipped);
+                    bool older = HCXAIRespawnDefaults.HCOlderSchema(profile, shipped, target);
                     if (!older && localities) { older = HCXAIRespawnDefaults.HCOlderLocalities(profile, shipped); }
                     if (!older) { Print(refused + "operator_unprovenanced"); return true; }
                     backup = target + ".legacy.bak";
