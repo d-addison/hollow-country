@@ -174,9 +174,16 @@ modded class PlayerBase
     {
         if (rpc_type != HCDriverMoveWire.RPC_MOVE) { super.OnRPC(sender, rpc_type, ctx); return; }
         // Never clear or mutate someone else's controller, even for a forged stop.
-        if (!sender || sender != GetIdentity() || sender.GetPlayer() != this)
+        // Match by identity id: sender and GetIdentity() are not the same script
+        // reference on the server (soak 190t: every RPC refused; HCAdminModule precedent).
+        PlayerIdentity hcMoveOwn = GetIdentity();
+        string hcMoveOwner = "none";
+        if (!sender) { hcMoveOwner = "no-sender"; }
+        else if (!hcMoveOwn) { hcMoveOwner = "no-identity"; }
+        else if (hcMoveOwn.GetId() != sender.GetId()) { hcMoveOwner = "not-owner"; }
+        if (hcMoveOwner != "none")
         {
-            HCMoveLog(0, "not-owner", 0);
+            HCMoveLog(0, hcMoveOwner, 0);
             return;
         }
         int serial;
