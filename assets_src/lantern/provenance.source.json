@@ -1,0 +1,89 @@
+{
+  "schema": "provenance.v2",
+  "asset": "hc_tincanlantern",
+  "inputs": [
+    {
+      "source": "original:hollow-country/lantern/fire.ops.json",
+      "path": "fire.ops.json",
+      "sha256": "84ccf4b1625df35e7f23cdff31554fc24e14b88ec81425403294bbaf2c100ce1",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/geometry.ops.json",
+      "path": "geometry.ops.json",
+      "sha256": "2cece3b78d372a25e599777767a19137983658f8a03ee2bb2a40eaa1d39fa46e",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/lod0.ops.json",
+      "path": "lod0.ops.json",
+      "sha256": "2ef4acd6c00b17e4e8cd1fbe873cd25177435810da7936f1c27bfb3b3bc4e75a",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/lod1.ops.json",
+      "path": "lod1.ops.json",
+      "sha256": "e6ecab2af398014c0e7dbb82510770f339d89b1df13f591fc8d42cb598701876",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/lod2.ops.json",
+      "path": "lod2.ops.json",
+      "sha256": "264f3ffc1c66fe599bd0a323bc87774c2f8a12f64be23ba97766c20b8d00ffb4",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/shadow.ops.json",
+      "path": "shadow.ops.json",
+      "sha256": "9894151c43200bd6e0885c02cd2be5e4382d472817cc4a0a433c71da362a1a30",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/view.ops.json",
+      "path": "view.ops.json",
+      "sha256": "ec59121f42ef8e1d7058cda9dae186ec129e3f14820ddf1886a71383f53dbb90",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/materials.json",
+      "path": "materials.json",
+      "sha256": "e5c1ba8f589717f509feca5c8f4d3b610596c48b6da980989e2cdf08a42575b8",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    },
+    {
+      "source": "original:hollow-country/lantern/finish.json",
+      "path": "finish.json",
+      "sha256": "5d4537b842f317834eef5f23d73edb29e7e2df6fa8211992752752781d551604",
+      "licence_id": "CC0-1.0",
+      "licence_path": "LICENSE.txt",
+      "licence_sha256": "e48a5e2d9cbbe1f4ab984461feeed2a8f30ad660f42bae0d2262ce865c6666a3",
+      "attribution": "Original Hollow Country authored recipe, dimensions from the owner brief; no third-party mesh or image input."
+    }
+  ],
+  "toolchain": [],
+  "attestations": []
+}

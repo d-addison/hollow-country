@@ -17,15 +17,18 @@ from tools.assets.mlod import virtual_path
 MAX_OPS = 128
 MAX_ELEMENTS = 60000
 SCHEMAS = {
-    'primitive': ({'id', 'kind', 'size'}, {'segments'}),
+    'primitive': ({'id', 'kind', 'size'}, {'segments', 'top_radius'}),
     'boolean': ({'target', 'operand', 'mode'}, set()),
     'bevel': ({'target', 'width', 'segments'}, set()),
     'array': ({'target', 'count', 'offset'}, set()),
     'mirror': ({'target', 'axis'}, set()),
     'transform': ({'target', 'translate', 'rotate', 'scale'}, set()),
     'uv-unwrap': ({'target'}, set()),
-    'material-slot': ({'target', 'texture', 'material'}, set()),
-    'named-selection': ({'target', 'name'}, set()),
+    'material-slot': ({'target', 'texture', 'material'}, {'selection'}),
+    'named-selection': ({'target', 'name'}, {'faces'}),
+    'lathe': ({'id', 'profile', 'segments', 'closed'}, set()),
+    'tube': ({'id', 'points', 'radius', 'segments'}, set()),
+    'smooth-shading': ({'target', 'enabled', 'sharp_angle'}, set()),
     'memory-point': ({'name', 'position'}, set()),
     'proxy': ({'model', 'position', 'rotation', 'instance'}, set()),
 }
@@ -63,7 +66,8 @@ def _validate(recipe):
     ops = recipe['ops']
     if not isinstance(ops, list) or not 1 <= len(ops) <= MAX_OPS:
         raise ValueError('recipe.op_limit')
-    objects, selections, points = {}, set(), set()
+    objects, selections, points = {}, {}, set()
+    face_selected = set()
     for op in ops:
         if not isinstance(op, dict) or op.get('op') not in SCHEMAS:
             raise ValueError('recipe.unknown_op')
@@ -73,13 +77,58 @@ def _validate(recipe):
         kind = op['op']
         if 'target' in op and op['target'] not in objects:
             raise ValueError('recipe.target_missing')
+        if kind in {'boolean', 'bevel', 'array', 'mirror'} and op['target'] in face_selected:
+            raise ValueError('recipe.topology_after_face_selection')
+        if kind == 'boolean' and op['operand'] in face_selected:
+            raise ValueError('recipe.topology_after_face_selection')
         if kind == 'primitive':
             ident = name(op['id'])
-            if ident in objects or op['kind'] not in {'box', 'cylinder', 'sphere'}:
+            if ident in objects or op['kind'] not in {'box', 'cylinder', 'sphere', 'cone'}:
                 raise ValueError('recipe.primitive')
             vector(op['size'], 0.00001, 1000)
             segments = integer(op.get('segments', 16), 3, 64)
+            if op['kind'] == 'cone':
+                number(op.get('top_radius', 0), 0, 1)
+            elif 'top_radius' in op:
+                raise ValueError('recipe.top_radius_only_cone')
             objects[ident] = 8 if op['kind'] == 'box' else segments * segments * 2
+        elif kind in {'lathe', 'tube'}:
+            ident = name(op['id'])
+            if ident in objects:
+                raise ValueError('recipe.duplicate_object')
+            segments = integer(op['segments'], 3, 64)
+            rows = op['profile'] if kind == 'lathe' else op['points']
+            if not isinstance(rows, list) or not 2 <= len(rows) <= 128:
+                raise ValueError('recipe.profile_limit')
+            if kind == 'lathe':
+                if type(op['closed']) is not bool or (op['closed'] and len(rows) < 3):
+                    raise ValueError('recipe.profile_closed')
+                for row in rows:
+                    if not isinstance(row, list) or len(row) != 2:
+                        raise ValueError('recipe.profile_pair')
+                    number(row[0], 0.00001, 1000)
+                    number(row[1])
+                pairs = list(zip(rows, rows[1:]))
+                if op['closed']:
+                    pairs.append((rows[-1], rows[0]))
+            else:
+                number(op['radius'], 0.00001, 100)
+                for row in rows:
+                    vector(row)
+                pairs = list(zip(rows, rows[1:]))
+                directions = [tuple(b[i]-a[i] for i in range(3)) for a, b in pairs]
+                for a, b in zip(directions, directions[1:]):
+                    if math.hypot(*a) and math.hypot(*b):
+                        cosine = sum(x*y for x, y in zip(a, b))/math.hypot(*a)/math.hypot(*b)
+                        if cosine < -0.999:
+                            raise ValueError('recipe.tube_reversal')
+            if any(math.dist(a, b) < 0.000001 for a, b in pairs):
+                raise ValueError('recipe.zero_length_segment')
+            objects[ident] = 4 * len(rows) * segments
+        elif kind == 'smooth-shading':
+            if type(op['enabled']) is not bool:
+                raise ValueError('recipe.shading_bool')
+            number(op['sharp_angle'], 0, 180)
         elif kind == 'boolean':
             if (op['operand'] not in objects or op['operand'] == op['target']
                     or op['mode'] not in {'UNION', 'DIFFERENCE', 'INTERSECT'}):
@@ -103,14 +152,27 @@ def _validate(recipe):
         elif kind == 'material-slot':
             virtual_path(op['texture'])
             virtual_path(op['material'])
+            if 'selection' in op and selections.get(op['selection']) != op['target']:
+                raise ValueError('recipe.material_selection')
         elif kind in {'named-selection', 'memory-point'}:
             names = selections if kind == 'named-selection' else points
             ident = name(op['name'])
             if ident in names:
                 raise ValueError('recipe.duplicate_name')
-            names.add(ident)
             if kind == 'memory-point':
+                names.add(ident)
                 vector(op['position'])
+            else:
+                names[ident] = op['target']
+                if 'faces' in op:
+                    faces = op['faces']
+                    if not isinstance(faces, list) or not 1 <= len(faces) <= MAX_ELEMENTS:
+                        raise ValueError('recipe.face_selection_limit')
+                    for face in faces:
+                        integer(face, 0, min(MAX_ELEMENTS, objects[op['target']]) - 1)
+                    if len(set(faces)) != len(faces):
+                        raise ValueError('recipe.duplicate_face')
+                    face_selected.add(op['target'])
         elif kind == 'proxy':
             virtual_path(op['model'])
             if not op['model'].lower().endswith('.p3d'):

@@ -1,0 +1,40 @@
+{
+  "schema": "ops.v1",
+  "name": "hc_tincanlantern_geometry",
+  "ops": [
+    {
+      "op": "primitive",
+      "id": "body",
+      "kind": "box",
+      "size": [
+        0.1,
+        0.1,
+        0.077
+      ]
+    },
+    {
+      "op": "transform",
+      "target": "body",
+      "translate": [
+        0,
+        0,
+        0.0385
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "named-selection",
+      "target": "body",
+      "name": "component01"
+    }
+  ]
+}

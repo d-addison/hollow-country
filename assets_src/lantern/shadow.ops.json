@@ -1,0 +1,124 @@
+{
+  "schema": "ops.v1",
+  "name": "hc_tincanlantern_shadow",
+  "ops": [
+    {
+      "op": "primitive",
+      "id": "body",
+      "kind": "cylinder",
+      "size": [
+        0.1,
+        0.1,
+        0.077
+      ],
+      "segments": 8
+    },
+    {
+      "op": "transform",
+      "target": "body",
+      "translate": [
+        0,
+        0,
+        0.0385
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "primitive",
+      "id": "window_cut",
+      "kind": "box",
+      "size": [
+        0.07,
+        0.1,
+        0.05
+      ]
+    },
+    {
+      "op": "transform",
+      "target": "window_cut",
+      "translate": [
+        0,
+        -0.04,
+        0.044
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "target": "body",
+      "operand": "window_cut",
+      "mode": "DIFFERENCE"
+    },
+    {
+      "op": "named-selection",
+      "target": "body",
+      "name": "component01"
+    },
+    {
+      "op": "tube",
+      "id": "handle",
+      "points": [
+        [
+          0.048,
+          0,
+          0.077
+        ],
+        [
+          0.04156921938165306,
+          0,
+          0.1025
+        ],
+        [
+          0.024000000000000007,
+          0,
+          0.12116729559300637
+        ],
+        [
+          2.9391523179536477e-18,
+          0,
+          0.128
+        ],
+        [
+          -0.02399999999999999,
+          0,
+          0.12116729559300637
+        ],
+        [
+          -0.04156921938165306,
+          0,
+          0.1025
+        ],
+        [
+          -0.048,
+          0,
+          0.077
+        ]
+      ],
+      "radius": 0.002,
+      "segments": 4
+    },
+    {
+      "op": "named-selection",
+      "target": "handle",
+      "name": "component02"
+    }
+  ]
+}

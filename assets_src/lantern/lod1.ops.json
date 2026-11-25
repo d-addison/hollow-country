@@ -1,0 +1,339 @@
+{
+  "schema": "ops.v1",
+  "name": "hc_tincanlantern_lod1",
+  "ops": [
+    {
+      "op": "lathe",
+      "id": "can",
+      "profile": [
+        [
+          0.0001,
+          0
+        ],
+        [
+          0.048,
+          0
+        ],
+        [
+          0.05,
+          0.075
+        ],
+        [
+          0.047,
+          0.075
+        ],
+        [
+          0.045,
+          0.003
+        ],
+        [
+          0.0001,
+          0.003
+        ]
+      ],
+      "segments": 12,
+      "closed": true
+    },
+    {
+      "op": "primitive",
+      "id": "window_cut",
+      "kind": "box",
+      "size": [
+        0.07,
+        0.1,
+        0.05
+      ]
+    },
+    {
+      "op": "transform",
+      "target": "window_cut",
+      "translate": [
+        0,
+        -0.04,
+        0.044
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "boolean",
+      "target": "can",
+      "operand": "window_cut",
+      "mode": "DIFFERENCE"
+    },
+    {
+      "op": "lathe",
+      "id": "rim",
+      "profile": [
+        [
+          0.05,
+          0.075
+        ],
+        [
+          0.0485,
+          0.0765
+        ],
+        [
+          0.047,
+          0.075
+        ],
+        [
+          0.0485,
+          0.0735
+        ]
+      ],
+      "segments": 12,
+      "closed": true
+    },
+    {
+      "op": "tube",
+      "id": "handle",
+      "points": [
+        [
+          0.048,
+          0,
+          0.077
+        ],
+        [
+          0.044346217560541766,
+          0,
+          0.09651685505061958
+        ],
+        [
+          0.033941125496954286,
+          0,
+          0.11306244584051392
+        ],
+        [
+          0.01836880475352431,
+          0,
+          0.12411785615807562
+        ],
+        [
+          2.9391523179536477e-18,
+          0,
+          0.128
+        ],
+        [
+          -0.018368804753524308,
+          0,
+          0.12411785615807562
+        ],
+        [
+          -0.03394112549695428,
+          0,
+          0.11306244584051392
+        ],
+        [
+          -0.044346217560541766,
+          0,
+          0.09651685505061958
+        ],
+        [
+          -0.048,
+          0,
+          0.077
+        ]
+      ],
+      "radius": 0.002,
+      "segments": 6
+    },
+    {
+      "op": "lathe",
+      "id": "candle",
+      "profile": [
+        [
+          0.014,
+          0.004
+        ],
+        [
+          0.015,
+          0.035
+        ],
+        [
+          0.013,
+          0.037
+        ]
+      ],
+      "segments": 12,
+      "closed": false
+    },
+    {
+      "op": "primitive",
+      "id": "flame",
+      "kind": "cone",
+      "size": [
+        0.009,
+        0.009,
+        0.015
+      ],
+      "top_radius": 0,
+      "segments": 6
+    },
+    {
+      "op": "transform",
+      "target": "flame",
+      "translate": [
+        0,
+        0,
+        0.0445
+      ],
+      "rotate": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "op": "uv-unwrap",
+      "target": "can"
+    },
+    {
+      "op": "smooth-shading",
+      "target": "can",
+      "enabled": true,
+      "sharp_angle": 45
+    },
+    {
+      "op": "named-selection",
+      "target": "can",
+      "name": "can"
+    },
+    {
+      "op": "uv-unwrap",
+      "target": "rim"
+    },
+    {
+      "op": "smooth-shading",
+      "target": "rim",
+      "enabled": true,
+      "sharp_angle": 45
+    },
+    {
+      "op": "named-selection",
+      "target": "rim",
+      "name": "rim"
+    },
+    {
+      "op": "uv-unwrap",
+      "target": "handle"
+    },
+    {
+      "op": "smooth-shading",
+      "target": "handle",
+      "enabled": true,
+      "sharp_angle": 45
+    },
+    {
+      "op": "named-selection",
+      "target": "handle",
+      "name": "handle"
+    },
+    {
+      "op": "uv-unwrap",
+      "target": "candle"
+    },
+    {
+      "op": "smooth-shading",
+      "target": "candle",
+      "enabled": true,
+      "sharp_angle": 45
+    },
+    {
+      "op": "named-selection",
+      "target": "candle",
+      "name": "candle"
+    },
+    {
+      "op": "uv-unwrap",
+      "target": "flame"
+    },
+    {
+      "op": "smooth-shading",
+      "target": "flame",
+      "enabled": true,
+      "sharp_angle": 45
+    },
+    {
+      "op": "named-selection",
+      "target": "flame",
+      "name": "flame"
+    },
+    {
+      "op": "memory-point",
+      "name": "light",
+      "position": [
+        0,
+        0,
+        0.045
+      ]
+    },
+    {
+      "op": "memory-point",
+      "name": "invview",
+      "position": [
+        0,
+        -0.2,
+        0.065
+      ]
+    },
+    {
+      "op": "memory-point",
+      "name": "boundingbox_min",
+      "position": [
+        -0.05,
+        -0.05,
+        0
+      ]
+    },
+    {
+      "op": "memory-point",
+      "name": "boundingbox_max",
+      "position": [
+        0.05,
+        0.05,
+        0.13
+      ]
+    },
+    {
+      "op": "memory-point",
+      "name": "ce_center",
+      "position": [
+        0,
+        0,
+        0.04
+      ]
+    },
+    {
+      "op": "memory-point",
+      "name": "ce_radius",
+      "position": [
+        0.05,
+        0,
+        0.04
+      ]
+    },
+    {
+      "op": "memory-point",
+      "name": "throwingimpulseposition",
+      "position": [
+        0,
+        0,
+        0.04
+      ]
+    }
+  ]
+}

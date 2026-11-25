@@ -1,10 +1,12 @@
 """Blender subprocess entry point, the sole bpy boundary.
 
-All selections cover the target object at export time (including modifiers).
+Object selections cover the target at export time; optional face selections use
+face-domain attributes retained through export triangulation.
 Memory points/proxies are model-space metadata, independent of object transforms.
 --selftest is deliberately importable/runnable in ordinary Python without Blender.
 """
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -21,12 +23,17 @@ def canonical(point):
     return [float(point[0]), float(point[2]), -float(point[1])]
 
 
+def selection_attribute(label):
+    # Blender attribute names have a byte limit; authored labels may be 63 chars.
+    return 'hc_sel_' + hashlib.sha256(label.encode('ascii')).hexdigest()[:32]
+
+
 def execute(recipe, output, render=False):
     import bpy
     from mathutils import Vector
 
-    if bpy.app.version[:2] != (5, 2):
-        raise ValueError('blender.version_requires_5_2')
+    if bpy.app.version != (5, 2, 4):
+        raise ValueError('blender.version_requires_5_2_4')
     recipe = validate(recipe)
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
@@ -43,6 +50,17 @@ def execute(recipe, output, render=False):
         if len(obj.data.vertices) > MAX_ELEMENTS or len(obj.data.polygons) > MAX_ELEMENTS:
             raise ValueError('blender.mesh_limit')
 
+    shading = {}
+
+    def mesh_object(ident, vertices, faces):
+        mesh = bpy.data.meshes.new(ident)
+        mesh.from_pydata(vertices, [], faces)
+        mesh.update()
+        obj = bpy.data.objects.new(ident, mesh)
+        bpy.context.collection.objects.link(obj)
+        objects[ident], labels[ident] = obj, set()
+        return obj
+
     for op in recipe['ops']:
         kind = op['op']
         obj = objects.get(op.get('target'))
@@ -52,6 +70,9 @@ def execute(recipe, output, render=False):
                 bpy.ops.mesh.primitive_cube_add(size=1)
             elif op['kind'] == 'cylinder':
                 bpy.ops.mesh.primitive_cylinder_add(vertices=segments, radius=0.5, depth=1)
+            elif op['kind'] == 'cone':
+                bpy.ops.mesh.primitive_cone_add(vertices=segments, radius1=0.5,
+                                                radius2=0.5*op.get('top_radius', 0), depth=1)
             else:
                 bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=segments, radius=0.5)
             obj = bpy.context.object
@@ -60,6 +81,47 @@ def execute(recipe, output, render=False):
             active(obj)
             bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
             objects[op['id']], labels[op['id']] = obj, set()
+        elif kind in {'lathe', 'tube'}:
+            segments = op['segments']
+            vertices, faces = [], []
+            rows = op['profile'] if kind == 'lathe' else op['points']
+            previous_normal = None
+            for index, row in enumerate(rows):
+                if kind == 'lathe':
+                    vertices.extend((row[0]*math.cos(2*math.pi*j/segments),
+                                     row[0]*math.sin(2*math.pi*j/segments), row[1])
+                                    for j in range(segments))
+                else:
+                    # Parallel transport avoids twisting the wire at frame-axis crossings.
+                    a, b = Vector(rows[max(0, index-1)]), Vector(rows[min(len(rows)-1, index+1)])
+                    tangent = (b-a).normalized()
+                    reference = previous_normal
+                    if reference is None:
+                        reference = Vector((0, 0, 1)) if abs(tangent.z) < 0.9 else Vector((1, 0, 0))
+                    normal = reference - tangent*reference.dot(tangent)
+                    if normal.length < 1e-8:
+                        reference = Vector((0, 1, 0)) if abs(tangent.y) < 0.9 else Vector((1, 0, 0))
+                        normal = reference - tangent*reference.dot(tangent)
+                    normal.normalize()
+                    binormal = tangent.cross(normal).normalized()
+                    previous_normal = normal
+                    for j in range(segments):
+                        angle = 2*math.pi*j/segments
+                        vertices.append(Vector(row) + op['radius']*(normal*math.cos(angle)+binormal*math.sin(angle)))
+            closed = kind == 'lathe' and op['closed']
+            for i in range(len(rows) if closed else len(rows)-1):
+                following = (i+1) % len(rows)
+                for j in range(segments):
+                    k = (j+1) % segments
+                    faces.append((i*segments+j, i*segments+k, following*segments+k, following*segments+j))
+            if not closed:
+                faces.extend((tuple(reversed(range(segments))),
+                              tuple((len(rows)-1)*segments+j for j in range(segments))))
+            obj = mesh_object(op['id'], vertices, faces)
+        elif kind == 'smooth-shading':
+            obj['hc_smooth'], obj['hc_sharp_angle'] = op['enabled'], op['sharp_angle']
+            for face in obj.data.polygons:
+                face.use_smooth = op['enabled']
         elif kind == 'transform':
             active(obj)
             obj.location = op['translate']
@@ -96,10 +158,19 @@ def execute(recipe, output, render=False):
             material = bpy.data.materials.new('hc_material')
             material['hc_texture'], material['hc_material'] = op['texture'], op['material']
             obj.data.materials.append(material)
+            selection = op.get('selection')
+            attribute = obj.data.attributes.get(selection_attribute(selection)) if selection else None
             for face in obj.data.polygons:
-                face.material_index = len(obj.data.materials) - 1
+                if not selection or (attribute and attribute.data[face.index].value):
+                    face.material_index = len(obj.data.materials) - 1
         elif kind == 'named-selection':
             labels[op['target']].add(op['name'])
+            if 'faces' in op:
+                if max(op['faces']) >= len(obj.data.polygons):
+                    raise ValueError('blender.face_selection_range')
+                attribute = obj.data.attributes.new(selection_attribute(op['name']), 'BOOLEAN', 'FACE')
+                for index in op['faces']:
+                    attribute.data[index].value = True
         elif kind == 'memory-point':
             points[op['name']] = canonical(op['position'])
         elif kind == 'proxy':
@@ -124,13 +195,21 @@ def execute(recipe, output, render=False):
                           'material': material.get('hc_material', '') if material else ''})
         for label in sorted(labels[ident]):
             selection = selections.setdefault(label, {'vertices': [], 'faces': []})
-            selection['vertices'].extend(range(start_v, len(vertices)))
-            selection['faces'].extend(range(start_f, len(faces)))
+            attribute = mesh.attributes.get(selection_attribute(label))
+            indices = [p.index for p in mesh.polygons if not attribute or attribute.data[p.index].value]
+            selection['vertices'].extend(start_v+i for i in sorted({v for j in indices for v in mesh.polygons[j].vertices}))
+            selection['faces'].extend(start_f+i for i in indices)
+        shading[ident] = {'smooth': bool(obj.get('hc_smooth', False)),
+                          'sharp_angle': float(obj.get('hc_sharp_angle', 0)),
+                          'faces': list(range(start_f, len(faces)))}
     if len(vertices) > MAX_ELEMENTS or len(faces) > MAX_ELEMENTS:
         raise ValueError('blender.mesh_limit')
     result = {'schema': 'neutral.v1', 'vertices': vertices, 'faces': faces,
               'selections': selections, 'points': points, 'proxies': proxies}
     Path(output).write_text(json.dumps(result, sort_keys=True, allow_nan=False), encoding='utf-8')
+    # Keep neutral.v1 closed: codec/runner must explicitly consume this sidecar.
+    Path(output).with_suffix('.shading.json').write_text(json.dumps(
+        {'schema': 'shading.v1', 'objects': shading}, sort_keys=True), encoding='utf-8')
     if render:
         scene = bpy.context.scene
         scene.render.engine = 'BLENDER_WORKBENCH'
