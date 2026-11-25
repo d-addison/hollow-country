@@ -95,8 +95,8 @@ class PhaseMapTests(unittest.TestCase):
         broken['looks'].append({'id': 'everything', 'kind': 'owner_check', 'reason': 'x'})
         self.assertTrue(camp.manual_problems(broken))
         broken = copy.deepcopy(PHASES)
-        broken['manual']['Cellars/visual_applied']['reason'] = ' '
-        self.assertTrue(camp.manual_problems(broken))
+        broken['manual']['Cellars/visual_applied'] = {'kind': 'owner_check', 'reason': 'walk into a cellar'}
+        self.assertIn('manual row not allowed: Cellars/visual_applied', camp.manual_problems(broken))
 
     def test_phases_and_idle_window(self):
         self.assertEqual(tuple(p['name'] for p in PHASES['phases']), camp.PHASE_ORDER)
@@ -113,7 +113,8 @@ class PhaseMapTests(unittest.TestCase):
             self.assertEqual(by_id[ids[0]]['kind'], phase)
         self.assertIn('admin:fx_site_patrol_kill', index['walk_ai'])
         self.assertEqual(set(index['walk_town']),
-                         {'walk:site:scav-chernogorsk', 'route:site:scav-chernogorsk', 'stand'})
+                         {'walk:site:scav-chernogorsk', 'route:site:scav-chernogorsk', 'stand', 'search_site',
+                          'climb', 'cellar', 'combat', 'admin:fx_shoot_held', 'fixture:fx_shoot_held'})
         indexed = {step_id for tokens in index.values() for ids in tokens.values() for step_id in ids}
         self.assertEqual(indexed, set(by_id))
         self.assertEqual(len(by_id), len(script['steps']))
@@ -154,8 +155,8 @@ class PhaseMapTests(unittest.TestCase):
     def test_plan_reports_zero_unmapped_and_writes_nothing(self):
         lines, problems = camp.plan_text(PHASES)
         text = '\n'.join(lines)
-        self.assertTrue(all(p.startswith('unreached counters:') for p in problems))
-        self.assertIn('pending-driver:', text)
+        self.assertEqual(problems, [])
+        self.assertNotIn('pending-driver:', text)
         self.assertIn('unmapped counters: 0', text)
         for name in camp.PHASE_ORDER:
             self.assertIn(name, text)
@@ -169,8 +170,8 @@ class PhaseMapTests(unittest.TestCase):
                 self.assertEqual(PHASES['reach'][key]['status'], 'pending-driver')
                 self.assertTrue(all(p.startswith('pending-driver:') for p in problems))
         lines, unreached = camp.reach_lines(rows)
-        self.assertGreater(unreached, 0)
-        self.assertIn('pending-driver:', '\n'.join(lines))
+        self.assertEqual(unreached, 0)
+        self.assertNotIn('pending-driver:', '\n'.join(lines))
 
     def test_every_how_token_names_a_real_step_fixture_or_setting(self):
         context = camp.reach_context()
@@ -218,7 +219,7 @@ class BuilderTests(Tmp):
     def test_test_cfg_sets_the_soak_keys_and_keeps_every_other_byte(self):
         out = camp.test_cfg(CFG).decode()
         self.assertIn('instanceId = 99;', out)
-        self.assertIn('serverTime = "2026/07/15/08/00";', out)
+        self.assertIn('serverTime = "2026/09/15/17/50";', out)
         self.assertIn('serverTimeAcceleration = 1;', out)
         self.assertIn('serverTimePersistent = 0;', out)
         self.assertIn('passwordAdmin = "hunter2";\r\n', out)
@@ -228,10 +229,11 @@ class BuilderTests(Tmp):
         with self.assertRaises(camp.Refused):
             camp.test_cfg(CFG + b'instanceId = 2;\r\n')
 
-    def test_forage_date_is_in_season_and_daytime(self):
+    def test_soak_date_covers_forage_season_and_the_dusk_windows(self):
         year, month, day, hour, minute = camp.SOAK_TIME.split('/')
-        self.assertTrue(6 <= int(month) <= 11)
-        self.assertTrue(8 <= int(hour) <= 12)
+        self.assertTrue(9 <= int(month) <= 11)  # flora 6-11 and mushrooms 9-11
+        start = int(hour) + int(minute) / 60.0
+        self.assertTrue(17 <= start < 18)  # camp visitors 17-21, water 17-20, SignsOfLife from 18
 
     def test_test_bat_adds_the_test_addon_and_redirects(self):
         out = camp.test_bat(BAT).decode()

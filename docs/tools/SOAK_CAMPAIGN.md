@@ -45,7 +45,7 @@ Everything is a copy or a new file, except one in-place edit with a byte backup:
 | where | what |
 | --- | --- |
 | server `soak-profiles/` | copy of the profile folders (not the loose root logs). `HollowCountry/settings.json` gets `EnableSmokeFixtures=true` and `FortifyBreachSeconds=20` (so one scripted barricade is breached inside the run); the `HollowCountry/measure-cellars` marker is added |
-| server `hc-soak.cfg` | copy of `serverDZ.cfg` with a forage-season date (2026/07/15 08:00, 1x so it stays daytime), `instanceId=99` (own storage folder, the real one is untouched) and no persistent time. Contents are never printed (passwords) |
+| server `hc-soak.cfg` | copy of `serverDZ.cfg` with a forage- and mushroom-season dusk start (2026/09/15 17:50, 1x: camp visitors and ecology water windows open, SignsOfLife's 18:00 threshold crossed after 10 minutes, daylight until about 19:00), `instanceId=99` (own storage folder, the real one is untouched) and no persistent time. Contents are never printed (passwords) |
 | server `start-server-soak.bat` | copy of `start-server.bat` with `-config=hc-soak.cfg`, `-profiles=soak-profiles` and `@HollowCountryTest` appended to `-mod` |
 | server `@HollowCountryTest` | the signed test addon (the existing dev-key public key already sits in the server keys folder) |
 | mission `hollow-country-gameplay/gear/soak-test.json` | spawn gear: every item a default driver action needs (KitchenKnife, CamoNet, PersonalRadio, Mich2001Helmet, TortillaBag, UniversalLight x2, Flashlight, 9V batteries, DuctTape x2, Crowbar, Wrench, Pliers, Rag, Paper, Pen_Black) and an AKM with a full magazine and a spare |

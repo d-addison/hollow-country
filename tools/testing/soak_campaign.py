@@ -49,7 +49,7 @@ SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}
 RESULTS = ('active', 'zero', 'owner check', 'friend playtest', 'not run')
 MANUAL_KINDS = {'owner_check': 'owner check', 'friend_playtest': 'friend playtest'}
 # Only subjective cellar visual counter remains manual; TeamPing is driven in the group phase.
-ALLOWED_MANUAL = frozenset({'Cellars/visual_applied'})
+ALLOWED_MANUAL = frozenset()  # Cellars/visual_applied is driven by the walk_town cellar step (#368)
 ALLOWED_LOOKS = {'lighting_look': 'owner_check', 'grade_look': 'owner_check', 'audio': 'owner_check',
                  'group_sharing': 'friend_playtest', 'team_ping_delivery': 'friend_playtest'}
 # GetName() of a base class that no feature reports under.
@@ -62,7 +62,7 @@ PROCESS_IMAGES = (LAUNCHER_IMAGE, CLIENT_IMAGE, SERVER_IMAGE)
 SERVER_ROOT_DEFAULT = 'E:\\HollowCountryLocal\\friend-local-1'
 OWN_MODS = ('@HollowCountry', '@HollowCountryExpansionAI', TEST_MOD)
 INSTANCE_ID = '99'
-SOAK_TIME = '2026/07/15/08/00'  # forage season (June to November), daytime; run at 1x so it stays daytime
+SOAK_TIME = '2026/09/15/17/50'  # flora (6-11) and mushroom (9-11) season; crosses 18:00 for SignsOfLife; camp visitors 17-21 and ecology water 17-20; daylight to ~19:00 at 1x
 CFG_EDITS = (('instanceId', INSTANCE_ID), ('serverTime', '"' + SOAK_TIME + '"'),
              ('serverTimeAcceleration', '1'), ('serverTimePersistent', '0'))
 GAMEPLAY = 'cfggameplay.json'
@@ -1472,7 +1472,7 @@ def report_rows(phases, legacy, release, errors=(), selection=None):
     return rows
 
 
-def render_report(rows, drivers, release_summary, selection=None):
+def render_report(rows, drivers, release_summary, selection=None, warnings=None):
     totals = {r: sum(1 for row in rows if row[3] == r) for r in RESULTS}
     lines = ['# Soak campaign report', '']
     if selection:
@@ -1487,6 +1487,8 @@ def render_report(rows, drivers, release_summary, selection=None):
                  totals['not run']), '']
     if release_summary:
         lines += ['activity_check --release: `%s`' % release_summary, '']
+    for warning in warnings or ():
+        lines += ['%s (warning only; never gates R3)' % warning, '']
     lines += ['| source | counter | phase | result | evidence |', '| --- | --- | --- | --- | --- |']
     order = {'zero': 0, 'active': 1, 'owner check': 2, 'friend playtest': 3, 'not run': 4}
     for kind, counter, phase, result, evidence in sorted(rows, key=lambda r: (order[r[3]], r[1], r[0])):
@@ -1520,7 +1522,10 @@ def build_report(phases, server_rpt, client_rpt, selection=None):
     summary = None
     if release:
         summary = 'activity=%s count=%d' % (release['activity'], release['count'])
-    return render_report(rows, drivers, summary, selection)
+    from tools.release.rpt_summary import r2b_warnings
+    from tools.release.acceptance_targets import load_targets
+    warnings = r2b_warnings(server_rpt, load_targets()['perf_r2_max_ms'])
+    return render_report(rows, drivers, summary, selection, warnings)
 
 
 def last_run_logs(state=STATE):

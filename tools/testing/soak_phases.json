@@ -183,13 +183,7 @@
   "HordeMigration/nav_route_advance": "walk_zone",
   "InfectedDoors/nav_door_action": "fixtures",
   "InfectedReach/nav_vault_started": "walk_town",
-  "Cellars/visual_applied": "walk_town",
-  "NavInf/route_advance": "walk_zone",
-  "NavInf/pathgraph_refresh": "walk_town",
-  "NavInf/door_action": "fixtures",
-  "NavInf/vault_started": "walk_town",
-  "NavXai/routes": "walk_ai",
-  "NavXai/stuck_recovery": "fixtures"
+  "Cellars/visual_applied": "walk_town"
  },
  "manual": {},
  "looks": [
@@ -2122,60 +2116,6 @@
     "code:HCHoldouts.c"
    ],
    "note": "Reconcile director holdouts through the materialization fixture and normal module tick."
-  },
-  "NavInf/route_advance": {
-   "phase": "walk_zone",
-   "how": [
-    "step:walk:zone:balota-cf3bbed7",
-    "timer:60m",
-    "code:HCHordeMigration.c"
-   ],
-   "note": "Navigation aggregate follows owner counter HordeMigration/route_advanced."
-  },
-  "NavInf/pathgraph_refresh": {
-   "phase": "walk_town",
-   "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
-    "code:HCInteriorTemplatePlacement.c"
-   ],
-   "note": "Navigation aggregate follows owner counter Interiors/prop_placed."
-  },
-  "NavInf/door_action": {
-   "phase": "fixtures",
-   "how": [
-    "fixture:fx_door_press",
-    "code:HCInfectedDoors.c"
-   ],
-   "status": "pending-driver",
-   "note": "Navigation aggregate follows owner counter InfectedDoors/door_action."
-  },
-  "NavInf/vault_started": {
-   "phase": "walk_town",
-   "how": [
-    "step:walk:site:scav-chernogorsk",
-    "timer:20m",
-    "code:HCInfectedReachModule.c"
-   ],
-   "note": "Navigation aggregate follows owner counter InfectedReach/vault_started."
-  },
-  "NavXai/routes": {
-   "phase": "walk_ai",
-   "how": [
-    "step:walk:site:police-chernogorsk",
-    "timer:30m",
-    "code:HCXAISitePatrols.c"
-   ],
-   "note": "Navigation aggregate follows owner counter optional-expansion-human-ai/actor_spawned."
-  },
-  "NavXai/stuck_recovery": {
-   "phase": "fixtures",
-   "how": [
-    "fixture:fx_convoy_stuck",
-    "code:HCXUseRegistry.c"
-   ],
-   "status": "pending-driver",
-   "note": "Navigation aggregate follows owner counter optional-expansion-human-ai/stuck_recovery."
   },
   "Cellars/visual_applied": {
    "phase": "walk_town",
