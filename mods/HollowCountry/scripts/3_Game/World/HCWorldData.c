@@ -566,7 +566,8 @@ class HCWorldData
         if (row.State != "DORMANT" && row.State != "OCCUPIED" && row.State != "ALERT" && row.State != "RAIDED" && row.State != "ABANDONED") { return false; }
         if ((row.State == "RAIDED" || row.State == "ABANDONED" || row.State == "DORMANT") && row.Occupants != 0) { return false; }
         if ((row.State == "OCCUPIED" || row.State == "ALERT") && row.Occupants == 0) { return false; }
-        if (row.State == "RAIDED" && row.ReoccupyAfter - row.Since < 7 * HCWorldLimits.DAY) { return false; }
+        // #374: relax load validation only to HCHoldouts' 60s minimum; raid policy is unchanged.
+        if (row.State == "RAIDED" && row.ReoccupyAfter - row.Since < 60) { return false; }
         return true;
     }
 

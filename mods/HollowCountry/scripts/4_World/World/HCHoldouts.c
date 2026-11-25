@@ -308,6 +308,8 @@ class HCHoldouts : HCModule
     protected int m_ObserverBlockedWindow;
     protected bool m_WaitReported;
     protected bool m_CatalogDirty;
+    protected bool m_Reconciled;
+    protected string m_ReconcileWait;
     protected ref HCHoldoutSaveJob m_SaveJob;
     protected ref HCWorkBudget m_WorkBudget = new HCPerfSlices("Holdouts");
     // Runtime diagnostics only, bounded by AILimits.MaxHoldouts.
@@ -354,6 +356,11 @@ class HCHoldouts : HCModule
         }
     }
     override string GetName() { return "Holdouts"; }
+    override void RegisterUses()
+    {
+        super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse("Holdouts", "holdout_reconcile");
+    }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Operational; }
     override bool IsEnabled(HCSettings settings)
     {
@@ -365,6 +372,9 @@ class HCHoldouts : HCModule
 
     override void OnStart(HCSettings settings)
     {
+        m_Reconciled = false;
+        m_ReconcileWait = "";
+        m_CatalogCursor = 0;
         Print(HCV2Admission.Line("Holdouts", true, "EXP-L4", HCV2Gates.Qualified("EXP-L4")));
         m_Store = new HCEncounterStore<HCHoldoutState>("holdouts");
         // Schema 1 had free occupants. Never infer seed reserves or import them
@@ -1379,20 +1389,73 @@ class HCHoldouts : HCModule
         m_ObserverBlockedWindow = 0;
     }
 
+    // Membership is exclusively the authoritative ledger, including unauthored
+    // live rows retained by MigrateTemplatePin. Never use authored slot ids.
+    bool HCLiveHoldout(string id)
+    {
+        if (!m_Ready || !m_State) { return false; }
+        foreach (HCHoldoutRow row : m_State.Rows)
+        {
+            if (row.Ledger.Id == id) { return true; }
+        }
+        return false;
+    }
+
+    string HCReconcileCatalogReason()
+    {
+        if (!m_Ready || !m_State || !m_Store) { return "catalog_unavailable"; }
+        if (!HCInteriorTemplates.Loaded()) { return "catalog_filling"; }
+        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { return "catalog_filling"; }
+        array<ref HCInteriorFurnishRow> authored = HCInteriorTemplates.FurnishRows();
+        if (!authored || (m_CatalogCursor < authored.Count() && Count() < HCAILimits.Get().MaxHoldouts)) { return "catalog_filling"; }
+        if (m_CatalogDirty || m_Dirty || m_Store.SaveInFlight()) { return "catalog_filling"; }
+        return "";
+    }
+
+    protected void HCReconcileWorld(HCWorldModule world)
+    {
+        if (m_Reconciled) { return; }
+        string reason = HCReconcileCatalogReason();
+        if (reason != "")
+        {
+            if (m_ReconcileWait != reason)
+            {
+                Print("[HC World] holdout reconcile stale=0 reused=0 dropped_occupants=0 retired=0 refused=" + reason);
+                m_ReconcileWait = reason;
+            }
+            return;
+        }
+        // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:407 array
+        // Insert, :902 map.Set. One bounded ledger map pass, no native probes.
+        map<string, bool> ids = new map<string, bool>;
+        array<ref HCWorldHoldout> live = new array<ref HCWorldHoldout>;
+        foreach (HCHoldoutRow row : m_State.Rows)
+        {
+            ids.Set(row.Ledger.Id, true);
+            live.Insert(row.Ledger);
+        }
+        world.HCReconcileHoldouts(live, ids);
+        m_Reconciled = true;
+    }
+
     override void OnTick(float deltaTime)
     {
         m_TickMeasuredStage = 0;
         HCReportWindow(deltaTime);
-        if (!m_Ready || !HCWorldModule.Get()) return;
+        HCWorldModule censusWorld = HCWorldModule.Get();
+        if (!censusWorld) { return; }
+        if (!m_Ready) { HCReconcileWorld(censusWorld); return; }
         m_Elapsed += deltaTime;
         if (!HCInteriorTemplates.Loaded())
         {
             if (!m_WaitReported) Print("[HollowCountry] V2 holdouts waiting for authored covered template houses");
             m_WaitReported = true;
+            HCReconcileWorld(censusWorld);
             return;
         }
         if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { MigrateTemplatePin(); return; }
         FillCatalog();
+        HCReconcileWorld(censusWorld);
         if (m_CatalogDirty)
         {
             // The scheduler owns routine catalog saves. Without routine dispatch,

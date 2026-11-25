@@ -814,7 +814,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | FoodCompat | `food_compat_guard` (enabled only with the food pack; `food_compat_refused` is a fault counter registered on first refusal, no activity row) |
 | Grade | `grade_applied` |
 | Groups | `group_mutated`, `menu_open` |
-| Holdouts | `camp_committed` |
+| Holdouts | `camp_committed`, `holdout_reconcile` (#374: once per start after the authoritative catalog is durable/quiescent, including stale=0; cap reuse prefers the same house and preserves world row indices; leftover stale occupants become DORMANT/STALE without refund. `HCFactionConflict.HCConflictPressure` still selects the first row at a place, so a retired zero-occupant row can yield `empty_camp_claim_falls`. World saves remain scheduler-owned; RAIDED load validation accepts the ledger's 60s minimum without changing raid policy. Implemented-unverified: lead native boot/restart, cap/refusal, conflict and failed-save checks pending) |
 | HordeMigration | `route_advanced` |
 | Infected | `actor_bound` |
 | InfectedDoors | `door_action` |
