@@ -11,6 +11,8 @@
 // fx_melee (Melee/hit_processed, wall_veto, parity_probe, zombie-hit-bonuses), fx_shoot
 // (InfectedMemory/heat_recorded via Weapon_Base.EEFired, AITactics/fire-events via a weapon hit
 // on a tracked AI; one native Weapon.Fire discharge exactly as HCXWarningShot does),
+// fx_shoot_held (held requester weapon, nearest AI <=60 m), fx_door_press (closed door pressure),
+// fx_die (requester death, then normal CampRespawn), fx_car_zeds (occupied-car pressure),
 // fx_site_patrol_kill (SitePatrols/death-hold-armed and death-hold-released, real site member death).
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:594/611/612 ConfigGetChildName/
 // ConfigGetChildrenCount/ConfigIsExisting, :703 CreateObjectEx, :705 ObjectDelete, :1437 IsKindOf;
@@ -43,6 +45,9 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     protected static ref HCTestReachFixtures s_Provider;
     protected static const int CONFIG_SCAN_LIMIT = 20000;
     protected static const int INVENTORY_SCAN_LIMIT = 256;
+    // Scoped by the authenticated admin dispatch below; never infer a destructive actor
+    // from the nearest player. Engine entity handles are weak (no ref ownership).
+    static PlayerBase HCRequestActor;
     protected bool m_SitePatrolKillAttempted;
     protected Object m_Animal;
     protected Object m_Food;
@@ -63,7 +68,9 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     {
         if (command == "fx_animal" || command == "fx_food" || command == "fx_cooking") { return true; }
         if (command == "fx_kit_place" || command == "fx_kit_refuse") { return true; }
-        return command == "fx_barricade" || command == "fx_melee" || command == "fx_shoot" || command == "fx_site_patrol_kill";
+        if (command == "fx_barricade" || command == "fx_melee" || command == "fx_shoot") { return true; }
+        if (command == "fx_shoot_held" || command == "fx_door_press" || command == "fx_die") { return true; }
+        return command == "fx_car_zeds" || command == "fx_site_patrol_kill";
     }
 
     override bool HCFixture(string command, vector pos, out string reason)
@@ -88,6 +95,10 @@ class HCTestReachFixtures : HCAdminFixtureProvider
                     if (command == "fx_kit_refuse") { done = HCKit(pos, false, reason, created); }
                     if (command == "fx_barricade") { done = HCBarricade(pos, reason, created); }
                     if (command == "fx_melee") { done = HCMelee(pos, reason, created); }
+                    if (command == "fx_shoot_held") { done = HCShootHeld(pos, reason, created); }
+                    if (command == "fx_door_press") { done = HCDoorPress(pos, reason, created); }
+                    if (command == "fx_die") { done = HCDie(reason); }
+                    if (command == "fx_car_zeds") { done = HCCarZeds(pos, reason, created); }
                     if (command == "fx_shoot") { done = HCShoot(pos, reason, created); }
                 }
             }
@@ -100,7 +111,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
 
     override void HCFixtureKit(array<string> lines)
     {
-        array<string> commands = {"fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade", "fx_melee", "fx_shoot", "fx_site_patrol_kill"};
+        array<string> commands = {"fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade", "fx_melee", "fx_shoot", "fx_shoot_held", "fx_door_press", "fx_die", "fx_car_zeds", "fx_site_patrol_kill"};
         string value = "0";
         string why = "EnableSmokeFixtures-off";
         if (HCAdminFixtures.HCEnabled())
@@ -124,11 +135,10 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     {
         reason = "already-attempted";
         if (m_SitePatrolKillAttempted) { return false; }
-        m_SitePatrolKillAttempted = true;
         int before = 0;
         int after = 0;
         string patrolId = "none";
-        string result = "no-live-patrol";
+        string result = "no-patrol nearest_m=-1";
         bool done = false;
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (director && director.Phase() == "run")
@@ -156,11 +166,20 @@ class HCTestReachFixtures : HCAdminFixtureProvider
                 }
                 before = members.Count();
                 after = before;
+                DayZPlayerImplement victim;
+                float nearestSq = float.MAX;
+                foreach (DayZPlayerImplement candidate : members)
+                {
+                    float distanceSq = vector.DistanceSq(candidate.GetPosition(), pos);
+                    if (distanceSq < nearestSq) { nearestSq = distanceSq; victim = candidate; }
+                }
+                int nearestMetres = -1;
+                if (victim) { nearestMetres = Math.Round(Math.Sqrt(nearestSq)); }
+                result = "no-patrol nearest_m=" + nearestMetres.ToString();
+                if (!victim || nearestSq > 250000) { break; }
                 result = "needs-survivor";
                 if (before < 2) { break; }
-                DayZPlayerImplement victim = members[0];
-                result = "patrol-not-near-actor";
-                if (vector.DistanceSq(victim.GetPosition(), pos) > 250000) { break; }
+                m_SitePatrolKillAttempted = true;
                 victim.SetHealth("", "", 0);
                 after = 0;
                 foreach (DayZPlayerImplement observed : members)
@@ -553,19 +572,19 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     }
 
     // Nearest AI (class chain eAIBase, tested by name so this addon does not depend on the
-    // provider) within 80 m of the admin, else null.
-    protected Object HCNearestAI(vector pos)
+    // provider) within the requested radius (80 m for fx_shoot), else null.
+    protected Object HCNearestAI(vector pos, float radius = 80)
     {
         array<Object> found = new array<Object>;
         array<CargoBase> cargo = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(pos, 80, found, cargo);
+        GetGame().GetObjectsAtPosition3D(pos, radius, found, cargo);
         Object best;
-        float bestSq = float.MAX;
+        float bestSq = radius * radius + 0.01;
         int count = Math.Min(found.Count(), 256);
         for (int index = 0; index < count; index++)
         {
             Object candidate = found[index];
-            if (!candidate || !candidate.IsKindOf("eAIBase") || !candidate.IsAlive()) { continue; }
+            if (!candidate || candidate.IsPendingDeletion() || !candidate.IsKindOf("eAIBase") || !candidate.IsAlive()) { continue; }
             float distanceSq = vector.DistanceSq(candidate.GetPosition(), pos);
             if (distanceSq < bestSq)
             {
@@ -574,6 +593,163 @@ class HCTestReachFixtures : HCAdminFixtureProvider
             }
         }
         return best;
+    }
+
+    // ---- fx_shoot_held / fx_die --------------------------------------------------------
+    // Native scripts-1.30.164289: PlayerBase.c:6733 GetItemInHands;
+    // 4_World/Entities/Core/Inherited/Weapon.c:57/58 CanFire/Fire, :74 IsChamberEmpty;
+    // 3_Game/Entities/EntityAI.c:879 GetHierarchyRoot; Global/Game.c:546/558/612
+    // config type/array/presence via HCConfigHelper. Derive <=8 muzzle slots from config,
+    // as HCGunPile does; never call the unsafe weapon compatibility query family.
+    // Fire has no attacker parameter: keep the weapon parented to the requesting player.
+    // HCXDefence.AttackerOf resolves that hierarchy root on the real hit callback.
+    // Engine bullet attribution still requires the native held-fire runtime experiment.
+    protected bool HCShootHeld(vector pos, out string reason, out string created)
+    {
+        PlayerBase player = HCRequestActor;
+        reason = "request-actor-unavailable";
+        if (!player || !player.IsAlive()) { return false; }
+        Weapon_Base gun = Weapon_Base.Cast(player.GetItemInHands());
+        reason = "no-weapon-in-hands";
+        if (!gun || gun.GetHierarchyRoot() != player) { return false; }
+        created = gun.GetType();
+        string muzzlePath = "CfgWeapons " + created + " muzzles";
+        int muzzleCount = 1;
+        if (HCConfigHelper.Has(muzzlePath))
+        {
+            TStringArray muzzles;
+            reason = "muzzle-config-invalid";
+            if (!HCConfigHelper.GetTextArray(muzzlePath, muzzles)) { return false; }
+            muzzleCount = muzzles.Count();
+            if (muzzleCount < 1 || muzzleCount > 8) { return false; }
+        }
+        int muzzle = -1;
+        for (int slot = 0; slot < muzzleCount; slot++)
+        {
+            if (!gun.IsChamberEmpty(slot) && gun.CanFire(slot)) { muzzle = slot; break; }
+        }
+        reason = "no-fireable-round-in-chamber";
+        if (muzzle < 0) { return false; }
+        Object ai = HCNearestAI(pos, 60);
+        reason = "no-ai-within-60m";
+        if (!ai) { return false; }
+        vector origin = player.GetPosition() + Vector(0, 1.5, 0);
+        vector target = ai.GetPosition() + Vector(0, 1.2, 0);
+        vector direction = vector.Direction(origin, target).Normalized();
+        reason = "native-fire-refused";
+        if (!gun.CanFire(muzzle)) { return false; }
+        if (!gun.Fire(muzzle, origin, direction, direction * 400.0)) { return false; }
+        reason = "native-fire-ok;aimed=nearest-ai;held-by-requester";
+        return true;
+    }
+
+    // Native scripts-1.30.164289: 3_Game/Entities/Object.c:1015 SetHealth;
+    // 4_World/Entities/ManBase/PlayerBase.c:3888 uses global SetHealth for fatal drowning.
+    // No manual EEKilled, respawn reservation or use credit: normal death does all work.
+    protected bool HCDie(out string reason)
+    {
+        PlayerBase player = HCRequestActor;
+        reason = "request-actor-unavailable";
+        if (!player || !player.IsAlive()) { return false; }
+        player.SetHealth("", "", 0);
+        reason = "death-refused";
+        if (player && player.IsAlive()) { return false; }
+        reason = "requester-health-zero;normal-death-path";
+        return true;
+    }
+
+    // ---- fx_car_zeds -----------------------------------------------------------------
+    // Native scripts-1.30.164289: 3_Game/human.c:1528 GetCommand_Vehicle,
+    // :716 HumanCommandVehicle.GetTransport. Do not roll or move the occupied car.
+    // Reach needs natural pursuit/contact, a seated quarry and the normal attack callback.
+    // Seated targets can count vehicle_battered; strike_landed requires an exposed elevated
+    // leg target instead (ZombieBase.HCReachMove in HCInfectedReachNative.c refuses seated targets).
+    protected bool HCCarZeds(vector pos, out string reason, out string created)
+    {
+        PlayerBase player = HCRequestActor;
+        reason = "request-actor-unavailable";
+        if (!player || !player.IsAlive()) { return false; }
+        HumanCommandVehicle seated = player.GetCommand_Vehicle();
+        reason = "requester-not-in-car";
+        if (!seated) { return false; }
+        CarScript car = CarScript.Cast(seated.GetTransport());
+        if (!car) { return false; }
+        HCClearZombies();
+        created = "ZmbM_CitizenASkinny_Blue";
+        vector center = car.GetPosition();
+        for (int index = 0; index < 2; index++)
+        {
+            vector spot;
+            reason = "no-spot-10-20m";
+            if (!HCSpot(center, 10 + index * 4, 12 + index * 4, spot)) { HCClearZombies(); return false; }
+            float actorSq = vector.DistanceSq(spot, pos);
+            reason = "spawn-outside-3-20m-from-requester";
+            if (actorSq < 9 || actorSq > 400) { HCClearZombies(); return false; }
+            Object zombie = GetGame().CreateObjectEx(created, spot, ECE_PLACE_ON_SURFACE | ECE_INITAI | ECE_NOPERSISTENCY_WORLD);
+            reason = "infected-create-refused";
+            if (!zombie) { HCClearZombies(); return false; }
+            m_Zombies.Insert(zombie);
+        }
+        reason = "infected-set;occupied-car,natural-pursuit-and-contact-needed";
+        return true;
+    }
+
+    // ---- fx_door_press ---------------------------------------------------------------
+    // Native scripts-1.30.164289: 3_Game/Entities/Building.c:31/52/73
+    // GetDoorCount/IsDoorClosed/GetDoorSoundPos. Same outward-from-building placement as
+    // fx_barricade; player stays inside/near the door, infected must naturally acquire them.
+    protected bool HCDoorPress(vector pos, out string reason, out string created)
+    {
+        array<Object> objects = new array<Object>;
+        array<CargoBase> proxies = new array<CargoBase>;
+        GetGame().GetObjectsAtPosition3D(pos, 30, objects, proxies);
+        vector doorPos;
+        Building best;
+        float bestSq = 900.01;
+        int count = Math.Min(objects.Count(), 512);
+        HCWorkBudget budget = new HCPerfSlices("SmokeFixtures");
+        budget.HCReset(16384);
+        for (int index = 0; index < count; index++)
+        {
+            Building building = Building.Cast(objects[index]);
+            if (!building) { continue; }
+            int doors = Math.Min(building.GetDoorCount(), 32);
+            for (int doorIndex = 0; doorIndex < doors; doorIndex++)
+            {
+                reason = "door-scan-budget-exhausted";
+                if (!budget.HCContinue()) { return false; }
+                if (!building.IsDoorClosed(doorIndex)) { continue; }
+                vector at = building.GetDoorSoundPos(doorIndex);
+                float distanceSq = vector.DistanceSq(at, pos);
+                if (distanceSq >= bestSq) { continue; }
+                bestSq = distanceSq;
+                best = building;
+                doorPos = at;
+            }
+        }
+        reason = "no-closed-door-within-30m";
+        if (!best) { return false; }
+        vector outward = vector.Direction(best.GetPosition(), doorPos);
+        outward[1] = 0;
+        reason = "door-outward-unavailable";
+        if (outward.LengthSq() < 0.01) { return false; }
+        outward.Normalize();
+        HCClearZombies();
+        created = "ZmbM_CitizenASkinny_Blue";
+        for (int slot = 0; slot < 3; slot++)
+        {
+            vector spot = doorPos + outward * (1.4 + slot * 0.45);
+            spot[1] = GetGame().SurfaceY(spot[0], spot[2]);
+            float actorSq = vector.DistanceSq(spot, pos);
+            reason = "door-spawn-outside-3-20m";
+            if (!HCDebugSnapshot.HCPositionValid(spot) || actorSq < 9 || actorSq > 400) { HCClearZombies(); return false; }
+            Object zombie = GetGame().CreateObjectEx(created, spot, ECE_PLACE_ON_SURFACE | ECE_INITAI | ECE_NOPERSISTENCY_WORLD);
+            reason = "infected-create-refused";
+            if (!zombie) { HCClearZombies(); return false; }
+            m_Zombies.Insert(zombie);
+        }
+        reason = "infected-set;closed-door,natural-pursuit-and-player-opposite-needed";
+        return true;
     }
 
     // One chambered round from a world weapon, discharged by the native Weapon.Fire call (the
@@ -625,6 +801,16 @@ class HCTestReachFixtures : HCAdminFixtureProvider
 
 modded class HCAdminModule
 {
+    override bool HCCommand(PlayerIdentity sender, string command, int value, int ticket)
+    {
+        // HCCommand is entered from the authorized, replay-checked server RPC queue.
+        // Scope the exact sender to this synchronous call; never retain across ticks.
+        HCTestReachFixtures.HCRequestActor = HCPlayer(sender);
+        bool done = super.HCCommand(sender, command, value, ticket);
+        HCTestReachFixtures.HCRequestActor = null;
+        return done;
+    }
+
     override void OnStart(HCSettings settings)
     {
         super.OnStart(settings);

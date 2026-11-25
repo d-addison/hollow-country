@@ -25,6 +25,7 @@ class HCTestSetupFixtures : HCAdminFixtureProvider
     protected Object m_Crate;
     protected Object m_Fire;
     protected Object m_Wreck;
+    protected Object m_Hearth;
 
     static void HCRegisterOnce()
     {
@@ -35,7 +36,7 @@ class HCTestSetupFixtures : HCAdminFixtureProvider
 
     static bool HCOwns(string command)
     {
-        return command == "fx_car_side" || command == "fx_camp_setup" || command == "fx_wreck";
+        return command == "fx_car_side" || command == "fx_camp_setup" || command == "fx_wreck" || command == "fx_hearth";
     }
 
     override bool HCFixture(string command, vector pos, out string reason)
@@ -55,6 +56,7 @@ class HCTestSetupFixtures : HCAdminFixtureProvider
                 {
                     if (command == "fx_car_side") { done = HCCarSide(pos, reason, created); }
                     if (command == "fx_camp_setup") { done = HCCampSetup(pos, reason, created); }
+                    if (command == "fx_hearth") { done = HCHearth(pos, reason, created); }
                     if (command == "fx_wreck") { done = HCWreck(pos, reason, created); }
                 }
             }
@@ -68,7 +70,7 @@ class HCTestSetupFixtures : HCAdminFixtureProvider
     override void HCFixtureKit(array<string> lines)
     {
         // Read-only: a fixture is available whenever smoke fixtures are on. No placement here.
-        array<string> commands = {"fx_car_side", "fx_camp_setup", "fx_wreck"};
+        array<string> commands = {"fx_car_side", "fx_camp_setup", "fx_wreck", "fx_hearth"};
         string value = "0";
         string why = "EnableSmokeFixtures-off";
         if (HCAdminFixtures.HCEnabled())
@@ -336,6 +338,35 @@ class HCTestSetupFixtures : HCAdminFixtureProvider
             return false;
         }
         reason = "camp-set;tent-pitched,crate,fire-lit;group-and-real-camp-scan-do-the-rest";
+        return true;
+    }
+
+    // ---- fx_hearth ---------------------------------------------------------------------
+    // Same native fuel/ignition path as fx_camp_setup, with its own weak object handle.
+    // A standalone fire is not a building hearth selected by HCSignsOfLife.SelectHouses;
+    // it supplies native light/smoke, not guaranteed SignsOfLife observation credit.
+    protected bool HCHearth(vector pos, out string reason, out string created)
+    {
+        HCDelete(m_Hearth);
+        m_Hearth = null;
+        vector spot;
+        reason = "no-free-ground-6-12m";
+        if (!HCFreeSpot(pos, 6, 12, 2, spot)) { return false; }
+        created = "Fireplace";
+        FireplaceBase fire = FireplaceBase.Cast(GetGame().CreateObjectEx(created, spot, ECE_PLACE_ON_SURFACE | ECE_NOPERSISTENCY_WORLD));
+        m_Hearth = fire;
+        reason = "fireplace-create-refused";
+        if (!fire) { return false; }
+        ItemBase wood = ItemBase.Cast(fire.GetInventory().CreateAttachment("Firewood"));
+        ItemBase sticks = ItemBase.Cast(fire.GetInventory().CreateAttachment("WoodenStick"));
+        reason = "fuel-attach-refused";
+        if (!wood || !sticks) { HCDelete(m_Hearth); m_Hearth = null; return false; }
+        wood.SetQuantityMax();
+        sticks.SetQuantityMax();
+        fire.StartFire();
+        reason = "fire-not-lit-wind-or-wet";
+        if (!fire.IsBurning()) { HCDelete(m_Hearth); m_Hearth = null; return false; }
+        reason = "fire-lit;standalone-native-light-smoke;signs-house-selection-still-required";
         return true;
     }
 
