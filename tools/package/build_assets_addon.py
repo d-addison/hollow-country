@@ -13,16 +13,16 @@ sealed build directory. Keep attribution there for release review/distribution.
 The source notice mods/HollowCountryAssets/NOTICE.txt (DayZ EULA / ADPL-SA) is a source
 member like any other: it must be admitted in the plan and ships inside the PBO.
 
-MLOD is supported but unbinarized: no Binarize/DayZ process is launched. Future
-binarized hook: admit a sealed post-Binarize candidate and add an explicit format
-validator here after P0-1/P0-6; ODOL is refused until then. This builder is not yet
-called automatically by release/compile_gate (lead wiring required).
+P3D inputs must be binarized ODOL56, validated by the clean-room reader.
+--allow-mlod is an explicit offline development escape hatch, never used by the
+release wiring. No native process is launched; native acceptance stays pending.
 """
 import argparse
 import json
 from pathlib import Path
 
 from tools.assets import licence_gate, mlod, provenance
+from tools.audit import odol56
 from tools.package import pbo
 
 PREFIX = 'HollowCountryAssets'
@@ -31,7 +31,18 @@ SOURCE = ROOT / 'mods' / PREFIX
 EXTENSIONS = {'.cpp', '.cfg', '.p3d', '.paa', '.rvmat', '.txt'}  # .txt carries NOTICE.txt
 
 
-def build(plan, *, plan_dir, out, source=SOURCE):
+def model_format(data, *, allow_mlod=False):
+    """Magic determines format; validate the whole model, never just its suffix."""
+    if data[:4] == b'ODOL':
+        odol56.read_odol(data)
+        return 'ODOL56'
+    if data[:4] == b'MLOD' and allow_mlod:
+        mlod.read_mlod(data)
+        return 'MLOD-unbinarized'
+    raise provenance.Refusal('assets.binarized_odol_required')
+
+
+def build(plan, *, plan_dir, out, source=SOURCE, allow_mlod=False):
     """Reverify all sealed bytes, refuse missing source coverage and collisions."""
     if not isinstance(plan, dict) or set(plan) != {'inputs'} or not isinstance(plan['inputs'], list):
         raise provenance.Refusal('assets.plan_invalid')
@@ -50,6 +61,7 @@ def build(plan, *, plan_dir, out, source=SOURCE):
     if 'config.cpp' not in source_files:
         raise provenance.Refusal('assets.config_missing')
     files, origins = {}, {}
+    formats = set()
     folded = set()
     for row in plan['inputs']:
         if not isinstance(row, dict) or set(row) != {'candidate', 'members'} or not isinstance(row['members'], dict) or not row['members']:
@@ -80,7 +92,7 @@ def build(plan, *, plan_dir, out, source=SOURCE):
             if member in source_files and data != source_files[member]:
                 raise provenance.Refusal('assets.source_mismatch')
             if Path(member).suffix.lower() == '.p3d':
-                mlod.read_mlod(data)  # fail closed on ODOL/unknown tags
+                formats.add(model_format(data, allow_mlod=allow_mlod))
             files[member] = data
             origins[member] = {'sha256': inventory[payload],
                                'provenance_sha256': inventory['provenance.json']}
@@ -90,7 +102,8 @@ def build(plan, *, plan_dir, out, source=SOURCE):
     files.pop('$PBOPREFIX$')
     blob = pbo.pack(files, prefix=PREFIX)
     pbo.parse(blob, prefixes=(PREFIX,))
-    manifest = {'schema': 'assets-addon.v1', 'prefix': PREFIX, 'format': 'MLOD-unbinarized',
+    manifest = {'schema': 'assets-addon.v1', 'prefix': PREFIX, 'format': '+'.join(sorted(formats)) or 'no-models',
+                'engine_verified': False,
                 'native_acceptance': 'pending', 'pbo_sha256': provenance.digest(blob),
                 'files': {name: origins[name] for name in sorted(files)}}
     out = Path(out)
@@ -114,9 +127,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--plan', type=Path, required=True)
     parser.add_argument('--out', type=Path, default=Path('build/assets'))
+    parser.add_argument('--allow-mlod', action='store_true', help='offline development only; not native proof')
     args = parser.parse_args(argv)
     try:
-        result = build(provenance.load_json(args.plan.read_bytes()), plan_dir=args.plan.parent, out=args.out)
+        result = build(provenance.load_json(args.plan.read_bytes()), plan_dir=args.plan.parent, out=args.out, allow_mlod=args.allow_mlod)
     except (OSError, ValueError, TypeError, KeyError):
         print(json.dumps({'valid': False, 'reason': 'assets.build_refused'}))
         return 1

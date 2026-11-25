@@ -1,6 +1,7 @@
 """Offline packaging contracts only; never launch a native executable."""
 import contextlib
 import io
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -11,6 +12,56 @@ from tools.package import pbo
 
 
 class ShipInputsTests(unittest.TestCase):
+    def setUp(self):
+        environment = patch.dict(os.environ, {ship_inputs.ASSETS_SWITCH: ''})
+        environment.start()
+        self.addCleanup(environment.stop)
+
+    def test_assets_off_preserves_catalogue_and_build_recipe(self):
+        self.assertEqual(ship_inputs.signing_inputs(), [
+            ('hollowcountry', 'HollowCountry', 'base'),
+            ('hollowcountryanims', 'HollowCountry', 'anims'),
+            ('hollowcountryexpansionai', 'HollowCountryExpansionAI', 'addon')])
+        with patch.object(ship_inputs, 'build_assets') as assets:
+            calls = []
+            ship_inputs.build_anims(Path('/tree'), Path('/addons'), Path('/scratch'),
+                                    lambda cmd, cwd: calls.append(cmd))
+            assets.assert_not_called()
+            self.assertEqual(len(calls), 4)
+
+    def test_assets_switch_builds_and_stages_same_signed_payload(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package, animation = root / 'base.pbo', root / 'animation.pbo'
+            package.write_bytes(b'base')
+            animation.write_bytes(b'anims')
+            calls = []
+            def run(command, cwd):
+                calls.append((command, cwd))
+                if 'tools.package.build_assets_addon' in command:
+                    out = command[command.index('--out') + 1]
+                    (out / 'addons').mkdir(parents=True)
+                    (out / 'addons/HollowCountryAssets.pbo').write_bytes(b'sealed-odol-fixture')
+            original = ship_inputs.build_anims
+            def anims(tree, addons, scratch, command):
+                original(tree, addons, scratch, run)
+                return animation
+            with patch.dict(os.environ, {ship_inputs.ASSETS_SWITCH: str(root / 'plan.json')}), \
+                    patch.object(ship_inputs, 'build_anims', side_effect=anims), \
+                    patch.object(compile_gate.weapon_pack_guards, 'declared', return_value=False), \
+                    patch.object(pbo, 'collect_addon', return_value={}), \
+                    patch.object(pbo, 'pack', return_value=b'adapter'):
+                self.assertIn(('hollowcountryassets', 'HollowCountry', 'assets'), ship_inputs.signing_inputs())
+                with contextlib.redirect_stdout(io.StringIO()):
+                    inputs = compile_gate.stage_release_pbos(root, package, {}, root / 'Addons', root / 'stage')
+                extras = inputs['base_extra_pbos']
+                self.assertEqual([p.name for p in extras], ['hollowcountryanims.pbo', 'hollowcountryassets.pbo'])
+                self.assertEqual(extras[1].read_bytes(), b'sealed-odol-fixture')
+                self.assertEqual((root / 'stage/hollowcountryassets.pbo').read_bytes(), extras[1].read_bytes())
+                self.assertTrue(all('--allow-mlod' not in command for command, cwd in calls))
+                self.assertTrue(all(cwd == root for command, cwd in calls))
+
+
     def test_release_uses_shared_catalogue(self):
         # Identity ensures the gate reads the release's own catalogue, not a snapshot.
         self.assertIs(release.ship_inputs.signing_inputs, ship_inputs.signing_inputs)

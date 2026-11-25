@@ -127,7 +127,7 @@ class AssetLintTests(unittest.TestCase):
 
 
 class AssetBuilderTests(unittest.TestCase):
-    def fixture(self, root, *, waived=()):
+    def fixture(self, root, *, waived=(), model=None):
         source = root / 'source'
         candidate = root / 'candidate'
         source.mkdir()
@@ -135,7 +135,7 @@ class AssetBuilderTests(unittest.TestCase):
         payloads = {'config.cpp': b'class CfgPatches { class HollowCountryAssets { units[]={}; weapons[]={}; requiredAddons[]={"DZ_Data"}; }; };',
                     '$PBOPREFIX$': builder.PREFIX.encode(),
                     'NOTICE.txt': b'Synthetic addon notice',
-                    'HC_TestCube.p3d': mlod.write_mlod(hc_test_cube())}
+                    'HC_TestCube.p3d': mlod.write_mlod(hc_test_cube()) if model is None else model}
         inputs = []
         for name, data in payloads.items():
             (candidate / name).write_bytes(data)
@@ -159,15 +159,48 @@ class AssetBuilderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source, _, plan, payloads = self.fixture(root)
-            first = builder.build(plan, plan_dir=root, source=source, out=root / 'one')
-            second = builder.build(plan, plan_dir=root, source=source, out=root / 'two')
+            first = builder.build(plan, plan_dir=root, source=source, out=root / 'one', allow_mlod=True)
+            second = builder.build(plan, plan_dir=root, source=source, out=root / 'two', allow_mlod=True)
             self.assertEqual(first, second)
             blob = (root / 'one/addons/HollowCountryAssets.pbo').read_bytes()
             expected = {n: d for n, d in payloads.items() if n != '$PBOPREFIX$'}
             self.assertEqual(blob, pbo.pack(expected, prefix=builder.PREFIX))
             self.assertEqual(set(first['files']), set(expected))
             with self.assertRaisesRegex(ValueError, 'assets.output_exists'):
-                builder.build(plan, plan_dir=root, source=source, out=root / 'one')
+                builder.build(plan, plan_dir=root, source=source, out=root / 'one', allow_mlod=True)
+
+    def test_sealed_odol_build_and_corrupt_odol_refusal(self):
+        from tests.test_odol56 import Spec, model_bytes
+        raw = model_bytes([Spec()])
+        for model, valid in ((raw, True), (raw[:-1], False)):
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                source, _, plan, payloads = self.fixture(root, model=model)
+                if valid:
+                    report = builder.build(plan, plan_dir=root, source=source, out=root / 'out')
+                    self.assertEqual(report['format'], 'ODOL56')
+                    self.assertFalse(report['engine_verified'])
+                    blob = (root / 'out/addons/HollowCountryAssets.pbo').read_bytes()
+                    self.assertEqual(blob, pbo.pack({k: v for k, v in payloads.items()
+                                                    if k != '$PBOPREFIX$'}, prefix=builder.PREFIX))
+                else:
+                    with self.assertRaises(ValueError):
+                        builder.build(plan, plan_dir=root, source=source, out=root / 'out')
+                    self.assertFalse((root / 'out').exists())
+
+    def test_default_refuses_mlod_and_unknown_magic(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source, _, plan, _ = self.fixture(root)
+            with self.assertRaisesRegex(ValueError, 'binarized_odol_required'):
+                builder.build(plan, plan_dir=root, source=source, out=root / 'out')
+        for raw in (b'unknown', b'ODOL', b'MLOD'):
+            with self.assertRaises(ValueError):
+                builder.model_format(raw)
+        from unittest.mock import patch
+        with patch.object(builder.odol56, 'read_odol') as read:
+            self.assertEqual(builder.model_format(b'ODOLsynthetic'), 'ODOL56')
+            read.assert_called_once_with(b'ODOLsynthetic')
 
     def test_waiver_tamper_and_missing_admission_refused(self):
         for mode in ('waiver', 'tamper', 'source', 'missing', 'collision', 'traversal'):
@@ -186,7 +219,7 @@ class AssetBuilderTests(unittest.TestCase):
                 if mode == 'traversal':
                     members['../bad.p3d'] = 'HC_TestCube.p3d'
                 with self.assertRaises(ValueError):
-                    builder.build(plan, plan_dir=root, source=source, out=root / 'out')
+                    builder.build(plan, plan_dir=root, source=source, out=root / 'out', allow_mlod=True)
                 self.assertFalse((root / 'out').exists())
 
 

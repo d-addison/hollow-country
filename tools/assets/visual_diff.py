@@ -50,6 +50,43 @@ def compare(reference, candidate, *, threshold=0.01):
             'views': results, 'engine_verified': False}
 
 
+def palette_distance(images, references):
+    """Foreground-weighted mean nearest-colour CIE76 Delta E (D65 sRGB).
+
+    Deterministic 4-bit RGB histogram; the 16 most frequent reference bins form
+    the palette (ties use ascending RGB). Black background is excluded. This
+    is a style metric, with thresholds calibrated by the lead, not an engine gate.
+    """
+    from tools.validate.flip_diff import _numpy
+    np = _numpy()
+    def histogram(items):
+        counts = np.zeros(4096, dtype=np.int64)
+        for image in items:
+            rgb = np.frombuffer(image.rgba, dtype=np.uint8).reshape(-1, 4)
+            rgb = rgb[(rgb[:, 3] > 127) & (rgb[:, :3].max(axis=1) > 8), :3].astype(np.int64)
+            bins = rgb // 16
+            counts += np.bincount(bins[:, 0]*256 + bins[:, 1]*16 + bins[:, 2], minlength=4096)
+        if not counts.any():
+            raise ValueError('score.empty_palette')
+        return counts
+    def lab(indices):
+        rgb = np.stack((indices // 256, indices // 16 % 16, indices % 16), axis=1)
+        rgb = (rgb * 16 + 7.5) / 255
+        linear = np.where(rgb <= 0.04045, rgb/12.92, ((rgb+0.055)/1.055)**2.4)
+        xyz = linear @ np.array([[.4124564, .2126729, .0193339],
+                                 [.3575761, .7151522, .1191920],
+                                 [.1804375, .0721750, .9503041]])
+        xyz /= np.array([.95047, 1., 1.08883])
+        f = np.where(xyz > (6/29)**3, np.cbrt(xyz), xyz/(3*(6/29)**2) + 4/29)
+        return np.stack((116*f[:, 1]-16, 500*(f[:, 0]-f[:, 1]),
+                         200*(f[:, 1]-f[:, 2])), axis=1)
+    weights, ref = histogram(images), histogram(references)
+    occupied = np.flatnonzero(weights)
+    palette = np.array(sorted(np.flatnonzero(ref), key=lambda i: (-int(ref[i]), int(i)))[:16])
+    distances = np.linalg.norm(lab(occupied)[:, None, :] - lab(palette)[None, :, :], axis=2).min(axis=1)
+    return float(np.average(distances, weights=weights[occupied]))
+
+
 def render_request(recipe, *, config=None, timeout=120):
     """Request all six views in one isolated external Blender invocation."""
     result = blender_runner.build(recipe, config=config, timeout=timeout, render=True)

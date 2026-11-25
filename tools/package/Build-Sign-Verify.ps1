@@ -69,6 +69,27 @@ if ($Unsigned) {
     if ($LASTEXITCODE -ne 0) { throw 'Official signing/verification failed: HollowCountryAnims' }
     Copy-Item -Path (Join-Path $animsSigned 'addons\*') -Destination $baseAddons
 }
+# One opt-in shared with Python release/compile staging; unset leaves the build unchanged.
+if ($env:HC_ASSETS_PLAN) {
+    $assetsRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath((Join-Path $OutputRoot 'assets'))
+    $assetsPlan = (Resolve-Path -LiteralPath $env:HC_ASSETS_PLAN).Path
+    Push-Location $repoRoot
+    try {
+        & $Python -B -m tools.package.build_assets_addon --plan $assetsPlan --out $assetsRoot
+        if ($LASTEXITCODE -ne 0) { throw 'PBO build failed: HollowCountryAssets (sealed ODOL required)' }
+    } finally { Pop-Location }
+    $assetsPbo = Join-Path $assetsRoot 'addons\HollowCountryAssets.pbo'
+    & $Python (Join-Path $PSScriptRoot 'pbo.py') verify --prefix HollowCountryAssets $assetsPbo
+    if ($LASTEXITCODE -ne 0) { throw 'PBO structural verification failed: HollowCountryAssets' }
+    if ($Unsigned) {
+        Copy-Item -LiteralPath $assetsPbo -Destination (Join-Path $baseAddons 'hollowcountryassets.pbo')
+    } else {
+        $assetsSigned = Join-Path $OutputRoot 'signed-assets'
+        & $Python (Join-Path $PSScriptRoot 'sign.py') --pbo $assetsPbo --tools $ToolsRoot --private-key $PrivateKey --public-key $PublicKey --out $assetsSigned
+        if ($LASTEXITCODE -ne 0) { throw 'Official signing/verification failed: HollowCountryAssets' }
+        Copy-Item -Path (Join-Path $assetsSigned 'addons\*') -Destination $baseAddons
+    }
+}
 if ($Unsigned) {
     Write-Output 'All development addons built unsigned; signatures not checked.'
 } else {
