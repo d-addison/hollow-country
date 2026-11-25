@@ -6188,7 +6188,7 @@
         "mission/hollow-country/lights/backpack-mounts.json": "2afad8af854eaa40db6cb27b3e2a174acdd70ca39a7edcae0d4df83134bacbe1",
         "mission/hollow-country/lights/helmet-mounts.json": "a2fdfe3266ef833c6832ed599c9f7a6822715e17b5798d73ebc5b67a2e971ec2",
         "mission/hollow-country/lights/pair-receipts.json": "61ac4f84bf98bc6579670b1ec0a440a3238afbc2a01643b4f837f24611be589a",
-        "mission/hollow-country/loot-points/additions-interiors.json": "3c2a41f708c513f0ae43e563c9be52d320714f7aea08b777283b16236c139aff",
+        "mission/hollow-country/loot-points/additions-interiors.json": "9c4dfe22e0405f97b805eea31e8ea2a1378e83c82cbfbd45f43c468ef876111e",
         "mission/hollow-country/loot-points/additions.json": "082770f6ee2354840d2908ce92b49cb1dca90b5be1426a78d2efee1950587aae",
         "mission/hollow-country/loot-points/families.json": "8c0862fb32bd282c3e81907c10db35bc494b1a402f4ae0a36e2e12d685abbac7",
         "mission/hollow-country/loot-points/floor-policy.json": "903cd95c90afc2bdec441ccc25a4e89b02d83fa8b6d41af15687f29d66d7770b",
@@ -6353,7 +6353,7 @@
         "tools/package/essential_routes.json": "4ddc26e65acf42a865ed0988e22eea78286731a03fca23261f277bf3c1d9475e",
         "tools/package/firearms.py": "7d1313629214f33bcf2f1e3234ac8eea3446fdb7473a5f8bbc02d700bd933204",
         "tools/package/firearms_roster.json": "14f486b4c2a19f13f2876259de5163c0abfb11c704ed8876d147db25720d2cd9",
-        "tools/package/generated_digests.py": "c5ced7a86ad2a7ce9a60d98d509d0ead2c36c15e27c79d3e837449e3cad9b608",
+        "tools/package/generated_digests.py": "c9be7c841e70319afad203f581fa785ade28890d0936cd1d6b4dc6c18426c6a2",
         "tools/package/hash_cache.py": "038e7c80b8e7544e2a41bc995a272271839cab67717bc5eafbdac2084f4e6d05",
         "tools/package/hc_events.py": "87f7bb8b35ea33a2167c4f3a0c7fac63f770d8d2b4bbeec588f05b8be1a73936",
         "tools/package/interior_catalog.py": "e749a981ee129d7790b903461c8b82660e6a1d39f7be74ebd2bf84420b267cda",
@@ -6407,11 +6407,12 @@
         "geometry_reader": "813c92a55f804fd01cc5cf477d528a3a77ed977f337af3655f5f19e2f9721f2e",
         "history/candidate": "7f1394f6fdbc673bcb08645943cf4d3ac1ecae9a9748967d8a97543be76fdf40",
         "history/prior": "f8c6dfca466900bf46f2da208f355b827c324490b7ede21a8c3090242b504492",
+        "native_census/0": "b254dc069c293e0c090e31be6a15b4af3e4d1017fa13ec97ef26d302026a4ecb",
         "stock/mapgrouppos.xml": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
         "stock/mapgroupproto.xml": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
       },
       "outputs": {
-        "mission/hollow-country/loot-points/additions-interiors.json": "3c2a41f708c513f0ae43e563c9be52d320714f7aea08b777283b16236c139aff"
+        "mission/hollow-country/loot-points/additions-interiors.json": "9c4dfe22e0405f97b805eea31e8ea2a1378e83c82cbfbd45f43c468ef876111e"
       },
       "verified": true
     },

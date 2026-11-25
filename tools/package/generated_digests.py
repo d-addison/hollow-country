@@ -282,7 +282,10 @@ def targeted_preservation(prior, candidate, audited):
     result = dict(prior, groups=dict(prior['groups']), sources=dict(prior['sources']))
     for name in candidate['groups']:
         result['groups'][name] = audited['groups'][name]
-    result['sources']['prior_point_preservation'] = prior['sources']['point_preservation']
+    # The prior receipt is reproducible from the LOOT_REVISIONS baseline in git; inlining it nearly
+    # quadrupled the shipped overlay, so bind it by digest only.
+    prior_receipt = json.dumps(prior['sources']['point_preservation'], sort_keys=True, separators=(',', ':'))
+    result['sources']['prior_point_preservation_sha256'] = hashlib.sha256(prior_receipt.encode()).hexdigest()
     result['sources']['point_preservation'] = audited['sources']['point_preservation']
     # Candidate input hashes in the receipt bind the reservation scan; historical
     # generation_partitions and prior_overlay_selection still describe the baseline.
