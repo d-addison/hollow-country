@@ -659,3 +659,47 @@ map, s08 status, s09 snapshot, s12 group, s13 ping, s14 walk, s18 walk and s19 r
 (the campaign inserts the patrol kill fixture after walk_ai). Later IDs are regenerated; consult
 `soak_campaign plan` for them. The final `done` must follow all result lines. Calibration is a
 separate startup probe and does not inflate the scripted step count or result totals.
+
+## `climb`: elevated haven for an infected siege
+
+`{"kind":"climb","range_m":100,"hold_s":90,"timeout_s":360}` searches for the
+nearest building with a native ladder, walks to ladder 0's bottom, enters using
+`ActionEnterLadder`, climbs using the local player's movement controller, exits
+at the top, holds there, and re-enters the same ladder to descend. The `walk_town`
+phase runs infected combat, then one `fx_shoot_held` admin fixture immediately
+before this step to draw nearby infected. The fixture must be authorized and the
+player must have a fireable held weapon and AI within 60 m; its own result proves
+whether noise occurred.
+
+The schema accepts `range_m` 5–150, `hold_s` 1–600 and `timeout_s` 10–1800,
+with timeout strictly greater than hold. One object query is scanned incrementally
+in a work budget; entry uses at most 40 real rays, one per frame. Action conditions
+retain the native approach-side, distance and component checks. No target component
+is invented, no command is started directly, and no position is written.
+
+Native evidence: `3_Game/Entities/Building.c:23-25` exposes ladder endpoints but does
+not document their coordinate space. The driver logs `climb coordinates raw_bottom=…
+model_bottom=… raw_top=… model_top=… space=<world|model>` once. Like the siege anchor,
+it provisionally converts when the raw bottom is more than 50 m from the building;
+invalid or unelevated endpoints are refused. `ActionEnterLadder.c:19-114,117-150`
+checks the real geometry target and starts `StartCommand_Ladder` through the client
+action manager. `ActionExitLadder.c:15-31` exits when `CanExit()` permits it.
+`3_Game/human.c:253-256` supplies speed/angle overrides and `:1512` reads the command.
+
+The result line is `[HC Driver] climb building=<type> ladder=<i> top_y=<m>
+held_s=<s> result=<ok|refused|unsupported> detail=<reason>`. `top_y` is the observed
+player height after the top exit (zero if never reached). `ok` requires observed
+native command exits at the top and bottom and the completed hold. Missing client
+entry yields `unsupported`; approach, action, endpoint or timeout failures yield
+`refused`. On timeout while attached, movement is released every frame and the
+normal exit action is attempted. The step stays pending until the native command
+exits, even indefinitely if the engine keeps a stationary mid-ladder command alive.
+
+This path is unverified until a native run. Inspect both endpoint readings, entry
+from each end, forward/backward movement, the 90 s hold, and return to ground.
+Also test timeout during ascent and descent: no subsequent step may begin while
+`GetCommand_Ladder()` is present. A successful climb alone does not prove a siege:
+an ambient infected must target the elevated player and give up. Server evidence is
+`[HC Nav] siege start anchor=<mesh|ladder> members=<m> n=<n>` and
+`[HC Use] module=InfectedSiege feature=siege_started count=<n>`; a ladder anchor also
+emits `feature=ladder_guard`. The driver manufactures no feature counters.

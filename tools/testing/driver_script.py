@@ -70,7 +70,7 @@ GAITS = ("walk", "jog", "sprint")
 MENUS = ("map", "inventory", "pause", "admin")
 GROUP_OPS = ("create_solo",)
 KINDS = ("wait", "walk", "stand", "sprint", "menu", "admin", "group", "ping", "action", "enter", "route",
-         "combat", "loot", "survive", "vehicle", "search_site", "take_lead", "raise", "hold_ring", "respawn")
+         "combat", "loot", "survive", "vehicle", "climb", "search_site", "take_lead", "raise", "hold_ring", "respawn")
 # route: 2..MAX_ROUTE_POINTS waypoints as a flat [x, z, ...] list (HCDriverRoute walks them with the
 # stuck ladder side-right, side-left, back-up, door, skip once, then refused stuck:<rung>).
 MAX_ROUTE_POINTS = 64
@@ -150,6 +150,7 @@ _STEP_FIELDS = {
     "action": {"name", "args", "timeout_s"},
     "enter": {"zone", "sites", "gait", "hold_s", "timeout_s"},
     "route": {"points", "gait", "arrive_m", "timeout_s"},
+    "climb": {"range_m", "hold_s", "timeout_s"},
     "combat": {"range_m", "timeout_s"},
     "loot": {"range_m", "max_items", "timeout_s"},
     "survive": {"mode", "timeout_s"},
@@ -259,7 +260,7 @@ class _Builder:
         self.steps.append(step)
         if kind == "group":
             self.done.add("group")
-        if kind in ("menu", "enter", "combat", "loot", "vehicle", "respawn", "raise", "search_site", "take_lead") or (kind == "admin" and fields.get("cmd", "").startswith("fx_")):
+        if kind in ("menu", "enter", "combat", "loot", "vehicle", "climb", "respawn", "raise", "search_site", "take_lead") or (kind == "admin" and fields.get("cmd", "").startswith("fx_")):
             self.uncertain = True
         if kind == "action":
             self.done.add("action:" + fields.get("name", ""))
@@ -342,6 +343,9 @@ def _phase_walk_town(b):
     b.route(TOWN)
     b.add("stand", seconds=60)
     b.add("search_site", site=TOWN.split(":", 1)[1], timeout_s=240)
+    b.add("combat", range_m=60, timeout_s=180)
+    b.add("admin", cmd="fx_shoot_held", value="")
+    b.add("climb", range_m=100, hold_s=90, timeout_s=360)
 
 
 def _phase_combat(b):
@@ -651,6 +655,12 @@ def validate_step(step, label="step"):
             raise ScriptError("%s gait must be one of %s" % (label, GAITS))
         _number(step.get("arrive_m"), 2, 50, label + " arrive_m")
         _number(step.get("timeout_s"), 10, 3600, label + " timeout_s")
+    elif kind == "climb":
+        _number(step.get("range_m"), 5, 150, label + " range_m")
+        _number(step.get("hold_s"), 1, 600, label + " hold_s")
+        _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
+        if step["timeout_s"] <= step["hold_s"]:
+            raise ScriptError(label + " timeout_s must exceed hold_s")
     elif kind == "combat":
         _number(step.get("range_m"), COMBAT_RANGE[0], COMBAT_RANGE[1], label + " range_m")
         _number(step.get("timeout_s"), 10, 1800, label + " timeout_s")
@@ -747,6 +757,8 @@ def describe(step, notes):
             len(step["points"]) // 2, step["gait"], step["arrive_m"], step["timeout_s"])
         if step["id"] in notes:
             detail += " source=" + notes[step["id"]]
+    elif kind == "climb":
+        detail = "range_m=%s hold_s=%s timeout_s=%s" % (step["range_m"], step["hold_s"], step["timeout_s"])
     elif kind == "combat":
         detail = "range_m=%s timeout_s=%s (fire=unsupported)" % (step["range_m"], step["timeout_s"])
     elif kind == "loot":

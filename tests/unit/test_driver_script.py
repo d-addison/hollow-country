@@ -267,6 +267,40 @@ class DriverScriptTests(unittest.TestCase):
             with self.assertRaises(ds.ScriptError):
                 ds.validate_step(step)
 
+    def test_climb_schema_and_bounds(self):
+        good = {"id": "s01", "kind": "climb", "range_m": 100, "hold_s": 90, "timeout_s": 360}
+        ds.validate_step(good)
+        for key in ("range_m", "hold_s", "timeout_s"):
+            missing = dict(good)
+            del missing[key]
+            with self.subTest(missing=key), self.assertRaises(ds.ScriptError):
+                ds.validate_step(missing)
+            for value in (True, "90", None, float("nan"), float("inf"), 0):
+                with self.subTest(key=key, value=value), self.assertRaises(ds.ScriptError):
+                    ds.validate_step(dict(good, **{key: value}))
+        for fields in ({"range_m": 151}, {"hold_s": 601}, {"timeout_s": 1801},
+                       {"timeout_s": 90}, {"timeout_s": 89}, {"position": [1, 2]}):
+            with self.subTest(fields=fields), self.assertRaises(ds.ScriptError):
+                ds.validate_step(dict(good, **fields))
+        self.assertEqual(ds.step_token(good, {}), "climb")
+        self.assertIn("hold_s=90", ds.describe(good, {}))
+
+    def test_town_climb_follows_combat_and_noise(self):
+        for phases in (["walk_town"], list(ds.PHASES)):
+            steps = ds.build_route(phases)["steps"]
+            indices = [i for i, step in enumerate(steps) if step["kind"] == "climb"]
+            self.assertEqual(len(indices), 1)
+            i = indices[0]
+            self.assertEqual(steps[i - 2]["kind"], "combat")
+            self.assertEqual(steps[i - 1]["kind"], "admin")
+            self.assertEqual(steps[i - 1]["cmd"], "fx_shoot_held")
+            self.assertEqual(steps[i]["hold_s"], 90)
+            self.assertEqual(steps[i]["range_m"], 100)
+            ds.validate_script({"version": 1, "run_id": "t1", "steps": steps})
+        b = ds._Builder()
+        b.add("climb", range_m=100, hold_s=90, timeout_s=360)
+        self.assertTrue(b.uncertain)
+
     def test_loot_steps_are_bounded(self):
         script, notes = ds.build_plan(list(ds.PHASES))
         loots = [step for step in script["steps"] if step["kind"] == "loot"]
