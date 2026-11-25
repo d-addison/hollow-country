@@ -102,6 +102,7 @@ RULES = {
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
+    'HC-E055': 'test addon HCOwns fx_ command is absent from HCAdminCatalog; HCReceive rejects it before the provider',
     'HC-E054': 'two HC script RPC ids share a value; each RPC needs its own id',
     'HC-E053': 'method overrides or redeclares an inherited proto method, or adds an overload of its native name (build 185: Multiple declaration of function); hook a script method instead',
     'HC-E052': 'GunPile and reach fixtures must use config compatibility, never weapon magazine/muzzle/chamber natives',
@@ -2795,6 +2796,36 @@ _WEAPON_COMPAT_CALL = re.compile(
     r'|SpawnAttachedMagazine|FillChamber|GetAmmoMax)\s*\(')
 
 
+def rule_fixture_catalog(project, source):
+    """#368 build 187: fixture ownership alone cannot pass HCReceive's catalog gate.
+
+    Use parsed HCOwns bodies and masked code offsets, so comments and strings
+    mentioning commands cannot satisfy registration or invent fixture ownership.
+    This extends the existing enforce_lint preland row; no generated data is involved.
+    """
+    if 'HollowCountryTest' not in source.path.parts:
+        return
+    if not hasattr(project, '_fixture_catalog_ids'):
+        project._fixture_catalog_ids = set()
+        for catalog in project.sources:
+            if catalog.path.name != 'HCAdminCatalog.c':
+                continue
+            for match in re.finditer(r'\bHCAdd\s*\(\s*"[^"\n]*"', catalog.code):
+                literal = re.search(r'"([^"\n]+)"', catalog.text[match.start():match.end()])
+                if literal:
+                    project._fixture_catalog_ids.add(literal[1])
+    for method in _all_methods(source):
+        if method.name != 'HCOwns':
+            continue
+        body = source.code[method.body_start:method.body_end]
+        for match in re.finditer(r'\b\w+\s*==\s*"[^"\n]*"', body):
+            offset = method.body_start + match.start()
+            literal = re.search(r'"(fx_\w+)"', source.text[offset:method.body_start + match.end()])
+            if literal and literal[1] not in project._fixture_catalog_ids:
+                yield _finding('HC-E055', source, offset, _symbol(method),
+                               literal[1] + ': ' + RULES['HC-E055'], key=literal[1])
+
+
 def rule_config_only_weapon_compat(project, source):
     """#338 native null dereference: prohibit the whole query family in CE/fixture scopes.
 
@@ -2983,7 +3014,7 @@ def rule_duplicate_rpc_ids(project, source):
     return project._rpc_collisions.get(source.rel, ())
 
 
-ALL_RULES = (rule_duplicate_rpc_ids, rule_proto_native_methods, rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_fixture_catalog, rule_duplicate_rpc_ids, rule_proto_native_methods, rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,

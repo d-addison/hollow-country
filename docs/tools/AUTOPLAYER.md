@@ -399,7 +399,7 @@ Native evidence below is relative to `scripts-1.30.164289`:
   enabled overrides. Persistent mode alone is therefore not proof of the failure.
 - `4_World/Entities/ManBase/PlayerBase.c:3206-3211` supplies the exact script `CommandHandler`
   signature used by the new client-only hook, which calls super. The mission queues one input
-  request per frame; the local player's command callback consumes it once with `ONE_FRAME`, only
+  request per frame; the local player's command callback applies the selected variant only
   in `HumanCommandMove`. It never starts a movement command or replaces an engine method.
 - The native implementation of `OverrideAimChangeX` is opaque. Scripts establish per-tick radians
   (`human.c:30`), not that it turns the body during movement. Round 1 flipped the aim sign every
@@ -410,20 +410,38 @@ Ranked hypotheses: (1) body yaw differs from the movement input frame, compounde
 look steering; (2) override timing/consumption; (3) a reversed movement-angle sign. The native cache
 cannot establish which caused the observed failure. Calibration measures the actual outcome:
 
-1. Before the first step, wait at most 10 s for a conscious, living player in `HumanCommandMove`
-   with input controls available; otherwise refuse `movement-or-controls-not-ready`. Then request angle 0 at run
-   speed for 2.5 s and angle +90 for 2.5 s.
-2. Emit **one** `[HC Driver] calib` line with forward/right displacement vectors, initial camera
-   facing, body yaw before/between/after, command id before/after, applied callback frames for each probe, and mission input restriction state (`controls`). It prints
-   `angle_sign`, `frame_offset`, `apply=measured-camera-frame aim=disabled`.
-3. Derive the movement-angle sign and forward offset relative to the camera from those measured
-   vectors. Every walk and route maneuver uses that frame at runtime. Do not infer a sign from
-   the word "right": the +90 probe may measure left. A probe with no consumed callback frames, displacement below 0.5 m, or a non-orthogonal
-   result (outside 45..135 degrees) refuse calibration. Walks then refuse `movement-uncalibrated`.
-   Calibration on obstructed ground is inconclusive; the lead must inspect its vectors.
-4. Every walk/route/sprint result begins its detail with `start=<x,z> end=<x,z> moved_m=N` (net
-   horizontal displacement, rounded metres), plus current `cmd` and `controls`, ahead of the arrival/stuck detail. Sprint also
-   requires displacement before it may succeed. No per-frame logging is added.
+1. Wait for ten continuous seconds alive, conscious and in `HumanCommandMove` with a controller
+   and mission controls enabled. Missing/unloaded players reset this timer and release movement.
+   A run waiting 60 s without readiness refuses; it never probes an unsettled player.
+2. Each calibration run tries `one-frame-post-super`, `enabled`, then `one-frame-pre-super`.
+   Each requests angle 0 at run speed for 2.5 s and emits one `[HC Driver] calib attempt=N
+   variant=NAME moved_m=X frames=N cmd=ID` line. The first with more than 0.5 m horizontal
+   movement and applied callbacks wins; the later variants are skipped. No candidate's success is
+   assumed from script inspection. Native build 187 applied the old pre-super variant without moving.
+3. Probe the winner at +90 for 2.5 s. Native `human.c:459-463` documents movement input angles
+   as -180..180; `Bot_Hunt.c:145` passing 1 does not establish radians. Require more than 0.5 m,
+   applied callbacks, and a measured turn between 45 and 135 degrees in magnitude. Derive angle
+   sign and camera heading offset from these vectors; walks/routes use the winning mechanism and
+   measured frame. Failed or obstructed probes remain inconclusive and refuse navigation.
+4. Emit a result line with `variant`, `run`, `reason`, forward/right vectors, camera facing, body
+   yaw before/between/after, command ids, applied frames, `angle_sign`, `frame_offset`, `apply`,
+   `aim=disabled`, and `controls` (1 means restricted). Failed startup runs retry the full variant
+   sequence after 15 s, for at most three startup runs. Before an uncalibrated walk/route/sprint
+   starts, it requests one further run; the hard limit is four runs total per driver session.
+   Step timers start after this attempt. Readiness lost during a probe releases it and fails that run.
+5. Persistent ENABLED is set at movement start and updated only when speed/angle changes. Stop,
+   release, step end, conclusion and shutdown disable both movement overrides on the original
+   controller. The command callback also clears on death, unconsciousness, lost movement command,
+   disabled controls, changed local player, or an expired 0.5 s request lease. Missing/unloaded
+   player ticks clear movement too. ONE_FRAME variants use the same explicit release paths.
+6. Every walk/route/sprint result begins its detail with `start=<x,z> end=<x,z> moved_m=N`, plus
+   `cmd` and `controls`. Sprint requires displacement to succeed. No per-frame logging is added.
+
+`fx_site_patrol_kill` is registered with the same dev fixture flags as `fx_shoot`/`fx_melee`.
+The existing `enforce_lint` gate now checks every test addon `HCOwns` literal `fx_` comparison
+against `HCAdminCatalog` registrations (HC-E055), catching rejection before provider dispatch.
+This command catalog does not feed `tools.package.admin_world_catalog`'s map-anchor outputs;
+its generated artifacts and digests need no regeneration for this row.
 
 ### Initial creation and loadout fixtures
 

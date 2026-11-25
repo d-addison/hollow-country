@@ -121,6 +121,7 @@ class HCAdminCatalog
         HCAdd("fx_barricade", "world", "Test setup: barricaded door", "Dev test addon only: build a door barricade at the nearest building door with infected outside; the real breach code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_melee", "world", "Test setup: melee strikes", "Dev test addon only: strike infected ahead of you with your melee weapon through the engine melee entry; the real melee code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_shoot", "world", "Test setup: one shot", "Dev test addon only: one chambered round from a world weapon through the native fire call, aimed at the nearest AI or ahead of you; the real shot handlers run.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_site_patrol_kill", "world", "Test setup: patrol death", "Dev test addon only: kill one nearby police-chernogorsk patrol member through its real death handler; normal cleanup and counters run.", false, true, false, 0, 0, 0, "");
         HCAdd("holdout", "ai", "Evaluate hold-out", "Run normal occupancy on the nearest hold-out within 100 m.", false, true, false, 0, 0, 0, "");
         HCAdd("event", "world", "Start reviewed event", "Request the nearest reviewed site through normal event admission.", false, true, false, 0, 0, 0, "");
         HCAdd("scene", "world", "Place due scene", "Request the nearest due reviewed scene; maximum two scene leases.", false, true, false, 0, 0, 0, "");
