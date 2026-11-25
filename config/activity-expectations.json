@@ -16,7 +16,8 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIIncidentResponse.c",
-      "scope": "runtime"
+      "scope": "runtime",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_incident. No synthetic counter increments."
     },
     {
       "module": "AIRoles",
@@ -65,7 +66,8 @@
       "floor": 1,
       "window_minutes": 60,
       "needs_player": true,
-      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c"
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAITactics.c",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_shoot_held, step:raise. No synthetic counter increments."
     },
     {
       "module": "AITrade",
@@ -81,7 +83,8 @@
       "floor": 1,
       "window_minutes": 120,
       "needs_player": false,
-      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c"
+      "source": "mods/HollowCountry/scripts/4_World/World/HCAITrade.c",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_trade. No synthetic counter increments."
     },
     {
       "module": "AdminMap",
@@ -115,7 +118,8 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c",
-      "scope": "runtime"
+      "scope": "runtime",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_die. No synthetic counter increments."
     },
     {
       "module": "CampRespawn",
@@ -132,7 +136,8 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
-      "scope": "runtime"
+      "scope": "runtime",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_camp_setup, fixture:fx_die, step:respawn. No synthetic counter increments."
     },
     {
       "module": "Camps",
@@ -149,7 +154,8 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c",
-      "scope": "runtime"
+      "scope": "runtime",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_camp_setup, fixture:fx_hearth. No synthetic counter increments."
     },
     {
       "module": "CellarSampler",
@@ -472,7 +478,8 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c"
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press, fixture:fx_barricade. No synthetic counter increments."
     },
     {
       "module": "InfectedLOD",
@@ -504,7 +511,8 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c"
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedMemory.c",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_shoot_held. No synthetic counter increments."
     },
     {
       "module": "InfectedReach",
@@ -523,7 +531,8 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c"
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press, fixture:fx_car_zeds, step:hold_ring. No synthetic counter increments."
     },
     {
       "module": "InfectedVariety",
@@ -575,7 +584,7 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "note": "A player completes one House search and the item move commits; the first-use line and bounded summaries carry the cumulative count."
+      "note": "Pending driver/fixture worker: exercise the real feature through step:search_site. No synthetic counter increments."
     },
     {
       "module": "SearchBinding",
@@ -592,7 +601,7 @@
       "window_minutes": 30,
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
-      "note": "The same player House search commit as Interiors house_search_completed; the binding records the hand-over to the House service."
+      "note": "Pending driver/fixture worker: exercise the real feature through step:search_site. No synthetic counter increments."
     },
     {
       "module": "Leads",
@@ -608,7 +617,8 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c"
+      "source": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
+      "note": "Pending driver/fixture worker: exercise the real feature through step:admin:scene, step:take_lead. No synthetic counter increments."
     },
     {
       "module": "Lighting",
@@ -986,7 +996,8 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c"
+      "source": "mods/HollowCountry/scripts/4_World/Groups/HCTeamPing.c",
+      "note": "The group phase sends a real ping. Positive delivery still requires a connected eligible group recipient; a solo group may report zero."
     },
     {
       "module": "VehicleFlip",
@@ -1177,7 +1188,7 @@
       "feature": "nav-route-advance",
       "signal": {
         "tag": "[HC Use]",
-        "regex": "module=NavInf feature=route_advance count=(?P<count>\\d+)",
+        "regex": "module=HordeMigration feature=route_advanced count=(?P<count>\\d+)",
         "fields": [
           "count"
         ]
@@ -1186,9 +1197,9 @@
       "floor": 1,
       "window_minutes": 60,
       "needs_player": false,
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/HCHordeMigration.c",
       "scope": "runtime",
-      "note": "Aggregate nav_inf row: horde route advances."
+      "note": "HCModuleReadiness.c:183-204 alias; exercise member HordeMigration/route_advanced. "
     },
     {
       "module": "Interiors",
@@ -1213,7 +1224,7 @@
       "feature": "nav-door-action",
       "signal": {
         "tag": "[HC Use]",
-        "regex": "module=NavInf feature=door_action count=(?P<count>\\d+)",
+        "regex": "module=InfectedDoors feature=door_action count=(?P<count>\\d+)",
         "fields": [
           "count"
         ]
@@ -1222,16 +1233,16 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Doors/HCInfectedDoors.c",
       "scope": "runtime",
-      "note": "Aggregate nav_inf row: infected door actions."
+      "note": "HCModuleReadiness.c:183-204 alias; exercise member InfectedDoors/door_action. Pending driver/fixture worker: exercise the real feature through fixture:fx_door_press. No synthetic counter increments."
     },
     {
       "module": "InfectedReach",
       "feature": "nav-vault-started",
       "signal": {
         "tag": "[HC Use]",
-        "regex": "module=NavInf feature=vault_started count=(?P<count>\\d+)",
+        "regex": "module=InfectedReach feature=vault_started count=(?P<count>\\d+)",
         "fields": [
           "count"
         ]
@@ -1240,9 +1251,9 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
       "scope": "runtime",
-      "note": "Aggregate nav_inf row: infected vault climbs started."
+      "note": "HCModuleReadiness.c:183-204 alias; exercise member InfectedReach/vault_started. "
     },
     {
       "module": "InfectedSiege",
@@ -1303,7 +1314,7 @@
       "feature": "nav-stuck-recovery",
       "signal": {
         "tag": "[HC Use]",
-        "regex": "module=NavXai feature=stuck_recovery count=(?P<count>\\d+)",
+        "regex": "module=optional-expansion-human-ai feature=stuck_recovery count=(?P<count>\\d+)",
         "fields": [
           "count"
         ]
@@ -1312,9 +1323,9 @@
       "floor": 1,
       "window_minutes": 30,
       "needs_player": true,
-      "source": "mods/HollowCountry/scripts/4_World/Core/HCModuleReadiness.c",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
       "scope": "runtime",
-      "note": "Aggregate nav_xai row: stuck-recovery ladder steps taken."
+      "note": "HCModuleReadiness.c:183-204 alias; exercise member optional-expansion-human-ai/stuck_recovery. Pending driver/fixture worker: exercise the real feature through fixture:fx_convoy_stuck. No synthetic counter increments."
     },
     {
       "module": "NotesCompat",
@@ -1404,7 +1415,7 @@
       "needs_player": true,
       "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c",
       "scope": "runtime",
-      "note": "A cooking pass changed a stage and left a finished pack dish in the pot (cooking pack dish path ran). Module is enabled only when the cooking pack is present."
+      "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_hearth, fixture:fx_cooking. No synthetic counter increments."
     },
     {
       "module": "Fortify",
@@ -1858,6 +1869,60 @@
       "conditional": "upgrade-only",
       "required_when": "[HC Persistence] store=intent save_refused reason=read_pending count=1",
       "note": "Fault-only conditional using the existing upgrade-only schema token: absent fault is NOT_APPLICABLE. The checker legacy reason text mentions retirement; this row concerns persistence read recovery/refusal."
+    },
+    {
+      "module": "AIRoles",
+      "feature": "routes_pending",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=AIRoles feature=routes_pending count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRoleActivities.c",
+      "scope": "diagnostic",
+      "note": "Diagnostic: HCXAIRoleActivities.c:568-573 counts bind/qualify/create route work; HC-18 skips those phases (HCXAISites.c:632-640). Zero is normal."
+    },
+    {
+      "module": "CellarSampler",
+      "feature": "class_measured",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=CellarSampler feature=class_measured count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 60,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/Interiors/HCCellarSampler.c",
+      "scope": "diagnostic",
+      "note": "Diagnostic: HCCellarSampler.c:437 emits only after the whole-map survey completes; a bounded soak need not finish it."
+    },
+    {
+      "module": "InfectedReach",
+      "feature": "backoff_started",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=InfectedReach feature=backoff_started count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": true,
+      "source": "mods/HollowCountry/scripts/4_World/Infected/Reach/HCInfectedReachModule.c",
+      "scope": "diagnostic",
+      "note": "Diagnostic: depends on an eligible infected reaching its refusal/backoff path; successful reach actions need not back off."
     }
   ]
 }

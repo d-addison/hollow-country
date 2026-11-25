@@ -95,7 +95,7 @@ class PhaseMapTests(unittest.TestCase):
         broken['looks'].append({'id': 'everything', 'kind': 'owner_check', 'reason': 'x'})
         self.assertTrue(camp.manual_problems(broken))
         broken = copy.deepcopy(PHASES)
-        broken['manual']['TeamPing/ping_delivered']['reason'] = ' '
+        broken['manual']['Cellars/visual_applied']['reason'] = ' '
         self.assertTrue(camp.manual_problems(broken))
 
     def test_phases_and_idle_window(self):
@@ -118,6 +118,28 @@ class PhaseMapTests(unittest.TestCase):
         self.assertEqual(indexed, set(by_id))
         self.assertEqual(len(by_id), len(script['steps']))
 
+    def test_diagnostic_classifications_and_nav_members_match_the_code(self):
+        for key in ('AIRoles/routes_pending', 'CellarSampler/class_measured', 'InfectedReach/backoff_started'):
+            self.assertEqual(PHASES['reach'][key]['class'], 'diagnostic')
+            self.assertTrue(PHASES['reach'][key]['note'])
+        expectations = json.loads(camp.EXPECTATIONS.read_text())['features']
+        by_key = {r['module'] + '/' + camp.norm(r['feature']): r for r in expectations}
+        for key in ('AIRoles/routes_pending', 'CellarSampler/class_measured', 'InfectedReach/backoff_started'):
+            self.assertEqual(by_key[key]['scope'], 'diagnostic')
+        for key, member in (('HordeMigration/nav_route_advance', 'HordeMigration/route_advanced'),
+                            ('InfectedDoors/nav_door_action', 'InfectedDoors/door_action'),
+                            ('InfectedReach/nav_vault_started', 'InfectedReach/vault_started'),
+                            ('optional-expansion-human-ai/nav_stuck_recovery',
+                             'optional-expansion-human-ai/stuck_recovery')):
+            self.assertEqual(PHASES['reach'][key]['how'], PHASES['reach'][member]['how'])
+            self.assertNotIn('module=Nav', by_key[key]['signal']['regex'])
+        tokens = {token for r in PHASES['reach'].values() if r.get('status') == 'pending-driver'
+                  for token in r['how']}
+        self.assertTrue({'fixture:' + name for name in ('fx_shoot_held', 'fx_door_press', 'fx_hearth',
+                        'fx_die', 'fx_car_zeds', 'fx_incident', 'fx_tactic', 'fx_trade', 'fx_convoy_stuck')} <= tokens)
+        self.assertTrue({'step:' + name for name in ('search_site', 'take_lead', 'raise', 'hold_ring', 'respawn')}
+                        <= tokens)
+
     def test_bad_phase_file_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'p.json'
@@ -132,19 +154,23 @@ class PhaseMapTests(unittest.TestCase):
     def test_plan_reports_zero_unmapped_and_writes_nothing(self):
         lines, problems = camp.plan_text(PHASES)
         text = '\n'.join(lines)
-        self.assertEqual(problems, [])
+        self.assertTrue(all(p.startswith('unreached counters:') for p in problems))
+        self.assertIn('pending-driver:', text)
         self.assertIn('unmapped counters: 0', text)
         for name in camp.PHASE_ORDER:
             self.assertIn(name, text)
         self.assertNotIn('/home', text)
 
-    def test_shipped_reach_map_leaves_no_counter_unreached(self):
+    def test_shipped_reach_map_only_has_declared_pending_driver_gaps(self):
         rows = camp.reach_rows(PHASES)
         self.assertTrue(rows)
-        self.assertEqual([(key, problems) for key, _, _, problems in rows if problems], [])
+        for key, _, _, problems in rows:
+            if problems:
+                self.assertEqual(PHASES['reach'][key]['status'], 'pending-driver')
+                self.assertTrue(all(p.startswith('pending-driver:') for p in problems))
         lines, unreached = camp.reach_lines(rows)
-        self.assertEqual(unreached, 0)
-        self.assertIn('unreached=0', '\n'.join(camp.plan_text(PHASES)[0]))
+        self.assertGreater(unreached, 0)
+        self.assertIn('pending-driver:', '\n'.join(lines))
 
     def test_every_how_token_names_a_real_step_fixture_or_setting(self):
         context = camp.reach_context()
@@ -152,11 +178,16 @@ class PhaseMapTests(unittest.TestCase):
         for key, row in PHASES['reach'].items():
             for token in row['how']:
                 kinds.add(token.split(':', 1)[0])
-                self.assertIsNone(camp.reach_token_problem(token, row['phase'], PHASES, context), (key, token))
+                problem = camp.reach_token_problem(token, row['phase'], PHASES, context)
+                if problem:
+                    self.assertEqual(row.get('status'), 'pending-driver', (key, token))
+                else:
+                    self.assertIsNone(problem)
         self.assertTrue({'step', 'fixture', 'setting', 'code'} <= kinds)
 
     def test_reach_map_refuses_a_missing_wrong_or_invented_row(self):
         key = sorted(PHASES['reach'])[0]
+        baseline = {key: problems for key, _, _, problems in camp.reach_rows(PHASES) if problems}
         for edit in (lambda d: d['reach'].pop(key),
                      lambda d: d['reach'][key].update(how=['code:HCNoSuchFile.c', 'boot']),
                      lambda d: d['reach'][key].update(how=['fixture:fx_no_such', 'code:HCWorkBudget.c']),
@@ -165,11 +196,13 @@ class PhaseMapTests(unittest.TestCase):
                      lambda d: d['reach'].update({'Nope/never': {'phase': 'idle', 'how': ['boot']}})):
             broken = copy.deepcopy(PHASES)
             edit(broken)
-            lines, unreached = camp.reach_lines(camp.reach_rows(broken))
+            rows = camp.reach_rows(broken)
+            self.assertNotEqual({key: problems for key, _, _, problems in rows if problems}, baseline)
+            lines, unreached = camp.reach_lines(rows)
             self.assertGreater(unreached, 0)
         broken = copy.deepcopy(PHASES)
         lines, problems = camp.plan_text(broken)
-        self.assertEqual(problems, [])
+        self.assertTrue(all(p.startswith('unreached counters:') for p in problems))
 
     def test_plan_cli_is_read_only_and_names_a_missing_step_file(self):
         buffer = StringIO()
@@ -358,6 +391,46 @@ class StagerTests(Tmp):
         written = self.stager.client_parent / camp.CLIENT_PROFILE / camp.STEP_REL
         self.assertEqual(json.loads(written.read_text()), {'version': 1, 'steps': []})
         self.assertFalse(step.exists())
+
+    def test_profile_skip_is_copy_only_and_fresh_state_is_opt_in(self):
+        hc = self.server / 'profiles/HollowCountry'
+        files = ['admin-tour.json', 'scene-chains.json', 'scene-chains.json.tmp', 'scene-chains.json.bak',
+                 'Infected/hordes-a.json', 'Infected/hordes-a.json.tmp', 'Infected/hordes-a.json.bak',
+                 'Infected/hordes-b.json', 'Infected/hordes-b.json.tmp', 'Infected/hordes-b.json.bak',
+                 'Events/state/intent-1.json', 'Events/state/image-1.json', 'Events/state/commit-1.json',
+                 'Events/rewards/1-boot.txt', 'world.json', 'world.json.tmp', 'world.json.bak',
+                 'ai-custody.json', 'recovery-hc.json', 'w38-situations.json', 'Groups/state/state_1.json']
+        for rel in files:
+            path = hc / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'preserve')
+        source = {p: p.read_bytes() for p in hc.rglob('*') if p.is_file()}
+        for fresh in (False, True):
+            with self.subTest(fresh=fresh):
+                logs = []
+                self.stager.stage(self.addon, {'steps': []}, fresh_world_state=fresh, log=logs.append)
+                self.assertIn('staged: skipped admin-tour.json', logs)
+                for rel in files:
+                    should_skip = (rel == 'admin-tour.json' or fresh and (
+                        rel.startswith('Events/state/') or ('HollowCountry/' + rel).lower() in camp.FRESH_WORLD_SKIP))
+                    self.assertEqual((self.server / camp.PROFILE_COPY / 'HollowCountry' / rel).exists(),
+                                     not should_skip, rel)
+                self.assertEqual({p: p.read_bytes() for p in source}, source)
+                self.stager.restore(log=lambda line: None)
+                staged = json.loads((self.state / 'last-run/staging.json').read_text())
+                self.assertEqual(staged['fresh_world_state'], fresh)
+                self.assertEqual({p: p.read_bytes() for p in source}, source)
+
+    def test_copied_settings_symlink_cannot_modify_the_source(self):
+        settings = self.server / 'profiles/HollowCountry/settings.json'
+        target = self.root / 'source-settings.json'
+        original = settings.read_bytes()
+        target.write_bytes(original)
+        settings.unlink()
+        settings.symlink_to(target)
+        self.stager.stage(self.addon, {'steps': []}, log=lambda line: None)
+        self.assertEqual(target.read_bytes(), original)
+        self.assertFalse((self.server / camp.PROFILE_COPY / 'HollowCountry/settings.json').is_symlink())
 
     def test_restore_puts_every_byte_back_and_is_idempotent(self):
         self.stager.stage(self.addon, {'steps': []})
@@ -556,19 +629,51 @@ class CampaignTests(Tmp):
                                       'stop ' + camp.SERVER_IMAGE])
         self.assertIn('-connect=127.0.0.1:2302:27016', host.client_args)
         self.assertTrue([a for a in host.client_args if a.startswith('-mod=') and a.endswith(camp.TEST_MOD)])
-        self.assertGreaterEqual(self.clock.t, PHASES['min_idle_minutes'] * 60)
+        self.assertEqual(self.clock.t, camp.DRIVER_GRACE_SECONDS)
         self.assertEqual(self.snapshot(), self.original)
         self.assertFalse(self.stager.receipt_path.exists())
         server, client = camp.last_run_logs(self.state)
         self.assertIsNotNone(server)
         self.assertIn('[HC Driver] done', client.read_text())
 
+    def test_explicit_minimum_survives_early_driver_completion(self):
+        run, host = self.campaign()
+        run.min_duration_seconds = 30 * 60
+        self.assertTrue(run.run())
+        self.assertEqual(host.stopped_at[camp.CLIENT_IMAGE], 30 * 60)
+
+    def test_final_receipt_for_another_run_cannot_shorten_this_run(self):
+        run, host = self.campaign()
+        run.step_script['run_id'] = 'expected'
+        self.assertTrue(run.run())
+        self.assertGreaterEqual(self.clock.t, PHASES['min_idle_minutes'] * 60)
+
+    def test_completion_arriving_after_driver_budget_gets_the_grace(self):
+        run, host = self.campaign(driver='running')
+        sleep = run.sleep
+        completed_at = None
+
+        def append_done(seconds):
+            nonlocal completed_at
+            sleep(seconds)
+            # Initial driver budget for all phases is longer than 300 minutes.
+            if completed_at is None and self.clock.t >= 360 * 60:
+                rpt = self.stager.client_parent / camp.CLIENT_PROFILE / 'DayZ_x64_1.RPT'
+                with rpt.open('a') as stream:
+                    stream.write('[HC Driver] done run=r1 steps=1 ok=1 refused=0 unsupported=0 timeout=0\n')
+                completed_at = self.clock.t
+
+        run.sleep = append_done
+        self.assertTrue(run.run())
+        self.assertIsNotNone(completed_at)
+        self.assertEqual(host.stopped_at[camp.CLIENT_IMAGE], completed_at + camp.DRIVER_GRACE_SECONDS)
+
     def test_a_targeted_run_idles_short_and_marks_the_last_run(self):
         selection = camp.select_targets(PHASES, only_phases=['actions'], index={})
         run, host = self.campaign(selection)
         self.assertTrue(run.run())
         self.assertLess(self.clock.t, PHASES['min_idle_minutes'] * 60)
-        self.assertGreaterEqual(self.clock.t, camp.TARGETED_IDLE_MINUTES * 60)
+        self.assertEqual(self.clock.t, camp.DRIVER_GRACE_SECONDS)
         marker = self.state / 'last-run' / camp.SELECTION_FILE
         self.assertEqual(json.loads(marker.read_text())['phases'], ['join', 'actions', 'idle'])
         self.assertEqual(self.snapshot(), self.original)
@@ -705,6 +810,7 @@ class CampaignTests(Tmp):
 
     def test_unknown_process_reads_that_repeat_refuse(self):
         run, host = self.campaign(unknown_reads=camp.UNREADABLE_POLLS)
+        run.min_duration_seconds = 30 * 60
         with self.assertRaisesRegex(camp.Refused, 'process state unknown'):
             run.run()
         self.assertEqual(self.snapshot(), self.original)
@@ -1064,7 +1170,8 @@ class ReportTests(Tmp):
         by = {(r[0], r[1]): r for r in rows}
         self.assertEqual(by[('expect', 'Crafting/craft-completed')][3], 'active')
         self.assertEqual(by[('expect', 'Radio/radio-tuned')][3], 'zero')
-        self.assertEqual(by[('expect', 'TeamPing/ping-recipients')][3], 'friend playtest')
+        self.assertEqual(by[('expect', 'TeamPing/ping-recipients')][3], 'zero')
+        self.assertEqual(by[('expect', 'TeamPing/ping-recipients')][2], 'group')
         self.assertEqual(by[('use', 'Unknown/thing')][2], 'unmapped')
         self.assertEqual(by[('use', 'Unknown/thing')][3], 'zero')
         self.assertEqual(by[('look', 'lighting_look')][3], 'owner check')
@@ -1078,6 +1185,42 @@ class ReportTests(Tmp):
     def test_audit_failures_become_broken_rows_not_a_crash(self):
         rows = camp.report_rows(PHASES, None, None, ['activity_check --release unavailable: ValueError'])
         self.assertTrue([r for r in rows if r[0] == 'audit' and r[3] == 'zero'])
+
+    def test_tour_armed_or_any_stop_is_a_failed_soak_report(self):
+        server, client = self.root / 's.RPT', self.root / 'c.RPT'
+        client.write_text('')
+        for line in ('[HC Tour] state=armed delay=60 dwell=90',
+                     '[HC Tour] stop=1 result=ok', '[HC Tour] stop=0 result=refused'):
+            server.write_text(line + '\n')
+            with mock.patch.object(camp, 'activity_results', return_value=(None, None, [])), \
+                    mock.patch('tools.release.client_compile_check.scan', return_value={'passed': True}), \
+                    mock.patch('tools.release.client_compile_check.verdict_line', return_value='ok'):
+                report, totals = camp.build_report(PHASES, server, client)
+            self.assertEqual(totals['zero'], 1)
+            self.assertIn('admin_tour_detected', report)
+            self.assertIn('no-teleport rule violated', report)
+        server.write_text('[HC Tour] state=off\n')
+        self.assertIsNone(camp.admin_tour_failure(server))
+
+    def test_tour_failure_makes_report_command_nonzero(self):
+        server = self.root / 'last-run/server/s.RPT'
+        client = self.root / 'last-run/client/c.RPT'
+        server.parent.mkdir(parents=True)
+        client.parent.mkdir(parents=True)
+        server.write_text('[HC Tour] stop=1 result=ok\n')
+        client.write_text('')
+        with mock.patch.object(camp, 'activity_results', return_value=(None, None, [])), \
+                mock.patch('tools.release.client_compile_check.scan', return_value={'passed': True}), \
+                mock.patch('tools.release.client_compile_check.verdict_line', return_value='ok'):
+            self.assertEqual(camp.command_report(PHASES, self.root, StringIO()), 8)
+        self.assertIn('admin_tour_detected', (self.root / 'last-run/report.md').read_text())
+
+    def test_diagnostic_zero_is_visible_and_not_broken(self):
+        release = {'features': [dict(module='AIRoles', feature='routes_pending', status='INERT', count=0)]}
+        rows = camp.report_rows(PHASES, None, release)
+        row = next(r for r in rows if r[1] == 'AIRoles/routes_pending')
+        self.assertEqual(row[3], 'not run')
+        self.assertIn('diagnostic (zero allowed)', row[4])
 
     def test_driver_lines_are_filtered(self):
         private = '/ho' + 'me/someone'
