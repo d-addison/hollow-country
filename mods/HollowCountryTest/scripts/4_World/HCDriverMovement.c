@@ -6,7 +6,7 @@ class HCDriverMovement
     static const int POST_SUPER = 0;
     static const int PERSISTENT = 1;
     static const int PRE_SUPER = 2;
-    static int Variant;
+    static int Variant = 0; // POST_SUPER default; literal initializer (HC-E028).
     static bool Pending;
     static float Speed;
     static float Angle;

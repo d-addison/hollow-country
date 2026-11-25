@@ -406,36 +406,69 @@ Native evidence below is relative to `scripts-1.30.164289`:
   second if heading error failed to shrink; that can oscillate indefinitely when aim does not turn
   the body. Navigation now makes no aim-change requests.
 
-Ranked hypotheses: (1) body yaw differs from the movement input frame, compounded by oscillating
-look steering; (2) override timing/consumption; (3) a reversed movement-angle sign. The native cache
-cannot establish which caused the observed failure. Calibration measures the actual outcome:
+Build 188 moved only with post-super ONE_FRAME, and then only 0.4–0.6 m in 2.5 s;
+the +90 probe returned south instead of east. Endpoints alone cannot distinguish partial input
+consumption (A) from a server correction (B). These remain hypotheses until a native run records
+the following diagnostics. No position writes, speed escalation, or fixture changes compensate.
 
 1. Wait for ten continuous seconds alive, conscious and in `HumanCommandMove` with a controller
    and mission controls enabled. Missing/unloaded players reset this timer and release movement.
-   A run waiting 60 s without readiness refuses; it never probes an unsettled player.
-2. Each calibration run tries `one-frame-post-super`, `enabled`, then `one-frame-pre-super`.
-   Each requests angle 0 at run speed for 2.5 s and emits one `[HC Driver] calib attempt=N
-   variant=NAME moved_m=X frames=N cmd=ID` line. The first with more than 0.5 m horizontal
-   movement and applied callbacks wins; the later variants are skipped. No candidate's success is
-   assumed from script inspection. Native build 187 applied the old pre-super variant without moving.
-3. Probe the winner at +90 for 2.5 s. Native `human.c:459-463` documents movement input angles
-   as -180..180; `Bot_Hunt.c:145` passing 1 does not establish radians. Require more than 0.5 m,
-   applied callbacks, and a measured turn between 45 and 135 degrees in magnitude. Derive angle
-   sign and camera heading offset from these vectors; walks/routes use the winning mechanism and
-   measured frame. Failed or obstructed probes remain inconclusive and refuse navigation.
-4. Emit a result line with `variant`, `run`, `reason`, forward/right vectors, camera facing, body
-   yaw before/between/after, command ids, applied frames, `angle_sign`, `frame_offset`, `apply`,
-   `aim=disabled`, and `controls` (1 means restricted). Failed startup runs retry the full variant
-   sequence after 15 s, for at most three startup runs. Before an uncalibrated walk/route/sprint
-   starts, it requests one further run; the hard limit is four runs total per driver session.
-   Step timers start after this attempt. Readiness lost during a probe releases it and fails that run.
-5. Persistent ENABLED is set at movement start and updated only when speed/angle changes. Stop,
+   A run waiting 60 s without readiness refuses.
+2. Start with `one-frame-post-super` (also the movement default). Request speed **3.0**, angle 0,
+   for **4 s**, matching the vanilla bot's requested speed. Stop both overrides, then hold still
+   **2 s**. More than **0.30 m** horizontal movement and nonzero applied callbacks qualify.
+   Only a failed forward displacement/callback test tries `enabled`, then `one-frame-pre-super`,
+   as diagnostic fallbacks. A correction refuses immediately rather than trying to outrun it.
+3. Probe the first moving variant at speed 3.0, angle +90 for **4 s**, then Stop for **2 s**.
+   Both probes collect five observations at 0.5 s intervals (0.5 through 2.5 s), plus the 4 s
+   stop position and the position after the 2 s hold. `sample_s` records actual sample times;
+   the mission's clamped update clock can delay observations, and no sample is fabricated.
+   `GetCurrentMovementSpeed`/`GetCurrentMovementAngle` come from `HumanCommandMove`;
+   `GetCurrentInputAngle` returns `idle` when false. `dir` is the player's `GetDirection` xz.
+   All positions, directions and distances use two decimal places. The line is emitted after
+   settling, once per completed probe, with these exact field names and ordering:
+
+   ```text
+   [HC Driver] calib probe=fwd variant=one-frame-post-super req_speed=3.00 req_angle=0.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
+   [HC Driver] calib probe=right variant=one-frame-post-super req_speed=3.00 req_angle=90.00 pos=<x,z;x,z;x,z;x,z;x,z> cur_speed=<s;s;s;s;s> cur_angle=<a;a;a;a;a> input_angle=<a|idle;a|idle;a|idle;a|idle;a|idle> dir=<x,z;x,z;x,z;x,z;x,z> sample_s=<t;t;t;t;t> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5
+   [HC Driver] calib result=ok|refused variant=NAME run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O apply=measured-camera-frame|refused aim=disabled controls=0|1
+   ```
+
+4. `moved_m` measures start to Stop, independently for each probe. `settle_m` measures Stop to
+   settled position; `back_m` is that drift projected toward this probe's start (negative means
+   continuing away). Both above **0.20 m** refuse with `reason=server-correction`, even when
+   displacement is below 0.30 m. This is evidence consistent with server rollback, not a packet
+   trace proving server causality. Other causes of backwards drift still need native inspection.
+   For example, a northbound probe moving 3.00 m then returning 2.80 m gives `moved_m=3.00
+   settle_m=2.80 back_m=2.80`: B, refusal. A probe whose samples stay near the start, report
+   `cur_speed` near zero or `input_angle=idle`, and finish with `settle_m=0.02 back_m=0.02`
+   instead points toward A. Correct command readings with very low displacement and no rollback
+   can also mean obstruction; absence of a correction in this two-second window does not exclude
+   corrections during the drive or later.
+5. Calibration requires both displacements above 0.30 m, applied callbacks, and at least three
+   of five command-angle samples per probe within 15 degrees of the request. Failure to observe
+   those angles refuses as `command-angle-mismatch`. Measure the forward camera offset and sign
+   of the right turn; preserve them in the result even on direction refusal. If command angles
+   match but the forward offset exceeds 15 degrees or the camera-relative right turn differs
+   from +90 by more than 15 degrees, refuse as `command-angle-motion-mismatch`. A southbound
+   right probe with requested/reported +90 is not accepted as a usable movement frame.
+   Other reasons are `no-moving-variant`, `right-no-movement`, readiness failures, or `frame-probe`
+   for success. `Calibrated` becomes true only on `frame-probe`; walks/routes use measured values.
+6. States are readiness → forward drive → forward settle → right drive → right settle → result.
+   A failed forward variant returns to forward drive with the next variant. A run has at most
+   three forward probes and one right probe: **24 s nominal**, bounded by **26 s** of
+   clamped update time including frame overshoot (12 s nominal when the default moves), plus
+   60 s readiness and at most one update of overshoot. Startup failures retry after 15 s, at most
+   three startup runs; a pre-movement retry shares the hard **four-run session cap**. Step timers
+   start after calibration. Readiness loss stops immediately and refuses; an interrupted probe
+   has no completed-probe line. There are at most four probe lines and one result per run.
+7. Persistent ENABLED is set at movement start and updated only when speed/angle changes. Stop,
    release, step end, conclusion and shutdown disable both movement overrides on the original
-   controller. The command callback also clears on death, unconsciousness, lost movement command,
+   controller. The callback also clears on death, unconsciousness, lost movement command,
    disabled controls, changed local player, or an expired 0.5 s request lease. Missing/unloaded
    player ticks clear movement too. ONE_FRAME variants use the same explicit release paths.
-6. Every walk/route/sprint result begins its detail with `start=<x,z> end=<x,z> moved_m=N`, plus
-   `cmd` and `controls`. Sprint requires displacement to succeed. No per-frame logging is added.
+   Every walk/route/sprint result retains `start`, `end`, `moved_m`, `cmd` and `controls`.
+   Sprint requires displacement to succeed. No per-frame logging is added.
 
 `fx_site_patrol_kill` is registered with the same dev fixture flags as `fx_shoot`/`fx_melee`.
 The existing `enforce_lint` gate now checks every test addon `HCOwns` literal `fx_` comparison
