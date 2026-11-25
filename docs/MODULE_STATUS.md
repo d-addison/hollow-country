@@ -1,5 +1,28 @@
 # Gameplay implementation and remaining work
 
+Persistence #360/#361 worker findings (native verification pending):
+`HCEncounterStore.HCFinish`, `HCEcologyRuntimeStore.Save` and
+`HCXAICacheSave.HCBarrierWrite` now name exhausted stage caps with
+`[HC Persistence] owner=<class> guard=save_stage_guard steps=<count>`;
+ordinary stage failures retain their existing handling without this guard line.
+The event-journal repair/staged-startup brief requires a revised design before
+implementation: this checkout has `intent-<n>.json`, `image-<n>.json` and
+`commit-<n>.json`, not `entry_n` or `compact_n`. The existing commit rule
+(`HCEventJournal.HCLoadRevision`) requires identical nonempty intent/commit
+receipts, matching version/revision/world, image length/hash and valid decoded
+state. Only a missing highest commit or a strict prefix of its intent permits
+fallback to the immediately preceding fully validated revision; a complete but
+mismatched receipt/image refuses with the immutable-journal fault. There is no
+entry replay or compaction fallback to which the proposed failure table applies.
+Existing `HCEventJournalIO.PreserveTorn` copies the top triple into `Events/torn`
+and verifies before removal, but after exhausted copy attempts it can remove
+provably torn bytes without a verified copy. That conflicts with the brief's
+never-delete preservation invariant. Journal behavior and its two startup perf
+witness rows remain unchanged and deferred; no new repair receipt or use counter
+is implemented. Lead review of the triple-format failure table, bounded load and
+preservation plan, native compile to Mission and disposable crash/upgrade/reboot
+experiments remain required. No engine experiment is accepted by this note.
+
 Persistence W3-03 note (implemented-unverified): the v1-test-14 HCRefreshIntent backup=false crash window can restore N-1 for Escalation and other V2 SaveStep users that refresh; Holdouts never refreshes, so this window cannot duplicate its loot; native upgrade/crash evidence remains pending.
 
 Custody recovery (W2-08 round 8) remains **implemented-unverified**. Rejected

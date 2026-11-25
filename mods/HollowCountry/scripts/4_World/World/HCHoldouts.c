@@ -97,6 +97,10 @@ class HCEncounterStore<Class T>
             result = SaveStep(data);
             steps++;
         }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            Print("[HC Persistence] owner=HCEncounterStore guard=save_stage_guard steps=" + steps.ToString());
+        }
         if (result != HCSaveJob.STEP_DONE) { return Fault(); }
         return true;
     }

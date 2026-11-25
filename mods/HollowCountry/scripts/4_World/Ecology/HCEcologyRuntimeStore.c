@@ -318,7 +318,14 @@ class HCEcologyRuntimeStore
             result = HCStepSave();
             steps++;
         }
-        if (result == HCSaveJob.STEP_MORE) { m_Fault = true; m_SavePhase = -1; }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            // Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
+            // 1_Core/proto/EnConvert.c:30 int.ToString.
+            Print("[HC Persistence] owner=HCEcologyRuntimeStore guard=save_stage_guard steps=" + steps.ToString());
+            m_Fault = true;
+            m_SavePhase = -1;
+        }
         return result == HCSaveJob.STEP_DONE;
     }
 }
