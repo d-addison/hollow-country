@@ -15,7 +15,7 @@ applied in Python to those numbers:
   BH004  component centroid lies farther from the visual surface than max_detached
   BH005  model has no ComponentNN selection, or its Visual LOD is degenerate
 
-Without a usable Blender 5.2 the tool never skips: it prints a `needs-host-check:` line
+Without a usable Blender 5.2.4 the tool never skips: it prints a `needs-host-check:` line
 and exits 3. Exit codes: 0 = pass, 1 = findings or Blender build failure, 2 = refused
 input, 3 = needs-host-check. Offline mesh evidence only (engine_verified is false); the
 thresholds are provisional review values, not measured engine limits.
@@ -38,7 +38,7 @@ POLICY = {'tolerance_m': 0.05, 'tolerance_rel': 0.05, 'min_axis_cover': 0.5,
           'max_detached_rel': 0.5, 'min_extent_m': 1e-4}
 # Refusal reasons that mean this host cannot run the check (as opposed to a bad model).
 HOST_REASONS = ('blender.not_found', 'blender.configuration_invalid', 'blender.launch_failed',
-                'blender.windows_path_unavailable', 'blender.timeout', 'blender.version_requires_5_2')
+                'blender.windows_path_unavailable', 'blender.timeout', 'blender.version_requires_5_2_4')
 
 
 # --------------------------------------------------------------------------
@@ -138,8 +138,8 @@ def blender_measure(request):
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
 
-    if bpy.app.version[:2] != (5, 2):
-        raise ValueError('blender.version_requires_5_2')
+    if tuple(bpy.app.version) != (5, 2, 4):
+        raise ValueError('blender.version_requires_5_2_4')
     if request.get('schema') != REQUEST:
         raise ValueError('hitbox.request_schema')
     bpy.ops.wm.read_factory_settings(use_empty=True)

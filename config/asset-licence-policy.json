@@ -1,8 +1,8 @@
 {
   "schema": "asset-licence-policy.v1",
   "verdict_order": ["blocked", "internal_only", "shippable"],
-  "source_licences": ["CC0-1.0", "CC-BY-4.0", "MIT", "BSD-3-Clause", "Apache-2.0"],
-  "attribution_required": ["CC-BY-4.0", "MIT", "BSD-3-Clause", "Apache-2.0"],
+  "source_licences": ["CC0-1.0", "HC-Original"],
+  "attribution_required": ["HC-Original"],
   "external_process_only": ["GPL-2.0-only", "GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later"],
   "blocked_components": [
     {"names": ["coacd", "cuacd"], "reason": "Unresolved MIT versus LGPL-2.1 claim; counsel clearance required."},

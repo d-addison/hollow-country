@@ -78,11 +78,15 @@ def _ps(value):
 
 
 def _execute(executable, script, arguments, directory, timeout):
+    directory = build_directory(directory)
+    child_tmp = build_directory(directory / 'tmp')
     env = dict(os.environ)
     env.pop('PYTHONPATH', None)
     env.pop('PYTHONHOME', None)
     for key in ('BLENDER_USER_CONFIG', 'BLENDER_USER_SCRIPTS', 'BLENDER_USER_EXTENSIONS'):
         env[key] = str(directory / key.lower())
+    for key in ('TMP', 'TEMP', 'TMPDIR'):
+        env[key] = str(child_tmp)
     flags = ['-b', '--factory-startup', '--disable-autoexec', '--python-exit-code', '1', '-P']
     try:
         if executable.suffix.lower() == '.exe' and os.name != 'nt':
@@ -96,6 +100,8 @@ def _execute(executable, script, arguments, directory, timeout):
             setup = ';'.join('$env:' + k + '=' + _ps(_windows_path(directory / k.lower()))
                              for k in ('BLENDER_USER_CONFIG', 'BLENDER_USER_SCRIPTS',
                                        'BLENDER_USER_EXTENSIONS'))
+            setup += ';' + ';'.join('$env:' + k + '=' + _ps(_windows_path(child_tmp))
+                                    for k in ('TMP', 'TEMP', 'TMPDIR'))
             command = (
                 "$ErrorActionPreference='Stop';" + setup + ';'
                 "$env:PYTHONPATH=$null;$env:PYTHONHOME=$null;"
@@ -123,7 +129,8 @@ def _execute(executable, script, arguments, directory, timeout):
     if result.returncode == 124:
         raise BlenderRefusal('blender.timeout')
     if result.returncode:
-        reason = ('blender.version_requires_5_2' if 'blender.version_requires_5_2' in result.stderr
+        reason = ('blender.version_requires_5_2_4' if 'blender.version_requires_5_2_4' in result.stderr
+                  else 'blender.version_requires_5_2' if 'blender.version_requires_5_2' in result.stderr
                   else 'blender.failed')
         raise BlenderRefusal(reason, stdout=result.stdout, stderr=result.stderr)
     return result

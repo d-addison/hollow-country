@@ -1,7 +1,8 @@
 """Deterministic neutral.v1 -> canonical mlod.Asset, without native tools.
 
 Welds preserve UV seams (UVs are per corner), remap named selections, discard
-collapsed/zero-area triangles, orient connected surfaces and emit flat normals.
+collapsed/zero-area triangles, orient connected surfaces and emit flat normals by default.
+Optional face smooth booleans and mesh sharp_edges preserve authored shading.
 Physical visual meshes must be closed, orientable 2-manifolds. Each component's
 volume/area thickness proxy must pass: this is a conservative authoring guard,
 not a proof of local wall thickness or engine collision validity.
@@ -74,8 +75,9 @@ def _weld(vertices, distance):
 def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
     number(merge_distance, 1e-9, 0.1)
     number(min_thickness, 1e-9, 100)
-    if (not isinstance(mesh, dict) or set(mesh) !=
-            {'schema', 'vertices', 'faces', 'selections', 'points', 'proxies'}
+    if (not isinstance(mesh, dict) or not
+            {'schema', 'vertices', 'faces', 'selections', 'points', 'proxies'} <= set(mesh)
+            or set(mesh) - {'schema', 'vertices', 'faces', 'selections', 'points', 'proxies', 'sharp_edges'}
             or mesh['schema'] != 'neutral.v1'):
         raise ValueError('neutral.schema')
     if mesh['proxies']:
@@ -85,9 +87,22 @@ def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
         raise ValueError('neutral.mesh_limit')
     raw = [vector(v) for v in mesh['vertices']]
     positions, remap = _weld(raw, merge_distance)
-    faces, face_map = [], {}
+    sharp_raw = mesh.get('sharp_edges', [])
+    if not isinstance(sharp_raw, (list, tuple)) or len(sharp_raw) > MAX_MESH:
+        raise ValueError('neutral.sharp_edges')
+    sharp = set()
+    for edge in sharp_raw:
+        if not isinstance(edge, (list, tuple)) or len(edge) != 2:
+            raise ValueError('neutral.sharp_edges')
+        _indices(edge, len(raw))
+        a, b = (remap[i] for i in edge)
+        if a != b:
+            sharp.add(tuple(sorted((a, b))))
+    faces, face_map, smooth = [], {}, []
     for index, face in enumerate(mesh['faces']):
-        if (not isinstance(face, dict) or set(face) != {'vertices', 'uv', 'texture', 'material'}
+        if (not isinstance(face, dict) or not {'vertices', 'uv', 'texture', 'material'} <= set(face)
+                or set(face) - {'vertices', 'uv', 'texture', 'material', 'smooth'}
+                or type(face.get('smooth', False)) is not bool
                 or not 3 <= len(face['vertices']) <= 4):
             raise ValueError('neutral.face')
         corners = face['vertices']
@@ -112,6 +127,7 @@ def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
             if math.hypot(*normal) <= merge_distance**2:
                 continue
             face_map[index].append(len(faces))
+            smooth.append(face.get('smooth', False))
             faces.append(mlod.Face(ids, tuple(uv[i] for i in tri),
                                    face['texture'], face['material']))
     if not faces:
@@ -121,6 +137,8 @@ def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
     compact = {old: new for new, old in enumerate(used)}
     positions = [positions[i] for i in used]
     faces = [replace(f, vertices=tuple(compact[i] for i in f.vertices)) for f in faces]
+    sharp = {tuple(sorted((compact[a], compact[b]))) for a, b in sharp
+             if a in compact and b in compact}
     edges = defaultdict(list)
     for fi, face in enumerate(faces):
         for a, b in zip(face.vertices, face.vertices[1:] + face.vertices[:1]):
@@ -133,6 +151,29 @@ def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
             (a, da), (b, db) = members
             adjacency[a].append((b, da == db))
             adjacency[b].append((a, da == db))
+    if closed:
+        # Edge incidence alone admits a pinched vertex joining two closed shells.
+        # A manifold vertex has one connected fan of incident faces.
+        incident = defaultdict(set)
+        links = defaultdict(list)
+        for fi, face in enumerate(faces):
+            for vertex in face.vertices:
+                incident[vertex].add(fi)
+        for edge, members in edges.items():
+            a, b = (m[0] for m in members)
+            for vertex in edge:
+                links[(vertex, a)].append(b)
+                links[(vertex, b)].append(a)
+        for vertex, members in incident.items():
+            seed = next(iter(members))
+            seen, queue = {seed}, [seed]
+            while queue:
+                for neighbour in links[(vertex, queue.pop())]:
+                    if neighbour not in seen:
+                        seen.add(neighbour)
+                        queue.append(neighbour)
+            if seen != members:
+                raise ValueError('finish.nonmanifold_vertex')
     flips, components = {}, []
     for seed in range(len(faces)):
         if seed in flips:
@@ -168,10 +209,57 @@ def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
         if closed and volume < 0:
             for index in component:
                 flip(index)
-    for index, face in enumerate(faces):
+    # Smooth only across shared, non-sharp edges between smooth faces. Per-corner
+    # angle weighting avoids bias from triangulating a quad's diagonal.
+    face_normals = []
+    for face in faces:
         normal = triangle_normal(*(positions[i] for i in face.vertices))
         length = math.hypot(*normal)
-        faces[index] = replace(face, normals=(tuple(v / length for v in normal),) * 3)
+        face_normals.append(tuple(v / length for v in normal))
+    fans = defaultdict(list)
+    for edge, members in edges.items():
+        if edge not in sharp and len(members) == 2:
+            a, b = (m[0] for m in members)
+            if smooth[a] and smooth[b]:
+                for vertex in edge:
+                    fans[(vertex, a)].append(b)
+                    fans[(vertex, b)].append(a)
+    corner_normals, visited = {}, set()
+    work = 0
+    for fi, face in enumerate(faces):
+        if not smooth[fi]:
+            continue
+        for vertex in face.vertices:
+            if (vertex, fi) in visited:
+                continue
+            queue, group, total = [fi], [], [0.0]*3
+            visited.add((vertex, fi))
+            while queue:
+                current = queue.pop()
+                group.append(current)
+                work += 1
+                if work > MAX_WORK:
+                    raise ValueError('finish.smoothing_work_limit')
+                ids = faces[current].vertices
+                at = ids.index(vertex)
+                u = sub(positions[ids[(at-1) % 3]], positions[vertex])
+                v = sub(positions[ids[(at+1) % 3]], positions[vertex])
+                angle = math.acos(max(-1, min(1, dot(u, v)/(math.hypot(*u)*math.hypot(*v)))))
+                for axis in range(3):
+                    total[axis] += face_normals[current][axis] * angle
+                for neighbour in fans[(vertex, current)]:
+                    if (vertex, neighbour) not in visited:
+                        visited.add((vertex, neighbour))
+                        queue.append(neighbour)
+            length = math.hypot(*total)
+            if length <= 1e-12:
+                raise ValueError('finish.smoothing_zero_normal')
+            normal = tuple(v/length for v in total)
+            for member in group:
+                corner_normals[(vertex, member)] = normal
+    for fi, face in enumerate(faces):
+        faces[fi] = replace(face, normals=tuple(corner_normals.get((v, fi), face_normals[fi])
+                                              for v in face.vertices))
     selections = {}
     if not isinstance(mesh['selections'], dict) or len(mesh['selections']) > 512:
         raise ValueError('neutral.selection_limit')
@@ -184,7 +272,8 @@ def clean(mesh, *, merge_distance=1e-6, min_thickness=0.001, closed=True):
         selections[label] = mlod.Selection(
             tuple(sorted({compact[remap[i]] for i in vi if remap[i] in compact})),
             tuple(sorted({j for i in fi for j in face_map[i]})))
-    return mlod.LOD(tuple(mlod.Vertex(p) for p in positions), tuple(faces), selections)
+    return mlod.LOD(tuple(mlod.Vertex(p) for p in positions), tuple(faces), selections,
+                    sharp_edges=tuple(sorted(sharp & edges.keys())))
 
 
 def _point_triangle(p, a, b, c):
@@ -302,9 +391,13 @@ def box_hulls(primitives, *, mass):
 
 
 def finish(meshes, *, budgets, geometry_primitives=None, mass=10, physical=True,
-           merge_distance=1e-6, min_thickness=0.001, lod_distance=0.05):
+           merge_distance=1e-6, min_thickness=0.001, lod_distance=0.05,
+           view_geometry_primitives=None, fire_geometry_primitives=None, shadow_mesh=None):
     """meshes/budgets map visual resolutions to neutral meshes/triangle limits.
 
+    View/Fire use the same bounded convex-box schema as Geometry and reuse it
+    when omitted. Shadow defaults to the lowest-detail visual mesh, always
+    checked closed and triangulated, including nonphysical assets.
     No automatic simplification: supply authored lower-detail recipes. Lower
     LODs must satisfy both their triangle budget and a conservative surface
     Hausdorff upper bound against the highest detail mesh.
@@ -326,6 +419,13 @@ def finish(meshes, *, budgets, geometry_primitives=None, mass=10, physical=True,
     for resolution, lod in lods.items():
         if resolution != min(lods) and hausdorff(first, lod)['upper'] > lod_distance:
             raise ValueError('finish.lod_distance')
+    try:
+        shadow = clean(meshes[max(meshes)] if shadow_mesh is None else shadow_mesh,
+                       merge_distance=merge_distance, min_thickness=min_thickness, closed=True)
+    except ValueError as exc:
+        raise ValueError('finish.shadow.' + str(exc)) from None
+    lods[mlod.SHADOW] = replace(shadow, faces=tuple(replace(f, texture='', material='')
+                                                 for f in shadow.faces), selections={})
     points = meshes[min(meshes)]['points']
     if not isinstance(points, dict) or len(points) > 512:
         raise ValueError('neutral.points')
@@ -345,6 +445,10 @@ def finish(meshes, *, budgets, geometry_primitives=None, mass=10, physical=True,
             geometry_primitives = [{'kind': 'box', 'center': [(a+b)/2 for a, b in zip(low, high)],
                                     'size': [b-a for a, b in zip(low, high)]}]
         lods[mlod.GEOMETRY] = box_hulls(geometry_primitives, mass=mass)
+        for resolution, primitives in ((mlod.VIEW_GEOMETRY, view_geometry_primitives),
+                                       (mlod.FIRE_GEOMETRY, fire_geometry_primitives)):
+            lods[resolution] = (lods[mlod.GEOMETRY] if primitives is None
+                                else box_hulls(primitives, mass=mass))
     asset = mlod.Asset(lods, physical)
     mlod.validate(asset)
     return asset

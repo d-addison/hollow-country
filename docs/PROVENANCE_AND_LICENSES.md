@@ -11,6 +11,23 @@ This inventory records repository categories, not an assertion that every byte
 has undergone an independent authorship or legal review. A hygiene pass cannot
 approve third-party redistribution or satisfy DayZ runtime acceptance.
 
+Asset source policy (owner decision **2026-11-25**): only original team work
+(`HC-Original`) and `CC0-1.0` sources may enter the authored asset pipeline.
+CC-BY, MIT, BSD and Apache sources are refused even when attribution is available.
+No generative-model output of any kind is permitted. This source restriction does
+not relicense existing developer tooling listed below.
+
+`HC-Original` is an internal provenance identifier, not an open reuse licence.
+It requires the same sealed `provenance.v2` record as CC0: source, content hash,
+licence/rights notice file and its hash. Its nonempty attribution field records
+the authorship notice; it does not grant rights in Bohemia content. Licence
+admission uses `tools.assets.licence_gate`; structural asset lint alone makes no
+licence claim. Its optional `--source-licence HC-Original --provenance <sealed
+provenance.json>` requests this gate and refuses an absent or unsealed record.
+GPL tools, including Blender, remain external processes only, never bundled;
+the existing external-process verdict remains `internal_only` until the lead
+resolves the toolchain admission separately. Blocked components remain blocked.
+
 Historical commits, issue discussions, workflow logs and downloadable artifacts
 are a separate review scope tracked in
 [public-readiness issue #57](https://github.com/d-addison/hollow-country/issues/57).

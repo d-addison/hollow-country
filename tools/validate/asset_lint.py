@@ -20,6 +20,9 @@ Extensions (all offline, none establish native acceptance):
   rig   HC-A015: rig = {bones, skeleton, poses}: weight groups must be in the
         bones allowlist; synthetic poses over skeleton ({bone: {parent, pivot}},
         poses {name: {bone: [axis, degrees]}}) bound edge stretch to 2.5x.
+Licence admission is separate from structural lint: source_licence requests
+require a sealed provenance_path and a fresh licence_gate audit, including for
+HC-Original. Without those arguments this tool makes no licence-admission claim.
 Texel density needs recipe data and is not checked here.
 """
 import argparse
@@ -47,6 +50,7 @@ RULES = {
     'HC-A013': 'Textures: .paa header, power-of-two size, suffix format, referenced and shipped',
     'HC-A014': 'Material stage textures resolve to allowed inventoried paths',
     'HC-A015': 'Rig: allowlisted bones and bounded synthetic-pose edge stretch',
+    'HC-A016': 'Source licence requires sealed, shippable provenance',
 }
 
 MIN_AREA = 1e-12
@@ -73,7 +77,8 @@ def asset_from_ir(document):
                         for f in row.get('faces', [])),
             selections={n: mlod.Selection(tuple(s.get('vertices', [])), tuple(s.get('faces', [])))
                         for n, s in row.get('selections', {}).items()},
-            properties=row.get('properties', {}), masses=tuple(row.get('masses', [])))
+            properties=row.get('properties', {}), masses=tuple(row.get('masses', [])),
+            sharp_edges=tuple(tuple(e) for e in row.get('sharp_edges', [])))
     return mlod.Asset(lods, document.get('physical', True))
 
 
@@ -322,7 +327,7 @@ def _texture_checks(textures, rvmats, asset, inventory, check_path, fail):
         if path.casefold() not in referenced:
             fail('HC-A013', 'unreferenced texture')
         check_path(path)
-    own = mlod.OWN_PREFIX.casefold() + '\\'
+    own = tuple(p.casefold() + '\\' for p in mlod.OWN_PREFIXES)
     for path in referenced:
         if path.endswith('.paa') and path.startswith(own) and path not in shipped:
             fail('HC-A013', 'referenced own texture not shipped')
@@ -409,11 +414,26 @@ def _rig_checks(asset, rig, weights, fail):
 
 
 def lint(asset, *, model_cfg='', config='', sources=(), skin_weights=None,
-         policy=None, textures=None, rvmats=None, rig=None):
+         policy=None, textures=None, rvmats=None, rig=None,
+         source_licence=None, provenance_path=None):
     findings = []
 
     def fail(rule, detail):
         findings.append({'id': rule, 'detail': detail})
+
+    if source_licence is not None or provenance_path is not None:
+        from tools.assets import licence_gate, provenance
+        try:
+            if (not isinstance(source_licence, str) or provenance_path is None
+                    or source_licence not in licence_gate.load_policy()['source_licences']
+                    or not licence_gate.audit(provenance_path)['shippable']):
+                raise ValueError
+            path = Path(provenance_path)
+            record = provenance.load_json(provenance.read_regular(path.parent, path.name))
+            if not any(r['licence_id'] == source_licence for r in record['inputs']):
+                raise ValueError
+        except (OSError, ValueError, TypeError, KeyError):
+            fail('HC-A016', 'source licence absent, refused or missing sealed provenance')
 
     geometry = asset.lods.get(mlod.GEOMETRY)
     if not geometry or not geometry.faces or not geometry.vertices:
@@ -556,6 +576,8 @@ def main(argv=None):
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--sources', type=Path, required=True)
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--source-licence', help='licence admission request; requires --provenance')
+    parser.add_argument('--provenance', type=Path, help='sealed provenance.json for licence admission')
     parser.add_argument('--policy', type=Path, help='JSON mesh policy (see module docstring)')
     parser.add_argument('--rig', type=Path, help='JSON {bones, skeleton, poses}')
     parser.add_argument('--textures', type=Path, help='JSON {virtual path: local .paa file}')
@@ -578,6 +600,7 @@ def main(argv=None):
             return {k: Path(v).read_bytes() if binary else Path(v).read_text() for k, v in mapping.items()}
         result = lint(asset, model_cfg=args.model_cfg.read_text(), config=args.config.read_text(),
                       sources=json.loads(args.sources.read_text()), skin_weights=weights,
+                      source_licence=args.source_licence, provenance_path=args.provenance,
                       policy=json.loads(args.policy.read_text()) if args.policy else None,
                       rig=json.loads(args.rig.read_text()) if args.rig else None,
                       textures=table(args.textures, True), rvmats=table(args.rvmats, False))

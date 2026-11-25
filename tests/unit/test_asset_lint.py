@@ -42,6 +42,13 @@ class AssetLintTests(unittest.TestCase):
         document = json.loads(json.dumps(asdict(self.cube)))
         self.assertTrue(self.check(asset_lint.asset_from_ir(document))['valid'])
 
+    def test_assets_prefix_uses_owned_texture_shipping_rule(self):
+        path = r'HollowCountryAssets\data\fixture_co.paa'
+        lod = self.cube.lods[0]
+        cube = self.changed(0, faces=tuple(replace(f, texture=path) for f in lod.faces))
+        self.fails('HC-A013', cube, sources=self.sources | {path}, textures={})
+        self.assertTrue(self.check(cube, sources=self.sources | {path})['valid'])
+
     def test_geometry_required(self):
         self.fails('HC-A001', replace(self.cube, lods={0.: self.cube.lods[0.]}))
 

@@ -18,7 +18,8 @@ back from float32 on read. Geometry masses are a separate per-vertex tuple,
 encoded as #Mass#, never a string property. Other properties (autocenter, class,
 etc.) are ASCII key/value strings. Named selections contain point/face indices,
 with binary membership only (selected points have weight 1, encoded byte 1).
-Fractional selection weights and animation/editor tags are unsupported.
+Sharp edges are vertex-index pairs encoded in #SharpEdges#; per-corner normals
+carry smoothing. Fractional selection weights and other editor tags are unsupported.
 
 UNVERIFIED: proxy triangle vertex order/orientation has no established native
 proof here. Proxy IR records intent, but both Proxy entries and proxy: selection
@@ -36,6 +37,7 @@ import math
 import re
 import struct
 
+# BI LOD resolutions: https://community.bistudio.com/wiki/LOD_resolutions
 GEOMETRY = 1e13
 MEMORY = 1e15
 VIEW_GEOMETRY = 6e15
@@ -48,6 +50,7 @@ MAX_LODS = 64
 MAX_TAGS = 4096
 MAX_BYTES = 128 * 1024 * 1024
 OWN_PREFIX = 'HollowCountry'
+OWN_PREFIXES = (OWN_PREFIX, 'HollowCountryAssets')
 Vec3 = tuple[float, float, float]
 UV = tuple[float, float]
 
@@ -89,6 +92,7 @@ class LOD:
     properties: dict[str, str] = field(default_factory=dict)
     masses: tuple[float, ...] = ()
     proxies: tuple[Proxy, ...] = ()
+    sharp_edges: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -119,10 +123,10 @@ def virtual_path(value):
     if not value:
         return value
     parts = value.split('\\')
-    if (len(parts) < 2 or parts[0].casefold() not in {'dz', OWN_PREFIX.casefold()}
+    if (len(parts) < 2 or parts[0].casefold() not in {'dz', *(p.casefold() for p in OWN_PREFIXES)}
             or any(not re.fullmatch(r'[A-Za-z0-9_.-]+', part)
                    or part in {'.', '..'} for part in parts)):
-        raise ValueError('expected DZ or HollowCountry virtual path')
+        raise ValueError('expected DZ or owned virtual path')
     return value
 
 
@@ -199,8 +203,15 @@ def validate(asset):
             raise ValueError('LOD exceeds point/face bound (65535)')
         if lod.proxies:
             raise ValueError('proxy triangle order unverified until P0-6')
-        if len(lod.selections) + len(lod.properties) + 3 > MAX_TAGS:
+        if len(lod.selections) + len(lod.properties) + 3 + bool(lod.sharp_edges) > MAX_TAGS:
             raise ValueError('too many tags')
+        for edge in lod.sharp_edges:
+            if len(edge) != 2:
+                raise ValueError('sharp edge requires two indices')
+            _indices(edge, len(lod.vertices))
+        if (len(lod.sharp_edges) > MAX_FACES * 4
+                or len({tuple(sorted(e)) for e in lod.sharp_edges}) != len(lod.sharp_edges)):
+            raise ValueError('duplicate or excessive sharp edges')
         for vertex in lod.vertices:
             _vector(vertex.position, 3)
             _uint(vertex.flags)
@@ -232,7 +243,10 @@ def validate(asset):
             if any(m < 0 for m in masses) or (masses and sum(masses) <= 0):
                 raise ValueError('Geometry mass must be nonnegative with positive total')
         elif lod.masses:
-            raise ValueError('#Mass# is Geometry-only')
+            if (_resolution(resolution) not in (VIEW_GEOMETRY, FIRE_GEOMETRY)
+                    or len(lod.masses) != len(lod.vertices)
+                    or any(_f32(m) < 0 for m in lod.masses) or sum(lod.masses) <= 0):
+                raise ValueError('invalid Geometry variant mass')
 
 
 def _tag(name, payload):
@@ -275,7 +289,10 @@ def write_mlod(asset):
         for name, value in sorted(lod.properties.items()):
             out.extend(_tag('#Property#', _ascii(name).ljust(64, b'\0')
                             + _ascii(value).ljust(64, b'\0')))
-        if _resolution(resolution) == GEOMETRY:
+        if lod.sharp_edges:
+            out.extend(_tag('#SharpEdges#', b''.join(
+                struct.pack('<II', *edge) for edge in lod.sharp_edges)))
+        if _resolution(resolution) == GEOMETRY or lod.masses:
             out.extend(_tag('#Mass#', struct.pack('<' + 'f'*len(lod.masses), *lod.masses)))
         out.extend(_tag('#EndOfFile#', b''))
         out.extend(struct.pack('<f', resolution))
@@ -369,7 +386,8 @@ def read_mlod(data, *, physical=True):
         if reader.take(4) != b'TAGG':
             raise ValueError('missing TAGG marker')
         selections, properties, masses = {}, {}, ()
-        seen_uv = seen_mass = False
+        seen_uv = seen_mass = seen_sharp = False
+        sharp_edges = ()
         for _ in range(MAX_TAGS):
             if reader.take(1) != b'\x01':
                 raise ValueError('unsupported inactive tag')
@@ -384,6 +402,11 @@ def read_mlod(data, *, physical=True):
                 if seen_uv or payload != expected_uv:
                     raise ValueError('unsupported or mismatching UV set')
                 seen_uv = True
+            elif name == '#SharpEdges#':
+                if seen_sharp or size % 8 or size > MAX_FACES * 4 * 8:
+                    raise ValueError('invalid sharp edges tag')
+                sharp_edges = tuple(struct.iter_unpack('<II', payload))
+                seen_sharp = True
             elif name == '#Mass#':
                 if seen_mass or size != np*4:
                     raise ValueError('invalid mass tag')
@@ -408,11 +431,13 @@ def read_mlod(data, *, physical=True):
         if not seen_uv:
             raise ValueError('missing UV set zero')
         resolution = _resolution(reader.unpack('f')[0])
-        if seen_mass != (resolution == GEOMETRY):
-            raise ValueError('mass tag must occur exactly in Geometry')
+        if ((resolution == GEOMETRY and not seen_mass)
+                or (seen_mass and resolution not in (GEOMETRY, VIEW_GEOMETRY, FIRE_GEOMETRY))):
+            raise ValueError('mass tag requires Geometry or a Geometry variant')
         if resolution in lods:
             raise ValueError('duplicate LOD resolution')
-        lods[resolution] = LOD(tuple(vertices), tuple(faces), selections, properties, masses)
+        lods[resolution] = LOD(tuple(vertices), tuple(faces), selections, properties, masses,
+                               sharp_edges=sharp_edges)
     if reader.offset != len(data):
         raise ValueError('trailing MLOD bytes')
     asset = Asset(lods, physical)

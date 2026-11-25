@@ -128,8 +128,22 @@ class MLODWriterTests(unittest.TestCase):
                     cube.lods[0.] = replace(lod, faces=(replace(lod.faces[0], **{field: path}),))
                     with self.assertRaises(ValueError):
                         write_mlod(cube)
-        for path in ('', r'DZ\data\test.paa', r'HollowCountry\data\test.rvmat'):
+        for path in ('', r'DZ\data\test.paa', r'HollowCountry\data\test.rvmat', r'HollowCountryAssets\data\test.paa'):
             self.assertEqual(virtual_path(path), path)
+
+    def test_sharp_edges_validation_and_tag_roundtrip(self):
+        visual = replace(hc_test_cube().lods[0], sharp_edges=((0, 1), (1, 2)))
+        raw = write_mlod(Asset({0: visual}, physical=False))
+        restored = read_mlod(raw, physical=False)
+        self.assertEqual(restored.lods[0].sharp_edges, visual.sharp_edges)
+        self.assertEqual(write_mlod(restored), raw)
+        for edges in (((0, 0),), ((0, MAX_POINTS),), ((0,),), ((0, 1), (1, 0))):
+            with self.subTest(edges=edges), self.assertRaises(ValueError):
+                write_mlod(Asset({0: replace(visual, sharp_edges=edges)}, physical=False))
+        marker = raw.index(b'#SharpEdges#') + len(b'#SharpEdges#') + 1
+        malformed = raw[:marker] + struct.pack('<I', 7) + raw[marker+4:]
+        with self.assertRaisesRegex(ValueError, 'invalid sharp edges tag'):
+            read_mlod(malformed, physical=False)
 
     def test_point_bound_and_boundary(self):
         point = Vertex((0., 0., 0.))
