@@ -171,6 +171,7 @@ class HCWorldMaterializer : HCModule
     override void RegisterUses()
     {
         super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse(GetName(), "custody_read_ok");
         HCModuleReadiness.HCRegisterUse(GetName(), "custody_read_recovered");
         HCModuleReadiness.HCRegisterUse(GetName(), "custody_save_read_pending");
     }
@@ -207,6 +208,10 @@ class HCWorldMaterializer : HCModule
             Print(HCV2Admission.Line("Materializer", true, "EXP-L1", HCV2Gates.Qualified("EXP-L1")));
             m_AdmissionPrinted = true;
         }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryCustodyLoad);
+        m_CustodyReadRetry.HCReset();
+        m_CustodyReadCallbacks = 0;
+        m_Stopping = false;
         m_Active.Clear();
         m_Cooldowns.Clear();
         for (int cooldownIndex = 0; cooldownIndex < HCAILimits.Get().MaxHoldouts + HCAILimits.Get().MaxParties; cooldownIndex++) { m_Cooldowns.Insert(0); }
@@ -282,7 +287,7 @@ class HCWorldMaterializer : HCModule
     protected void HCRetryCustodyLoad()
     {
         if (!m_Running || m_CustodyReady || !m_CustodyRetryRead) { return; }
-        if (!m_CustodyReadRetry.HCTakeBudget()) { return; }
+        if (!m_CustodyReadRetry.HCTakeBudget()) { this.HCScheduleCustodyRead(); return; }
         m_CustodyReady = m_CustodyReadRetry.HCBegin() && this.HCLoadCustody();
         if (m_CustodyReady) { this.HCAcceptCustodyLoad(); }
         else if (!m_CustodyRetryRead) { HCAIBudget.Block(); }
@@ -423,10 +428,10 @@ class HCWorldMaterializer : HCModule
         text = "";
         if (!FileExist(path)) { return true; }
         if (HCWorldStore.ReadAvailable(path, text)) { return true; }
-        m_CustodyLoadFault = "custody_read_retrying";
         HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
         m_CustodyRetryRead = true;
         m_CustodyReadRetry.HCRetain(GetName(), "custody");
+        m_CustodyLoadFault = m_CustodyReadRetry.HCReason("custody");
         this.HCScheduleCustodyRead();
         return false;
     }
@@ -435,12 +440,8 @@ class HCWorldMaterializer : HCModule
     {
         m_CustodyLoadFault = reason;
         Print("[HC " + GetName() + "] " + reason);
-        // Preserve existing retryability for recovery IO faults. Content damage
-        // still takes its existing recovery path, never an empty-state save.
-        HCAIBudget.Restore("custody:read_retry", HCAILimits.Get().MaxLiveAI);
-        m_CustodyRetryRead = true;
-        m_CustodyReadRetry.HCRetain(GetName(), "custody");
-        this.HCScheduleCustodyRead();
+        // Only HCReadCustody can classify an unavailable read and arm a retry.
+        // Parse/schema, verification and write faults remain terminal.
         return false;
     }
 

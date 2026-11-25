@@ -30,9 +30,8 @@ World store: an existing `world.json`, `.tmp` or `.bak` that cannot be opened or
 `world_read_unavailable` no longer goes through the quarantine gate (lead decision
 2026-11-25, matching the original design). Unavailable reads retry in-session and
 never quarantine; parse, schema and interrupted-pair damage still quarantine. The
-in-session policy is implemented below for custody and search-refresh; World still
-needs its out-of-scope owner lifecycle wired before it meets that policy (currently
-`action=retain_retry_next_boot`, files retained and saves refused).
+in-session policy is implemented below for World, custody and search-refresh;
+World retains its store until load succeeds and does not register saves while pending.
 
 Lead-only diag evidence (pending; use a fresh disposable, CE-disabled runtime,
 shared host lock and 180-second external watchdog; never a live profile):
@@ -64,10 +63,10 @@ These checks remain planned diag evidence. Lead native compile to Mission,
 retail boot/use evidence, crash/upgrade checks and persistence cross-model review
 are still required; no engine experiment is accepted here.
 
-Persistence #353 / #360 items 3–4 (partial, implemented-unverified, 2026-11-25):
+Persistence #353 / #360 items 3–4 (implemented-unverified, 2026-11-25):
 `HCPersistenceReadRetry` in `World/HCWorldStore.c` shares a boot-local twelve-attempt
 bound (initial load included), delays 5/15/45/120 seconds then 300 seconds, a
-one-unit `HCWorkBudget`, save refusal latch and counters. Materializer and
+one-unit `HCWorkBudget`, save refusal latch and counters. World, Materializer and
 LootRefresh use bounded, nonrepeating native call-queue callbacks; Stop removes
 them, and callbacks check the running owner before loading. Each callback admits
 one load transaction, not a loop of retries; native reads/JSON within recovery
@@ -84,11 +83,33 @@ succeeds. Both store save entry points refuse pending reads with
 Successful retries count `custody_read_recovered` / `intent_read_recovered`.
 World and search intent recovery preflight their backup before replacing it.
 
-Remaining #353 work (not accepted): `HCWorldModule.c:81–86` returns after a failed
-Load, and `:115` prevents ticking while not running; its owner lifecycle and
-readiness changes are outside this worker's explicit file scope. World therefore
-retains next-boot recovery, now without quarantine, with explicit save protection.
-Legacy custody marker cleanup and depth-cap compaction are also deferred: in
+World now retries unavailable reads through its retained store at the same bounded
+schedule. It stays not-ready with `world_read_retrying`, or `world_read_exhausted`
+after attempt twelve, and starts its normal ledger/save job only after load succeeds.
+Core's existing late-readiness refresh emits the successful `[HC Ready]` receipt
+once; the module does not emit a duplicate. OnStart resets retry bookkeeping and
+removes stale callbacks; OnStop removes callbacks even while World is not running.
+Custody only arms retries on unavailable reads, never parse/schema/write faults.
+All three owners report `<store>_read_exhausted` with `action=retain_retry_next_boot`
+once at the final failed attempt, retaining the save refusal latch.
+
+| Store | Unavailable read | Successful retry | Exhaustion |
+| --- | --- | --- | --- |
+| World | Not-ready, no save job; retained store retries | Normal startup, `world_read_ok` + `world_read_recovered` | Not-ready `world_read_exhausted`, files retained |
+| Custody | Degraded, AI reservation held; retries | Accept real custody, release reservation | Degraded `custody_read_exhausted`, files retained |
+| Search refresh | Degraded, gameplay/save job waits; retries | Validate state, normal save job | Degraded `intent_read_exhausted`, files retained |
+
+Healthy loads count `world_read_ok`, `custody_read_ok`, `intent_read_ok`, including
+valid fresh stores. Failure-only recovery/save-refusal counters use the existing
+conditional precedent at `config/activity-expectations.json:1611` (VehicleRetire).
+The checker only accepts the legacy schema token `upgrade-only`; these new rows
+use it with persistence-specific `required_when` markers. Absent faults are
+NOT_APPLICABLE; an observed unavailable read requires recovery use, and an observed
+save refusal requires refusal use. The checker's inherited idle reason text still
+mentions retirement; making that generic requires an out-of-scope activity checker
+change. This is conditional applicability, never a waiver or activity proof.
+
+Remaining work (not accepted): Legacy custody marker cleanup and depth-cap compaction are also deferred: in
 `HCSelectRetainedCustody`, `.unverified_read` is a durable route to a deeper active
 `.bak` store that can contain newer committed saves. A verified original file is
 not sufficient to remove that route. `HCCustodyDepthAllowed` counts this active
@@ -118,7 +139,7 @@ rollback: the existing F2 residual below remains planned/unverified.
 Lead native evidence still required: on a disposable retail server profile preserve
 all custody/world/search siblings and hash them; hold an exclusive Windows file
 lock on `ai-custody.json` for about 60 seconds across boot, then release. Repeat
-for `world.json` after its owner wiring lands and for `search-refresh.json.tmp`
+for `world.json` and for `search-refresh.json.tmp`
 with a valid pending intent. Expect `read_retrying`, no new marker/relocation, then
 `read_recovered` and real loaded readiness. With the stated delays a 60-second
 lock normally releases before attempt four at about 65 seconds. Retain a lock

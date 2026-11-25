@@ -39,6 +39,19 @@ class HCPersistenceReadRetry
     protected int m_SaveRefused;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
 
+    void HCReset()
+    {
+        m_Attempts = 0;
+        m_Wait = 0;
+        m_Pending = false;
+        m_SaveRefused = 0;
+    }
+    bool HCExhausted() { return m_Attempts >= 12; }
+    string HCReason(string store)
+    {
+        if (HCExhausted()) { return store + "_read_exhausted"; }
+        return store + "_read_retrying";
+    }
     bool HCPending() { return m_Pending; }
     void HCCancel() { m_Pending = false; }
     int HCAttempts() { return m_Attempts; }
@@ -50,6 +63,7 @@ class HCPersistenceReadRetry
     }
     void HCRetain(string module, string store, bool nextBootOnly = false)
     {
+        if (!m_Pending) { Print("[HC Persistence] store=" + store + " read_unavailable"); }
         m_Pending = true;
         m_Wait = 300;
         if (m_Attempts == 1) { m_Wait = 5; }
@@ -58,7 +72,7 @@ class HCPersistenceReadRetry
         if (m_Attempts == 4) { m_Wait = 120; }
         string action = "retry_in_session";
         if (m_Attempts >= 12 || nextBootOnly) { action = "retain_retry_next_boot"; }
-        string reason = store + "_read_retrying";
+        string reason = HCReason(store);
         if (nextBootOnly) { reason = store + "_read_unavailable"; }
         Print("[HC Persistence] store=" + store + " reason=" + reason + " attempt=" + m_Attempts.ToString() + " action=" + action);
     }
@@ -70,6 +84,9 @@ class HCPersistenceReadRetry
     }
     void HCLoaded(string module, string store)
     {
+        // Owner-requested startup read evidence, not gameplay: only an attempted,
+        // successfully loaded store reaches this completion hook.
+        if (m_Attempts > 0) { HCModuleReadiness.HCUse(module, store + "_read_ok"); }
         if (m_Pending)
         {
             Print("[HC Persistence] store=" + store + " read_recovered attempt=" + m_Attempts.ToString());
@@ -104,6 +121,12 @@ class HCWorldStore
     protected int m_SaveStage;
     protected string m_PendText;
     protected string m_PendPrior;
+
+    bool HCReadPending() { return m_ReadUnavailable && m_ReadRetry.HCPending(); }
+    bool HCReadExhausted() { return m_ReadRetry.HCExhausted(); }
+    string HCReadReason() { return m_ReadRetry.HCReason("world"); }
+    int HCRetryDelayMs() { return m_ReadRetry.HCDelayMs(); }
+    bool HCReadBudget() { return m_ReadRetry.HCTakeBudget(); }
 
     bool Prepare()
     {
@@ -508,16 +531,17 @@ class HCWorldStore
 
     bool Load()
     {
+        HCModuleReadiness.HCRegisterUse("World", "world_read_ok");
         HCModuleReadiness.HCRegisterUse("World", "world_read_recovered");
         HCModuleReadiness.HCRegisterUse("World", "world_save_read_pending");
         if (!m_ReadRetry.HCBegin()) { return false; }
         m_Data = null;
         m_Fresh = false;
+        m_ReadUnavailable = false;
         HCStagedSaveImage.HCForget(m_Path);
         m_SaveImage.HCForgetVerified();
         if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
         m_Fault = false;
-        m_ReadUnavailable = false;
         if (!Prepare()) { return Fault(); }
         if (FileExist(m_Temp) && !RecoverIntent())
         {
@@ -534,8 +558,9 @@ class HCWorldStore
         {
             m_Data = HCWorldData.Fresh(HCWorldClock.UTC());
             m_Fresh = true;
+            if (!m_Data) { return false; }
             m_ReadRetry.HCLoaded("World", "world");
-            return m_Data != null;
+            return true;
         }
         if (!ReadCurrent())
         {
@@ -565,12 +590,11 @@ class HCWorldStore
         return true;
     }
 
-    // Lead decision 2026-11-25: unavailable is not damage and never closes
-    // the quarantine gate. Owner lifecycle retry needs HCWorldModule changes.
+    // Unavailable is not damage; the owner retains this store for bounded retries.
     protected bool HCReadUnavailable()
     {
         m_ReadUnavailable = true;
-        m_ReadRetry.HCRetain("World", "world", true);
+        m_ReadRetry.HCRetain("World", "world");
         return false;
     }
 

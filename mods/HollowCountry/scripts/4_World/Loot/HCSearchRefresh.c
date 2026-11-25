@@ -485,6 +485,9 @@ class HCSearchRefreshStore
     protected bool m_ReadUnavailable;
     protected ref HCPersistenceReadRetry m_ReadRetry = new HCPersistenceReadRetry;
 
+    void HCResetRead() { m_ReadRetry.HCReset(); m_Fault = false; m_ReadUnavailable = false; }
+    bool HCReadExhausted() { return m_ReadRetry.HCExhausted(); }
+    string HCReadReason() { return m_ReadRetry.HCReason("intent"); }
     bool HCReadPending() { return m_ReadRetry.HCPending(); }
     int HCRetryDelayMs() { return m_ReadRetry.HCDelayMs(); }
     bool HCReadBudget() { return m_ReadRetry.HCTakeBudget(); }
@@ -589,7 +592,7 @@ class HCSearchRefreshStore
             return false;
         }
         string backupText;
-        if (!ReadRecoveryFile(PATH + ".bak", backupText)) { return false; }
+        if (FileExist(PATH + ".bak") && !ReadRecoveryFile(PATH + ".bak", backupText)) { return false; }
         HCSearchRefreshState primary = Decode(primaryText);
         HCSearchRefreshState intent = Decode(intentText);
         if (!primary) { primaryText = ""; }
@@ -755,6 +758,7 @@ class HCSearchRefreshModule : HCModule
     override void RegisterUses()
     {
         super.RegisterUses();
+        HCModuleReadiness.HCRegisterUse(GetName(), "intent_read_ok");
         HCModuleReadiness.HCRegisterUse(GetName(), "intent_read_recovered");
         HCModuleReadiness.HCRegisterUse(GetName(), "intent_save_read_pending");
     }
@@ -767,7 +771,7 @@ class HCSearchRefreshModule : HCModule
         string fault = "";
         if (s_Instance == this) { started = true; }
         if (started && m_Store && !m_Store.Healthy()) { fault = "refresh_store_fault"; }
-        if (started && m_Store && m_Store.HCReadPending()) { fault = "intent_read_retrying"; }
+        if (started && m_Store && m_Store.HCReadPending()) { fault = m_Store.HCReadReason(); }
         HCModuleReadiness.HCDerive(m_Operational, started, m_Refusal, fault, "refresh_state_loaded");
         return m_Operational;
     }
@@ -816,6 +820,9 @@ class HCSearchRefreshModule : HCModule
         Print(HCV2Admission.Line("LootRefresh", true, "search_refresh", false) + " runtime=PENDING");
         Print("[HC Search Refresh] bounded refresh and alternating journal maintenance scheduled runtime=PENDING");
         if (!m_Store) { m_Store = new HCSearchRefreshStore; }
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryRead);
+        m_ReadCallbacks = 0;
+        m_Store.HCResetRead();
         m_State = m_Store.Open();
         // Registered and degraded while waiting; all gameplay remains gated by Active().
         s_Instance = this;
@@ -838,7 +845,7 @@ class HCSearchRefreshModule : HCModule
     protected void HCRetryRead()
     {
         if (s_Instance != this || !m_Settings || !m_Store || !m_Store.HCReadPending()) { return; }
-        if (!m_Store.HCReadBudget()) { return; }
+        if (!m_Store.HCReadBudget()) { HCScheduleRead(); return; }
         m_State = m_Store.Open();
         if (m_Store.HCReadPending()) { HCScheduleRead(); return; }
         HCFinishOpen();

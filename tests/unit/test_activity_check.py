@@ -31,6 +31,30 @@ class UseActivityTests(unittest.TestCase):
             activity.observe(line, client=True)
         return activity.result()
 
+    def test_persistence_healthy_reads_and_unobserved_faults(self):
+        lines = []
+        for module, store in [('World', 'world'), ('Materializer', 'custody'), ('LootRefresh', 'intent')]:
+            lines += [ready(module), use(module, store + '_read_ok', 1),
+                      use(module, store + '_read_recovered', 0),
+                      use(module, store + '_save_read_pending', 0)]
+        result = self.report(lines)
+        self.assertEqual(result['count'], 0)
+        for row in result['features']:
+            self.assertEqual(row['status'], 'ACTIVE' if row['feature'].endswith('_read_ok') else 'NOT_APPLICABLE')
+
+    def test_persistence_observed_fault_requires_real_recovery_and_refusal(self):
+        for module, store in [('World', 'world'), ('Materializer', 'custody'), ('LootRefresh', 'intent')]:
+            with self.subTest(store=store):
+                lines = [ready(module), use(module, store + '_read_ok', 1),
+                         use(module, store + '_read_recovered', 0),
+                         use(module, store + '_save_read_pending', 0),
+                         f'[HC Persistence] store={store} read_unavailable\n',
+                         f'[HC Persistence] store={store} save_refused reason=read_pending count=1\n']
+                rows = self.report(lines)['features']
+                self.assertEqual(sum(row['status'] == 'INERT' for row in rows), 2)
+                lines += [use(module, store + '_read_recovered', 1), use(module, store + '_save_read_pending', 1)]
+                self.assertTrue(all(row['status'] == 'ACTIVE' for row in self.report(lines)['features']))
+
     def test_registration_first_use_and_repeated_summaries_reduce_to_max(self):
         module, feature = 'Workshop', 'recipe_done'
         result = self.report([use(module, feature, 0), ready(module),
