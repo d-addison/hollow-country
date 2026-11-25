@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // W5 #122. Native scripts-1.30.164289 evidence:
 // 1_Core/proto/EnScript.c:380,394,399,407,470 array Count/Find/Get/Insert/RemoveOrdered;
 // :866,926 map Get/Insert; EnString.c:137,199,212 SubstringUtf8/Length/LengthUtf8.
@@ -36,6 +37,14 @@ class HCDebugRoute
     string id;
     string label;
     ref array<ref array<float>> points = new array<ref array<float>>;
+}
+
+// Input vectors are retained until each vertex has been validated and copied.
+// The route enters the document only after its last valid vertex, as before.
+class HCDebugPendingRoute
+{
+    ref HCDebugRoute Row;
+    ref array<vector> Points;
 }
 
 class HCDebugLayerStat
@@ -91,6 +100,40 @@ class HCDebugSnapshot
     protected int m_ContributorPoints;
     protected int m_ContributorRoutes;
     protected bool m_Describing;
+    // Weak owner: dropping an aborted capture releases the lock automatically.
+    protected static HCDebugSnapshot s_Capturing;
+    protected static int s_CaptureTick = -1;
+    protected ref HCWorkBudget m_RowBudget = new HCWorkBudget;
+    protected bool m_Yielded;
+    protected bool m_ContributorStarted;
+    protected bool m_RoutesPending;
+    protected int m_RouteCursor;
+    protected int m_VertexCursor;
+    protected ref array<ref HCDebugPendingRoute> m_PendingRoutes = new array<ref HCDebugPendingRoute>;
+    // Contributor-local continuation, owned by this capture rather than a module.
+    int HCRow;
+    int HCSubRow;
+    int HCPhase;
+    int HCShown;
+    int HCTotal;
+    int HCUnplaced;
+    bool HCStarted;
+
+    // Four source rows per tick; a source row emits at most two points plus a
+    // two-vertex objective route. Route conversion has its own 16-vertex tick.
+    // Thus <=16 spatial rows/tick. At 9-11 ms/capture, even charging the whole
+    // 11 ms to a 64-row page projects <=2.75 ms/16 rows; native proof pending.
+    static const int HC_SOURCE_ROWS_PER_TICK = 4;
+    static const int HC_SPATIAL_ROWS_PER_TICK = 16;
+
+    bool HCRowStep()
+    {
+        if (!m_RowBudget.HCContinue()) { m_Yielded = true; return false; }
+        HCRow++;
+        return true;
+    }
+    bool HCYielded() { return m_Yielded; }
+
     protected static int s_RegistrationRefusals;
 
     static bool HCRegister(HCDebugContributor contributor)
@@ -141,22 +184,82 @@ class HCDebugSnapshot
         }
     }
 
-    // Exactly one registered Describe per call, with a cursor across core ticks.
-    // Return true after the final contributor. Unregistered rows are never called.
+    // A second capture waits until the first finishes. No contributor's rolling
+    // cursor or cached sample can be interleaved by admin and periodic captures.
     bool HCCaptureNext()
     {
         if (m_Cursor >= m_Contributors.Count()) { return true; }
+        if (s_Capturing && s_Capturing != this) { return false; }
+        // Native 3_Game/Global/Game.c:1535 GetTime: mission milliseconds.
+        int tick = GetGame().GetTime();
+        if (tick == s_CaptureTick) { return false; }
+        s_CaptureTick = tick;
+        s_Capturing = this;
+        m_Yielded = false;
+        if (m_RoutesPending)
+        {
+            m_RowBudget.HCReset(HC_SPATIAL_ROWS_PER_TICK, HCPerfConfig.HCGet().SliceMs);
+            while (m_RouteCursor < m_PendingRoutes.Count() && m_RowBudget.HCContinue()) { HCCopyRouteVertex(); }
+            if (m_RouteCursor < m_PendingRoutes.Count()) { return false; }
+            m_PendingRoutes.Clear();
+            m_RouteCursor = 0;
+            m_VertexCursor = 0;
+            m_RoutesPending = false;
+            HCFinishContributor();
+            return m_Cursor >= m_Contributors.Count();
+        }
         HCDebugContributor contributor = m_Contributors[m_Cursor];
-        m_Cursor++;
-        m_ContributorPoints = 0;
-        m_ContributorRoutes = 0;
+        if (!m_ContributorStarted)
+        {
+            m_ContributorPoints = 0;
+            m_ContributorRoutes = 0;
+            HCRow = 0; HCSubRow = 0; HCPhase = 0;
+            HCShown = 0; HCTotal = 0; HCUnplaced = 0; HCStarted = false;
+            m_ContributorStarted = true;
+        }
         if (s_Contributors && s_Contributors.Find(contributor) >= 0)
         {
+            m_RowBudget.HCReset(HC_SOURCE_ROWS_PER_TICK, HCPerfConfig.HCGet().SliceMs);
             m_Describing = true;
             contributor.HCDescribe(this);
             m_Describing = false;
+            if (m_Yielded) { return false; }
         }
+        if (m_PendingRoutes.Count() > 0) { m_RoutesPending = true; return false; }
+        HCFinishContributor();
         return m_Cursor >= m_Contributors.Count();
+    }
+
+    protected void HCFinishContributor()
+    {
+        m_Cursor++;
+        m_ContributorStarted = false;
+        if (m_Cursor >= m_Contributors.Count()) { s_Capturing = null; }
+    }
+
+    protected void HCCopyRouteVertex()
+    {
+        HCDebugPendingRoute pending = m_PendingRoutes[m_RouteCursor];
+        if (!pending.Points || pending.Points.Count() < 2 || pending.Points.Count() > 64 || m_VertexCursor >= pending.Points.Count())
+        {
+            m_RouteCursor++; m_VertexCursor = 0; return;
+        }
+        if (m_Document.routes.Count() >= 128 || m_ContributorRoutes >= 8)
+        {
+            m_RouteCursor++; m_VertexCursor = 0; return;
+        }
+        vector pos = pending.Points[m_VertexCursor];
+        if (!HCPositionValid(pos)) { m_RouteCursor++; m_VertexCursor = 0; return; }
+        array<float> pair = new array<float>;
+        pair.Insert(pos[0]); pair.Insert(pos[2]);
+        pending.Row.points.Insert(pair);
+        m_VertexCursor++;
+        if (m_VertexCursor >= pending.Points.Count())
+        {
+            m_Document.routes.Insert(pending.Row);
+            m_ContributorRoutes++;
+            m_RouteCursor++; m_VertexCursor = 0;
+        }
     }
 
     static bool HCPositionValid(vector pos)
@@ -269,17 +372,10 @@ class HCDebugSnapshot
         route.layer = HCText(layer, 48);
         route.id = HCText(id, 96);
         route.label = HCText(label, 128);
-        for (int vertexIndex = 0; vertexIndex < points.Count(); vertexIndex++)
-        {
-            vector pos = points[vertexIndex];
-            if (!HCPositionValid(pos)) { return; }
-            array<float> pair = new array<float>;
-            pair.Insert(pos[0]);
-            pair.Insert(pos[2]);
-            route.points.Insert(pair);
-        }
-        m_Document.routes.Insert(route);
-        m_ContributorRoutes++;
+        HCDebugPendingRoute pending = new HCDebugPendingRoute;
+        pending.Row = route;
+        pending.Points = points;
+        m_PendingRoutes.Insert(pending);
     }
 
     // HC-25: one aggregate contributor, cached text only, no map coordinates.
@@ -316,17 +412,18 @@ class HCDebugCampSitesContributor : HCDebugHoldoutsContributor
         int total = holdouts.Count();
         int work = total;
         if (work > HCDebugSnapshot.CAMP_LAYER_CAP) { work = HCDebugSnapshot.CAMP_LAYER_CAP; }
-        int shown = 0;
-        for (int index = 0; index < work; index++)
+
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCWorldHoldout row = holdouts.Snapshot(index);
             if (!row) { continue; }
             string holdoutDetail = row.State + " / " + row.Routine + " occupants=" + row.Occupants.ToString();
             snapshot.AddPoint("holdouts", row.Id, row.HousePos, row.PlaceId, holdoutDetail);
             string detail = "state=" + row.State + "; ledger state, not a body-presence claim";
-            if (snapshot.HCAddLayerPoint("camps", row.Id, row.HousePos, row.PlaceId, detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("camps", row.Id, row.HousePos, row.PlaceId, detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("camps", total, shown);
+        snapshot.HCNoteLayer("camps", total, snapshot.HCShown);
     }
 }
 
@@ -339,32 +436,34 @@ class HCDebugCampSitesContributor : HCDebugHoldoutsContributor
 // `unplaced` on the layer's stat row. Bounded by LEAD_LAYER_CAP.
 class HCDebugLeadLedgerContributor : HCDebugContributor
 {
+    protected ref array<ref HCWorldLead> m_CaptureRows = new array<ref HCWorldLead>;
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
         HCLeadModule leads = HCLeadModule.Get();
         if (!leads) { return; }
-        int now = HCWorldClock.UTC();
-        array<ref HCWorldLead> rows = new array<ref HCWorldLead>;
-        leads.HCDebugLeadRows(now, rows);
-        int total = 0;
-        int shown = 0;
-        int unplaced = 0;
-        for (int index = 0; index < rows.Count(); index++)
+        if (!snapshot.HCStarted)
         {
-            HCWorldLead lead = rows[index];
+            snapshot.HCStarted = true;
+            m_CaptureRows.Clear();
+            leads.HCDebugLeadRows(HCWorldClock.UTC(), m_CaptureRows);
+        }
+        for (int index = snapshot.HCRow; index < m_CaptureRows.Count(); index++)
+        {
+            if (!snapshot.HCRowStep()) { return; }
+            HCWorldLead lead = m_CaptureRows[index];
             HCWorldPlace place = HCLeadPolicy.Place(lead.TargetPlaceId);
             if (!place)
             {
-                unplaced++;
+                snapshot.HCUnplaced++;
                 continue;
             }
-            total++;
-            if (shown >= HCDebugSnapshot.LEAD_LAYER_CAP) { continue; }
+            snapshot.HCTotal++;
+            if (snapshot.HCShown >= HCDebugSnapshot.LEAD_LAYER_CAP) { continue; }
             string detail = "kind=" + lead.Kind + "; expires=" + lead.Expires.ToString() + "; ledger row at place level; group id withheld";
-            if (snapshot.HCAddLayerPoint("lead-ledger", lead.Id, place.Position, place.Name, detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("lead-ledger", lead.Id, place.Position, place.Name, detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("lead-ledger", total, shown);
-        snapshot.HCNoteUnplaced("lead-ledger", unplaced);
+        snapshot.HCNoteLayer("lead-ledger", snapshot.HCTotal, snapshot.HCShown);
+        snapshot.HCNoteUnplaced("lead-ledger", snapshot.HCUnplaced);
     }
 }
 
@@ -380,18 +479,19 @@ class HCDebugScenesContributor : HCDebugContributor
         int total = scenes.HCDebugLeaseCount();
         int work = total;
         if (work > HCDebugSnapshot.SCENE_LAYER_CAP) { work = HCDebugSnapshot.SCENE_LAYER_CAP; }
-        int shown = 0;
-        for (int index = 0; index < work; index++)
+
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCDebugSceneLeaseRow row = scenes.HCDebugLease(index);
             if (!row) { continue; }
             string state = "placing";
             if (row.Placed) { state = "placed"; }
             if (row.Closing) { state = "closing"; }
             string detail = "stage=" + row.Stage.ToString() + "; state=" + state + "; due=" + row.DueAt.ToString() + "; expires=" + row.ExpiresAt.ToString() + "; lease anchor, not an entity-presence claim";
-            if (snapshot.HCAddLayerPoint("scenes", row.ChainId, row.Anchor, row.ChainId, detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("scenes", row.ChainId, row.Anchor, row.ChainId, detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("scenes", total, shown);
+        snapshot.HCNoteLayer("scenes", total, snapshot.HCShown);
     }
 }
 
@@ -407,25 +507,24 @@ class HCDebugPickersContributor : HCDebugContributor
         HCPickers pickers = HCPickers.Get();
         if (!pickers) { return; }
         int count = pickers.HCDebugPickerCount();
-        int total = 0;
-        int shown = 0;
-        int unplaced = 0;
-        for (int index = 0; index < count; index++)
+
+        for (int index = snapshot.HCRow; index < count; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCDebugPickerRow row = pickers.HCDebugPicker(index);
             if (!row) { continue; }
             if (!row.HasPosition)
             {
-                unplaced++;
+                snapshot.HCUnplaced++;
                 continue;
             }
-            total++;
-            if (shown >= HCDebugSnapshot.PICKER_LAYER_CAP) { continue; }
+            snapshot.HCTotal++;
+            if (snapshot.HCShown >= HCDebugSnapshot.PICKER_LAYER_CAP) { continue; }
             string detail = "phase=" + row.Phase + "; located=" + row.Locator + "; trip state, not a body-presence claim";
-            if (snapshot.HCAddLayerPoint("pickers", "picker-" + index.ToString(), row.Position, "picker", detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("pickers", "picker-" + index.ToString(), row.Position, "picker", detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("pickers", total, shown);
-        snapshot.HCNoteUnplaced("pickers", unplaced);
+        snapshot.HCNoteLayer("pickers", snapshot.HCTotal, snapshot.HCShown);
+        snapshot.HCNoteUnplaced("pickers", snapshot.HCUnplaced);
     }
 }
 
@@ -446,49 +545,54 @@ class HCDebugGroupPinsContributor : HCDebugContributor
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
         HCGroupService groups = HCGroupService.Get();
-        // Do not retain another owner's sample across disable/restart.
-        if (!groups || groups != m_GroupOwner)
+        if (!snapshot.HCStarted)
         {
-            m_GroupOwner = groups;
-            m_Cursor = 0;
-            m_Total = 0;
-            m_PublishedTotal = 0;
-            m_Rows.Clear();
-            m_PublishedRows.Clear();
+            snapshot.HCStarted = true;
+            // Do not retain another owner's sample across disable/restart.
+            if (!groups || groups != m_GroupOwner)
+            {
+                m_GroupOwner = groups;
+                m_Cursor = 0;
+                m_Total = 0;
+                m_PublishedTotal = 0;
+                m_Rows.Clear();
+                m_PublishedRows.Clear();
+            }
+            if (!groups) { return; }
+            int groupCount = groups.HCDebugPinGroupCount();
+            if (groupCount == 0)
+            {
+                m_Cursor = 0;
+                m_Total = 0;
+                m_Rows.Clear();
+                m_PublishedRows.Clear();
+                m_PublishedTotal = 0;
+                snapshot.HCNoteLayer("group-pins", 0, 0);
+                return;
+            }
+            // One group per capture; keep the last complete rolling sample visible
+            // until the next sweep completes. No whole-catalogue Collect call.
+            m_Total += groups.HCDebugPins(m_Cursor, 1, HCDebugSnapshot.GROUP_PIN_LAYER_CAP, m_Rows);
+            m_Cursor++;
+            if (m_Cursor >= groupCount)
+            {
+                m_PublishedRows = m_Rows;
+                m_PublishedTotal = m_Total;
+                m_Rows = new array<ref HCDebugGroupPinRow>;
+                m_Cursor = 0;
+                m_Total = 0;
+            }
+            if (m_Cursor > 0 && m_PublishedRows.Count() == 0 && m_PublishedTotal == 0) { return; }
         }
-        if (!groups) { return; }
-        int groupCount = groups.HCDebugPinGroupCount();
-        if (groupCount == 0)
+
+        for (int index = snapshot.HCRow; index < m_PublishedRows.Count(); index++)
         {
-            m_Cursor = 0;
-            m_Total = 0;
-            m_Rows.Clear();
-            m_PublishedRows.Clear();
-            m_PublishedTotal = 0;
-            snapshot.HCNoteLayer("group-pins", 0, 0);
-            return;
-        }
-        // One group per capture; keep the last complete rolling sample visible
-        // until the next sweep completes. No whole-catalogue Collect call.
-        m_Total += groups.HCDebugPins(m_Cursor, 1, HCDebugSnapshot.GROUP_PIN_LAYER_CAP, m_Rows);
-        m_Cursor++;
-        if (m_Cursor >= groupCount)
-        {
-            m_PublishedRows = m_Rows;
-            m_PublishedTotal = m_Total;
-            m_Rows = new array<ref HCDebugGroupPinRow>;
-            m_Cursor = 0;
-            m_Total = 0;
-        }
-        if (m_Cursor > 0 && m_PublishedRows.Count() == 0 && m_PublishedTotal == 0) { return; }
-        int shown = 0;
-        for (int index = 0; index < m_PublishedRows.Count(); index++)
-        {
+            if (!snapshot.HCRowStep()) { return; }
             HCDebugGroupPinRow row = m_PublishedRows[index];
             string detail = "kind=" + row.Kind + "; expires=" + row.ExpiresUtc.ToString() + "; rolling sample; group, player and name withheld";
-            if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("group-pins", "pin-" + index.ToString(), row.Position, row.Kind, detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("group-pins", m_PublishedTotal, shown);
+        snapshot.HCNoteLayer("group-pins", m_PublishedTotal, snapshot.HCShown);
     }
 }
 
@@ -507,14 +611,15 @@ class HCDebugProposalsContributor : HCDebugContributor
         int total = materializer.HCDebugProposalCount();
         int work = total;
         if (work > HCDebugSnapshot.PROPOSAL_LAYER_CAP) { work = HCDebugSnapshot.PROPOSAL_LAYER_CAP; }
-        int shown = 0;
-        for (int index = 0; index < work; index++)
+
+        for (int index = snapshot.HCRow; index < work; index++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCDebugProposalRow row = materializer.HCDebugProposal(index);
             if (!row) { continue; }
             string detail = "state=" + row.State + "; kind=" + row.Kind + "; actor_cap=" + row.ActorCap.ToString() + "; age=" + row.AgeSeconds.ToString() + "s; lease state, not a live-body claim";
-            if (snapshot.HCAddLayerPoint("materializer-proposals", row.Id, row.Position, row.PlaceId, detail)) { shown++; }
+            if (snapshot.HCAddLayerPoint("materializer-proposals", row.Id, row.Position, row.PlaceId, detail)) { snapshot.HCShown++; }
         }
-        snapshot.HCNoteLayer("materializer-proposals", total, shown);
+        snapshot.HCNoteLayer("materializer-proposals", total, snapshot.HCShown);
     }
 }

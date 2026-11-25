@@ -406,6 +406,7 @@ class HCWildlifeScenes
     void HCDescribe(HCDebugSnapshot snapshot)
     {
         if (!m_Enabled || !m_Active || !m_Body) { return; }
+        if (!snapshot.HCRowStep()) { return; }
         if (HCEcologyResourceSurvey.CarcassSupply(m_Body) != "native_skinnable") { return; }
         // Native Object.GetPosition, 3_Game/Entities/Object.c:287.
         snapshot.AddPoint("wildlife", m_Active.Id, m_Body.GetPosition(), "Observed carcass", "native skinning only; runtime=PENDING");

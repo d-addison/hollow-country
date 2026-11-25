@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // Owner request / GitHub #162: every live eAI unit on the HC admin map and in
 // debug/snapshot.json, not only HC-site patrols (HCXAIPatrolDebug "ai" layer).
 // Layer "ai-units": <=128 units per capture (two page contributors of <=64
@@ -96,8 +97,9 @@ class HCXAILive
             m_Base = 0;
             return;
         }
-        if (page == 0)
+        if (page == 0 && !snapshot.HCStarted)
         {
+            snapshot.HCStarted = true;
             if (m_Cursor >= total) { m_Cursor = 0; }
             m_Base = m_Cursor;
             m_Cursor = 0;
@@ -105,9 +107,10 @@ class HCXAILive
         }
         if (m_Base >= total) { m_Base = 0; }
         int offset = page * HCXAILive.PAGE_POINTS;
-        int step = 0;
+        int step = snapshot.HCRow;
         while (step < HCXAILive.PAGE_POINTS && offset + step < total)
         {
+            if (!snapshot.HCRowStep()) { return; }
             int index = (m_Base + offset + step) % total;
             step++;
             eAIBase actor = HCXExpansionBridge.HCBaseGet(index);

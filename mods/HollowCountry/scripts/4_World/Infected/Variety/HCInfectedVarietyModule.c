@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // W5 #121 / #125; source implementation, runtime acceptance PENDING.
 // Native evidence, installed scripts-1.30.164289: 3_Game/Global/Game.c:440
 // GetDayTime, :945 GetPlayers, :1120 IsServer, :1371 GetWeather;
@@ -578,19 +579,28 @@ modded class HCInfectedModule
 
     void HCVarietyDescribe(HCDebugSnapshot snapshot)
     {
-        int shown = 0;
-        foreach (HCInfectedActor actor : m_Actors)
+        if (snapshot.HCPhase == 0)
         {
-            ZombieBase entity = actor.InfectedEntity;
-            if (!entity || !entity.IsAlive() || !entity.HCVarietyDormant()) { continue; }
-            if (shown >= 12) { break; }
-            snapshot.AddPoint("infected", "dormant:" + shown.ToString(), entity.GetPosition(), "Dormant crawler", entity.HCVarietyPlace());
-            shown++;
+            int shown = snapshot.HCShown;
+            for (int debugIndex = snapshot.HCRow; debugIndex < m_Actors.Count(); debugIndex++)
+            {
+                if (!snapshot.HCRowStep()) { return; }
+                HCInfectedActor actor = m_Actors[debugIndex];
+                ZombieBase entity = actor.InfectedEntity;
+                if (!entity || !entity.IsAlive() || !entity.HCVarietyDormant()) { continue; }
+                if (shown >= 12) { break; }
+                snapshot.AddPoint("infected", "dormant:" + shown.ToString(), entity.GetPosition(), "Dormant crawler", entity.HCVarietyPlace());
+                shown++;
+                snapshot.HCShown = shown;
+            }
+            snapshot.HCPhase = 1;
+            snapshot.HCRow = 0;
         }
         if (!m_State) { return; }
         int hordeCount = Math.Min(2, m_State.Groups.Count());
-        for (int hordeIndex = 0; hordeIndex < hordeCount; hordeIndex++)
+        for (int hordeIndex = snapshot.HCRow; hordeIndex < hordeCount; hordeIndex++)
         {
+            if (!snapshot.HCRowStep()) { return; }
             HCHordeRecord group = m_State.Groups[hordeIndex];
             if (group.State == 5 || group.State == 6) { continue; }
             snapshot.AddPoint("infected", "horde:" + group.Id.ToString(), group.Anchor, "Horde", "journal living=" + group.Living.ToString());

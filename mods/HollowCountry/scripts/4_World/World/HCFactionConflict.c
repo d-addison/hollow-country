@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // HC-37 / #146 supersedes LC-T411's abstract casualty/claim roll.
 // One pre-bound body/tick; shared HCWorkBudget + HCUnitBudget. No discovery,
 // targeting controller, player hunt, body/item creation or inventory mutation.
@@ -874,8 +875,10 @@ modded class HCWorldModule
         if (!m_Running || !m_Data) { return; }
         array<ref HCWorldPlace> places = m_Data.Places;
         array<ref HCWorldFaction> factions = m_Data.Factions;
-        foreach (HCWorldPlace place : places)
+        for (int debugIndex = snapshot.HCRow; debugIndex < places.Count(); debugIndex++)
         {
+            if (!snapshot.HCRowStep()) { return; }
+            HCWorldPlace place = places[debugIndex];
             string holders = "";
             string cell = HCFactionConflict.Cell(place.Position);
             foreach (HCWorldFaction faction : factions)

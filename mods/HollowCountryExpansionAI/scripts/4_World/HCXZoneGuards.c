@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // R5 ZoneGuards. One zone serviced/tick, <=2 escalation transitions/day.
 // Native evidence inspected: scripts-1.30.164289 Game.c GetTickTime,
 // SurfaceY, ConfigIsExisting; Object.c IsAlive/GetPosition. Expansion installed
@@ -29,12 +30,11 @@ class HCXZoneGuardsDebug : HCDebugContributor
         HCXZoneGuards owner = HCXZoneGuards.Active();
         if (!owner || !snapshot) { return; }
         array<ref HCXZoneGuardsRuntime> zones = owner.Zones();
-        int shown;
-        foreach (HCXZoneGuardsRuntime zone : zones)
+        for (int debugIndex = snapshot.HCRow; debugIndex < zones.Count() && debugIndex < 16; debugIndex++)
         {
-            if (shown >= 16) { break; }
+            if (!snapshot.HCRowStep()) { return; }
+            HCXZoneGuardsRuntime zone = zones[debugIndex];
             snapshot.AddPoint("zones", zone.Zone.id, zone.Zone.center, zone.Zone.area, "state=" + zone.Row.State + " changed_day=" + zone.Row.ChangedDay.ToString());
-            shown++;
         }
     }
 }

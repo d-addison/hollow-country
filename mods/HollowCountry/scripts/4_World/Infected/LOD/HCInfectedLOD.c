@@ -1,3 +1,4 @@
+// Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // #135 shared infected LOD service and virtual herds. Source implementation;
 // runtime acceptance pending (runtime=PENDING) and every range/cap provisional
 // until measured with 3-6 players.
@@ -452,13 +453,16 @@ modded class HCInfectedModule
     // <=24 tracked actor points on the "infected-lod" layer.
     void HCLODDescribe(HCDebugSnapshot snapshot)
     {
-        int points = 0;
-        foreach (HCInfectedActor actor : m_Actors)
+        int points = snapshot.HCShown;
+        for (int debugIndex = snapshot.HCRow; debugIndex < m_Actors.Count(); debugIndex++)
         {
             if (points >= 24) { break; }
+            if (!snapshot.HCRowStep()) { return; }
+            HCInfectedActor actor = m_Actors[debugIndex];
             ZombieBase entity = actor.InfectedEntity;
             if (!entity || !entity.IsAlive()) { continue; }
             points++;
+            snapshot.HCShown = points;
             string tier = "unknown";
             if (actor.LODTier == HCLODPolicy.TIER_FULL) { tier = "full"; }
             if (actor.LODTier == HCLODPolicy.TIER_IDLE) { tier = "idle"; }
@@ -952,19 +956,33 @@ class HCInfectedLODModule : HCModule
     void HCLODDescribe(HCDebugSnapshot snapshot)
     {
         if (!m_Running) { return; }
-        HCInfectedModule infected = HCInfectedModule.Instance;
-        if (infected) { infected.HCLODDescribe(snapshot); }
+        if (snapshot.HCPhase == 0)
+        {
+            HCInfectedModule infected = HCInfectedModule.Instance;
+            if (infected) { infected.HCLODDescribe(snapshot); }
+            if (snapshot.HCYielded()) { return; }
+            snapshot.HCPhase = 1;
+            snapshot.HCRow = 0;
+        }
         if (!m_Herds || !m_Store.State()) { return; }
         array<ref HCInfectedLODHerd> describeHerds = m_Store.State().Herds;
-        foreach (HCInfectedLODHerd herd : describeHerds)
+        if (snapshot.HCPhase == 1)
         {
-            vector centre = Vector(herd.X, 0, herd.Z);
-            snapshot.AddPoint("infected-lod", "herd-" + herd.Id, centre, "Herd " + herd.Id, "alive=" + herd.Alive.ToString() + "/" + herd.HeadCount.ToString() + " leased=" + LeasedFor(herd.Id).ToString() + " runtime=PENDING");
+            for (int herdIndex = snapshot.HCRow; herdIndex < describeHerds.Count(); herdIndex++)
+            {
+                if (!snapshot.HCRowStep()) { return; }
+                HCInfectedLODHerd herd = describeHerds[herdIndex];
+                vector centre = Vector(herd.X, 0, herd.Z);
+                snapshot.AddPoint("infected-lod", "herd-" + herd.Id, centre, "Herd " + herd.Id, "alive=" + herd.Alive.ToString() + "/" + herd.HeadCount.ToString() + " leased=" + LeasedFor(herd.Id).ToString() + " runtime=PENDING");
+            }
+            snapshot.HCPhase = 2;
+            snapshot.HCRow = 0;
         }
-        int leaseIndex = 0;
-        foreach (HCLODLease lease : m_Leases)
+        for (int leaseSlot = snapshot.HCRow; leaseSlot < m_Leases.Count(); leaseSlot++)
         {
-            leaseIndex++;
+            if (!snapshot.HCRowStep()) { return; }
+            int leaseIndex = leaseSlot + 1;
+            HCLODLease lease = m_Leases[leaseSlot];
             if (!lease.Body) { continue; }
             snapshot.AddPoint("infected-lod", "lease-" + leaseIndex.ToString(), lease.Body.GetPosition(), "Herd body", "herd=" + lease.HerdId + " runtime=PENDING");
         }

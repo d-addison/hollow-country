@@ -49,6 +49,7 @@ class HCDebugSnapshotModule : HCModule
         {
             Print(HCV2Admission.Line("DebugSnapshot", true, "W5-122", false));
             m_AdmissionPrinted = true;
+            Print("[HC DebugSnapshot] reason=row_cursor action=bounded_capture source_rows_per_tick=4 spatial_rows_per_tick=16 target_ms=" + HCPerfConfig.HCGet().SliceMs.ToString() + " runtime=PENDING");
         }
         string worldName = GetGame().GetWorldName();
         worldName.ToLower();
@@ -179,9 +180,8 @@ class HCDebugSnapshotModule : HCModule
             m_Snapshot = new HCDebugSnapshot(worldTime);
             m_Captured = false;
         }
-        // One Describe is the smallest capture unit exposed by the shared API:
-        // <=64 points +8 routes*64 vertices =576 spatial rows. A route is atomic
-        // there. Budget one contributor, never combine its last rows with bind.
+        // HCCaptureNext retains source/vertex cursors under HCWorkBudget:
+        // <=16 spatial rows per tick. Keep final capture rows separate from bind.
         m_CaptureBudget.HCReset(1, HCPerfConfig.HCGet().SliceMs);
         if (!m_CaptureBudget.HCContinue()) { return; }
         if (!m_Captured)
