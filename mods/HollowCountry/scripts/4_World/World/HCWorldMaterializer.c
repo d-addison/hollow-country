@@ -150,7 +150,6 @@ class HCWorldMaterializer : HCModule
     protected bool m_AdmissionPrinted;
     protected bool m_StartedOnce;
     protected int m_CustodyNextLeaseSeen = 1;
-    protected int m_CustodyReadCallbacks;
     protected ref HCPersistenceReadRetry m_CustodyReadRetry = new HCPersistenceReadRetry;
     protected bool m_CustodyRetryRead;
     protected string m_CustodyLoadFault;
@@ -210,7 +209,6 @@ class HCWorldMaterializer : HCModule
         }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(this.HCRetryCustodyLoad);
         m_CustodyReadRetry.HCReset();
-        m_CustodyReadCallbacks = 0;
         m_Stopping = false;
         m_Active.Clear();
         m_Cooldowns.Clear();
@@ -287,7 +285,12 @@ class HCWorldMaterializer : HCModule
     protected void HCRetryCustodyLoad()
     {
         if (!m_Running || m_CustodyReady || !m_CustodyRetryRead) { return; }
-        if (!m_CustodyReadRetry.HCTakeBudget()) { this.HCScheduleCustodyRead(); return; }
+        if (!m_CustodyReadRetry.HCTakeBudget())
+        {
+            m_CustodyLoadFault = m_CustodyReadRetry.HCReason("custody");
+            this.HCScheduleCustodyRead();
+            return;
+        }
         m_CustodyReady = m_CustodyReadRetry.HCBegin() && this.HCLoadCustody();
         if (m_CustodyReady) { this.HCAcceptCustodyLoad(); }
         else if (!m_CustodyRetryRead) { HCAIBudget.Block(); }
@@ -447,9 +450,8 @@ class HCWorldMaterializer : HCModule
 
     protected void HCScheduleCustodyRead()
     {
-        if (m_CustodyReadCallbacks < 11)
+        if (!m_CustodyReadRetry.HCExhausted())
         {
-            m_CustodyReadCallbacks++;
             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(this.HCRetryCustodyLoad, m_CustodyReadRetry.HCDelayMs(), false);
         }
     }

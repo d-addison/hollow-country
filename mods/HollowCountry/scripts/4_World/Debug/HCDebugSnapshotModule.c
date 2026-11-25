@@ -24,6 +24,8 @@ class HCDebugSnapshotModule : HCModule
     protected float m_Elapsed;
     protected float m_LastLog;
     protected ref HCDebugSnapshot m_Snapshot;
+    protected bool m_Captured;
+    protected ref HCWorkBudget m_CaptureBudget = new HCWorkBudget;
     protected ref HCPerfSnapshotSave m_Save;
     protected ref HCPerfBootBudget m_SaveBudget = new HCPerfBootBudget;
     protected ref array<ref HCDebugContributor> m_Builtins;
@@ -142,6 +144,12 @@ class HCDebugSnapshotModule : HCModule
         if (!m_Running || !(deltaTime > 0)) { return; }
         m_Elapsed += deltaTime;
         m_SaveBudget.HCFrame(deltaTime);
+        // Keep cadence independent of capture/save duration; do not queue images.
+        if (m_Elapsed >= HCPerfConfig.HCGet().DebugSnapshotIntervalSeconds && m_Snapshot)
+        {
+            m_Elapsed = 0;
+            Print("[HC DebugSnapshot] reason=cadence_busy action=skip");
+        }
         // Individual JSON rows and verified file phases resume under the shared
         // slice target. Native calls cannot be interrupted; acceptance is pending.
         if (m_Save)
@@ -169,8 +177,18 @@ class HCDebugSnapshotModule : HCModule
             int worldTime = HCWorldTime();
             if (worldTime < 0) { HCRefuse(); return; }
             m_Snapshot = new HCDebugSnapshot(worldTime);
+            m_Captured = false;
         }
-        if (!m_Snapshot.HCCaptureNext()) { return; }
+        // One Describe is the smallest capture unit exposed by the shared API:
+        // <=64 points +8 routes*64 vertices =576 spatial rows. A route is atomic
+        // there. Budget one contributor, never combine its last rows with bind.
+        m_CaptureBudget.HCReset(1, HCPerfConfig.HCGet().SliceMs);
+        if (!m_CaptureBudget.HCContinue()) { return; }
+        if (!m_Captured)
+        {
+            m_Captured = m_Snapshot.HCCaptureNext();
+            return;
+        }
         m_Save = new HCPerfSnapshotSave;
         m_Save.HCBind(PATH, m_Snapshot.HCDocument(), MAX_BYTES);
     }
@@ -199,6 +217,7 @@ class HCDebugSnapshotModule : HCModule
         }
         m_Save = null;
         m_Snapshot = null;
+        m_Captured = false;
         if (m_Builtins)
         {
             for (int index = 0; index < m_Builtins.Count(); index++)

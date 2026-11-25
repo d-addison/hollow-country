@@ -182,6 +182,8 @@ class HCAdminModule : HCModule
     protected PlayerIdentity m_CaptureSender;
     protected int m_CaptureTicket;
     protected ref HCDebugSnapshot m_Capture;
+    protected ref HCAdminSnapshotWire m_SnapshotBuild;
+    protected ref HCAdminReply m_SnapshotReply;
     protected bool m_DebugEnabled;
     protected bool m_LootMapRootReady;
     // Native EnScript.c:857,902,917 map Clear/Set/Contains.
@@ -711,13 +713,26 @@ class HCAdminModule : HCModule
         }
         if (m_Capture)
         {
-            if (!HCAuthorized(m_CaptureSender) || !HCPlayer(m_CaptureSender)) { m_Capture = null; m_CaptureSender = null; }
+            if (!HCAuthorized(m_CaptureSender) || !HCPlayer(m_CaptureSender))
+            {
+                m_Capture = null; m_CaptureSender = null;
+                m_SnapshotBuild = null; m_SnapshotReply = null;
+            }
+            else if (m_SnapshotReply)
+            {
+                // Send in a later tick than the final build chunk. Keep capture
+                // occupied until delivery: second-request refusal stays unchanged.
+                HCSend(m_CaptureSender, m_SnapshotReply);
+                m_Capture = null; m_CaptureSender = null;
+                m_SnapshotBuild = null; m_SnapshotReply = null;
+            }
+            else if (m_SnapshotBuild)
+            {
+                if (m_SnapshotBuild.HCBuildNext()) { m_SnapshotReply = m_SnapshotBuild.HCReply(); }
+            }
             else if (m_Capture.HCCaptureNext())
             {
-                HCAdminReply snapshot = HCAdminSnapshotWire.HCBuild(m_Capture, m_CaptureTicket);
-                HCSend(m_CaptureSender, snapshot);
-                m_Capture = null;
-                m_CaptureSender = null;
+                m_SnapshotBuild = new HCAdminSnapshotWire(m_Capture, m_CaptureTicket);
             }
         }
         HCLootMapTick();
@@ -735,6 +750,8 @@ class HCAdminModule : HCModule
         m_Status.HCPublish("off", "server_stopped");
         m_Pending = null;
         m_Capture = null;
+        m_SnapshotBuild = null;
+        m_SnapshotReply = null;
         m_PendingSender = null;
         m_CaptureSender = null;
         m_Admins = null;

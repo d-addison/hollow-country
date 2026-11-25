@@ -152,38 +152,77 @@ class HCAdminSnapshotWire
         return fitted;
     }
 
-    static HCAdminReply HCBuild(HCDebugSnapshot capture, int ticket)
+    // Retained build cursors. Each step is one layer/route/mark; the final
+    // notice is bounded by 24 wire layers and 16 layer stats, as before.
+    protected ref HCAdminReply reply;
+    protected ref HCDebugDocument document;
+    protected ref array<string> layers = new array<string>;
+    protected ref array<string> unsent = new array<string>;
+    protected ref map<string, bool> unsentSeen = new map<string, bool>;
+    protected ref array<int> demand = new array<int>;
+    protected ref array<int> pointDemand = new array<int>;
+    protected ref array<int> allowance = new array<int>;
+    protected ref array<int> wanted = new array<int>;
+    protected ref array<int> sentCount = new array<int>;
+    protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+    protected int total;
+    protected int leftover = 512;
+    protected int m_Phase;
+    protected int m_Index;
+    protected int m_Slot;
+    protected int m_Point;
+    protected int m_Route;
+    protected int m_Vertex;
+    protected int m_Sent;
+
+    void HCAdminSnapshotWire(HCDebugSnapshot capture, int ticket)
     {
-        HCAdminReply reply = new HCAdminReply;
+        reply = new HCAdminReply;
         reply.Ticket = ticket;
         reply.Snapshot = true;
-        array<string> layers = new array<string>;
-        array<string> unsent = new array<string>;
-        map<string, bool> unsentSeen = new map<string, bool>;
-        array<int> demand = new array<int>;
-        array<int> pointDemand = new array<int>;
-        array<int> allowance = new array<int>;
-        HCDebugDocument document = capture.HCDocument();
-        int total = 0;
-        // Pass 1: register <=MAX_WIRE_LAYERS layers in document order and count each one's demand.
-        for (int layerIndex = 0; layerIndex < document.layers.Count(); layerIndex++)
+        document = capture.HCDocument();
+    }
+
+    HCAdminReply HCReply() { return reply; }
+
+    bool HCBuildNext()
+    {
+        // 16 marks per tick limits allocations/string copies; route vertices
+        // also yield individually. Leave headroom for dispatch and lootmap.
+        m_Budget.HCReset(16, HCPerfConfig.HCGet().SliceMs);
+        while (m_Phase < 5 && m_Budget.HCContinue()) { HCBuildStep(); }
+        return m_Phase == 5;
+    }
+
+    protected void HCBuildStep()
+    {
+        if (m_Phase == 0)
         {
-            string layer = document.layers.GetKey(layerIndex);
-            int pointCount = document.layers.GetElement(layerIndex).Count();
+            if (m_Index >= document.layers.Count()) { m_Phase = 1; m_Index = 0; return; }
+            string layer = document.layers.GetKey(m_Index);
+            int pointCount = document.layers.GetElement(m_Index).Count();
+            m_Index++;
             total += pointCount;
             int layerSlot = HCSlot(layers, demand, layer);
             while (pointDemand.Count() < demand.Count()) { pointDemand.Insert(0); }
             if (layerSlot < 0)
             {
                 if (!unsentSeen.Contains(layer)) { unsentSeen.Insert(layer, true); unsent.Insert(layer); }
-                continue;
+                return;
             }
             demand[layerSlot] = demand[layerSlot] + pointCount;
             pointDemand[layerSlot] = pointDemand[layerSlot] + pointCount;
+            return;
         }
-        for (int demandRoute = 0; demandRoute < document.routes.Count(); demandRoute++)
+        if (m_Phase == 1)
         {
-            HCDebugRoute counted = document.routes[demandRoute];
+            if (m_Index >= document.routes.Count())
+            {
+                HCAllocate(demand, 512, allowance);
+                m_Phase = 2; m_Index = 0; return;
+            }
+            HCDebugRoute counted = document.routes[m_Index];
+            m_Index++;
             int vertexCount = counted.points.Count();
             total += vertexCount;
             int routeSlot = HCSlot(layers, demand, counted.layer);
@@ -191,61 +230,66 @@ class HCAdminSnapshotWire
             if (routeSlot < 0)
             {
                 if (!unsentSeen.Contains(counted.layer)) { unsentSeen.Insert(counted.layer, true); unsent.Insert(counted.layer); }
-                continue;
+                return;
             }
             demand[routeSlot] = demand[routeSlot] + vertexCount;
+            return;
         }
-        HCAllocate(demand, 512, allowance);
-        // Redistribute what a layer cannot use (an unfittable route) to layers whose
-        // points were still unsent; they never receive more than their own rows.
-        int leftover = 512;
-        array<int> wanted = new array<int>;
-        for (int planSlot = 0; planSlot < layers.Count(); planSlot++)
+        if (m_Phase == 2)
         {
-            leftover = leftover - HCFitted(document, layers[planSlot], pointDemand[planSlot], allowance[planSlot]);
-            int unsentPoints = pointDemand[planSlot] - allowance[planSlot];
-            if (unsentPoints < 0) { unsentPoints = 0; }
-            wanted.Insert(unsentPoints);
+            if (m_Index < layers.Count())
+            {
+                leftover = leftover - HCFitted(document, layers[m_Index], pointDemand[m_Index], allowance[m_Index]);
+                wanted.Insert(Math.Max(0, pointDemand[m_Index] - allowance[m_Index]));
+                m_Index++;
+                return;
+            }
+            if (leftover > 0)
+            {
+                array<int> extra = new array<int>;
+                HCAllocate(wanted, leftover, extra);
+                for (int extraSlot = 0; extraSlot < layers.Count(); extraSlot++) { allowance[extraSlot] = allowance[extraSlot] + extra[extraSlot]; }
+            }
+            m_Phase = 3;
+            return;
         }
-        if (leftover > 0)
+        if (m_Phase == 3)
         {
-            array<int> extra = new array<int>;
-            HCAllocate(wanted, leftover, extra);
-            for (int extraSlot = 0; extraSlot < layers.Count(); extraSlot++) { allowance[extraSlot] = allowance[extraSlot] + extra[extraSlot]; }
-        }
-        // Pass 2: fill each layer inside its allowance (points first, then whole routes).
-        array<int> sentCount = new array<int>;
-        for (int emitSlot = 0; emitSlot < layers.Count(); emitSlot++)
-        {
-            string emitLayer = layers[emitSlot];
-            int room = allowance[emitSlot];
-            int sent = 0;
+            if (m_Slot >= layers.Count()) { m_Phase = 4; return; }
+            string emitLayer = layers[m_Slot];
+            int room = allowance[m_Slot];
             array<ref HCDebugPoint> points = document.layers.Get(emitLayer);
-            if (points)
+            if (points && m_Point < Math.Min(points.Count(), room))
             {
-                int pointLimit = Math.Min(points.Count(), room);
-                for (int pointIndex = 0; pointIndex < pointLimit; pointIndex++)
-                {
-                    HCDebugPoint point = points[pointIndex];
-                    HCMark(reply, layers, emitLayer, Vector(point.x, 0, point.z), point.label, point.detail, 0);
-                    sent++;
-                }
+                HCDebugPoint point = points[m_Point];
+                HCMark(reply, layers, emitLayer, Vector(point.x, 0, point.z), point.label, point.detail, 0);
+                m_Point++; m_Sent++;
+                return;
             }
-            for (int routeIndex = 0; routeIndex < document.routes.Count(); routeIndex++)
+            if (m_Route < document.routes.Count())
             {
-                HCDebugRoute route = document.routes[routeIndex];
-                if (route.layer != emitLayer) { continue; }
-                // Keep a route whole: never export a misleading partial polyline.
-                if (sent + route.points.Count() > room) { continue; }
-                for (int vertexIndex = 0; vertexIndex < route.points.Count(); vertexIndex++)
+                HCDebugRoute route = document.routes[m_Route];
+                // Test room once, before emitting the first vertex of a route.
+                if (route.layer != emitLayer || (m_Vertex == 0 && m_Sent + route.points.Count() > room)) { m_Route++; return; }
+                if (m_Vertex < route.points.Count())
                 {
-                    array<float> pair = route.points[vertexIndex];
-                    HCMark(reply, layers, emitLayer, Vector(pair[0], 0, pair[1]), route.label, "Contributor route; not a surveyed path", routeIndex + 1);
-                    sent++;
+                    array<float> pair = route.points[m_Vertex];
+                    HCMark(reply, layers, emitLayer, Vector(pair[0], 0, pair[1]), route.label, "Contributor route; not a surveyed path", m_Route + 1);
+                    m_Vertex++; m_Sent++;
+                    return;
                 }
+                m_Route++; m_Vertex = 0;
+                return;
             }
-            sentCount.Insert(sent);
+            sentCount.Insert(m_Sent);
+            m_Slot++; m_Point = 0; m_Route = 0; m_Vertex = 0; m_Sent = 0;
+            return;
         }
+        HCFinishNotice();
+    }
+
+    protected void HCFinishNotice()
+    {
         int operationalLoss = document.operationalTruncated + document.truncated;
         HCOperationalContributors.HCAppend(reply, document.operational, operationalLoss);
         int dropped = total - reply.Marks.Count();
@@ -298,6 +342,6 @@ class HCAdminSnapshotWire
         notice += tail;
         reply.Notice = HCDebugSnapshot.HCText(notice, HCAdminSnapshotWire.NOTICE_BYTES);
         Print("[HC Admin] cmd=snapshot result=ok reason=delivered vertices=" + reply.Marks.Count().ToString() + " truncated=" + dropped.ToString() + " runtime=PENDING");
-        return reply;
+        m_Phase = 5;
     }
 }
