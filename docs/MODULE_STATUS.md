@@ -89,9 +89,10 @@ are still required; no engine experiment is accepted here.
 Persistence #353 / #360 items 3–4 (implemented-unverified, 2026-11-25):
 `HCPersistenceReadRetry` in `World/HCWorldStore.c` shares a boot-local twelve-attempt
 bound (initial load included), delays 5/15/45/120 seconds then 300 seconds, a
-one-unit `HCWorkBudget`, save refusal latch and counters. World, Materializer and
-LootRefresh use bounded, nonrepeating native call-queue callbacks; Stop removes
-them, and callbacks check the running owner before loading. Each callback admits
+save refusal latch and counters; no private work budget or deferral state.
+World, Materializer and LootRefresh use bounded, nonrepeating native call-queue
+callbacks; Stop removes them, and callbacks check the running owner before
+loading. Each callback admits
 one load transaction, not a loop of retries; native reads/JSON within recovery
 remain synchronous and non-preemptible, with the existing image/scan caps.
 Custody open/read failure always returns before preservation/relocation, including
