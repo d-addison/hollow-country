@@ -168,7 +168,7 @@ class HCDebugGroupPinRow
     int ExpiresUtc;
 }
 
-class HCGroupService
+class HCGroupService : Managed
 {
     protected static ref HCGroupService s_Instance;
     // Bounded soak trace for the 195/196 AV (no ids): 32 lines per process, then silent.
