@@ -883,10 +883,10 @@ class HCXAIIncidentResponse : HCModule
             HCCool(lease.Hold, now);
         }
         HCNote("lease_end", lease);
-        int slot = m_Leases.Find(lease);
-        if (slot >= 0) { m_Leases.RemoveOrdered(slot); }
         HCXAIGroupHolds.Retire(lease.Hold);
         lease.Hold = null;
+        int slot = m_Leases.Find(lease);
+        if (slot >= 0) { m_Leases.RemoveOrdered(slot); }
     }
 
     // Gas leases restore the route minus any waypoint still inside a live zone (nothing safe left means an empty

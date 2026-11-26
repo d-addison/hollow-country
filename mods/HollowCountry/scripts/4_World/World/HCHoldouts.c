@@ -339,7 +339,7 @@ class HCHoldouts : HCModule
         if (!module || !GetGame().IsServer()) return;
         for (int killedIndex = module.m_Bodies.Count() - 1; killedIndex >= 0; killedIndex--)
         {
-            HCHoldoutBody binding = module.m_Bodies[killedIndex];
+            ref HCHoldoutBody binding = module.m_Bodies[killedIndex];
             if (binding.Body != body) continue;
             module.m_Bodies.Remove(killedIndex);
             for (int holdoutIndex = 0; holdoutIndex < module.Count(); holdoutIndex++)

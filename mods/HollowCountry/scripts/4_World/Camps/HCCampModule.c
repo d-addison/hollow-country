@@ -678,7 +678,7 @@ class HCCampModule : HCModule
         if (m_SaveJob.HCFaulted) { Fail(); return; }
         if (m_Recognitions.Count() > 0 && HCDurable(m_Recognitions[0].Receipt))
         {
-            HCCampRecognition notice = m_Recognitions[0];
+            ref HCCampRecognition notice = m_Recognitions[0];
             m_Recognitions.RemoveOrdered(0);
             m_Players.Clear();
             GetGame().GetPlayers(m_Players);

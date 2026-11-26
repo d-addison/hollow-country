@@ -361,7 +361,7 @@ class HCEventWorldBinding
     {
         s_FailReason = "police_work_budget";
         if (!HCEventCacheSpawner.PoliceWork()) { return false; }
-        HCEventInfectedBindSlice job = s_InfectedSlices.Get(mission.Id);
+        ref HCEventInfectedBindSlice job = s_InfectedSlices.Get(mission.Id);
         if (!job)
         {
             float groundY = GetGame().SurfaceY(mission.Source[0], mission.Source[2]);

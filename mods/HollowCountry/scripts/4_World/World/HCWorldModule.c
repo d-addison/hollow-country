@@ -652,7 +652,7 @@ class HCWorldModule : HCModule
 
     protected int HCRetireStaleHoldout(int index)
     {
-        HCWorldHoldout stale = m_Data.Holdouts[index];
+        ref HCWorldHoldout stale = m_Data.Holdouts[index];
         HCWorldHoldout copy = HCCopyHoldout(stale);
         if (!copy) { return 0; }
         int dropped = copy.Occupants;

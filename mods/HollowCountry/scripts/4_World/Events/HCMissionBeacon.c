@@ -278,7 +278,7 @@ class HCMissionBeacon
         int index = m_Entries.Count() - 1;
         while (index >= 0)
         {
-            HCMissionBeaconEntry present = m_Entries[index];
+            ref HCMissionBeaconEntry present = m_Entries[index];
             // Direct runtime check, never membership of the truncated source list.
             if (!runtime.HCIsPublic(present.Id, context.Now))
             {

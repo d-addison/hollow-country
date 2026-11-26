@@ -166,7 +166,7 @@ class HCXAIFortification
         if (m_Queue.Count() == 0) { return; }
         m_Work.HCReset(1, HCPerfConfig.HCGet().SliceMs);
         if (!m_Work.HCContinue()) { return; }
-        HCXAIFortificationSite site = m_Queue[0];
+        ref HCXAIFortificationSite site = m_Queue[0];
         m_Queue.RemoveOrdered(0);
         if (site.PartIndex >= SITE_PARTS) { return; }
         HCXZoneGuards guards = HCXZoneGuards.Active();

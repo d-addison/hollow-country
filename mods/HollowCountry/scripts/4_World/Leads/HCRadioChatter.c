@@ -391,7 +391,7 @@ class HCRadioChatter : HCModule
         while (queuedCount > 0)
         {
             queuedCount = queuedCount - 1;
-            HCWorldLead queued = m_Fallback[0];
+            ref HCWorldLead queued = m_Fallback[0];
             m_Fallback.RemoveOrdered(0);
             if (!HCLeadPolicy.Valid(queued) || queued.Expires <= now || queued.Source != "world") { continue; }
             if (!HasListener(queued)) { m_Fallback.Insert(queued); continue; }

@@ -94,7 +94,7 @@ class HCInteriorPathgraph
         s_RemovalBudget.HCReset(1);
         while (s_RemovedPending.Count() > 0 && s_RemovalBudget.HCContinue())
         {
-            HCPathgraphRefresh region = s_RemovedPending.Get(0);
+            ref HCPathgraphRefresh region = s_RemovedPending.Get(0);
             s_RemovedPending.RemoveOrdered(0);
             if (!region) { continue; }
             region.Update();
