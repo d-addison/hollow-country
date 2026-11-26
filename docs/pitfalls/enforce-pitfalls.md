@@ -61,7 +61,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E055 | test addon HCOwns fx_ command is absent from HCAdminCatalog; HCReceive rejects it before the provider |
 | HC-E056 | PlayerIdentity script references compared; use HCPlayerIdentity.Same with non-empty GetId values |
 | HC-E057 | protected or private member accessed outside its declaring class or permitted subclass |
-| HC-E058 | raw non-Managed local used after removal/replacement from an owning ref container |
+| HC-E058 | raw non-Managed local used after release by an owning ref field/container |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |
