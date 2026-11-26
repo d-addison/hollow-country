@@ -710,13 +710,8 @@ class HCGroupRules
         return true;
     }
 
-    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog, array<Man> hcRoster = null)
+    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog, map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
         array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
         map<string, bool> ids = new map<string, bool>();
         if (!c.DiscoveryLayer)

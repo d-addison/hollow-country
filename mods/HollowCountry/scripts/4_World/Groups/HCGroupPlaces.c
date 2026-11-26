@@ -101,21 +101,16 @@ modded class HCGroupRules
         return true;
     }
 
-    override static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog, array<Man> hcRoster = null)
+    override static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog, map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
-        array<ref HCGroupPlace> visited = super.KnownPlaces(state, c, uid, catalog, hcRoster);
+        array<ref HCGroupPlace> visited = super.KnownPlaces(state, c, uid, catalog, hcPlayers);
         HCGroupPins pins = HCGroupPins.Get();
         HCGroupRecord pinGroup = HCGroupRules.FindGroup(state, uid);
         if (!pins || !pinGroup || !c.DiscoveryLayer) { return visited; }
         array<ref HCGroupPlace> combined = new array<ref HCGroupPlace>();
         // Received leads first, then up to 48 discovered shelters. All layers
         // together retain the existing validated MaxDiscoveries wire bound.
-        pins.Collect(pinGroup, c.MaxDiscoveries, combined, hcRoster);
+        pins.Collect(pinGroup, c.MaxDiscoveries, combined, hcPlayers);
         foreach (HCGroupPlace oldPlace : visited)
         {
             if (combined.Count() >= c.MaxDiscoveries) { break; }

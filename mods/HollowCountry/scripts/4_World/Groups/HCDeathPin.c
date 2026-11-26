@@ -120,7 +120,8 @@ class HCDeathPins : Managed
         {
             // An interrupted staging write has not touched the live image.
             // Preserve malformed evidence unless the primary is still valid.
-            if (!HCReadState(PATH)) { return false; }
+            HCDeathPinState primary = HCReadState(PATH);
+            if (!primary) { return false; }
             return DeleteFile(temporary);
         }
         // HCV2ThreatStore retains the verified intent until promotion/readback
@@ -174,7 +175,7 @@ class HCDeathPins : Managed
 
     // Called by existing membership/disconnect/refresh Broadcast, no new tick.
     // Deferred cleanup never grants permission: HCCollect checks epoch again.
-    void HCInvalidate(array<Man> hcRoster = null)
+    void HCInvalidate(map<string, PlayerBase> hcPlayers)
     {
         if (!m_State) { return; }
         HCGroupService service = HCGroupService.Get();
@@ -254,13 +255,8 @@ class HCDeathPins : Managed
         return true;
     }
 
-    void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output, array<Man> hcRoster = null)
+    void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output, map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
         if (!m_State || !group || !output || cap < 1) { return; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
@@ -274,7 +270,7 @@ class HCDeathPins : Managed
             if (HCGroupVisibility.HCSnapshotActive())
             {
                 HCGroupService service = HCGroupService.Get();
-                if (!service || !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin, hcRoster)) { continue; }
+                if (!service || !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin, hcPlayers)) { continue; }
             }
             output.Insert(row.Pin);
         }
@@ -289,12 +285,11 @@ modded class PlayerBase
         // retain identity before native corpse/mission cleanup runs.
         if (GetGame() && GetGame().IsServer())
         {
-            array<Man> hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
+            map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
             HCGroupService groups = HCGroupService.Get();
-            if (groups) { groups.HCPresentationFell(this, hcRoster); }
+            if (groups) { groups.HCPresentationFell(this, hcPlayers); }
             HCGroupPins pins = HCGroupPins.Get();
-            if (pins) { pins.HCPlayerFell(this, hcRoster); }
+            if (pins) { pins.HCPlayerFell(this, hcPlayers); }
         }
         super.EEKilled(killer);
     }
@@ -305,11 +300,10 @@ modded class HCGroupPins
 {
     override void OnStop()
     {
-        array<Man> hcRoster = new array<Man>;
-        GetGame().GetPlayers(hcRoster);
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         if (m_DeathPins) { m_DeathPins.HCStop(); }
         super.OnStop();
         HCGroupService groups = HCGroupService.Get();
-        if (groups) { groups.Broadcast(hcRoster); }
+        if (groups) { groups.Broadcast(hcPlayers); }
     }
 }

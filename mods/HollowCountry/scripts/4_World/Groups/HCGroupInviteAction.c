@@ -36,14 +36,13 @@ class HCGroupInviteAction : ActionInteractBase
 
     override void OnExecuteServer(ActionData action_data)
     {
-        array<Man> hcRoster = new array<Man>;
-        GetGame().GetPlayers(hcRoster);
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         if (!action_data || !action_data.m_Player) return;
         PlayerBase target;
         if (action_data.m_Target) target = PlayerBase.Cast(action_data.m_Target.GetObject());
         int result = HCGroupCode.DISABLED;
         HCGroupService service = HCGroupService.Get();
-        if (service) result = service.HCInviteNearby(action_data.m_Player, target, hcRoster);
+        if (service) result = service.HCInviteNearby(action_data.m_Player, target, hcPlayers);
         string message = "Group invitation not sent.";
         if (result == HCGroupCode.OK) message = "Group invitation sent. Your friend can accept from the group map.";
         else if (result == HCGroupCode.DENIED) message = "Group invitation not sent: only the owner or an officer can invite, within 3 m.";

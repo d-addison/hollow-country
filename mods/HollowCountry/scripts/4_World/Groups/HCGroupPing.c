@@ -51,16 +51,11 @@ modded class HCGroupService
         return true;
     }
 
-    HCGroupRecord HCLookGroup(HCGroupPeer peer, array<Man> hcRoster = null)
+    HCGroupRecord HCLookGroup(HCGroupPeer peer, map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
-        if (!m_Healthy || !m_Config || !m_Config.Enabled || !m_State || !Live(peer, hcRoster)) { return null; }
+        if (!m_Healthy || !m_Config || !m_Config.Enabled || !m_State || !Live(peer, hcPlayers)) { return null; }
         PlayerBase hcPeerPlayer;
-        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        if (peer) hcPeerPlayer = HCPlayerOf(hcPlayers, peer.Id);
         PlayerIdentity hcPeerIdentity;
         if (hcPeerPlayer) hcPeerIdentity = hcPeerPlayer.GetIdentity();
         HCGroupPeer hcFoundPeer1 = Peer(peer.Id);
@@ -69,14 +64,9 @@ modded class HCGroupService
         return HCGroupRules.FindGroup(m_State, peer.Id);
     }
 
-    override int HCLookPing(HCGroupPeer peer, HCGroupRequest request, array<Man> hcRoster = null)
+    override int HCLookPing(HCGroupPeer peer, HCGroupRequest request, map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
-        HCGroupRecord group = HCLookGroup(peer, hcRoster);
+        HCGroupRecord group = HCLookGroup(peer, hcPlayers);
         if (!group || !m_Config.HCTeamPingEnabled) { return HCGroupCode.DENIED; }
         if (request.ExpectedRevision != m_State.Revision) { return HCGroupCode.CONFLICT; }
         float tick = GetGame().GetTickTime();
@@ -84,7 +74,7 @@ modded class HCGroupService
         if (!HCAdmitLookPing(peer.Id, tick)) { return HCGroupCode.RATE; }
         if (!HCGroupRules.PositionValid(request.Position)) { return HCGroupCode.INVALID; }
         PlayerBase hcPeerPlayer;
-        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        if (peer) hcPeerPlayer = HCPlayerOf(hcPlayers, peer.Id);
         vector origin = hcPeerPlayer.GetBonePositionWS(hcPeerPlayer.GetBoneIndexByName("Head"));
         vector direction = request.Position - origin;
         float distance = direction.Length();
@@ -138,9 +128,9 @@ modded class HCGroupService
         array<ref HCGroupPeer> hcRows2 = m_Peers;
         foreach (HCGroupPeer recipient : hcRows2)
         {
-            HCGroupRecord memberGroup = HCLookGroup(recipient, hcRoster);
+            HCGroupRecord memberGroup = HCLookGroup(recipient, hcPlayers);
             if (!memberGroup || memberGroup.Id != group.Id || memberGroup.Epoch != group.Epoch) { continue; }
-            PlayerBase hcRecipientPlayer = HCPlayerOf(hcRoster, recipient.Id);
+            PlayerBase hcRecipientPlayer = HCPlayerOf(hcPlayers, recipient.Id);
             if (!hcRecipientPlayer) continue;
             PlayerIdentity hcRecipientIdentity;
             HCGroupPingWire frame = new HCGroupPingWire;
@@ -164,15 +154,10 @@ modded class HCGroupService
         }
         return HCGroupCode.OK;
     }
-    override void Stop(array<Man> hcRoster = null)
+    override void Stop(map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
         m_HCLookPings.Clear();
         m_HCLookCooldowns.Clear();
-        super.Stop(hcRoster);
+        super.Stop(hcPlayers);
     }
 }

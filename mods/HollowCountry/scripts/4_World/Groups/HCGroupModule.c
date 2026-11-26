@@ -43,10 +43,8 @@ class HCGroupModule extends HCModule
 
     override void OnStart(HCSettings settings)
     {
-        array<Man> hcRoster = new array<Man>;
-        GetGame().GetPlayers(hcRoster);
         m_Service = new HCGroupService;
-        if (!m_Service.Start(m_Config, hcRoster))
+        if (!m_Service.Start(m_Config))
         {
             Print("[HC Groups] start refused: check settings, UTC, world and persistence; service inactive");
             m_Refusal = m_Service.Refusal();
@@ -66,10 +64,9 @@ class HCGroupModule extends HCModule
     override void OnStop()
     {
         if (!m_Service) return;
-        array<Man> hcRoster = new array<Man>;
-        GetGame().GetPlayers(hcRoster);
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         DayZGame.Event_OnRPC.Remove(m_Service.OnRPC);
-        m_Service.Stop(hcRoster);
+        m_Service.Stop(hcPlayers);
         m_Service = null;
     }
 }
@@ -122,14 +119,9 @@ modded class HCGroupStore
 // Flush the healthy discovery batch before closing its own write gate.
 modded class HCGroupService
 {
-    override void Stop(array<Man> hcRoster = null)
+    override void Stop(map<string, PlayerBase> hcPlayers)
     {
-        if (!hcRoster)
-        {
-            hcRoster = new array<Man>;
-            GetGame().GetPlayers(hcRoster);
-        }
-        super.Stop(hcRoster);
+        super.Stop(hcPlayers);
         HCRecoveryGate.HCClose("groups");
     }
 }
