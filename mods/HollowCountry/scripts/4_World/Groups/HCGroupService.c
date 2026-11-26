@@ -1167,9 +1167,10 @@ class HCGroupService : Managed
     void Tick(float deltaTime)
     {
         if (!m_Healthy) return;
+        // Fallback mode only (shared saves off or registration refused); HCPumpFallback holds the
+        // job across the step (build 151) and HCStep builds its own map as its own entry point.
+        HCSaveScheduler.HCPumpFallback(m_SaveJob);
         map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
-        HCGroupBatchSaveJob fallbackJob = m_SaveJob;
-        if (fallbackJob) fallbackJob.HCPumpWithPlayers(hcPlayers);
         if (!m_Healthy) { Stop(hcPlayers); return; }
         BeginVisibilityTick();
         int now = HCGroupClock.Utc();
@@ -1216,24 +1217,6 @@ class HCGroupBatchSaveJob : HCSaveJob
 {
     HCGroupService Owner;
     override string HCName() { return "GroupDiscovery"; }
-    // Group-local equivalent of HCSaveScheduler.HCPumpFallback (HCWorkBudget.c).
-    // Its callback has no context argument; passing Tick's map directly avoids a
-    // second GetPlayers without retaining bodies on this job between calls.
-    // Keep eligibility, single-stage progress and completion flags identical.
-    void HCPumpWithPlayers(map<string, PlayerBase> players)
-    {
-        if (HCFaulted || !HCUrgent || !HCDirty || (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(this))) return;
-        int result = HCSaveJob.STEP_FAILED;
-        if (Owner) result = Owner.HCStepBatchSave(players);
-        HCInFlight = result == HCSaveJob.STEP_MORE;
-        if (result == HCSaveJob.STEP_DONE)
-        {
-            HCDirty = HCPendingCheckpoint();
-            if (!HCDirty) HCUrgent = false;
-            HCCommitted(GetGame().GetTickTime());
-        }
-        if (result == HCSaveJob.STEP_FAILED) HCFaulted = true;
-    }
     override int HCStep()
     {
         if (!Owner) { return HCSaveJob.STEP_FAILED; }
