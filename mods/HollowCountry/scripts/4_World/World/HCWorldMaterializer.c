@@ -1471,7 +1471,7 @@ class HCWorldMaterializer : HCModule
 
     protected void Resolve(int leaseIndex, bool materialized, int survivors)
     {
-        HCWorldProposalLease lease = m_Active[leaseIndex];
+        ref HCWorldProposalLease lease = m_Active[leaseIndex];
         HCWorldModule world = HCWorldModule.Get();
         // The provider has confirmed body absence. Even if a world write fails,
         // release the body budget exactly once; never retry a partial debit.

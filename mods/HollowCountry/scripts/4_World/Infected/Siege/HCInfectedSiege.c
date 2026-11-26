@@ -393,6 +393,7 @@ class HCInfectedSiegeModule : HCModule
         else if (reason == HCInfectedSiegePolicy.END_NO_LIVE_MEMBER) { m_EndedNoMember++; count = m_EndedNoMember; }
         else { m_EndedLeft++; count = m_EndedLeft; }
         // The slot is released first, in this call; the line is throttled like the start line (first 8, then every 16th).
+        ref HCInfectedSiegeRow retainedRow = row;
         int index = m_Rows.Find(row);
         if (index >= 0) { m_Rows.Remove(index); }
         if (!HCInfectedSiegePolicy.HCPrintStart(count)) { return; }

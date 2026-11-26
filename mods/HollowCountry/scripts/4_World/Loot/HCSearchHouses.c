@@ -511,7 +511,7 @@ class HCSearchHouses
     // later approach rebinds the same persistent ids.
     bool ReleaseAt(int index)
     {
-        HCSearchHouseSlot slot = m_Slots[index];
+        ref HCSearchHouseSlot slot = m_Slots[index];
         foreach (string supplyId : slot.Supplies)
         {
             if (m_Registry && !m_Registry.Forget(supplyId)) return false;

@@ -506,7 +506,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         int index = m_Leases.Count() - 1;
         while (index >= 0)
         {
-            HCEventNativeLease binding = m_Leases[index];
+            ref HCEventNativeLease binding = m_Leases[index];
             if (binding.Lease == lease)
             {
                 HCSceneCacheClosed(binding);

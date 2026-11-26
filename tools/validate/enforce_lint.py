@@ -33,6 +33,7 @@ import sys
 from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
 from tools.validate import enforce_json
+from tools.validate import enforce_lint_remove as _remove
 from tools.validate import enforce_lint_handles as _handles
 from tools.validate import enforce_rules_readiness as _readiness
 from tools.validate import enforce_lint_use as _use
@@ -111,6 +112,7 @@ RULES = {
     'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
     enforce_json.RULE: enforce_json.DESCRIPTION,
     _handles.RULE: _handles.DESCRIPTION,
+    _remove.RULE: _remove.DESCRIPTION,
 }
 RULES.update(_readiness.RULES)  # HC-S006 module names, HC-E009 engine-type variable names
 RULES.update(_use.RULES)  # HC-E040 use counter reached from an init path
@@ -2382,6 +2384,10 @@ def rule_modded_field_order(project, source):
 _BARE_PRINT = re.compile(r'(?<![\w.])Print\s*\(\s*(?!(?:true|false|null)\s*\))([A-Za-z_]\w*)\s*\)')
 
 
+def rule_use_after_remove(project, source):
+    yield from _remove.findings(sys.modules[__name__], project, source)
+
+
 def rule_stored_handles(project, source):
     for row in _handles.stored_handles(source):
         yield _finding(row.rule, source, row.offset, row.symbol, row.message, key=row.key)
@@ -3292,7 +3298,7 @@ ALL_RULES = (rule_fixture_catalog, rule_duplicate_rpc_ids, rule_proto_native_met
              rule_predicted_actions, rule_config_get, rule_findpath_output, rule_navmesh_filter_flags,
              rule_delete_group, rule_infected_script_inst, rule_new_argument, rule_flat_pathgraph, rule_unordered_head_remove, rule_foreach_call_iterable, rule_call_in_assigned_index, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names, _use.rule_use_init_path,
-             rule_stored_handles, *_syntax.rules_for(sys.modules[__name__]),
+             rule_stored_handles, rule_use_after_remove, *_syntax.rules_for(sys.modules[__name__]),
              _names.make_rule(sys.modules[__name__], _syntax))
 
 

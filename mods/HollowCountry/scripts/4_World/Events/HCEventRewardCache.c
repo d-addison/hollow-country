@@ -2010,7 +2010,7 @@ class HCEventCacheSpawner
             if (pendingCache) { return PoliceStockTarget(mission, pendingCache); }
             return null;
         }
-        HCEventPoliceStockSlice job = s_StockSlices.Get(mission.Id);
+        ref HCEventPoliceStockSlice job = s_StockSlices.Get(mission.Id);
         if (!job)
         {
             job = new HCEventPoliceStockSlice;

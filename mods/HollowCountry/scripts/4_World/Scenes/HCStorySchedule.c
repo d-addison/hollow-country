@@ -411,7 +411,7 @@ class HCStorySchedule
             if (m_Cursor >= m_State.Chains.Count()) { m_Cursor = 0; }
             int selected = m_Cursor;
             m_Cursor = m_Cursor + 1;
-            HCSceneChain chain = m_State.Chains[selected];
+            ref HCSceneChain chain = m_State.Chains[selected];
             if ((chain.Complete || chain.Cancelled) && releasedIds && releasedIds.Find(chain.Id) >= 0)
             {
                 HCStoryPolicy.HCRetired(m_State.Stories, chain.StorySequence);

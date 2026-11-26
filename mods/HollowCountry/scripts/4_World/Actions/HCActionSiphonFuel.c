@@ -66,7 +66,7 @@ class HCSiphonDiagnosticLocks
     {
         for (int index = m_Sessions.Count() - 1; index >= 0; index--)
         {
-            HCSiphonDiagnosticData data = m_Sessions[index];
+            ref HCSiphonDiagnosticData data = m_Sessions[index];
             if (!data || !data.m_Player || !data.Donor || !data.Vessel || !LeaseLive(data.StartedMs, nowMs))
             {
                 m_Sessions.Remove(index);
@@ -104,11 +104,11 @@ class HCSiphonDiagnosticLocks
 
     void Release(HCSiphonDiagnosticData data)
     {
+        if (data)
+            data.LockHeld = false;
         int index = m_Sessions.Find(data);
         if (index >= 0)
             m_Sessions.Remove(index);
-        if (data)
-            data.LockHeld = false;
     }
 
     void Clear()

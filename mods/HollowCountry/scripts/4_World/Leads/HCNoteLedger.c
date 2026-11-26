@@ -293,7 +293,7 @@ class HCNoteLedger : HCModule
     void HCAdvancePendingNote()
     {
         if (m_PendingNotes.Count() < 1) { return; }
-        HCPendingNote pending = m_PendingNotes[0];
+        ref HCPendingNote pending = m_PendingNotes[0];
         if (!m_Store.HCDurable(pending.Revision)) { return; }
         m_PendingNotes.RemoveOrdered(0); // at most one native creation per tick
         HCLeadNote entry = pending.Entry;

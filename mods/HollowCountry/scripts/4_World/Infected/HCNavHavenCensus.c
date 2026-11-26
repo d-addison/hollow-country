@@ -215,7 +215,7 @@ class HCNavHavenCensus
         int at = start;
         while (at > 0 && s_Rows[at - 1].Count < s_Rows[at].Count)
         {
-            HCNavHavenRow above = s_Rows[at - 1];
+            ref HCNavHavenRow above = s_Rows[at - 1];
             s_Rows.Set(at - 1, s_Rows[at]);
             s_Rows.Set(at, above);
             at--;
