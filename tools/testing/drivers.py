@@ -10,6 +10,7 @@ checkstart, DayZDiag session) are registered but run only when the caller lists 
 trusted_drivers; otherwise the runner reports NOTRUN reason=untrusted_native. This module
 never starts DayZ, DayZDiag or Workbench itself; the framework never launches a session.
 """
+from tools.validate import dayz_build
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -18,7 +19,7 @@ import sys
 from typing import Callable, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parents[2]
-NATIVE_SCRIPTS = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
+NATIVE_SCRIPTS = dayz_build.native_scripts_dir()
 OUTCOMES = ("PASS", "FAIL", "BLOCKED", "NOTRUN")
 SKIPPED_CODES = (2, 3)  # layout_lint and cfgconvert_check SKIPPED exit codes
 _COMMIT = re.compile(r"[0-9a-f]{7,40}\Z")

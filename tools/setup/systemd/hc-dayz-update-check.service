@@ -1,0 +1,11 @@
+[Unit]
+Description=Check DayZ and Workshop updates through banso
+
+[Service]
+Type=oneshot
+WorkingDirectory="@REPO@"
+Environment=BANSO_DAEMON_PORT=9746
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env banso workflow run hollow-country --pipeline dayz-update-check --headless
+MemoryMax=1G

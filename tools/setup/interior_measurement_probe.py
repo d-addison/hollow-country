@@ -30,6 +30,7 @@ from pathlib import Path
 import re
 import secrets
 
+from tools.validate import dayz_build
 from tools.package.economy import xml
 from tools.setup import diagnostic_mission as staging
 from tools.setup import native_startup_probe as syntax
@@ -138,7 +139,7 @@ def _interface_records(interfaces):
 def _request(value, blobs=None):
     _fields(value, "schema world_name engine_version stock_sha256 areas")
     _require(type(value["schema"]) is int and value["schema"] == 1, "request schema")
-    _require(value["world_name"] == "chernarusplus" and value["engine_version"] == "1.30.164289.70", "explicit pinned world/full engine version required")
+    _require(value["world_name"] == "chernarusplus" and value["engine_version"] == dayz_build.pinned() + ".70", "explicit pinned world/full engine version required")
     pins = value["stock_sha256"]
     _require(type(pins) is dict and set(pins) == set(STOCK_NAMES), "exact stock pins required")
     for digest in pins.values():

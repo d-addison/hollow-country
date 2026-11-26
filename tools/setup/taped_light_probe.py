@@ -23,6 +23,7 @@ one included) and the watchdog is a queued call, so the watchdog cannot interrup
 that never returns. A hung engine call hangs the probe; the launcher's wait limit is the only outer
 bound, and nothing is read from a run that did not write its sentinel.
 """
+from tools.validate import dayz_build
 import argparse
 import json
 import math
@@ -1838,7 +1839,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     cache = args.native_scripts
     if cache is None:
-        default = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
+        default = dayz_build.native_scripts_dir()
         cache = default if (default / "3_Game").is_dir() else None
     try:
         classification = json.loads(_read_bounded(args.classification, MAX_CLASSIFICATION_BYTES))

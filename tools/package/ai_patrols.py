@@ -23,6 +23,13 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
+if __package__ in (None, ''):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tools.validate import dayz_build
+
 MAX_BYTES = 65536
 TOKEN = re.compile(r'[A-Za-z0-9_-]{1,48}\Z')
 CLASS = re.compile(r'[A-Za-z][A-Za-z0-9_]{0,63}\Z')
@@ -182,7 +189,7 @@ SITE_SPEC = {
 HOUSE_PREFIXES = ('Land_House_', 'Land_Village_')
 # Scavengers also roam city blocks (loot clusters), holdouts only claim houses.
 LOOT_PREFIXES = HOUSE_PREFIXES + ('Land_HouseBlock_', 'Land_Tenement_')
-POLICY_DEFAULTS = dict(SchemaVersion=1, WorldName='chernarusplus', BuildVersion='1.30.164289',
+POLICY_DEFAULTS = dict(SchemaVersion=1, WorldName='chernarusplus', BuildVersion=dayz_build.pinned(),
                        ObserverPolicy='native-eai', MaxActiveAI=72, MaxActiveSites=15, MinPlayerDistance=200.0,
                        LineOfSightRange=1000.0, MaxLegLength=400.0, CacheClearRadius=300.0,
                        AIRespawnSeconds=900, PatrolRespawnSeconds=0, HoldoutRespawnSeconds=0,

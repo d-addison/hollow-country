@@ -16,6 +16,7 @@ AI movement, collision, sound, target or animation controller is installed. Engi
 synchronous: the queued watchdog cannot interrupt a hung call. Outer process timeout and
 actual cleanup/compile/config semantics still require coordinator-owned native testing.
 """
+from tools.validate import dayz_build
 import argparse
 from collections import Counter
 import copy
@@ -47,7 +48,7 @@ LAUNCHER_ROW = (PLAN_NAME, PROBE_DIRECTORY, 'observations.json')
 PURPOSE_ROW = ('disposable-infected-competence-probe', None,
                ['server mode', 'fresh storage and profiles', 'no clients',
                 'inspect observation completeness separately from startup'])
-DEFAULT_NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
+DEFAULT_NATIVE = dayz_build.native_scripts_dir()
 WSL_PARENT = Path('/mnt/d/HollowCountryLocal')
 MAX_TRIALS = 100
 MAX_OUTPUT_BYTES = 262144
@@ -848,7 +849,7 @@ def validate(runtime):
             document.get('clients') != 0):
         raise ValueError('incomplete or client-contaminated run')
     if (str(document.get('world', '')).lower() != 'chernarusplus' or
-            not re.search(r'(?<![\d.])1\.30\.164289(?![\d.])', str(document.get('version', '')))):
+            not re.search(r'(?<![\d.])' + re.escape(dayz_build.pinned()) + r'(?![\d.])', str(document.get('version', '')))):
         raise ValueError('pinned Chernarus/build receipt required')
     rows = document.get('trials')
     if not isinstance(rows, list) or len(rows) != len(plan['trials']):

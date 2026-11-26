@@ -150,6 +150,10 @@ class NativeSteps:
         self.client_before = set()
 
     def compile(self):
+        from tools.release.dayz_update import build_check
+        status, reason = build_check()
+        if status != 'pass':
+            raise Refused('dayz_build: ' + status + ': ' + reason)
         output = command([sys.executable, '-B', '-m', 'tools.release.compile_gate',
                           '--commit', self.args.commit], 1200)
         if not re.search(r'^compile_gate: PASS status=mission-loaded-runtime-json\s*$', output, re.M):

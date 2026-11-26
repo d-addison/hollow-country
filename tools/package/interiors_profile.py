@@ -45,7 +45,9 @@ except ImportError:  # run as a script
     from tools.package.economy import child, fresh_write, plain_file, read_plain
 
 WORLD = 'chernarusplus'
-BUILD = '1.30.164289'
+from tools.validate import dayz_build
+
+BUILD = dayz_build.pinned()
 BUILDING = 'Land_House_1W01'
 PROFILE_DIRECTORY = 'HollowCountry'
 MANAGED = 'hc-interiors-pack'
@@ -131,7 +133,7 @@ def transform_key(position, orientation):
 
 
 def instance_id(candidate, epoch):
-    return (f'chernarusplus_130164289_s1_e{epoch}_{candidate["Type"]}_'
+    return (f'chernarusplus_{BUILD.replace(".", "")}_s1_e{epoch}_{candidate["Type"]}_'
             f'{transform_key(candidate["Position"], candidate["Orientation"])}_d{candidate["SlotId"]}')
 
 

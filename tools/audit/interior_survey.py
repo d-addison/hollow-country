@@ -34,6 +34,7 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 
+from tools.validate import dayz_build
 from tools.package.economy import xml
 from tools.setup import interior_measurement_probe as probe
 from tools.setup.infected_death_probe import _read, _decode_json, _native_bool
@@ -145,7 +146,7 @@ def native_metadata(rows, admission, budget):
     require(admission.get("manifest_pin_checked") is True and
             admission.get("FullCoverage") is False, "native-pin-and-scope")
     require(admission.get("ActualWorld") == "chernarusplus" and
-            admission.get("ActualBuild") == "1.30.164289.70", "native-build-world")
+            admission.get("ActualBuild") == dayz_build.pinned() + ".70", "native-build-world")
     total = integer(admission.get("AdvertisedChildren"),0,MAX_NATIVE_ROWS)
     visited = integer(admission.get("VisitedChildren"),0,total)
     written = integer(admission.get("RowsWritten"),0,visited)
