@@ -13,6 +13,7 @@ import secrets
 import tempfile
 from types import SimpleNamespace
 
+from tools.validate import dayz_build
 from tools.setup import probe_runtime as rt, ce_site_probe, friend_bundle, friend_install
 from tools.package import (optional_overlays as overlays, loot_boost, travel, map_overlay,
                            infected_variety, hc_events, tactical_flava_optional as tf,
@@ -392,7 +393,7 @@ def stage(source_runtime, destination, *, treatment='t0', workshop=weapon_pack_g
     plan['tool_sha256']['ce_fill_probe.py'] = rt._hash_file(Path(__file__))[0]
     plan['binding'] = binding(plan)
     hook = render_hook(plan['binding'], hold_seconds)
-    native = rt.native_type_names(native_scripts or Path.home()/'.cache/hollow-country/native-scripts/scripts-1.30.164289')
+    native = rt.native_type_names(native_scripts or dayz_build.native_scripts_dir())
     found = rt.lint_hook(hook.decode(), native_types=native)
     if found:
         raise ValueError('hook lint: ' + '; '.join(found[:3]))

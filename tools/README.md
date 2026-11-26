@@ -63,3 +63,5 @@ at most 674 seconds covering a separate 60-second fixture and 12-second cleanup.
 No timeout automatically increases those allowances. Startup and fuel report
 consumers must use their runner's `read_report()` and require that run's zero
 exit code; a `.pending` sibling means publication is incomplete.
+
+- [DayZ update workflow](../docs/tools/DAYZ_UPDATE.md): discover builds and Workshop updates, prepare offline caches, review and bump the build pin.

@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import secrets
 
+from tools.validate import dayz_build
 from tools.package import map_overlay as overlay
 from tools.setup import probe_runtime as rt
 
@@ -179,8 +180,7 @@ def render_hook(rows, token):
 
 def stage(source_runtime, destination, *, source=overlay.SOURCE, native_scripts=None, dry_run=False):
     rows = targets(source)
-    native = rt.native_type_names(native_scripts or Path.home() /
-                                  '.cache/hollow-country/native-scripts/scripts-1.30.164289')
+    native = rt.native_type_names(native_scripts or dayz_build.native_scripts_dir())
     run_id = secrets.token_hex(16)
     # Validate generated code before creating any runtime files.
     hook = render_hook(rows, binding(rows, '0' * 64, run_id))

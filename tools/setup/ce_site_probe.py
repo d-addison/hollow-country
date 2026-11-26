@@ -9,6 +9,7 @@ import secrets
 import tempfile
 import xml.etree.ElementTree as ET
 
+from tools.validate import dayz_build
 from tools.package import hc_events as hc
 from tools.setup import probe_runtime as rt
 
@@ -367,7 +368,7 @@ def stage(source_runtime, destination, *, source=hc.SOURCE, treatment='current',
                     row = dict(row, **{a: float(pos.get(a)) for a in ('x', 'z')})
                 selected.append(row)
             rows = selected
-        cache = native_scripts or Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
+        cache = native_scripts or dayz_build.native_scripts_dir()
         native = rt.native_type_names(cache)
         # Dry-run validates data and generated hook without requiring a Windows install.
         if dry_run:

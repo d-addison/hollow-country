@@ -32,6 +32,7 @@ import secrets
 import stat
 import struct
 
+from tools.validate import dayz_build
 from tools.setup import diagnostic_mission as staging
 from tools.setup import native_startup_probe as syntax
 from tools.setup.infected_death_probe import _read, _sha, _encode, _decode_json, _number, _native_bool
@@ -62,7 +63,7 @@ CASE_FIELDS = ("index name spawn_frame spawn_queue damage_frame damage_queue com
 POLICY_FRONT_HALF_ANGLE = 60
 MAX_BYTES = 256*1024
 MAX_OUTER_SECONDS = 180
-ENGINE_VERSION = "1.30.164289.70"
+ENGINE_VERSION = dayz_build.pinned() + ".70"
 INTERFACES = {
     "3_Game/Entities/DayZInfected.c": ("ANIM_DEATH_DEFAULT = 0", "ANIM_DEATH_IMPULSE = 1",
         "COMMANDID_DEATH", "class DayZInfected extends DayZCreatureAI"),
@@ -241,7 +242,7 @@ def generate_probe(init_bytes, request, interfaces, run_id=None, policy_source=N
     run_id = secrets.token_hex(16) if run_id is None else run_id
     _need(type(run_id) is str and re.fullmatch("[0-9a-f]{32}",run_id), "hex run nonce")
     records = _interfaces(interfaces)
-    replacements = {"@RUN@":run_id, "@REQUEST@":_sha(_encode(req))}
+    replacements = {"@ENGINE_VERSION@": ENGINE_VERSION, "@RUN@":run_id, "@REQUEST@":_sha(_encode(req))}
     for key, field in (("@VICTIM@","victim_position"),("@SOURCE@","source_position")):
         replacements[key] = " ".join(format(n,".9g") for n in req[field])
     # The inspected normal server rejects a guard continuation beginning with
@@ -599,7 +600,7 @@ class HCDS
         GetGame().GetVersion(State.engine_version);
         Started = GetGame().GetTickTime();
         LastTime = Started;
-        if (State.world_name != "chernarusplus" || State.engine_version != "1.30.164289.70")
+        if (State.world_name != "chernarusplus" || State.engine_version != "@ENGINE_VERSION@")
         {
             Fault("world-or-build");
             Stop();

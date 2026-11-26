@@ -55,12 +55,14 @@ except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import xml_text
 
+from tools.validate import dayz_build
+
 MAX_XML_BYTES = 65536
 MAX_JSON_BYTES = 65536
 PHENOMENA = ('overcast', 'fog', 'rain', 'windMagnitude', 'windDirection', 'snowfall')
 WORLDS = ('chernarusplus', 'enoch', 'sakhal', 'nasdara')
-BUILD = '1.30.164289'
-BUILDS = (BUILD, '1.30.164289.70')
+BUILD = dayz_build.pinned()
+BUILDS = (BUILD, BUILD + '.70')
 FILES = {'cfgweather.xml', 'atmosphere-report.json', 'atmosphere-manifest.json'}
 SECTIONS = {'current': {'actual', 'time', 'duration'}, 'limits': {'min', 'max'},
             'timelimits': {'min', 'max'}, 'changelimits': {'min', 'max'}}

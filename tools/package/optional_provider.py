@@ -11,9 +11,16 @@ import math
 import re
 import sys
 
+if __package__ in (None, ''):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tools.validate import dayz_build
+
 MAX_INPUT_BYTES = 65536
 SOURCE_PIN = "d84d3c73694969eba2f969e9178a1914e2f1b31d"
-NATIVE_SCRIPTS_PIN = "09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a"
+NATIVE_SCRIPTS_PIN = dayz_build.pin_record()['server_scripts_pbo_sha256']
 PACKAGE_PINS = {
     "2792982069": (SOURCE_PIN, frozenset((
         "DayZExpansion_AI_Scripts", "DayZExpansion_AI_Animations", "DayZExpansion_Sounds_AI"))),
@@ -287,7 +294,7 @@ def evaluate(manifest):
         reasons.append("source-teleport-unsupported")
     if not m["experimental_opt_in"]:
         reasons.append("experimental-opt-in-disabled")
-    if b["version"] not in ("1.30.164289", "1.30.164289.70"):
+    if b["version"] not in (dayz_build.pinned(), dayz_build.pinned() + ".70"):
         reasons.append("build-unreviewed")
     if b["scripts_sha256"] != NATIVE_SCRIPTS_PIN:
         reasons.append("native-scripts-pin-mismatch")
