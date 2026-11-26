@@ -183,7 +183,7 @@ class HCGroupStore
             state.Invitations = new array<ref HCGroupInvitation>;
             bool serialized = JsonFileLoader<HCGroupState>.MakeData(state, m_PendingText, error);
             state.Invitations = invitations;
-            HCGroupService.HCTrace("save_swap invites_before=" + invitesBefore.ToString() + " restored=" + HCGroupService.HCBit(state.Invitations != null) + " invites_after=" + state.Invitations.Count().ToString());
+            if (HCGroupService.HCTraceArmed()) HCGroupService.HCTrace("save_swap invites_before=" + invitesBefore.ToString() + " restored=" + HCGroupService.HCBit(state.Invitations != null) + " invites_after=" + state.Invitations.Count().ToString());
             if (!serialized || m_PendingText.Length() > m_Settings.MaxStoreBytes) { Fault(); return HCSaveJob.STEP_FAILED; }
             HCGroupReceipt receipt = new HCGroupReceipt;
             receipt.Revision = state.Revision;

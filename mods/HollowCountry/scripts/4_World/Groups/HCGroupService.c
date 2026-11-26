@@ -172,8 +172,12 @@ class HCGroupService
 {
     protected static ref HCGroupService s_Instance;
     // Bounded soak trace for the 195/196 AV (no ids): 32 lines per process, then silent.
+    // Only authenticated Commits arm it, so discovery batches and connects never spend it.
+    // Remove once the next soak confirms the cause.
     protected static int s_HCTraceBudget = 32;
     protected static int s_HCTraceSnapshots = 0;
+    protected static bool s_HCTraceInCommit = false;
+    static bool HCTraceArmed() { return s_HCTraceInCommit && s_HCTraceBudget > 0; }
     static string HCBit(bool value) { if (value) return "1"; return "0"; }
     static void HCTrace(string line)
     {
@@ -384,7 +388,6 @@ class HCGroupService
         peer.Id = uid;
         // Keep the player's own identity object; the event identity can be a different
         // script object (that is why #373 compares by id) and is not ours to hold.
-        HCTrace("connect peers=" + m_Peers.Count().ToString());
         peer.Identity = player.GetIdentity();
         peer.Player = player;
         peer.Name = identity.GetName();
@@ -601,10 +604,16 @@ class HCGroupService
         int result = HCPrepareCommit(candidate);
         if (result != HCGroupCode.OK) { return result; }
         // Authenticated action durability barrier; routine discovery never calls it.
-        if (!m_Store.Save(candidate)) { return HCGroupCode.STORAGE; }
+        s_HCTraceInCommit = true;
+        bool saved = m_Store.Save(candidate);
+        s_HCTraceInCommit = false;
+        if (!saved) { return HCGroupCode.STORAGE; }
         m_State = candidate;
-        HCTrace("commit groups=" + m_State.Groups.Count().ToString() + " invites=" + m_State.Invitations.Count().ToString());
-        s_HCTraceSnapshots = 2;
+        if (s_HCTraceBudget > 0)
+        {
+            HCTrace("commit groups=" + m_State.Groups.Count().ToString() + " invites=" + m_State.Invitations.Count().ToString());
+            s_HCTraceSnapshots = 2;
+        }
         HCModuleReadiness.HCUse("Groups", "group_mutated");
         return HCGroupCode.OK;
     }
@@ -927,7 +936,7 @@ class HCGroupService
                 }
             }
         }
-        if (s_HCTraceSnapshots > 0)
+        if (s_HCTraceSnapshots > 0 && s_HCTraceBudget > 0)
         {
             s_HCTraceSnapshots--;
             HCTrace("snapshot peers=" + m_Peers.Count().ToString() + " members=" + snapshot.Members.Count().ToString());
