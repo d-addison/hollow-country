@@ -794,15 +794,23 @@ class HCXAISiteStorage : HCXAISiteBase
     }
     override protected void HCRemoveRoute(HCXAIRouteRow row)
     {
+        // HCXAIRouteRow is not Managed and Rows may hold its only ref: the swap or Remove frees it.
+        // Read the id and drop the raw map entries first; row must not be read afterwards.
+        if (!row) { return; }
+        string siteId = row.SiteId;
         int index;
-        if (!m_RouteIndices.Find(row.SiteId, index)) { return; }
+        if (!m_RouteIndices.Find(siteId, index)) { return; }
+        m_RouteRows.Remove(siteId);
+        m_RouteIndices.Remove(siteId);
+        row = null;
         int last = m_Routes.Rows.Count() - 1;
-        HCXAIRouteRow tail = m_Routes.Rows[last];
-        m_Routes.Rows[index] = tail;
+        if (index != last)
+        {
+            HCXAIRouteRow tail = m_Routes.Rows[last];
+            m_RouteIndices.Set(tail.SiteId, index);
+            m_Routes.Rows[index] = tail;
+        }
         m_Routes.Rows.Remove(last);
-        m_RouteRows.Remove(row.SiteId);
-        m_RouteIndices.Remove(row.SiteId);
-        if (index != last) { m_RouteIndices.Set(tail.SiteId, index); }
     }
     override void HCQueueCaches()
     {

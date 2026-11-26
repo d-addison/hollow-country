@@ -180,7 +180,7 @@ modded class HCGroupService
 {
     protected int m_HCPinsCursor;
     protected int m_HCPinsLogCursor;
-    // Id + session, not the peer: HCGroupPeer is not Managed and a logout or reconnect frees it while the
+    // Id + session, not the peer: a logout or reconnect drops the peer (only m_Peers holds it) while the
     // staged save is still pending. Re-resolved through Peer() after the save.
     protected string m_TrailExplorerId;
     protected string m_TrailExplorerSession;

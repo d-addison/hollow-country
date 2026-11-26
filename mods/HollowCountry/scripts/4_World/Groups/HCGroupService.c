@@ -395,7 +395,7 @@ class HCGroupService
         if (!peer || (peer.Identity && !HCPlayerIdentity.Same(peer.Identity, identity))) return;
         // Persist batched discovery while the leaving explorer is still live.
         if (m_Healthy && FlushBatch() == HCGroupCode.STORAGE) { Stop(); return; }
-        // HCGroupPeer is not Managed and m_Peers holds its only ref: Remove frees it. Read the id and drop
+        // m_Peers holds the only ref to the peer: Remove frees it. Read the id and drop
         // the weak fields first; the freed peer must not be read or written afterwards (heap corruption).
         string leaving = peer.Id;
         peer.Identity = null;
