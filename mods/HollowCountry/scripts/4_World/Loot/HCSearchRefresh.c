@@ -490,7 +490,6 @@ class HCSearchRefreshStore
     string HCReadReason() { return m_ReadRetry.HCReason("intent"); }
     bool HCReadPending() { return m_ReadRetry.HCPending(); }
     int HCRetryDelayMs() { return m_ReadRetry.HCDelayMs(); }
-    bool HCReadBudget() { return m_ReadRetry.HCTakeBudget(); }
     bool HCRefusePendingSave() { return m_ReadRetry.HCRefuseSave("LootRefresh", "intent"); }
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage;
     protected int m_ImageRevision;
@@ -830,7 +829,7 @@ class HCSearchRefreshModule : HCModule
 
     // Native 2_GameLib/tools.c:61/65 CallLater/Remove and
     // 3_Game/Global/Game.c:1550 GetCallQueue (installed 1.30.164289).
-    // Eleven attempt callbacks plus at most eleven shared-budget deferrals.
+    // At most eleven delayed attempts after the initial read; no budget deferrals.
     protected void HCScheduleRead()
     {
         if (!m_Store.HCReadExhausted())
@@ -842,7 +841,7 @@ class HCSearchRefreshModule : HCModule
     protected void HCRetryRead()
     {
         if (s_Instance != this || !m_Settings || !m_Store || !m_Store.HCReadPending()) { return; }
-        if (!m_Store.HCReadBudget()) { HCScheduleRead(); return; }
+        if (m_Store.HCReadExhausted()) { return; }
         m_State = m_Store.Open();
         if (m_Store.HCReadPending()) { HCScheduleRead(); return; }
         HCFinishOpen();

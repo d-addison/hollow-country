@@ -470,6 +470,9 @@ class HCInfectedVariety
         return false;
     }
 
+    // Validated MaxSites <=64; linear authored-position comparison only.
+    // No object/player enumeration, room lookup or raycast. Native vector
+    // squared distance: 1_Core/proto/EnConvert.c:210 DistanceSq.
     static string HCContext(vector pos)
     {
         if (!s_Running || !s_Config) { return ""; }

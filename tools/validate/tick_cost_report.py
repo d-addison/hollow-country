@@ -173,7 +173,8 @@ def perf_rules(path):
                     if cost is not None:
                         stages = [(number(fields, key), key) for key in fields
                                   if key not in {"window", "ticks", "worst_tick_ticks", "worst_tick_items",
-                                                 "heaviest_item_ticks", "deferred_n", "deferred_max_ticks"}
+                                                 "heaviest_item_ticks", "deferred_n", "deferred_max_ticks",
+                                                 "near_standing", "context", "near_corpse", "place_fits", "sleep"}
                                   and number(fields, key) is not None]
                         stage = max(stages)[1] if stages else "unknown"
                         db.execute("INSERT INTO spikes VALUES(?,?,?,?,?,?,1)",

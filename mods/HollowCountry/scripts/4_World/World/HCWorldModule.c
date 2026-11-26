@@ -115,7 +115,7 @@ class HCWorldModule : HCModule
     protected void HCRetryRead()
     {
         if (!m_ReadWaiting || !m_Store || m_Running) { return; }
-        if (!m_Store.HCReadBudget()) { HCScheduleRead(); return; }
+        if (m_Store.HCReadExhausted()) { return; }
         if (m_Store.Load()) { HCFinishLoad(); return; }
         if (m_Store.HCReadPending()) { HCScheduleRead(); return; }
         m_ReadWaiting = false;

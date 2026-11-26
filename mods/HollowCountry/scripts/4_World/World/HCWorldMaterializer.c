@@ -281,12 +281,12 @@ class HCWorldMaterializer : HCModule
     }
 
     // Installed native 2_GameLib/tools.c:61/65 CallLater/Remove;
-    // 3_Game/Global/Game.c:1550 GetCallQueue. One budgeted boot transaction
-    // per callback, no loop; OnStop cancels the pending callback.
+    // 3_Game/Global/Game.c:1550 GetCallQueue. One boot load attempt per
+    // callback under the shared retry cap; OnStop cancels the pending callback.
     protected void HCRetryCustodyLoad()
     {
         if (!m_Running || m_CustodyReady || !m_CustodyRetryRead) { return; }
-        if (!m_CustodyReadRetry.HCTakeBudget())
+        if (m_CustodyReadRetry.HCExhausted())
         {
             m_CustodyLoadFault = m_CustodyReadRetry.HCReason("custody");
             this.HCScheduleCustodyRead();

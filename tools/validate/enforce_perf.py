@@ -1871,8 +1871,8 @@ def capped_retry(model, i, offset, callbacks):
         if not pos < offset < end or '||' in code[opening:closing]:
             continue
         for term in code[opening + 1:closing].split('&&'):
-            # The production shared retry owns both finite attempt and deferral
-            # caps. Recognize only its exact typed seam (including the two store
+            # The production shared retry owns the finite attempt cap.
+            # Recognize only its exact typed seam (including the two store
             # delegates), never an arbitrary method named HCExhausted.
             shared = re.fullmatch(rf'\s*!\s*({_CHAIN})\s*\(\s*\)\s*', term)
             if shared:

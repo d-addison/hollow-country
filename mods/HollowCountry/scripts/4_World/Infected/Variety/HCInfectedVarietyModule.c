@@ -5,14 +5,16 @@
 // 3_Game/Weather.c:189 GetRain, :38 GetActual; 3_Game/dayzplayer.c:633-636
 // erect stance masks, :1346 IsPlayerInStance; Entities/Object.c:287 GetPosition,
 // :517 IsAlive; 1_Core/proto/EnMath.c:126 RandomFloat01, :427 Floor;
-// 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
+// 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced,
+// :1090 IsCrawling;
 // EnConvert.c:210 DistanceSq, :30 int.ToString, :115 float.ToString;
 // EnScript.c:380 Count, :385 Clear; EnDebug.c:96 Print. Geometry uses the
 // already inspected HCAlertChain.ClearGeometry (DayZPhysics.c:199 RaycastRV).
 // Tick bound: one GetPlayers; at most 32 proximity candidates per sampled
-// actor; resumable census/cap passes over <=256 entries (<=32 per tick), one
-// up to four cheap candidates, one spatial posture candidate (<=2*256 corpse/place
-// checks and <=2 proximity rays); a single
+// actor; resumable census/cap passes over <=256 entries (<=32 per tick),
+// <=4 posture samples, one retained candidate and <=6 stage steps per tick.
+// Selection assigns <=4 roles/refreshes <=4 places; stages scan <=256 entries
+// per corpse/place check, do <=1 room query or <=4 dormant wake rays; a single
 // shot visits <=32 actors with a cooperative slice, <=3 cues in ONE place, <=6 rays.
 // Role/dormant place naming uses <=8*64 existing HCWorld place comparisons.
 // Room context reuses HCInfectedRoomCatalog.BuildProductionOrder: existing
@@ -26,6 +28,50 @@
 // instead of re-scanning players when it proves nobody can be within 6 m, and
 // takes the posed budget (cap and full/idle sub-budgets) from lod.json; the
 // ship default 12/12/12 reproduces the fixed cap exactly. Runtime pending.
+// Helper splits describe the SAME worst owner tick as the original fields.
+// They overlap posture and must not be added to the owner's total a second time.
+// Native: 1_Core/proto/EnSystem.c:106 TickCount; EnString.c:156 Replace;
+// EnScript.c:380/399/389 Count/Get/Set; EnConvert.c:30 int.ToString.
+class HCVarietyStepTimer : HCStepTimer
+{
+    protected ref array<int> m_HelperCurrent = {0, 0, 0, 0, 0};
+    protected ref array<int> m_HelperWorst = {0, 0, 0, 0, 0};
+
+    void HCVarietyStepTimer(string owner) { m_Owner = owner; }
+
+    void HCHelper(int helper, int started)
+    {
+        int ticks = TickCount(started);
+        if (ticks > 0) { m_HelperCurrent[helper] = m_HelperCurrent[helper] + ticks; }
+    }
+
+    override void HCEndTick(int totalTicks)
+    {
+        for (int index = 0; index < 5; index++)
+        {
+            if (totalTicks > m_WorstTotal) { m_HelperWorst[index] = m_HelperCurrent[index]; }
+            m_HelperCurrent[index] = 0;
+        }
+        super.HCEndTick(totalTicks);
+    }
+
+    override string HCLine()
+    {
+        string line = super.HCLine();
+        string helpers = " near_standing=" + m_HelperWorst[0].ToString() + " context=" + m_HelperWorst[1].ToString();
+        helpers += " near_corpse=" + m_HelperWorst[2].ToString() + " place_fits=" + m_HelperWorst[3].ToString();
+        helpers += " sleep=" + m_HelperWorst[4].ToString();
+        line.Replace("; raw TickCount units;", helpers + "; raw TickCount units;");
+        return line;
+    }
+
+    override void HCCloseWindow()
+    {
+        super.HCCloseWindow();
+        for (int index = 0; index < 5; index++) { m_HelperWorst[index] = 0; }
+    }
+}
+
 class HCInfectedVarietyModule : HCModule
 {
     protected static HCInfectedVarietyModule s_Instance;
@@ -43,7 +89,7 @@ class HCInfectedVarietyModule : HCModule
     protected float m_ShotAt;
     protected int m_Woken;
     protected ref HCWorkBudget m_VarietyWork = new HCWorkBudget;
-    protected ref HCStepTimer m_VarietySteps;
+    protected ref HCVarietyStepTimer m_VarietySteps;
     protected int m_WakeRevision;
     protected string m_LastSummary;
     protected float m_SummaryPrintedAt;
@@ -81,7 +127,7 @@ class HCInfectedVarietyModule : HCModule
             Print(HCV2Admission.Line("InfectedVariety", m_Variety, "W5-121", false));
             m_Printed = true;
         }
-        m_VarietySteps = new HCStepTimer("InfectedVariety");
+        m_VarietySteps = new HCVarietyStepTimer("InfectedVariety");
         m_VarietySteps.HCDefine("observers");
         m_VarietySteps.HCDefine("census");
         m_VarietySteps.HCDefine("caps");
@@ -98,6 +144,7 @@ class HCInfectedVarietyModule : HCModule
             HCDebugSnapshot.HCRegister(m_Debug);
         }
         Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; native crawlers at corpses/catalog rooms and authored CE places; bounded fresh queue; runtime acceptance pending");
+        Print("[HC Variety] posture_slice reason=staged_helpers target_ms=2 native_query_bound=PENDING");
         HCPrintCEVariantClasses();
     }
 
@@ -298,12 +345,15 @@ modded class HCInfectedModule
         return "wild:" + cellX.ToString() + ":" + cellZ.ToString();
     }
 
+    // At most the existing tracked-actor cap; no world query or ray.
+    // Native: Object.c:287 GetPosition, :517 IsAlive; EnConvert.c:210 DistanceSq.
     protected bool HCVarietyNearCorpse(ZombieBase candidate)
     {
+        vector position = candidate.GetPosition();
         foreach (HCInfectedActor corpse : m_Actors)
         {
             if (!corpse.InfectedEntity || corpse.InfectedEntity.IsAlive()) { continue; }
-            if (vector.DistanceSq(candidate.GetPosition(), corpse.InfectedEntity.GetPosition()) <= 100) { return true; }
+            if (vector.DistanceSq(position, corpse.InfectedEntity.GetPosition()) <= 100) { return true; }
         }
         return false;
     }
@@ -311,7 +361,11 @@ modded class HCInfectedModule
     // Context selection only: an actor is already here. Do not use returned
     // room points as destinations, create entities, or change door/path state.
     // The existing catalog owns template binding and its per-tick query cap;
-    // native calls stay in that inspected service (HCInfectedRooms.c:1513-1609).
+    // native calls stay in that inspected service (HCInfectedRooms.c:1474-1618).
+    // It queries Game.c:930 GetObjectsAtPosition3D once, retains its existing
+    // radius/result caps, binds houses and orders room anchors. No raycasts.
+    // Object.c:287/305/467 GetPosition/GetOrientation/GetType, :874 WorldToModel,
+    // :873 ModelToWorld. This synchronous service cannot promise a 2 ms bound.
     protected bool HCVarietyPlaceFits(ZombieBase candidate)
     {
         TVectorArray roomPoints = new TVectorArray;
@@ -331,13 +385,19 @@ modded class HCInfectedModule
         return total;
     }
 
-    protected bool HCVarietyNearStanding(array<Man> players, HCInfectedActor actor, ZombieBase candidate, bool checkGeometry)
+    // Native: Global/DayZPhysics.c:199 RaycastRV, via HCAlertChain.ClearGeometry
+    // (HCAlertChain.c:153-165). Base <=32 players/two rays; HCPoseVariation
+    // override can also try one close observer (<=32 more players/two rays).
+    protected bool HCVarietyNearStanding(array<Man> players, HCInfectedActor actor, ZombieBase candidate, bool checkGeometry, bool preserveObserver = false)
     {
         // Shared LOD sample: nobody can be within 6 m, so no standing player
         // can be either (same result as the scan below, without it).
         if (actor && HCLODPolicy.SafelyFar(actor.LODDistance, GetGame().GetTickTime() - actor.LODAt, 6)) { return false; }
         int count = Math.Min(32, players.Count());
-        int first = candidate.HCVarietyObserverOffset(players.Count());
+        // The final no-geometry safety recheck must not advance the future
+        // geometry observer rotation a second time for this same candidate.
+        int first;
+        if (!preserveObserver) { first = candidate.HCVarietyObserverOffset(players.Count()); }
         for (int playerIndex = 0; playerIndex < count; playerIndex++)
         {
             int rosterIndex = (first + playerIndex) % players.Count();
@@ -365,19 +425,20 @@ modded class HCInfectedModule
     protected int m_HCVarietySamples;
     protected int m_HCVarietyDormantCap = -1;
 
-    int HCVarietyTick(array<Man> players, float now, float nightness, float rain, float scale, HCWorkBudget workBudget, HCStepTimer steps)
+    int HCVarietyTick(array<Man> players, float now, float nightness, float rain, float scale, HCWorkBudget workBudget, HCVarietyStepTimer steps)
     {
         if (!m_Healthy || !HCInfectedVarietyModule.VarietyActive()) { return 0; }
         int woken = 0;
         // Retain scan cursors across ticks. A census/cap pass processes at most
-        // 32 actors in a 4 ms shared slice; at most one spatial posture test runs
-        // per tick. Cheap ineligible candidates retain the old four-actor cap.
+        // 32 actors in a 4 ms shared slice; posture retains one candidate and
+        // executes at most six stage steps per admitted tick.
         // Roster/cap changes restart counts before any new posture admission.
         int dormantCap = HCInfectedVarietyPolicy.DormantLimitAt(scale, HCInfectedLOD.PosedBudget());
         if (m_HCVarietySize != m_Actors.Count() || m_HCVarietyDormantCap != dormantCap)
         {
             m_HCVarietyPhase = 0;
             m_HCVarietyScan = 0;
+            m_HCPostureActor = null;
         }
         m_HCVarietySize = m_Actors.Count();
         m_HCVarietyDormantCap = dormantCap;
@@ -453,70 +514,215 @@ modded class HCInfectedModule
             }
             return woken;
         }
-        bool spatialTest = false;
-        int work = Math.Min(4, m_Actors.Count());
-        for (int sampleIndex = 0; sampleIndex < work && !spatialTest && workBudget.HCContinue(); sampleIndex++)
+        // A separate posture target does not give the rest of this module a
+        // fresh slice. Both this 2 ms deadline and the shared 4 ms deadline
+        // must admit work; consume the first-unit exception before selection.
+        // First guard + four samples + six stages + three inner guards.
+        m_HCPostureWork.HCReset(14, 2);
+        m_HCPostureWork.HCContinue();
+        if (!m_HCPostureActor)
         {
-            m_HCVarietySamples++;
-            if (m_HCVarietyCursor >= m_Actors.Count()) { m_HCVarietyCursor = 0; }
-            HCInfectedActor actor = m_Actors[m_HCVarietyCursor];
-            m_HCVarietyCursor++;
-            if (!actor) { continue; }
-            ZombieBase entity = actor.InfectedEntity;
-            if (!entity || !entity.IsAlive()) { continue; }
-            if (entity.HCVarietyRole() < 0)
+            int work = Math.Min(4, m_Actors.Count());
+            for (int sampleIndex = 0; sampleIndex < work && workBudget.HCContinue() && m_HCPostureWork.HCContinue(); sampleIndex++)
             {
-                string context = HCInfectedVariety.HCContext(entity.GetPosition());
-                int role = HCInfectedVarietyPolicy.HCContextRole(context, m_HCVarietyRunners < runnerCap && !entity.IsCrawling());
-                if (role == 2) { m_HCVarietyRunners++; }
-                entity.HCVarietyAssign(role, HCVarietyPlaceAt(entity.GetPosition()));
-            }
-            if (entity.HCVarietyDormant())
-            {
-                spatialTest = true;
-                if (HCVarietyNearStanding(players, actor, entity, true))
+                m_HCVarietySamples++;
+                if (m_HCVarietyCursor >= m_Actors.Count()) { m_HCVarietyCursor = 0; }
+                int selected = m_HCVarietyCursor;
+                m_HCVarietyCursor++;
+                HCInfectedActor actor = m_Actors[selected];
+                if (!actor) { continue; }
+                ZombieBase entity = actor.InfectedEntity;
+                if (!entity || !entity.IsAlive()) { continue; }
+                // Preserve role assignment for standing actors too, before the
+                // crawler-only cheap filters. Native evidence is listed above.
+                if (entity.HCVarietyRole() < 0)
                 {
-                    if (entity.HCVarietyWake())
+                    int roleStarted = TickCount(0);
+                    string roleContext = HCInfectedVariety.HCContext(entity.GetPosition());
+                    steps.HCHelper(1, roleStarted);
+                    int role = HCInfectedVarietyPolicy.HCContextRole(roleContext, m_HCVarietyRunners < runnerCap && !entity.IsCrawling());
+                    if (role == 2) { m_HCVarietyRunners++; }
+                    entity.HCVarietyAssign(role, HCVarietyPlaceAt(entity.GetPosition()));
+                }
+                if (entity.HCVarietyDormant())
+                {
+                    int wakeStarted = TickCount(0);
+                    bool wake = HCVarietyNearStanding(players, actor, entity, true);
+                    steps.HCHelper(0, wakeStarted);
+                    if (wake && entity.HCVarietyWake())
                     {
                         woken++;
                         m_HCVarietyDormant--;
                         if (actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL) { m_HCVarietyFull--; }
                         else { m_HCVarietyIdle--; }
                     }
+                    // As before, only one geometry/wake candidate per tick.
+                    break;
                 }
-                continue;
+                if (!entity.HCVarietyCanTry(now) || !entity.IsCrawling()) { continue; }
+                if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { continue; }
+                // Refresh the real location BEFORE cap/posed-budget rejection.
+                entity.HCVarietyAssign(entity.HCVarietyRole(), HCVarietyPlaceAt(entity.GetPosition()));
+                bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
+                if (m_HCVarietyDormant >= dormantCap || HCVarietyInPlace(entity.HCVarietyPlace()) >= 3) { continue; }
+                if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, m_HCVarietyFull, m_HCVarietyIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
+                if (players.Count() > 32) { continue; }
+                m_HCPostureActor = actor;
+                m_HCPostureSlot = selected;
+                m_HCPosturePosition = actor.InfectedEntity.GetPosition();
+                m_HCPostureStage = 2;
+                m_HCPostureRetries = 0;
+                m_HCPostureCorpse = false;
+                break;
             }
-            if (!entity.HCVarietyCanTry(now) || !entity.IsCrawling()) { continue; }
-            if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned) { continue; }
-            if (entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { continue; }
-            // A crawler may have moved since first registration; name the real
-            // sleep location before applying the three-per-place cap.
-            entity.HCVarietyAssign(entity.HCVarietyRole(), HCVarietyPlaceAt(entity.GetPosition()));
-            if (m_HCVarietyDormant >= dormantCap || HCVarietyInPlace(entity.HCVarietyPlace()) >= 3) { continue; }
-            bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
-            if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, m_HCVarietyFull, m_HCVarietyIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
-            if (players.Count() > 32 || HCVarietyNearStanding(players, actor, entity, false)) { continue; }
-            spatialTest = true;
-            // Authored context already qualifies this actor. Avoid binding a
-            // room merely to establish an equivalent context result.
-            if (HCInfectedVariety.HCContext(entity.GetPosition()) == "" && !HCVarietyNearCorpse(entity) && !HCVarietyPlaceFits(entity)) { continue; }
-            bool permitted = Math.RandomFloat01() < HCInfectedVarietyActivity.HCDormantChance(entity.HCVarietyPlace(), nightness, rain);
-            if (entity.HCVarietySleep(now, permitted))
-            {
-                m_HCVarietyDormant++;
-                if (nearPlayers) { m_HCVarietyFull++; }
-                else { m_HCVarietyIdle++; }
-            }
+        }
+        for (int stageStep = 0; stageStep < 6 && m_HCPostureActor; stageStep++)
+        {
+            if (!workBudget.HCContinue() || !m_HCPostureWork.HCContinue()) { break; }
+            int previousStage = m_HCPostureStage;
+            woken += HCVarietyPostureStep(players, now, nightness, rain, dormantCap, steps);
+            // An inner budget refusal must stop this tick immediately too.
+            if (m_HCPostureStage == previousStage) { break; }
+        }
+        if (m_HCPostureActor)
+        {
+            m_HCPostureRetries++;
+            if (m_HCPostureRetries >= 3) { m_HCPostureActor = null; }
         }
         int postureTicks = TickCount(started);
         steps.HCAdd(3, postureTicks);
         steps.HCItem("posture_candidate", postureTicks);
-        if (m_HCVarietySamples >= Math.Min(32, m_Actors.Count()))
+        if (!m_HCPostureActor && m_HCVarietySamples >= Math.Min(32, m_Actors.Count()))
         {
             m_HCVarietyPhase = 0;
             m_HCVarietyScan = 0;
         }
         return woken;
+    }
+
+    protected ref HCWorkBudget m_HCPostureWork = new HCWorkBudget;
+    protected HCInfectedActor m_HCPostureActor;
+    protected int m_HCPostureSlot;
+    protected int m_HCPostureStage;
+    protected int m_HCPostureRetries;
+    protected bool m_HCPostureCorpse;
+    protected vector m_HCPosturePosition;
+
+    // Role assignment and cheap filters run inline for <=4 samples. One held
+    // candidate runs stages 2..6 in <=6 steps, stopping at the first refusal
+    // or unchanged stage. Three deferred ticks discard that candidate (including
+    // refusals inside stages 2/6); no private-budget starvation pins the cursor.
+    // Sleep repeats proximity against LIVE players without geometry, and a
+    // corpse-qualified candidate must still have a nearby corpse at commit.
+    // Movement >0.5 m, roster/cap changes or unsafe live predicates discard it.
+    // The 2 ms goal is cooperative: room binding and each RaycastRV are native
+    // synchronous calls; only the next native soak can establish their cost.
+    // Native: Game.c:914 GetTickTime; Object.c:287 GetPosition, :517 IsAlive;
+    // ZombieBase.c:182 GetMindStateSynced, :1090 IsCrawling; EnMath.c:126 RandomFloat01.
+    protected int HCVarietyPostureStep(array<Man> players, float now, float nightness, float rain, int dormantCap, HCVarietyStepTimer steps)
+    {
+        HCInfectedActor actor = m_HCPostureActor;
+        if (!actor) { return 0; }
+        ZombieBase entity = actor.InfectedEntity;
+        if (!entity || !entity.IsAlive() || m_HCPostureSlot >= m_Actors.Count() || m_Actors[m_HCPostureSlot] != actor)
+        {
+            m_HCPostureActor = null;
+            return 0;
+        }
+        if (vector.DistanceSq(entity.GetPosition(), m_HCPosturePosition) > 0.25)
+        {
+            m_HCPostureActor = null;
+            return 0;
+        }
+        int helperStarted;
+        // Recheck the cheap safety predicates on every admission stage. No
+        // other posture candidate is admitted while this one holds the cursor.
+        if (!entity.HCVarietyCanTry(now) || !entity.IsCrawling() || entity.HCVarietyDormant()) { m_HCPostureActor = null; return 0; }
+        if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned || entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM)
+        {
+            m_HCPostureActor = null;
+            return 0;
+        }
+        bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
+        if (m_HCVarietyDormant >= dormantCap || !HCInfectedVarietyPolicy.PosedRoom(nearPlayers, m_HCVarietyFull, m_HCVarietyIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget()))
+        {
+            m_HCPostureActor = null;
+            return 0;
+        }
+        if (m_HCPostureStage == 2)
+        {
+            if (HCVarietyInPlace(entity.HCVarietyPlace()) >= 3 || players.Count() > 32) { m_HCPostureActor = null; return 0; }
+            if (!m_HCPostureWork.HCContinue()) { return 0; }
+            helperStarted = TickCount(0);
+            bool standing = HCVarietyNearStanding(players, actor, entity, false);
+            steps.HCHelper(0, helperStarted);
+            if (standing) { m_HCPostureActor = null; return 0; }
+            m_HCPostureStage = 3;
+            return 0;
+        }
+        if (m_HCPostureStage == 3)
+        {
+            helperStarted = TickCount(0);
+            string context = HCInfectedVariety.HCContext(entity.GetPosition());
+            steps.HCHelper(1, helperStarted);
+            m_HCPostureStage = 4;
+            if (context != "") { m_HCPostureStage = 6; }
+            return 0;
+        }
+        if (m_HCPostureStage == 4)
+        {
+            helperStarted = TickCount(0);
+            bool corpse = HCVarietyNearCorpse(entity);
+            steps.HCHelper(2, helperStarted);
+            m_HCPostureStage = 5;
+            if (corpse)
+            {
+                m_HCPostureCorpse = true;
+                m_HCPostureStage = 6;
+            }
+            return 0;
+        }
+        if (m_HCPostureStage == 5)
+        {
+            helperStarted = TickCount(0);
+            bool fits = HCVarietyPlaceFits(entity);
+            steps.HCHelper(3, helperStarted);
+            if (!fits) { m_HCPostureActor = null; return 0; }
+            m_HCPostureStage = 6;
+            return 0;
+        }
+        if (m_HCPostureCorpse)
+        {
+            if (!m_HCPostureWork.HCContinue()) { return 0; }
+            helperStarted = TickCount(0);
+            bool corpseStillNear = HCVarietyNearCorpse(entity);
+            steps.HCHelper(2, helperStarted);
+            if (!corpseStillNear) { m_HCPostureActor = null; return 0; }
+        }
+        // Revalidate the place cap after the room query (fresh bodies and
+        // native wake callbacks may have changed occupancy between stages).
+        if (HCVarietyInPlace(entity.HCVarietyPlace()) >= 3 || players.Count() > 32) { m_HCPostureActor = null; return 0; }
+        if (!m_HCPostureWork.HCContinue()) { return 0; }
+        m_HCPostureActor = null;
+        helperStarted = TickCount(0);
+        bool newlyStanding = HCVarietyNearStanding(players, actor, entity, false, true);
+        steps.HCHelper(0, helperStarted);
+        if (newlyStanding) { return 0; }
+        bool permitted = Math.RandomFloat01() < HCInfectedVarietyActivity.HCDormantChance(entity.HCVarietyPlace(), nightness, rain);
+        // Sleep is O(1): DayZInfected.c:107 GetInputController,
+        // DayZInfectedInputController.c:9 GetMindState, DayZAnimal.c:193
+        // GetAIAgent, AIAgent.c:6 SetKeepInIdle; no spatial query or loop.
+        // HCPoseVariation adds Game.c:914 GetTickTime and one scalar draw.
+        helperStarted = TickCount(0);
+        bool slept = entity.HCVarietySleep(now, permitted);
+        steps.HCHelper(4, helperStarted);
+        if (slept)
+        {
+            m_HCVarietyDormant++;
+            if (nearPlayers) { m_HCVarietyFull++; }
+            else { m_HCVarietyIdle++; }
+        }
+        return 0;
     }
 
     protected int m_HCShotCursor;
@@ -559,6 +765,7 @@ modded class HCInfectedModule
     {
         m_HCVarietyPhase = 0;
         m_HCVarietyScan = 0;
+        m_HCPostureActor = null;
         foreach (HCInfectedActor actor : m_Actors)
         {
             if (actor.InfectedEntity) { actor.InfectedEntity.HCVarietyRelease(); }
