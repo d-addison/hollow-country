@@ -582,6 +582,8 @@ modded class HCInfectedModule
                 m_HCPosturePosition = actor.InfectedEntity.GetPosition();
                 m_HCPostureStage = 2;
                 m_HCPostureRetries = 0;
+                m_HCPostureBindWaits = 0;
+                m_HCPostureBindWait = false;
                 m_HCPostureCorpse = false;
                 break;
             }
@@ -596,8 +598,12 @@ modded class HCInfectedModule
         }
         if (m_HCPostureActor)
         {
-            m_HCPostureRetries++;
-            if (m_HCPostureRetries >= 3) { m_HCPostureActor = null; }
+            if (m_HCPostureBindWait) { m_HCPostureBindWait = false; }
+            else
+            {
+                m_HCPostureRetries++;
+                if (m_HCPostureRetries >= 3) { m_HCPostureActor = null; }
+            }
         }
         int postureTicks = TickCount(started);
         steps.HCAdd(3, postureTicks);
@@ -618,6 +624,11 @@ modded class HCInfectedModule
     protected int m_HCPostureSlot;
     protected int m_HCPostureStage;
     protected int m_HCPostureRetries;
+    // A held bind scan finishes in <=16 filter calls plus <=16 admissions; 48 waits covers one foreign scan
+    // and then this candidate's own, after which the candidate is dropped like any other refusal.
+    protected static const int MAX_POSTURE_BIND_WAITS = 48;
+    protected int m_HCPostureBindWaits;
+    protected bool m_HCPostureBindWait;
     protected bool m_HCPostureCorpse;
     protected vector m_HCPosturePosition;
 
@@ -706,7 +717,19 @@ modded class HCInfectedModule
             helperStarted = TickCount(0);
             bool fits = HCVarietyPlaceFits(entity);
             steps.HCHelper(3, helperStarted);
-            if (!fits) { m_HCPostureActor = null; return 0; }
+            if (!fits)
+            {
+                // The room bind is resumable (64 checks per call): while a scan is held the empty answer
+                // is not final. Wait for it on a bounded counter that does not spend the 3 stage retries.
+                if (HCInfectedRoomCatalog.BindPending() && m_HCPostureBindWaits < MAX_POSTURE_BIND_WAITS)
+                {
+                    m_HCPostureBindWaits++;
+                    m_HCPostureBindWait = true;
+                    return 0;
+                }
+                m_HCPostureActor = null;
+                return 0;
+            }
             m_HCPostureStage = 6;
             return 0;
         }

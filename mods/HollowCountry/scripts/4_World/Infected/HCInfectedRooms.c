@@ -1494,6 +1494,7 @@ class HCInfectedRoomCatalog
         }
     }
 
+    static bool BindPending() { return s_BindPending; }
     static int LastBindQueryTicks() { return s_LastBindQueryTicks; }
     static int LastBindFilterTicks() { return s_LastBindFilterTicks; }
     static int LastBindAdmissionTicks() { return s_LastBindAdmissionTicks; }
