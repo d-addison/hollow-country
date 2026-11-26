@@ -85,3 +85,66 @@ file count + a few sha256s against ~/.cache/hollow-country/native-scripts/script
 
 ## Report
 Files changed, the check output, the prepare smoke comparison, any pin site you deliberately left.
+
+## Round 2 (lead review of 5730737d + banso integration; same rules)
+R0 (fix) Workshop server freshness: `check` online exits 2 forever because the server receipt (hollow-country-workshop-receipt.json written by tools/setup/workshop_sync.py) holds hashes only. Make workshop_sync.py also record each item's client timeupdated (from appworkshop_221100.acf) at copy time; in `check`, a receipt without stamps is a Note "server receipt predates timestamps; run workshop_sync" and does NOT force exit 2 when apps and client Workshop items are otherwise known (exit 10 only on a real update, 2 only on network/parse failure). Experimental column shows "?" while steamcmd returns public: verify the branch key name in the live api.steamcmd.net response and fix if wrong. Also make `bump` update the native_scripts path and game_build strings in config/hollow-country-variant-dependencies.json and config/hollow-country-winter-terrain.json (or have preland flag them when they differ from the pin), and update tests.
+
+## Round 2: banso integration (same branch rt/dayz-update; same worker rules)
+Facts from the banso source (/code/banso; read-only, do not edit it):
+- `banso workflow run <name> --pipeline <p> --headless [--input k=v]` runs one pipeline of
+  .banso/workflows/<name>.yaml (action_groups_b.rs:948-971). `banso workflow validate <file>` is the loader check.
+- `banso schedule add/once` store entries that NOTHING executes today (schedule.rs:114-122 empty workflow;
+  deferred.rs:229 check_timers has no runtime caller). Do not rely on it.
+- Step `capabilities.sandbox/egress` are parsed (egress = service names, not hostnames) but not enforced for
+  deterministic steps. Declare them honestly anyway; enforce the network allowlist inside the Python tool.
+- `banso test-service` checks are a fixed cargo/npm grammar; our native work goes through tools.release.test_queue.
+- Notifications: a step can run `banso events ingest <file.json>` (events_cmd.rs:82) and a `reactions:` rule in
+  .banso/config.yaml (EmitFriction / HttpWebhook / ShellScript, crates/banso-engine/src/reaction/actions.rs:16-33)
+  handles it, processed by the `react-to-events` builtin step or `banso events watch`. Read those files for the
+  exact event JSON and reactions schema before writing them; if the schema can't be confirmed from source, stop
+  and report instead of guessing.
+- `banso decision new` writes .banso/decisions/*.yaml (decision_cmd.rs:3-41).
+
+Items:
+R1. Pipelines in .banso/workflows/hollow-country.yaml (same file, new pipelines; keep the existing ones):
+    `dayz-update-check` (python3 -B -m tools.release.dayz_update check --json-out .banso/pipeline-outputs/
+    dayz-update/check.json; exit 0 when the check itself worked, including "update available" - the state is in
+    the JSON; capabilities read-only + egress [] is wrong for this step, so declare network/egress as accurately
+    as the schema allows and note in a comment that banso does not enforce it); then a step that, only when
+    check.json says action needed, runs `banso events ingest` with a dayz_update event (build/workshop rows,
+    no paths/ids of people); then `react-to-events`.
+    `dayz-update-prepare` (input `build`, default auto): prepare, then enforce_lint + enforce_perf against the new
+    cache, writing to .banso/pipeline-outputs/dayz-update/<build>/.
+    `dayz-update-bump` (input `build`): bump, regenerate_all check, then `banso decision new` recording
+    old->new build, API diff summary (counts + the referenced-symbol changes), lint/perf result and that the
+    native gate/soak are still pending (never "passed").
+    All must pass `banso workflow validate .banso/workflows/hollow-country.yaml` and a `--dry-run`.
+R2. Fix the existing verify-offline preland step: no hardcoded scripts-1.30.164289; let preland's default
+    (now the pin helper) supply it, or use `$(python3 -B -m tools.validate.dayz_build --native-scripts)` if you
+    add that CLI.
+R3. Reactions in .banso/config.yaml: on the dayz_update event, EmitFriction (so `banso friction list` shows
+    "DayZ update available: ...") and, if a ShellScript reaction exists, run
+    `python3 -B -m tools.release.dayz_update notify --event <file>` which only prints/writes
+    ~/.cache/hollow-country/dayz-update/pending.md (no network, no gh). No HttpWebhook (no endpoint configured).
+R4. Trigger: banso cannot schedule, so ship a systemd user timer in tools/setup/systemd/
+    (hc-dayz-update-check.service + .timer, every 6 h, RandomizedDelaySec 15 min, Persistent=true) that runs
+    `banso workflow run hollow-country --pipeline dayz-update-check --headless` in the repo main checkout,
+    with MemoryMax=1G. Add `dayz_update timer install|status|remove` that copies/enables/disables them under
+    ~/.config/systemd/user (prints the systemctl commands with --dry-run; never touches anything else).
+    Do NOT install it yourself; the lead does after merge.
+R5. `dayz_update next --queue`: instead of only printing, submit the compile gate via
+    `tools.release.test_queue submit --commit <sha> --checks preland,wb,gate` for the bump commit (refuses on a
+    dirty tree or unpushed commit). Without --queue it keeps printing.
+R6. Daemon port: .banso/config.yaml gets its own `daemon.port` (pick an unused port, e.g. 9746; check the
+    config schema in crates/banso-core/src/config.rs ~1019 for the key name) so `banso daemon status` stops
+    reporting the foreign daemon on 9740. Do not start or stop any daemon.
+R7. docs/tools/DAYZ_UPDATE.md: a "Running it through banso" section (commands above, what banso enforces and what
+    it does not, the timer, friction/pending.md). Tests only for the new Python (notify, timer dry-run text,
+    next --queue refusal).
+Validate: preland --changed origin/dev, banso workflow validate, the three pipelines with --dry-run, and one real
+`banso workflow run hollow-country --pipeline dayz-update-check --headless` (read-only; paste its tail).
+R6 addendum (banso CONFIG-DAEMON-PORT-MERGE1): a project daemon.port is overwritten by any higher config layer that
+omits `daemon` (~/.banso/overrides.yaml, team/global). After setting it, check the effective port with
+`banso config show` (or `banso daemon status`) and report it. If it is overwritten, do not edit user/global banso
+config; instead set Environment=BANSO_DAEMON_PORT=<port> in the systemd service (R4) and document the env var in
+DAYZ_UPDATE.md.

@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 import struct
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -64,7 +65,7 @@ class UpdateTests(unittest.TestCase):
     def test_workshop_states_and_old_receipt(self):
         self.assertEqual('current', update.workshop_state(100, 100, 100))
         self.assertEqual('update-available', update.workshop_state(99, None, 100))
-        self.assertEqual('unknown(network)', update.workshop_state(100, None, 100))
+        self.assertEqual('current', update.workshop_state(100, None, 100))
         self.assertEqual({}, update.receipt_times({'schema': 1, 'files': [{'path': '@CF/addons/cf.pbo'}]}))
         self.assertEqual({'12': 100}, update.receipt_times({'mods': [{'id': '12', 'time_updated': 100}]}))
 
@@ -177,6 +178,7 @@ class UpdateTests(unittest.TestCase):
                  patch.object(update, 'exe_version', return_value=build), \
                  patch.object(update, 'sha256', return_value='a' * 64), \
                  patch.object(update, 'manifest', return_value={'buildid': '123'}), \
+                 patch.object(update, 'refresh_dependency_pins'), \
                  patch.object(update, 'run_tool', return_value={'passed': True, 'output': 'PASS'}) as run, \
                  contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 args = ['bump', '--build', build, '--report-root', str(root)]
@@ -188,6 +190,125 @@ class UpdateTests(unittest.TestCase):
                 self.assertEqual('reviewed API incompatibility', json.loads((root / build / 'report.json').read_text())['force_reason'])
                 self.assertEqual('tools.package.regenerate_all', run.call_args.args[0])
                 self.assertEqual(['--check'], run.call_args.args[1])
+
+    def test_check_old_receipt_exit_codes_and_json_out(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'tools/setup').mkdir(parents=True)
+            (root / 'tools/setup/workshop_mods.json').write_text('{"mods": [{"id": "12"}]}')
+            server = root / 'server'
+            server.mkdir()
+            (server / 'hollow-country-workshop-receipt.json').write_text('{"schema": 1, "files": []}')
+            pin = {'build': '1.30.164289', 'steam': {ident: '100' for ident in update.APPS}}
+            with patch.object(update, 'ROOT', root), \
+                 patch.object(dayz_build, 'pin_record', return_value=pin), \
+                 patch.object(update, 'manifest', return_value={'buildid': '100', 'root': server}), \
+                 patch.object(update, 'exe_version', return_value=pin['build']), \
+                 patch.object(update, 'read_acf', return_value={'appworkshop': {
+                     'workshopitemsinstalled': {'12': {'timeupdated': '100'}}}}), \
+                 patch.object(update, 'latest_app', return_value={'public': '100', 'experimental': None}), \
+                 patch.object(update, 'latest_workshop', return_value={'12': {'time_updated': 100}}) as remote, \
+                 contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(0, update.main(['check', '--json']))
+                self.assertIn('server receipt predates timestamps', output.getvalue())
+                remote.return_value = {'12': {'time_updated': 101}}
+                self.assertEqual(10, update.main(['check']))
+                path = root / 'check.json'
+                self.assertEqual(0, update.main(['check', '--json-out', str(path)]))
+                self.assertTrue(json.loads(path.read_text())['action_needed'])
+                remote.side_effect = ValueError('synthetic failure')
+                self.assertEqual(2, update.main(['check', '--json-out', str(path)]))
+
+    def test_workshop_copy_timestamp_receipt(self):
+        from tools.setup import workshop_sync as sync
+        with tempfile.TemporaryDirectory() as temp:
+            workshop = Path(temp) / 'workshop'
+            content = workshop / 'content/221100'
+            content.mkdir(parents=True)
+            (workshop / 'appworkshop_221100.acf').write_text(
+                '\"AppWorkshop\" { \"WorkshopItemsInstalled\" { \"12\" { \"timeupdated\" \"100\" } } }')
+            self.assertEqual(100, sync.workshop_timestamps([content])[(str(content), '12')])
+            doc = sync.receipt_data({}, set(), [{'id': '12', 'timeupdated': 100}])
+            self.assertEqual({'12': 100}, update.receipt_times(doc))
+
+    def test_install_records_source_acf_timestamp(self):
+        from tools.setup import workshop_sync as sync
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            content = root / 'workshop/content/221100'
+            item = sync.select(sync.load_manifest(sync.DEFAULT_MANIFEST), ['snafu'])[0]
+            source = content / item['id']
+            (source / 'addons').mkdir(parents=True)
+            (source / 'keys').mkdir()
+            (source / 'addons/example.pbo').write_bytes(b'synthetic pbo')
+            (source / 'keys/example.bikey').write_bytes(b'synthetic public key')
+            (root / 'workshop/appworkshop_221100.acf').write_text(
+                '\"AppWorkshop\" { \"WorkshopItemsInstalled\" { \"' + item['id'] + '\" { \"timeupdated\" \"100\" } } }')
+            server = root / 'server'
+            server.mkdir()
+            args = ['install', '--server-root', str(server), '--workshop-content', str(content),
+                    '--groups', 'snafu', '--assume-stopped']
+            with patch.object(sync.subprocess, 'run', side_effect=AssertionError('no process')):
+                self.assertEqual(0, sync.main(args, out=io.StringIO()))
+                self.assertEqual(0, sync.main(args, out=io.StringIO()))
+            receipt = json.loads((server / sync.RECEIPT_NAME).read_text())
+            self.assertEqual({item['id']: 100}, update.receipt_times(receipt))
+
+    def test_experimental_public_branch_and_allowlist(self):
+        with patch.object(update, 'request_json', return_value={
+                'data': {'223350': {'depots': {'branches': {
+                    'public': {'buildid': '100'}, 'experimental_public': {'buildid': '101'}}}}}}):
+            self.assertEqual({'public': '100', 'experimental': '101'}, update.latest_app('223350'))
+        for url in ('http://api.steamcmd.net/a', 'https://evil.test/',
+                    'https://user@api.steamcmd.net/', 'https://api.steamcmd.net:444/'):
+            with self.assertRaises(ValueError):
+                update.allowed_url(url)
+
+    def test_dependency_pin_refresh(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'config').mkdir()
+            for name in ('hollow-country-variant-dependencies.json', 'hollow-country-winter-terrain.json'):
+                (root / 'config' / name).write_text(json.dumps({
+                    'evidence': {'native_scripts': 'old'}, 'versions': [{'game_build': 'old'}],
+                    'citation': 'observed 164289:14'}))
+            with patch.object(update, 'ROOT', root):
+                update.refresh_dependency_pins('1.31.999999')
+            doc = json.loads((root / 'config' / name).read_text())
+            self.assertTrue(doc['evidence']['native_scripts'].endswith('scripts-1.31.999999'))
+            self.assertEqual('1.31.999999', doc['versions'][0]['game_build'])
+            self.assertEqual('observed 164289:14', doc['citation'])
+
+    def test_notify_local_only_and_timer_dry_run(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            event = root / 'event.json'
+            event.write_text(json.dumps({'kind': 'dayz_update', 'source': 'dayz-update',
+                'payload': {'build': '1.31.999999', 'rows': [{'name': 'Server', 'state': 'update-available'}]}}))
+            with patch.object(update, 'REPORT_ROOT', root), \
+                 patch.object(update.subprocess, 'run', side_effect=AssertionError('no subprocess')), \
+                 patch.object(update, 'request_json', side_effect=AssertionError('no network')), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, update.main(['notify', '--event', str(event)]))
+            self.assertIn('native gate and soak remain pending', (root / 'pending.md').read_text())
+            for action in ('install', 'remove', 'status'):
+                with patch.object(update.subprocess, 'run', return_value=subprocess.CompletedProcess(
+                        [], 0, str(root / '.git'), '')) as run, contextlib.redirect_stdout(io.StringIO()) as output:
+                    self.assertEqual(0, update.main(['timer', action, '--dry-run']))
+                    self.assertIn('systemctl --user', output.getvalue())
+                    self.assertEqual(1, run.call_count)  # read-only git lookup only
+            self.assertFalse((root / '.config').exists())
+
+    def test_queue_refuses_dirty_unpushed_or_non_bump_commit(self):
+        build = '1.31.999999'
+        cases = [([' M file'], 'clean tree'), (['', 'a' * 40, ''], 'unpushed'),
+                 (['', 'a' * 40, 'origin/dev', json.dumps({'build': '1.30.164289'}), 'config/dayz-build.json'], 'bump commit')]
+        for outputs, message in cases:
+            results = [subprocess.CompletedProcess([], 0, value, '') for value in outputs]
+            with patch.object(update.subprocess, 'run', side_effect=results) as run:
+                with self.assertRaisesRegex(ValueError, message):
+                    update.queue_compile(build, {'bumped': True})
+                self.assertTrue(all(call.args[0][0] == 'git' for call in run.call_args_list))
 
     def test_force_requires_reason_and_prepare_report(self):
         with tempfile.TemporaryDirectory() as temp, contextlib.redirect_stderr(io.StringIO()):

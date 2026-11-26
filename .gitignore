@@ -51,7 +51,11 @@ Thumbs.db
 .vscode/*.log
 .idea/
 # Local planning, orchestration and machine-specific research
-/.banso/
+/.banso/*
+!/.banso/config.yaml
+!/.banso/workflows/
+/.banso/workflows/*
+!/.banso/workflows/hollow-country.yaml
 /.banso-writer/
 /.banso-brief.md
 /scratchpad-review/

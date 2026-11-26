@@ -1,0 +1,100 @@
+kind: workflow
+format: banso.workflow/2026-07-31
+name: hollow-country
+description: Hollow Country authored SDD/BDD/TDD workflow; offline gates do not grant game acceptance.
+inputs:
+  build:
+    type: string
+    default: auto
+pipelines:
+  - name: specify
+    phase: spec
+    steps:
+      - name: requirement-integrity
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        capabilities: {sandbox: workspace-write, egress: []}
+  - name: plan
+    phase: plan
+    steps:
+      - name: task-contracts
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: scenario-syntax
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.bdd"
+        capabilities: {sandbox: workspace-write, egress: []}
+  - name: verify-offline
+    phase: verify
+    steps:
+      - name: autonomous-spec-integrity
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.automation_spec"
+        capabilities: {sandbox: workspace-write, egress: []}
+      # AGENTS.md: never the full unit suite in a worker or lead session; preland is the
+      # pre-DONE check (lint, perf, layout, cfgconvert, settings, wiring, regenerate_all,
+      # digests, hygiene). .c changes additionally need the native compile gate, which only
+      # the lead or the test-service queue runs (tools.release.test_queue).
+      - name: preland
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.preland --changed origin/dev"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: executable-scenarios
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.bdd"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: runtime-settings-admission
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.runtime"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: private-source-hygiene
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.hygiene"
+        capabilities: {sandbox: workspace-write, egress: []}
+  - name: dayz-update-check
+    aggregate_within_phase: first_fail
+    steps:
+      # Deterministic capabilities are declarations, not enforced by banso.
+      # Python enforces HTTPS destination/redirect allowlisting; egress uses service names.
+      - name: check
+        type: deterministic
+        run: python3 -B -m tools.release.dayz_update check --json-out .banso/pipeline-outputs/dayz-update/check.json
+        config: {timeout_secs: 120}
+        capabilities: {read_files: true, write_files: true, run_commands: true, network: true, sandbox: workspace-write, egress: [steamcmd, steam-web-api]}
+      - name: ingest-update-if-needed
+        type: deterministic
+        run: python3 -B -m tools.release.dayz_update pipeline event
+        capabilities: {read_files: true, write_files: true, run_commands: true, sandbox: workspace-write, egress: []}
+      - name: react-to-events
+        type: builtin
+        handler: react-to-events
+        capabilities: {read_files: true, write_files: true, sandbox: workspace-write, egress: []}
+  - name: dayz-update-prepare
+    aggregate_within_phase: first_fail
+    steps:
+      - name: prepare
+        type: deterministic
+        run: python3 -B -m tools.release.dayz_update prepare --build {{ inputs.build }} --report-root .banso/pipeline-outputs/dayz-update
+        config: {timeout_secs: 1800}
+        capabilities: {read_files: true, write_files: true, run_commands: true, sandbox: workspace-write, egress: []}
+      - name: validate-new-cache
+        type: deterministic
+        run: python3 -B -m tools.release.dayz_update pipeline validate --build {{ inputs.build }}
+        config: {timeout_secs: 1800}
+        capabilities: {read_files: true, write_files: true, run_commands: true, sandbox: workspace-write, egress: []}
+  - name: dayz-update-bump
+    aggregate_within_phase: first_fail
+    steps:
+      # bump rejects auto: supply --input build=<major.minor.build>.
+      # bump includes regenerate_all --check before the decision adapter can run.
+      - name: bump-and-regenerate-check
+        type: deterministic
+        run: python3 -B -m tools.release.dayz_update bump --build {{ inputs.build }} --report-root .banso/pipeline-outputs/dayz-update
+        config: {timeout_secs: 1800}
+        capabilities: {read_files: true, write_files: true, run_commands: true, sandbox: workspace-write, egress: []}
+      - name: record-decision
+        type: deterministic
+        run: python3 -B -m tools.release.dayz_update pipeline decision --build {{ inputs.build }}
+        capabilities: {read_files: true, write_files: true, run_commands: true, sandbox: workspace-write, egress: []}
+phase_map: {}

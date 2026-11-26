@@ -598,21 +598,22 @@ def retire_items(root, receipt, manifest, before_write=None, extra_key_dirs=()):
             folder.rmdir()
     gone = {e['path'] for e in rows} | disown
     data = receipt_data({e['path']: e for e in receipt['files'] if e['path'] not in gone},
-                        set(receipt['dirs']) - set(dirs))
+                        set(receipt['dirs']) - set(dirs), receipt.get('items', []))
     if before_write is not None:
         before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
     write_json_atomic(root / RECEIPT_NAME, data)
     return removed, left
 
 
-def receipt_data(files, dirs):
-    return {'schema': SCHEMA, 'files': sorted(files.values(), key=lambda e: e['path']), 'dirs': sorted(dirs)}
+def receipt_data(files, dirs, items=None):
+    return {'schema': SCHEMA, 'files': sorted(files.values(), key=lambda e: e['path']), 'dirs': sorted(dirs),
+            'items': items or []}
 
 
 def persist_repaired_receipt(root, receipt, before_write=None):
     """Write a receipt load_receipt repaired. before_write(RECEIPT_NAME, sha256) runs first, like every other
     receipt write, so a caller that journals its writes records this one."""
-    data = receipt_data({e['path']: e for e in receipt['files']}, set(receipt['dirs']))
+    data = receipt_data({e['path']: e for e in receipt['files']}, set(receipt['dirs']), receipt.get('items', []))
     if before_write is not None:
         before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
     write_json_atomic(root / RECEIPT_NAME, data)
@@ -787,6 +788,44 @@ def plan_install(items, dirs, root, owned=()):
     return targets, skipped, manual
 
 
+def workshop_timestamps(dirs):
+    """Read bounded ACF stamps beside each source; keep the distributed script standalone."""
+    result = {}
+    for content in dirs:
+        acf = Path(content).parent.parent / 'appworkshop_221100.acf'
+        if not acf.is_file():
+            continue
+        if acf.stat().st_size > 16 * 1024 * 1024:
+            raise SyncError('Workshop ACF exceeds read budget')
+        tokens = re.finditer(r'"((?:\\.|[^"\\])*)"|([{}])|(?m://[^\n]*)',
+                             acf.read_text(encoding='utf-8-sig'))
+        values = [m[2] if m[2] is not None else m[1] for m in tokens
+                  if m[1] is not None or m[2] is not None]
+        stack, key = [], None
+        for token in values:
+            if token == '{':
+                if key is None or len(stack) >= 32:
+                    raise SyncError('invalid Workshop ACF nesting')
+                stack.append(key.lower())
+                key = None
+            elif token == '}':
+                if key is not None or not stack:
+                    raise SyncError('invalid Workshop ACF closing brace')
+                stack.pop()
+            elif key is None:
+                key = token
+            else:
+                if (len(stack) == 3 and stack[:2] == ['appworkshop', 'workshopitemsinstalled']
+                        and key.lower() == 'timeupdated'):
+                    if not token.isdigit():
+                        raise SyncError('invalid Workshop ACF timestamp')
+                    result[(str(content), stack[2])] = int(token)
+                key = None
+        if stack or key is not None:
+            raise SyncError('incomplete Workshop ACF')
+    return result
+
+
 def cmd_install(args, say, before_write=None):
     require_stopped(args)
     root = check_root(args.server_root)
@@ -797,6 +836,8 @@ def cmd_install(args, say, before_write=None):
     files = {e['path']: e for e in receipt['files']} if receipt else {}
     made_dirs = set(receipt['dirs']) if receipt else set()
     created = set()
+    stamps = workshop_timestamps(dirs)
+    receipt_items = receipt.get('items', []) if receipt else []
     changed = False
     try:
         for rel, (item, digest, source) in sorted(targets.items()):
@@ -816,9 +857,22 @@ def cmd_install(args, say, before_write=None):
             files[rel] = {'path': rel, 'sha256': digest, 'size': target.stat().st_size, 'item': item['id']}
             created.add(rel)
             changed = True
+        # Stamp only after all planned files copied or verified identical successfully.
+        new_items = {str(row['id']): row for row in receipt_items}
+        for item, _digest, source in targets.values():
+            if not item['id']:
+                continue
+            for content in dirs:
+                if source.is_relative_to(Path(content) / str(item['id'])):
+                    stamp = stamps.get((str(content), str(item['id'])))
+                    if stamp is not None:
+                        new_items[str(item['id'])] = {'id': str(item['id']), 'timeupdated': stamp}
+        if new_items:
+            receipt_items = sorted(new_items.values(), key=lambda row: row['id'])
+            changed = changed or receipt_items != (receipt.get('items', []) if receipt else [])
     finally:
         if changed or receipt is None or repaired:
-            data = receipt_data(files, made_dirs)
+            data = receipt_data(files, made_dirs, receipt_items)
             if before_write is not None:
                 before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
             write_json_atomic(root / RECEIPT_NAME, data)
