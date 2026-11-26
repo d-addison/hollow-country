@@ -174,7 +174,9 @@ class HCGroupService : Managed
     // Bounded soak trace for the 195/196 AV (no ids): 32 lines per process, then silent.
     // Only authenticated Commits arm it, so discovery batches and connects never spend it.
     // Remove once the next soak confirms the cause.
-    protected static int s_HCTraceBudget = 32;
+    protected static int s_HCTraceBudget = 64;
+    protected static int s_HCTraceConnects = 0;
+    protected static int s_HCTraceReplaced = 0;
     protected static int s_HCTraceSnapshots = 0;
     protected static bool s_HCTraceInCommit = false;
     protected static bool s_HCTraceMember = false;
@@ -392,7 +394,7 @@ class HCGroupService : Managed
         string uid = identity.GetId();
         if (!HCGroupRules.TextValid(uid, 128, false)) return;
         HCGroupPeer previous = Peer(uid);
-        if (previous) m_Peers.Remove(m_Peers.Find(previous));
+        if (previous) { m_Peers.Remove(m_Peers.Find(previous)); s_HCTraceReplaced++; }
         if (m_Peers.Count() >= 90 || m_Serial >= 1000000000) return;
         HCGroupPeer peer = new HCGroupPeer;
         peer.Id = uid;
@@ -407,6 +409,7 @@ class HCGroupService : Managed
         if (m_Names.Count() >= 180) m_Names.Clear();
         m_Names.Set(uid, peer.Name);
         m_Peers.Insert(peer);
+        s_HCTraceConnects++;
         SendSnapshot(peer, HCGroupSnapshotKind.FULL, 0);
         Broadcast();
     }
@@ -563,11 +566,16 @@ class HCGroupService : Managed
     {
         // The staged candidate must publish before another revision is cloned.
         if (m_PendingState) { return HCGroupCode.CONFLICT; }
-        HCGroupState candidate;
+        // Held by ref until Commit publishes it (chain 200: the clone is created by the
+        // native serializer through two out levels; never leave it owned by a raw local).
+        ref HCGroupState candidate;
         if (!Clone(candidate)) return HCGroupCode.STORAGE;
+        int expect = candidate.NextId;
         HCGroupRules.ExpireMarkers(candidate, now, false);
         int result = HCGroupRules.Apply(candidate, m_Config, request, uid, now);
+        if (s_HCTraceBudget > 0 && result == HCGroupCode.OK) HCTrace("apply next_delta=" + (candidate.NextId - expect).ToString() + " connects=" + s_HCTraceConnects.ToString() + " replaced=" + s_HCTraceReplaced.ToString());
         if (result == HCGroupCode.OK) result = Commit(candidate);
+        if (s_HCTraceBudget > 0 && result == HCGroupCode.OK) HCTrace("apply swap_same=" + HCBit(m_State == candidate));
         return result;
     }
 
@@ -888,6 +896,17 @@ class HCGroupService : Managed
         if (!position) return member;
         member.Alive = member.Online && source.Player.IsAlive();
         HCTraceStage("d alive=" + HCBit(member.Alive));
+        if (s_HCTraceMember && source)
+        {
+            HCTraceStage("d1 player_null=" + HCBit(!source.Player) + " ident_null=" + HCBit(!source.Identity));
+            if (source.Player)
+            {
+                float traceHealth = source.Player.GetHealth("", "Health");
+                HCTraceStage("d2 destroyed=" + HCBit(source.Player.IsDamageDestroyed()) + " hp=" + traceHealth.ToString() + " alive_direct=" + HCBit(source.Player.IsAlive()) + " online=" + HCBit(member.Online));
+                HCTraceStage("d3 peer_same=" + HCBit(Peer(uid) == source) + " slot0=" + HCBit(m_Peers.Count() > 0 && m_Peers.Get(0) == source));
+            }
+            if (source.Identity) HCTraceStage("d4 engine_player=" + HCBit(source.Identity.GetPlayer() == source.Player) + " engine_null=" + HCBit(!source.Identity.GetPlayer()));
+        }
         if (position && member.Alive && Live(recipient) && recipient.Player.IsAlive() && HasGPS(source) && HasGPS(recipient) && (m_Config.MapIcons || m_Config.WorldIcons))
         {
             vector actual = source.Player.GetPosition();
@@ -950,7 +969,7 @@ class HCGroupService : Managed
                 if (traceRoster) HCTrace("roster post slot0=" + HCBit(m_Peers.Get(0) == peer) + " id_ok=" + HCBit(peer.Id != ""));
                 rosterMember.Role = HCGroupRules.Role(group, uid);
                 snapshot.Members.Insert(rosterMember);
-                if (traceRoster) HCTrace("roster inserted");
+                if (traceRoster) HCTrace("roster inserted ident=" + HCBit(peer.Identity != null) + " player=" + HCBit(peer.Player != null));
             }
             if (kind == HCGroupSnapshotKind.FULL)
             {
@@ -962,6 +981,8 @@ class HCGroupService : Managed
         }
         if (s_HCTraceSnapshots > 0 && s_HCTraceBudget > 0)
         {
+            HCTrace("snapshot self ident=" + HCBit(peer.Identity != null));
+            HCTrace("snapshot self player=" + HCBit(peer.Player != null));
             s_HCTraceSnapshots--;
             HCTrace("snapshot peers=" + m_Peers.Count().ToString() + " members=" + snapshot.Members.Count().ToString());
             for (int traceIndex = 0; traceIndex < m_Peers.Count() && traceIndex < 4; traceIndex++)

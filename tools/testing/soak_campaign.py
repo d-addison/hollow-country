@@ -1015,7 +1015,7 @@ class Stager:
         return True
 
     def _keep_logs(self):
-        """Copy the run's RPT/ADM files out of the folders restore removes, so report can read them later."""
+        """Copy the run's RPT/ADM/log files (and the server minidump) out of the folders restore removes, so report can read them later."""
         roots = self.roots()
         keep = self.state / 'last-run'
         keep.mkdir(parents=True, exist_ok=True)
@@ -1027,8 +1027,11 @@ class Stager:
             if not source.is_dir():
                 continue
             (keep / kind).mkdir(parents=True, exist_ok=True)
+            # The staged server profile is removed on restore, so keep its crash
+            # minidump too; the client folder is the operator's own profile.
+            suffixes = ('.rpt', '.adm', '.log', '.mdmp') if kind == 'server' else ('.rpt', '.adm', '.log')
             for path in sorted(source.glob('*')):
-                if path.is_file() and path.suffix.lower() in ('.rpt', '.adm', '.log'):
+                if path.is_file() and path.suffix.lower() in suffixes:
                     shutil.copyfile(path, keep / kind / path.name)
 
 
