@@ -52,8 +52,9 @@ class HCInfectedModule : HCModule
     protected string m_PacingHordeId;
     protected int m_PacingHordeAttempts;
     // Runtime-only offer: retry the same CE roster and fixed reservation anchor.
-    // Strong refs: the offer retries across ticks for up to 600 s while a dead
-    // candidate can be archived and then dropped from the tombstone FIFO; a raw
+    // Strong refs: the offer retries across ticks for up to 600 s while Track
+    // can recycle a dead candidate's slot (or LOD archive it to the tombstone
+    // FIFO), freeing it; a raw
     // HCInfectedActor (not Managed) would dangle. Eligibility re-checks the body.
     protected ref array<ref HCInfectedActor> m_PacingHordeCandidates = new array<ref HCInfectedActor>;
     protected vector m_PacingHordeAnchor;

@@ -15,8 +15,9 @@ class HCInfectedVarietyRoutes
     protected static ref HCInfectedVarietyConfig s_Config;
     protected static ref HCInfectedVarietyRoutePack s_Pack;
     protected static string s_LastRefusal;
-    // Strong refs: the roster outlives ticks while LOD may archive a member and
-    // later free it from the tombstone FIFO (HCInfectedActor is not Managed).
+    // Strong refs: the roster outlives ticks while Track may recycle a dead
+    // member's slot (or LOD archive it to the tombstone FIFO), freeing it;
+    // HCInfectedActor is not Managed, so a raw handle would dangle.
     protected static ref array<ref HCInfectedActor> s_Roster;
     protected static string s_Fault;
 
@@ -322,6 +323,7 @@ modded class HCInfectedModule
     protected int m_HCVarietyRouteSize;
     protected string m_HCVarietyRoutePlace;
     protected ref array<ref HCInfectedActor> m_HCVarietyRoutePending = new array<ref HCInfectedActor>; // strong: resumes across ticks
+    protected ref array<ref HCInfectedActor> m_HCVarietyRouteHandoff = new array<ref HCInfectedActor>; // strong: the last returned roster
 
     bool HCVarietyRouteScanning() { return m_HCVarietyRoutePlace != ""; }
 
@@ -344,6 +346,7 @@ modded class HCInfectedModule
     override void HCVarietyReleaseAll()
     {
         HCVarietyRouteReset();
+        m_HCVarietyRouteHandoff.Clear();
         super.HCVarietyReleaseAll();
     }
 
@@ -352,6 +355,7 @@ modded class HCInfectedModule
         if (!m_Healthy || !m_Config) { return null; }
         HCInfectedVarietyConfig variety = HCInfectedVariety.HCConfig();
         if (!variety || !variety.EnableMigration) { return null; }
+        m_HCVarietyRouteHandoff.Clear(); // the previous caller has finished with it
         array<ref HCInfectedActor> actors = m_Actors;
         int count = actors.Count();
         // MaxTracked is the existing validated actor cap. Never truncate a
@@ -399,7 +403,14 @@ modded class HCInfectedModule
         }
         if (m_HCVarietyRouteScan < count) { return null; }
         array<HCInfectedActor> roster = new array<HCInfectedActor>;
-        foreach (HCInfectedActor member : m_HCVarietyRoutePending) { roster.Insert(member); }
+        // Pending may be the last owner of a member Track recycled mid-scan, so
+        // the hand-off keeps every returned member alive until the next call;
+        // the caller rejects members m_Actors no longer owns (Eligible).
+        foreach (HCInfectedActor member : m_HCVarietyRoutePending)
+        {
+            m_HCVarietyRouteHandoff.Insert(member);
+            roster.Insert(member);
+        }
         HCVarietyRouteReset();
         if (roster.Count() > 0) { return roster; }
         return null;

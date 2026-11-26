@@ -24,7 +24,9 @@
 // GetTargetEntity; Object.c:287 GetPosition, :467 GetType, :517 IsAlive; human.c:1528
 // GetCommand_Vehicle; EnScript.c array/set Count/Get/Insert/Find/RemoveOrdered; EnMath.c Round,
 // AbsFloat; Game.c:914 GetTickTime, :1120 IsServer; 1_Core/proto/EnDebug.c:96 Print.
-class HCNavGiveUpListener
+// Managed: s_Listeners holds weak handles; a subscriber freed without
+// HCUnsubscribe (e.g. a second OnStart) auto-nulls and is pruned in OnGiveUp.
+class HCNavGiveUpListener : Managed
 {
     void OnGiveUp(DayZInfected infected, EntityAI target, vector anchor, string reason) {}
 }

@@ -90,6 +90,9 @@ class HCEcologyMigration
         HCSaveScheduler.HCUnregister(s_Service.m_SaveJob);
         // Preserve a fault latch and every prepared reservation; restart never moves it.
         s_Service.m_Fault = true;
+        // Runtime-only roster (not journal state): release the held actors.
+        s_Service.m_PendingPack = null;
+        s_Service.m_PendingMembers.Clear();
 	}
 
 	static bool Enroll(string id, int populationKind, int intervalSeconds)
