@@ -943,11 +943,11 @@ class HCGroupService : Managed
             bool traceRoster = s_HCTraceSnapshots > 0 && s_HCTraceBudget > 0;
             foreach (string uid : group.Members)
             {
-                if (traceRoster) HCTrace("roster pre self=" + HCBit(uid == peer.Id) + " find=" + m_Peers.Find(peer).ToString());
+                if (traceRoster) HCTrace("roster pre self=" + HCBit(uid == peer.Id) + " slot0=" + HCBit(m_Peers.Get(0) == peer));
                 s_HCTraceMember = traceRoster;
                 HCGroupMember rosterMember = Member(uid, peer, true);
                 s_HCTraceMember = false;
-                if (traceRoster) HCTrace("roster post find=" + m_Peers.Find(peer).ToString() + " id_ok=" + HCBit(peer.Id != ""));
+                if (traceRoster) HCTrace("roster post slot0=" + HCBit(m_Peers.Get(0) == peer) + " id_ok=" + HCBit(peer.Id != ""));
                 rosterMember.Role = HCGroupRules.Role(group, uid);
                 snapshot.Members.Insert(rosterMember);
                 if (traceRoster) HCTrace("roster inserted");
