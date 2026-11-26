@@ -34,8 +34,8 @@
 // EnScript.c:380/399/389 Count/Get/Set; EnConvert.c:30 int.ToString.
 class HCVarietyStepTimer : HCStepTimer
 {
-    protected ref array<int> m_HelperCurrent = {0, 0, 0, 0, 0};
-    protected ref array<int> m_HelperWorst = {0, 0, 0, 0, 0};
+    protected ref array<int> m_HelperCurrent = {0, 0, 0, 0, 0, 0, 0, 0};
+    protected ref array<int> m_HelperWorst = {0, 0, 0, 0, 0, 0, 0, 0};
 
     void HCVarietyStepTimer(string owner) { m_Owner = owner; }
 
@@ -43,11 +43,19 @@ class HCVarietyStepTimer : HCStepTimer
     {
         int ticks = TickCount(started);
         if (ticks > 0) { m_HelperCurrent[helper] = m_HelperCurrent[helper] + ticks; }
+        if (helper == 3)
+        {
+            // Splits of this place_fits call only, captured before another
+            // catalog consumer can overwrite the last-call measurements.
+            m_HelperCurrent[5] = m_HelperCurrent[5] + HCInfectedRoomCatalog.LastBindQueryTicks();
+            m_HelperCurrent[6] = m_HelperCurrent[6] + HCInfectedRoomCatalog.LastBindFilterTicks();
+            m_HelperCurrent[7] = m_HelperCurrent[7] + HCInfectedRoomCatalog.LastBindAdmissionTicks();
+        }
     }
 
     override void HCEndTick(int totalTicks)
     {
-        for (int index = 0; index < 5; index++)
+        for (int index = 0; index < 8; index++)
         {
             if (totalTicks > m_WorstTotal) { m_HelperWorst[index] = m_HelperCurrent[index]; }
             m_HelperCurrent[index] = 0;
@@ -61,6 +69,8 @@ class HCVarietyStepTimer : HCStepTimer
         string helpers = " near_standing=" + m_HelperWorst[0].ToString() + " context=" + m_HelperWorst[1].ToString();
         helpers += " near_corpse=" + m_HelperWorst[2].ToString() + " place_fits=" + m_HelperWorst[3].ToString();
         helpers += " sleep=" + m_HelperWorst[4].ToString();
+        helpers += " rooms_query=" + m_HelperWorst[5].ToString() + " rooms_filter=" + m_HelperWorst[6].ToString();
+        helpers += " rooms_admit=" + m_HelperWorst[7].ToString();
         line.Replace("; raw TickCount units;", helpers + "; raw TickCount units;");
         return line;
     }
@@ -68,7 +78,7 @@ class HCVarietyStepTimer : HCStepTimer
     override void HCCloseWindow()
     {
         super.HCCloseWindow();
-        for (int index = 0; index < 5; index++) { m_HelperWorst[index] = 0; }
+        for (int index = 0; index < 8; index++) { m_HelperWorst[index] = 0; }
     }
 }
 
@@ -572,6 +582,8 @@ modded class HCInfectedModule
                 m_HCPosturePosition = actor.InfectedEntity.GetPosition();
                 m_HCPostureStage = 2;
                 m_HCPostureRetries = 0;
+                m_HCPostureBindWaits = 0;
+                m_HCPostureBindWait = false;
                 m_HCPostureCorpse = false;
                 break;
             }
@@ -586,8 +598,12 @@ modded class HCInfectedModule
         }
         if (m_HCPostureActor)
         {
-            m_HCPostureRetries++;
-            if (m_HCPostureRetries >= 3) { m_HCPostureActor = null; }
+            if (m_HCPostureBindWait) { m_HCPostureBindWait = false; }
+            else
+            {
+                m_HCPostureRetries++;
+                if (m_HCPostureRetries >= 3) { m_HCPostureActor = null; }
+            }
         }
         int postureTicks = TickCount(started);
         steps.HCAdd(3, postureTicks);
@@ -608,6 +624,11 @@ modded class HCInfectedModule
     protected int m_HCPostureSlot;
     protected int m_HCPostureStage;
     protected int m_HCPostureRetries;
+    // A held bind scan finishes in <=16 filter calls plus <=16 admissions; 48 waits covers one foreign scan
+    // and then this candidate's own, after which the candidate is dropped like any other refusal.
+    protected static const int MAX_POSTURE_BIND_WAITS = 48;
+    protected int m_HCPostureBindWaits;
+    protected bool m_HCPostureBindWait;
     protected bool m_HCPostureCorpse;
     protected vector m_HCPosturePosition;
 
@@ -696,7 +717,19 @@ modded class HCInfectedModule
             helperStarted = TickCount(0);
             bool fits = HCVarietyPlaceFits(entity);
             steps.HCHelper(3, helperStarted);
-            if (!fits) { m_HCPostureActor = null; return 0; }
+            if (!fits)
+            {
+                // The room bind is resumable (64 checks per call): while a scan is held the empty answer
+                // is not final. Wait for it on a bounded counter that does not spend the 3 stage retries.
+                if (HCInfectedRoomCatalog.BindPending() && m_HCPostureBindWaits < MAX_POSTURE_BIND_WAITS)
+                {
+                    m_HCPostureBindWaits++;
+                    m_HCPostureBindWait = true;
+                    return 0;
+                }
+                m_HCPostureActor = null;
+                return 0;
+            }
             m_HCPostureStage = 6;
             return 0;
         }

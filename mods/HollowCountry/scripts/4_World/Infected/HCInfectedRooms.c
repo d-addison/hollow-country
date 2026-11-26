@@ -12,6 +12,11 @@
 // Primitive/collection references are listed in scratchpad-review/wp5-r2/REPORT.md.
 // Class templates (docs/INTERIOR_TEMPLATES_CONTRACT.md section 9):
 // :930 GetObjectsAtPosition3D (out arrays declared before the call).
+// Resumable bind: 1_Core/proto/EnScript.c:380/385/476 Count/Clear/Resize,
+// :857/917/926 map Clear/Contains/Insert,
+// EnSystem.c:106 TickCount. Object.c:64 Object extends IEntity;
+// 1_Core/proto/EnEntity.c:164 IEntity extends Managed; Building.c:485 House.
+// array<Object>/array<House> below hold weak references, re-checked before use.
 class HCInfectedRoomAnchor
 {
     int Id;
@@ -151,6 +156,11 @@ class HCInfectedRoomCatalog
     static const int DEFAULT_BIND_QUERIES = 2;
     static const int MAX_TEMPLATE_CANDIDATES = 1024;
     static const int MAX_TEMPLATE_FOUND = 16;
+    // At 3..6 us/object, 64 checks cost ~0.2..0.4 ms. One cold admission is
+    // provisionally budgeted at 2 ms; native query + remaining tick must fit
+    // the ~5 ms headroom of the 8 ms target. Soak helper splits must verify it.
+    static const int MAX_BIND_FILTER_PER_CALL = 64;
+    static const int MAX_BIND_ADMISSIONS_PER_CALL = 1;
     static const int MAX_TEMPLATE_LOG = 64;
     static const string TEMPLATE_EVIDENCE_KIND = "native-room-survey-v1";
     static const string TEMPLATE_READY = "rooms_templates_provisional_path_audio_doors_pending";
@@ -161,6 +171,16 @@ class HCInfectedRoomCatalog
     protected static int s_BindQueryCap = 2;
     protected static int s_BindQueries = 0;
     protected static int s_BindStamp = 0;
+    protected static ref array<Object> s_BindCandidates = new array<Object>;
+    protected static ref array<House> s_BindFound = new array<House>;
+    protected static ref map<House, bool> s_BindFoundIndex = new map<House, bool>;
+    protected static vector s_BindClue;
+    protected static bool s_BindPending = false;
+    protected static int s_BindCursor = 0;
+    protected static int s_BindAdmissionCursor = 0;
+    protected static int s_LastBindQueryTicks = 0;
+    protected static int s_LastBindFilterTicks = 0;
+    protected static int s_LastBindAdmissionTicks = 0;
     protected static bool s_ConflictsResolved = false;
     protected static bool s_TemplateLogged = false;
     protected static string s_TemplateReason = "rooms_templates_not_loaded";
@@ -470,6 +490,10 @@ class HCInfectedRoomCatalog
         s_ProductionReason = "rooms_not_loaded";
         s_ProductionContext = "";
         s_TemplateBindings.Clear();
+        ClearTemplateBindPending();
+        s_LastBindQueryTicks = 0;
+        s_LastBindFilterTicks = 0;
+        s_LastBindAdmissionTicks = 0;
         s_ConflictHouses.Clear();
         s_TemplateRefusals.Clear();
         s_BindRadius = DEFAULT_BIND_RADIUS;
@@ -1125,6 +1149,8 @@ class HCInfectedRoomCatalog
     {
         if (radius < 5 || radius > 60 || queriesPerTick < 1 || queriesPerTick > 8)
             return false;
+        if (s_BindRadius != radius)
+            ClearTemplateBindPending();
         s_BindRadius = radius;
         s_BindQueryCap = queriesPerTick;
         return true;
@@ -1379,7 +1405,7 @@ class HCInfectedRoomCatalog
     {
         foreach (House other : found)
         {
-            if (other == house || other.GetType() != house.GetType())
+            if (!other || other == house || other.GetType() != house.GetType())
                 continue;
             if (vector.DistanceSq(other.GetPosition(), house.GetPosition()) <= 0.5625)
                 return true;
@@ -1468,46 +1494,100 @@ class HCInfectedRoomCatalog
         }
     }
 
-    // Called from BuildProductionOrder with an observed clue only. One spatial query per call,
-    // at most s_BindQueryCap between BeginTick calls; past the cap the cached houses are used as they are.
+    static bool BindPending() { return s_BindPending; }
+    static int LastBindQueryTicks() { return s_LastBindQueryTicks; }
+    static int LastBindFilterTicks() { return s_LastBindFilterTicks; }
+    static int LastBindAdmissionTicks() { return s_LastBindAdmissionTicks; }
+
+    protected static void ClearTemplateBindPending()
+    {
+        s_BindCandidates.Clear();
+        s_BindFound.Clear();
+        s_BindFoundIndex.Clear();
+        s_BindPending = false;
+        s_BindCursor = 0;
+        s_BindAdmissionCursor = 0;
+    }
+
+    // One retained area, <=1024 weak candidates and <=16 unique weak houses.
+    // Resume without another native query until done (see the comment in the body).
+    // The query quota counts native queries only; it never stalls held work.
+    // Finish the full found list before admissions so ambiguity sees the same
+    // complete, capped list as the old synchronous bind, not a partial scan.
     static void BindTemplateHouses(vector observedClue)
     {
         if (!ProductionServer() || !HCInteriorTemplates.Loaded())
             return;
         LogTemplateAdmission();
-        if (s_BindQueries >= s_BindQueryCap)
-            return;
-        s_BindQueries++;
-        ref array<Object> candidates = new array<Object>;
-        ref array<CargoBase> cargos = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(observedClue, s_BindRadius, candidates, cargos);
-        int limit = candidates.Count();
-        if (limit > MAX_TEMPLATE_CANDIDATES)
+        // A held scan always finishes before another query, whichever caller asks next: its bindings are a
+        // shared cache, and restarting on a moved clue would let alternating callers (variety, search packs)
+        // restart every call after 64 objects and never bind anything.
+        if (!s_BindPending)
         {
-            limit = MAX_TEMPLATE_CANDIDATES;
-            NoteTemplateRefusal("rooms_bind_dense", "");
+            if (s_BindQueries >= s_BindQueryCap)
+                return;
+            s_BindQueries++;
+            s_BindClue = observedClue;
+            int queryStarted = TickCount(0);
+            ref array<CargoBase> cargos = new array<CargoBase>;
+            GetGame().GetObjectsAtPosition3D(s_BindClue, s_BindRadius, s_BindCandidates, cargos);
+            s_LastBindQueryTicks = TickCount(queryStarted);
+            if (s_BindCandidates.Count() > MAX_TEMPLATE_CANDIDATES)
+            {
+                s_BindCandidates.Resize(MAX_TEMPLATE_CANDIDATES);
+                NoteTemplateRefusal("rooms_bind_dense", "");
+            }
+            s_BindPending = true;
         }
+        int filterStarted = TickCount(0);
         float radiusSq = s_BindRadius * s_BindRadius;
-        ref array<House> found = new array<House>;
-        for (int i = 0; i < limit; i++)
+        int filterCount = 0;
+        while (s_BindCursor < s_BindCandidates.Count() && s_BindFound.Count() < MAX_TEMPLATE_FOUND && filterCount < MAX_BIND_FILTER_PER_CALL)
         {
-            if (found.Count() >= MAX_TEMPLATE_FOUND)
-                break;
-            House house = House.Cast(candidates[i]);
+            House house = House.Cast(s_BindCandidates[s_BindCursor]);
+            s_BindCursor++;
+            filterCount++;
             if (!house)
                 continue;
             // Clue to house origin, whatever the native query's own bounds test returned.
-            if (!(vector.DistanceSq(observedClue, house.GetPosition()) <= radiusSq))
+            if (!(vector.DistanceSq(s_BindClue, house.GetPosition()) <= radiusSq))
                 continue;
             HCInteriorTemplateClassRow row = HCInteriorTemplates.ClassRow(house.GetType());
             if (!row || row.Rooms != "covered")
                 continue;
-            found.Insert(house);
+            if (!s_BindFoundIndex.Contains(house))
+            {
+                s_BindFoundIndex.Insert(house, true);
+                s_BindFound.Insert(house);
+            }
         }
-        foreach (House admitted : found)
+        s_LastBindFilterTicks = TickCount(filterStarted);
+        if (s_BindCursor < s_BindCandidates.Count() && s_BindFound.Count() < MAX_TEMPLATE_FOUND)
+            return;
+        int admissionStarted = TickCount(0);
+        int newAdmissions = 0;
+        // Cached re-stamps do not spend the cold admission budget. Refused
+        // attempts do spend it, so expensive validation failures are bounded too.
+        while (s_BindAdmissionCursor < s_BindFound.Count())
         {
-            AdmitTemplateHouse(admitted, found);
+            House admitted = s_BindFound[s_BindAdmissionCursor];
+            if (!admitted)
+            {
+                s_BindAdmissionCursor++;
+                continue;
+            }
+            if (!FindTemplateBinding(admitted))
+            {
+                if (newAdmissions >= MAX_BIND_ADMISSIONS_PER_CALL)
+                    break;
+                newAdmissions++;
+            }
+            s_BindAdmissionCursor++;
+            AdmitTemplateHouse(admitted, s_BindFound);
         }
+        s_LastBindAdmissionTicks = TickCount(admissionStarted);
+        if (s_BindAdmissionCursor >= s_BindFound.Count())
+            ClearTemplateBindPending();
     }
 
     static void BuildOrder(vector observedClue, int budget, out TVectorArray points)
@@ -1530,6 +1610,11 @@ class HCInfectedRoomCatalog
     // class templates. Without a loaded template pack this is the legacy path unchanged.
     static void BuildProductionOrder(vector observedClue, int budget, out TVectorArray points)
     {
+        // Last-call splits are consumed immediately by the variety helper;
+        // reset even when this call refuses before reaching the bind service.
+        s_LastBindQueryTicks = 0;
+        s_LastBindFilterTicks = 0;
+        s_LastBindAdmissionTicks = 0;
         points = new TVectorArray;
         if (!ProductionServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
             return;
