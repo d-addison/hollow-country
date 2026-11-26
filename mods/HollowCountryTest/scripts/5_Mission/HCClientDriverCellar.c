@@ -163,7 +163,7 @@ class HCDriverCellar
         toward[1] = 0;
         float length = toward.Length();
         if (length < 0.1) { m_RouteBlocked = true; m_Phase = 1; return true; }
-        toward = toward / length;
+        toward = toward * (1.0 / length); // Enforce has no vector / float
         m_Outside = door - toward * 3;
         m_Inside = door + toward * 3;
         m_Track.Insert(m_Outside);
