@@ -563,8 +563,11 @@ class HCSearchHouses
                 else
                 {
                     HCInteriorActionData action = HCInteriorActionData.Cast(session.Owner);
+                    if (action && action.HCActivityStarted && !action.HCActivityCompleted)
+                    {
+                        HCActivity().Add("house_interrupted");
+                    }
                     if (action) { action.HCActivityStarted = false; }
-                    HCActivity().Add("house_interrupted");
                     End(session.Owner);
                 }
             }

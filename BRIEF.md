@@ -67,3 +67,11 @@ F5 (P3) HCGroundSnap.c:155-171: do not wipe live footprints. When s_Dead is larg
    (rebuild arrays + s_Cells without tombstones); at the live cap refuse new Adds with one reason-coded log line. Fix
    the comment (cache loss changes CE spawn height inside still-standing buildings).
 Validate as before (preland --changed rt/v16-p3, lint, perf). Commit as a new commit on top of 3db39d4c.
+
+## Fix round 3 (Opus re-check of 07aa4a4e; same rules and owned files)
+G1 (P2) HCXAISitePatrols.c HCDespawnRefusal :349-367 / HCDeathEndStep :124-145: the player-proximity veto must apply on the death-exit path for EVERY patrol, not only m_HCTransient ones (ordinary-site survivors must never vanish in view of a player). Keep the existing transient behaviour for normal Despawn unchanged.
+G2 (P2) HCDeathEndStep :144: do not set m_HCFinished for non-transient sites. After a death exit an ordinary site must be able to respawn by its normal rules (as round 1 did with HCEndPatrol alone); release the site budget the same way normal teardown does. Only transient patrols finish.
+G3 (P2) restore the pre-existing `HCUse("SitePatrols","death-hold-deferred")` at the point the exit is deferred by the veto (it existed before 3db39d4c, old :135; HCXUseRegistry.c:46 and r3_smoke_plan.json:1013-1020 still require it). Count once per deferral episode (when the veto first holds), not per tick.
+G4 (P3) while vetoed, keep the existing hold instead of HCReleaseHold + HCHoldMembers every OnUpdate/Despawn (no per-tick allocation or 512-entry Retire scan); HCGroupHold() must stay non-null while HCDeathHeld() is true so callers like HCXZoneGuards.Manages keep seeing the group.
+G5 (P3) HCSearchHouses.c :558-569 sweep: count house_interrupted only under the same `HCActivityStarted && !HCActivityCompleted` guard OnEndServer uses (:1051).
+Run lint + perf (commands in AGENTS.md) and commit. Report each G item with file:line.
