@@ -178,7 +178,12 @@ class HCGroupService : Managed
     protected static int s_HCTraceSnapshots = 0;
     protected static bool s_HCTraceInCommit = false;
     static bool HCTraceArmed() { return s_HCTraceInCommit && s_HCTraceBudget > 0; }
-    static string HCBit(bool value) { if (value) return "1"; return "0"; }
+    static string HCBit(bool value)
+    {
+        string bit = "0";
+        if (value) bit = "1";
+        return bit;
+    }
     static void HCTrace(string line)
     {
         if (s_HCTraceBudget <= 0) return;
