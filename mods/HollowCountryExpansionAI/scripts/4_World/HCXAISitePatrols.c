@@ -42,6 +42,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     protected int m_HCDeathStaleReports;
     protected string m_HCDeathEndReason;
     protected bool m_HCDeathEndDeferred;
+    protected int m_HCDeathExitNextMs;
     static const int HC_DEATH_STALE_REPORT_LIMIT = 6;
     protected int m_HCDeferredMember = -1;
     static const int HC_DEATH_HOLD_CAP_MS = 10000;
@@ -118,7 +119,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     protected void HCDeathHoldExit(string reason)
     {
-        if (m_HCDeathEndReason == "") { m_HCDeathEndReason = reason; m_HCDeathNextReportMs = 0; }
+        if (m_HCDeathEndReason == "") { m_HCDeathEndReason = reason; m_HCDeathNextReportMs = 0; m_HCDeathExitNextMs = 0; }
         // Keep the hold during end-only deferral: no provider update, assignments or spawns.
         this.HCDeathEndStep();
     }
@@ -127,6 +128,9 @@ class HCXAISitePatrol : HCXExpansionPatrol
         if (m_HCFinished) { return; }
         string refusal = "";
         // An unknown/foreign hold cannot establish that live members are safe to remove.
+        // A missing or foreign hold re-follows the live slot group once per step (the
+        // m_HCDeathHeld guard in HCHoldMembers would otherwise freeze this state forever).
+        if (this.HCHasGroup() && (!m_HCHold || !this.HCBridgeOwnsHold(m_HCHold))) { m_HCHold = this.HCBridgeFollowHold(m_HCHold); }
         if (this.HCHasGroup() && (!m_HCHold || !this.HCBridgeOwnsHold(m_HCHold))) { refusal = "DEATH_END_IDENTITY_MISSING"; }
         else { refusal = this.HCDespawnRefusal(true); }
         if (refusal != "")
@@ -144,7 +148,14 @@ class HCXAISitePatrol : HCXExpansionPatrol
             }
             return;
         }
-        Print("[HCX SitePatrol] death_hold_exit reason=" + m_HCDeathEndReason + " site=" + m_HCSiteId);
+        // A provider group that survives its synchronous despawn repeats this step on
+        // every update; the exit line has its own 10 s cadence (first attempt always prints).
+        int exitMs = GetGame().GetTime();
+        if (exitMs >= m_HCDeathExitNextMs)
+        {
+            m_HCDeathExitNextMs = exitMs + HC_DEATH_HOLD_CAP_MS;
+            Print("[HCX SitePatrol] death_hold_exit reason=" + m_HCDeathEndReason + " site=" + m_HCSiteId);
+        }
         this.HCEndPatrol();
         if (!this.HCHasGroup())
         {
