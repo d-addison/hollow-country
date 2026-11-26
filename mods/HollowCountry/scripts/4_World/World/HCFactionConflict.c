@@ -97,6 +97,7 @@ class HCFactionConflict : HCModule
     protected int m_QuotaRequested;
     protected int m_QuotaCheckpoint;
     protected int m_QuotaDurable;
+    // Both fallback pumps share m_QuotaStepTime/m_QuotaStepBudget, reset once per tick; quota first.
     protected float m_QuotaStepTime = -1;
     protected ref HCWorkBudget m_QuotaStepBudget = new HCWorkBudget;
     protected ref HCConflictOutcomeSaveJob m_OutcomeJob;
@@ -110,7 +111,6 @@ class HCFactionConflict : HCModule
     protected float m_OutcomeSince = -1;
     protected bool m_OutcomeWarned;
     protected float m_OutcomeStepTime = -1;
-    // Both fallback pumps share m_QuotaStepBudget, reset once per tick; quota first.
     protected string m_Declined;
     protected string m_StatusReason;
     protected bool m_ProviderLogged;
@@ -426,15 +426,24 @@ class HCFactionConflict : HCModule
 
     override void OnStop()
     {
+        // Read the fault before HCFlush: HCFlush returns false for an already-faulted job and faults
+        // the job when its stage guard trips (HCWorkBudget.c:342, :374), so the reasons stay distinct.
+        bool quotaFaultedBefore = m_QuotaJob && m_QuotaJob.HCFaulted;
         bool quotaFlushed = true;
         if (m_QuotaJob) { quotaFlushed = HCSaveScheduler.HCFlush(m_QuotaJob); }
+        if (m_PendingQuota && m_Healthy && !quotaFaultedBefore && !quotaFlushed) { HCDropQuotaOutcome("flush_failed"); }
         HCPollQuotaFault();
         if (m_PendingQuota)
         {
             if (!m_Healthy) { HCDropQuotaOutcome("unhealthy_at_stop"); }
-            else if (!quotaFlushed) { HCDropQuotaOutcome("flush_failed"); }
             else if (m_QuotaDurable < m_PendingQuota.Revision) { HCDropQuotaOutcome("not_durable_at_stop"); }
-            else { HCApplyQuotaOutcome(); }
+            else
+            {
+                HCApplyQuotaOutcome();
+                // HCApplyQuotaOutcome waits (keeps the slot) while the journal is uncommitted; at stop
+                // that wait cannot end, so name the drop. No-op once the slot was applied or dropped.
+                HCDropQuotaOutcome("outcomes_uncommitted_at_stop");
+            }
         }
         if (m_OutcomeJob && m_Healthy)
         {
@@ -446,6 +455,7 @@ class HCFactionConflict : HCModule
                 HCRequestSave();
             }
         }
+        bool outcomeFaultedBefore = m_OutcomeJob && m_OutcomeJob.HCFaulted;
         bool outcomeFlushed = true;
         if (m_OutcomeJob && m_Store && (m_Healthy || m_Store.SaveInFlight()))
         {
@@ -455,7 +465,8 @@ class HCFactionConflict : HCModule
         if (!HCOutcomesCommitted())
         {
             string stopReason = "unhealthy_at_stop";
-            if (!outcomeFlushed) { stopReason = "flush_failed"; }
+            if (outcomeFaultedBefore) { stopReason = "faulted"; }
+            else if (!outcomeFlushed) { stopReason = "flush_failed"; }
             else if (!outcomeFaultFree) { stopReason = "faulted"; }
             Print("[HC Plan] HC-37 outcome_receipts_not_durable_at_stop requested=" + m_OutcomeRequested.ToString() + " durable=" + m_OutcomeDurable.ToString() + " reason=" + stopReason);
         }
