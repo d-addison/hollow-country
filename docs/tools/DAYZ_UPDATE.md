@@ -107,7 +107,7 @@ must leave native execution to the lead host queue.
 ## Running it through banso
 
 ```sh
-banso workflow validate .banso/workflows/hollow-country.yaml
+banso workflow validate .banso/workflows/hollow-country.yaml   # after copying tools/setup/banso/hollow-country.yaml there
 banso workflow run hollow-country --pipeline dayz-update-check --headless
 banso workflow run hollow-country --pipeline dayz-update-prepare --headless --input build=auto
 banso workflow run hollow-country --pipeline dayz-update-bump --headless --input build=<major.minor.build>
@@ -189,3 +189,11 @@ Without `--queue`, `next` continues to print the issue checklist only. Remote re
 must be current; the command does not fetch or push. The host queue holds native
 work while the owner plays. Soak, client smoke, R3 and publication permission
 remain separate owner steps.
+
+### Installing the banso pieces (lead, main checkout)
+
+`.banso/` is local orchestration state and stays untracked. The authored pieces live in
+`tools/setup/banso/`: copy `hollow-country.yaml` to `.banso/workflows/hollow-country.yaml` and merge
+`config-dayz-update.yaml` (daemon port and the DayZ-update reaction) into `.banso/config.yaml`, then
+run `banso workflow validate` and `banso config show` to confirm the effective daemon port.
+The timer runs in the main checkout, so install it only once this tool is on `main`.

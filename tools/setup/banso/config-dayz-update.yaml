@@ -1,0 +1,20 @@
+# Merge into the main checkout's local .banso/config.yaml (lead only; .banso/ stays untracked).
+# Project-specific endpoint; service env also protects against higher-layer defaults.
+daemon:
+  port: 9746
+
+# Schema: banso-engine reaction::{ReactionConfig, ReactionRule, EventFilter}.
+reactions:
+  max_concurrent_reactions: 1
+  rules:
+    - id: dayz-update-friction
+      name: DayZ update available
+      trigger: {source: dayz-update, kind: dayz_update, tags: []}
+      action:
+        type: emit_friction
+        event_type: dayz_update
+        message: 'DayZ update available: review .banso/pipeline-outputs/dayz-update/check.json and pending.md'
+      cooldown_secs: 0
+      dry_run: false
+      approval_required: false
+      enabled: true
