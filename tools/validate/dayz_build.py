@@ -6,7 +6,9 @@ import re
 
 ROOT = Path(__file__).resolve().parents[2]
 PIN = ROOT / 'config/dayz-build.json'
-CACHE = Path.home() / '.cache/hollow-country'
+def cache_root():
+    """Resolved per call so callers (and tests) see the current home directory."""
+    return Path.home() / '.cache/hollow-country'
 
 
 def build_value(value):
@@ -28,7 +30,7 @@ def pinned():
 
 
 def native_scripts_dir(build=None):
-    return CACHE / 'native-scripts' / ('scripts-' + build_value(build or pinned()))
+    return cache_root() / 'native-scripts' / ('scripts-' + build_value(build or pinned()))
 
 
 def names_index_path(build=None):
@@ -36,7 +38,7 @@ def names_index_path(build=None):
 
 
 def symbols_cache_path(build=None):
-    return CACHE / ('native-symbols-' + build_value(build or pinned()) + '.json')
+    return cache_root() / ('native-symbols-' + build_value(build or pinned()) + '.json')
 
 
 CLIENT_APPS = Path('/mnt/g/SteamLibrary/steamapps')

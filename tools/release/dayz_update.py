@@ -22,7 +22,7 @@ ROOT = dayz_build.ROOT
 APPS = {'221100': 'Client', '223350': 'Server', '830640': 'Tools'}
 CLIENT_APPS = Path('/mnt/g/SteamLibrary/steamapps')
 SERVER_APPS = Path('/mnt/d/SteamLibrary/steamapps')
-REPORT_ROOT = dayz_build.CACHE / 'dayz-update'
+REPORT_ROOT = dayz_build.cache_root() / 'dayz-update'
 MAX_EXE = 128 * 1024 * 1024
 MAX_MEMBER = 16 * 1024 * 1024
 MAX_TOTAL = 256 * 1024 * 1024
@@ -653,7 +653,7 @@ def main(argv=None):
         if name == 'next':
             command.add_argument('--queue', action='store_true')
         if name == 'prepare':
-            command.add_argument('--cache-root', type=Path, default=dayz_build.CACHE / 'native-scripts')
+            command.add_argument('--cache-root', type=Path, default=dayz_build.cache_root() / 'native-scripts')
         if name == 'bump':
             command.add_argument('--force', metavar='REASON')
     command = commands.add_parser('notify')
