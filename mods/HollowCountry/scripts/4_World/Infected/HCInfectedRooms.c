@@ -161,7 +161,6 @@ class HCInfectedRoomCatalog
     // the ~5 ms headroom of the 8 ms target. Soak helper splits must verify it.
     static const int MAX_BIND_FILTER_PER_CALL = 64;
     static const int MAX_BIND_ADMISSIONS_PER_CALL = 1;
-    static const float BIND_CLUE_RESTART_SQ = 16;
     static const int MAX_TEMPLATE_LOG = 64;
     static const string TEMPLATE_EVIDENCE_KIND = "native-room-survey-v1";
     static const string TEMPLATE_READY = "rooms_templates_provisional_path_audio_doors_pending";
@@ -1510,8 +1509,7 @@ class HCInfectedRoomCatalog
     }
 
     // One retained area, <=1024 weak candidates and <=16 unique weak houses.
-    // Resume without another native query until done, or restart >4 m from
-    // the ORIGINAL query centre (small successive moves cannot drift forever).
+    // Resume without another native query until done (see the comment in the body).
     // The query quota counts native queries only; it never stalls held work.
     // Finish the full found list before admissions so ambiguity sees the same
     // complete, capped list as the old synchronous bind, not a partial scan.
@@ -1520,8 +1518,9 @@ class HCInfectedRoomCatalog
         if (!ProductionServer() || !HCInteriorTemplates.Loaded())
             return;
         LogTemplateAdmission();
-        if (s_BindPending && vector.DistanceSq(observedClue, s_BindClue) > BIND_CLUE_RESTART_SQ)
-            ClearTemplateBindPending();
+        // A held scan always finishes before another query, whichever caller asks next: its bindings are a
+        // shared cache, and restarting on a moved clue would let alternating callers (variety, search packs)
+        // restart every call after 64 objects and never bind anything.
         if (!s_BindPending)
         {
             if (s_BindQueries >= s_BindQueryCap)
