@@ -3,8 +3,9 @@
 // Hard bounds: 32 peers, 128 chunks * 64 rows, 48 layer names, 384 draw pins.
 class HCAdminWorldWire
 {
-    static const int REQUEST = 4853913;
-    static const int REPLY = 4853914;
+    // 4853913 is HCSeasonSnapshotRPC.RPC_SEASON (docs/ACCEPTANCE_CHECKLIST.md); these two ids were free (2026-11-26).
+    static const int REQUEST = 4853915;
+    static const int REPLY = 4853916;
     static const int ROWS = 8192;
     static const int CHUNK = 64;
     static const int DRAW = 384;

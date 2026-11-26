@@ -601,7 +601,10 @@ modded class HCInfectedModule
     }
 
     protected ref HCWorkBudget m_HCPostureWork = new HCWorkBudget;
-    protected HCInfectedActor m_HCPostureActor;
+    // ref: HCInfectedActor is not Managed, so a raw member is not nulled when HCInfectedModule recycles
+    // the slot (m_Actors[slot] = actor frees the old one with Count unchanged). The slot identity
+    // check in HCVarietyPostureStep then sees the replacement and drops the candidate.
+    protected ref HCInfectedActor m_HCPostureActor;
     protected int m_HCPostureSlot;
     protected int m_HCPostureStage;
     protected int m_HCPostureRetries;
@@ -623,8 +626,14 @@ modded class HCInfectedModule
     {
         HCInfectedActor actor = m_HCPostureActor;
         if (!actor) { return 0; }
+        // Slot identity first: the candidate is held across ticks, so confirm it is still tracked before reading it.
+        if (m_HCPostureSlot >= m_Actors.Count() || m_Actors[m_HCPostureSlot] != actor)
+        {
+            m_HCPostureActor = null;
+            return 0;
+        }
         ZombieBase entity = actor.InfectedEntity;
-        if (!entity || !entity.IsAlive() || m_HCPostureSlot >= m_Actors.Count() || m_Actors[m_HCPostureSlot] != actor)
+        if (!entity || !entity.IsAlive())
         {
             m_HCPostureActor = null;
             return 0;

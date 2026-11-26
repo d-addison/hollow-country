@@ -31,7 +31,7 @@ modded class MissionGameplay
 
     void HCReceiveReleaseRadius(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
-        if (rpcType != HCReleaseRadiusWire.RPC_ENTRY || GetGame().IsServer() || sender || target) { return; }
+        if (rpcType != HCReleaseRadiusWire.RPC_ENTRY || !ctx || GetGame().IsServer() || sender || target) { return; }
         int observation;
         if (!ctx.Read(observation)) { return; }
         if (observation == HCReleaseRadiusWire.AI_SITE && !m_HCReleaseAISiteObserved)

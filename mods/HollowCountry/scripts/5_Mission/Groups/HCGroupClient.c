@@ -241,7 +241,7 @@ class HCGroupClient : HCGroupInviteBridge
 
     void OnRPC(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
-        if (!m_Listening || GetGame().IsServer() || sender || target)
+        if (!m_Listening || !ctx || GetGame().IsServer() || sender || target)
             return;
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
         if (!viewer || !viewer.IsAlive())

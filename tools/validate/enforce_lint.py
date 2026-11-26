@@ -3205,6 +3205,18 @@ class RPCId:
     value: int
 
 
+def _wire_class_id(source, match):
+    """A large literal constant inside a *Wire*/*Rpc* class is a wire id even without RPC in its name."""
+    owner = next((c for c in source.classes if c.body_start < match.start() < c.body_end), None)
+    if owner is None or not any(tag in owner.name.lower() for tag in ('wire', 'rpc')):
+        return False
+    literal = re.sub(r'\s+', '', match[2])
+    try:
+        return abs(int(literal, 16 if 'x' in literal.lower() else 10)) >= 100000
+    except ValueError:
+        return False
+
+
 def rpc_id_inventory(sources):
     """Literal wire allocations only; named uses do not allocate another id."""
     inventory = []
@@ -3217,6 +3229,9 @@ def rpc_id_inventory(sources):
     for source in sources:
         for match in _RPC_CONST.finditer(source.code):
             if 'rpc' in match[1].lower():
+                record(source, match.start(1), match[1], match[2])
+            elif _wire_class_id(source, match):
+                # Wire classes name their ids REQUEST/REPLY (HCAdminWorldWire took 4853913, the season RPC id).
                 record(source, match.start(1), match[1], match[2])
         for enum in source.enum_blocks:
             start = enum.body_start + 1

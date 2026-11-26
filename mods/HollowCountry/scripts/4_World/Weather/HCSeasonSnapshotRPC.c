@@ -4,6 +4,7 @@
 // 3_Game/Global/Game.c:1120 IsServer; 1_Core/proto/EnDebug.c:96 Print.
 // ID check before assignment: rg -n --max-filesize 10M '4853913' mods
 // returned no matches (2026-11-18); 4854001 belongs to HC-27 settings.
+// HCAdminWorldWire later took 4853913/914 too (lint HC-E054 only read *RPC* names); it moved to 4853915/916 (2026-11-26).
 // No enumeration, IO or per-player loop: one send per change/30s heartbeat.
 // Revisions survive weather-owner stop/start in the same VM; never wrap.
 // Runtime=PENDING: exact-source native compile and two-client transport.
