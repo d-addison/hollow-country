@@ -177,6 +177,11 @@ class HCGroupService
     protected static int s_HCTraceBudget = 32;
     protected static int s_HCTraceSnapshots = 0;
     protected static bool s_HCTraceInCommit = false;
+    protected static bool s_HCTraceMember = false;
+    static void HCTraceStage(string stage)
+    {
+        if (s_HCTraceMember) HCTrace("member " + stage);
+    }
     static bool HCTraceArmed() { return s_HCTraceInCommit && s_HCTraceBudget > 0; }
     static string HCBit(bool value)
     {
@@ -873,12 +878,16 @@ class HCGroupService
         member.Id = uid;
         member.Name = m_Names.Get(uid);
         if (member.Name == "") member.Name = "Offline member";
+        HCTraceStage("a uid_ok=" + HCBit(uid != ""));
         HCGroupPeer source = Peer(uid);
+        HCTraceStage("b source=" + HCBit(source != null) + " self=" + HCBit(source == recipient));
         member.Online = Live(source);
+        HCTraceStage("c online=" + HCBit(member.Online));
         // Candidates disclose invitation selection/availability only. The
         // default Alive=false means undisclosed here, not a death report.
         if (!position) return member;
         member.Alive = member.Online && source.Player.IsAlive();
+        HCTraceStage("d alive=" + HCBit(member.Alive));
         if (position && member.Alive && Live(recipient) && recipient.Player.IsAlive() && HasGPS(source) && HasGPS(recipient) && (m_Config.MapIcons || m_Config.WorldIcons))
         {
             vector actual = source.Player.GetPosition();
@@ -886,6 +895,7 @@ class HCGroupService
             float dx = actual[0] - viewer[0];
             float dy = actual[1] - viewer[1];
             float dz = actual[2] - viewer[2];
+            HCTraceStage("e position");
             if (HCGroupRules.PositionValid(actual) && (m_Config.MapIcons || dx * dx + dy * dy + dz * dz <= m_Config.MaxIconDistance * m_Config.MaxIconDistance) && VisibilityAllows(source, recipient))
             {
                 member.Position = actual;
@@ -894,13 +904,16 @@ class HCGroupService
                 // Native 1.30.164289: 3_Game/Entities/Object.c:994,1008 health/max;
                 // 4_World/Entities/ManBase/PlayerBase.c:2973,3925 bleeding/unconscious;
                 // 4_World/Classes/BleedingSources/BleedingSourcesManagerBase.c:321 count.
+                HCTraceStage("f visible");
                 member.HealthBand = HCStatusBand(source.Player.GetHealth("", "Health"), source.Player.GetMaxHealth("", "Health"));
                 member.BloodBand = HCStatusBand(source.Player.GetHealth("", "Blood"), source.Player.GetMaxHealth("", "Blood"));
                 BleedingSourcesManagerServer bleeding = source.Player.GetBleedingManagerServer();
                 member.Bleeding = bleeding && bleeding.GetBleedingSourcesCount() > 0;
                 member.Unconscious = source.Player.IsUnconscious();
+                HCTraceStage("g status");
             }
         }
+        HCTraceStage("h return");
         return member;
     }
 
@@ -927,11 +940,17 @@ class HCGroupService
             snapshot.Epoch = group.Epoch;
             snapshot.Name = group.Name;
             snapshot.OwnerId = group.OwnerId;
+            bool traceRoster = s_HCTraceSnapshots > 0 && s_HCTraceBudget > 0;
             foreach (string uid : group.Members)
             {
+                if (traceRoster) HCTrace("roster pre self=" + HCBit(uid == peer.Id) + " find=" + m_Peers.Find(peer).ToString());
+                s_HCTraceMember = traceRoster;
                 HCGroupMember rosterMember = Member(uid, peer, true);
+                s_HCTraceMember = false;
+                if (traceRoster) HCTrace("roster post find=" + m_Peers.Find(peer).ToString() + " id_ok=" + HCBit(peer.Id != ""));
                 rosterMember.Role = HCGroupRules.Role(group, uid);
                 snapshot.Members.Insert(rosterMember);
+                if (traceRoster) HCTrace("roster inserted");
             }
             if (kind == HCGroupSnapshotKind.FULL)
             {
