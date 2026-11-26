@@ -13,6 +13,7 @@ import time
 from tools.testing import soak_campaign as soak
 from tools.release import rpt_summary
 from tools.release.host_lock import host_lock, LockRefused
+from tools.setup import winproc
 from tools.setup.winproc import InteropError
 
 STATE = Path.home() / '.cache/hollow-country/restart-campaign'
@@ -20,6 +21,7 @@ STORES = {'world': 'world.json', 'custody': 'ai-custody.json', 'intent': 'search
 READ_MODULES = {'world': 'World', 'custody': 'Materializer', 'intent': 'LootRefresh'}
 VME = re.compile(r'\bVME\b|Virtual Machine Exception', re.I)  # release_gate.py:312
 USE = re.compile(r'\[HC Use\] module=([\w.-]+) feature=([\w.-]+) count=(\d+)')
+CRASH_EXCEPTION = re.compile(r'0xc0000374|0xc0000005|Unhandled exception|Access[_ ]violation|Exception code:', re.I)
 BRIDGE = re.compile(r'\[HC XAI Bridge\] teardown retired_released=\d+ retained=\d+')
 TEARDOWN = re.compile(r'\[HC Teardown\] shelters_skipped=\d+ pathgraph_skipped=\d+ callbacks_removed=\d+ packs_released=\d+ rpc_skipped=\d+')
 DOMAINS = ('world store', 'custody', 'search refresh', 'groups', 'site ownership/cleared-at',
@@ -98,6 +100,50 @@ def log_text(paths):
                      if p.suffix.lower() in ('.rpt', '.log'))
 
 
+def crashed(text):
+    # HC content labels (for example Incident crash) are not engine exceptions.
+    return any(CRASH_EXCEPTION.search(line) for line in text.splitlines()
+               if not re.match(r'^\s*(?:\d{1,2}:\d{2}:\d{2}(?:\.\d+)?\s+)?(?:SCRIPT\s*:\s*)?"?\[HC ', line))
+
+
+def ready_verdict(server):
+    # Same last-per-module verdict and disabled-module exemption as Summary.scan.
+    last = {}
+    for line in server.splitlines():
+        match = rpt_summary.READY_FIELDS.search(line)
+        if match:
+            last[match[1]] = rpt_summary.failure(line) != 'not_ready'
+    return bool(last) and all(last.values())
+
+
+def crash_file(path):
+    return path.suffix.lower() in ('.mdmp', '.dmp') or (path.name.lower().startswith('crash_') and path.suffix.lower() == '.log')
+
+
+# Fixed authored-site grammars; never retain arbitrary patrol identifiers.
+KILL = re.compile(r'\[HC Test\] fx_site_patrol_kill patrol=police-chernogorsk result=ok\b|'
+                  r'\[HCX SitePatrol\] death_hold armed site=police-chernogorsk\b')
+SPAWN = re.compile(r'\[HC Expansion AI\] (?:site police-chernogorsk spawn (?:refused|held|skipped):|'
+                   r'DIAGNOSTIC spawn of site police-chernogorsk\b)')
+
+
+def event_time(text, pattern, boot_at):
+    """RPT local wall clock mapped to the nearest day of this boot, including midnight rollover."""
+    from datetime import datetime, timedelta
+    for line in text.splitlines():
+        if not pattern.search(line):
+            continue
+        stamp = rpt_summary.RPT_CLOCK.match(line)
+        if stamp:
+            h, m, sec = map(int, stamp.group(1, 2, 3))
+            if h < 24 and m < 60 and sec < 60:
+                base = datetime.fromtimestamp(boot_at).replace(hour=h, minute=m, second=sec, microsecond=0)
+                candidates = [(base + timedelta(days=d)).timestamp() for d in (-1, 0, 1)]
+                return min(candidates, key=lambda at: abs(at - boot_at)) + float('0.' + (stamp[4] or '0'))
+        return None  # Never substitute a later event for an untimestamped first attempt.
+    return None
+
+
 def verdict(server, client='', *, xai=True, crash_files=False, diagnostics=''):
     text = server + '\n' + client + '\n' + diagnostics
     counters = {}
@@ -105,8 +151,7 @@ def verdict(server, client='', *, xai=True, crash_files=False, diagnostics=''):
         key = module + '/' + feature
         counters[key] = max(counters.get(key, 0), int(count))
     reads = {s: counters.get(READ_MODULES[s] + '/' + s + '_read_ok', 0) > 0 for s in STORES}
-    ready = [line for line in server.splitlines() if '[HC Ready]' in line]
-    result = dict(crash=bool(crash_files or rpt_summary.CRASH.search(text) or re.search('0xc0000374', text, re.I)),
+    result = dict(crash=bool(crash_files or crashed(text)),
                   script_e=len(rpt_summary.SCRIPT_ERROR.findall(text)), vme=len(VME.findall(text)),
                   teardown_lines=TEARDOWN.findall(server), bridge_lines=BRIDGE.findall(server),
                   store_reads=reads,
@@ -116,11 +161,12 @@ def verdict(server, client='', *, xai=True, crash_files=False, diagnostics=''):
                                        for counts in re.findall(r'V2 world loaded day=\d+ places=(\d+) facts=(\d+) factions=(\d+)', server)],
                               'custody': 'unobservable', 'intent': 'unobservable'},
                   counters_woken={k: n for k, n in counters.items() if n > 0},
-                  ready=bool(ready) and all(re.search(r'\bready=true\b', line) for line in ready),
+                  ready=ready_verdict(server),
                   connect=soak.CONNECT_ENABLED in server)
     result['clean'] = (not result['crash'] and result['script_e'] == result['vme'] == 0
                        and result['connect'] and result['ready']
-                       and (not xai or (len(result['bridge_lines']) == len(result['teardown_lines']) == 1)))
+                       and len(result['teardown_lines']) == 1
+                       and (not xai or len(result['bridge_lines']) == 1))
     return result
 
 
@@ -136,13 +182,16 @@ def round_trip(previous, current):
     return rows
 
 
-def lockout(killed_at, boot_at, text):
+def lockout(killed_at, spawn_at, text):
     if killed_at is None:
         return 'unobservable(no confirmed patrol death)'
-    elapsed = max(0, boot_at - killed_at)
+    if spawn_at is None:
+        return 'unobservable(no timestamped site-spawn attempt)'
+    elapsed = max(0, spawn_at - killed_at)
     if elapsed >= 600:
         return 'not_applicable(elapsed=%d)' % elapsed
-    return 'passed' if 'spawn refused: raided site lockout' in text else 'failed(elapsed=%d)' % elapsed
+    first_attempt = next((line for line in text.splitlines() if SPAWN.search(line)), '')
+    return 'passed' if 'spawn refused: raided site lockout' in first_attempt else 'failed(elapsed=%d)' % elapsed
 
 
 def lock_path(profile, store):
@@ -207,16 +256,16 @@ class ReadLock:
         q = lambda p: soak.ps_quote(self.win(p))
         # .NET host IO, not an Enforce API. FileShare.None is intentionally under native probe.
         script = ("$ErrorActionPreference='Stop'; $h=$null; try { "
-                  "$h=[IO.File]::Open(%s,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::None); "
+                  "[IO.File]::WriteAllText(%s,$PID.ToString()); $h=[IO.File]::Open(%s,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::None); "
                   "[IO.File]::WriteAllText(%s,'ready'); $end=[DateTime]::UtcNow.AddMinutes(75); "
                   "while (-not [IO.File]::Exists(%s) -and [DateTime]::UtcNow -lt $end) { Start-Sleep -Seconds 1 } "
                   "} finally { if ($null -ne $h) { $h.Dispose() }; [IO.File]::WriteAllText(%s,'closed') }"
-                  % (q(self.path), q(self.ready), q(self.signal), q(self.closed)))
+                  % (q(self.started), q(self.path), q(self.ready), q(self.signal), q(self.closed)))
         from tools.setup.winproc import SYSTEM32
         self.started.write_text('started', encoding='ascii')
         self.process = subprocess.Popen([str(SYSTEM32 / 'WindowsPowerShell/v1.0/powershell.exe'),
                                          '-NoProfile', '-NonInteractive', '-Command', soak.ps_encoded(script)],
-                                        cwd='/mnt/c', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                        cwd='/mnt/c', start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         deadline = self.host.clock() + 30
         while not self.ready.is_file():
             if self.process.poll() is not None or self.host.clock() >= deadline:
@@ -303,9 +352,10 @@ def restore_when_gone(stager, host, locks=()):
 
 
 class RestartCampaign:
-    def __init__(self, stager, host, cycles, evidence, addon_build, *, probe=False, log=print):
+    def __init__(self, stager, host, cycles, evidence, addon_build, *, probe=False, log=print, commit=None):
         self.stager, self.host, self.cycles = stager, host, cycles
         self.evidence, self.addon_build, self.probe, self.log = Path(evidence), addon_build, probe, log
+        self.commit_sha = commit
         self.locks, self.rows, self.killed_at = [], [], None
         self.profile = stager.server / soak.PROFILE_COPY
         self.client = stager.client_parent / soak.CLIENT_PROFILE
@@ -313,17 +363,24 @@ class RestartCampaign:
         self.extra_mission = stager.server / 'mpmissions/restartOffline.chernarusplus'
 
     def stop(self):
-        # Never advance to the server until BOTH client images are confirmed gone.
-        for image in (soak.CLIENT_IMAGE, soak.LAUNCHER_IMAGE):
-            state = self.host.state(image)
-            if state == 'running':
+        errors = {}
+        # A launcher has no main window. Always ask both game images to close.
+        for image in (soak.CLIENT_IMAGE, soak.SERVER_IMAGE):
+            try:
                 self.host.stop(image)
-            if self.host.state(image) != 'gone':
-                raise soak.Refused('client stop failed; stop DayZ by hand, then run restore')
-        state = self.host.state(soak.SERVER_IMAGE)
-        if state == 'running':
-            self.host.stop(soak.SERVER_IMAGE)
-        soak.require_processes_stopped(self.host, 'stop')
+            except (soak.Refused, OSError, InteropError) as error:
+                errors[image] = error
+        helper = soak.Campaign(self.stager, self.host, {}, addon_build=None, step_script=None,
+                               now=self.host.clock, sleep=self.host.sleep)
+        states = helper.shutdown_states()  # launcher first; bounded STOP_WAIT_SECONDS
+        self.stop_states = states
+        self.rows_stop_errors = {image: soak.describe_failure(error) for image, error in errors.items()}
+        if any(state != 'gone' for state in states.values()):
+            raise soak.Refused('graceful stop incomplete; stop DayZ by hand, then run restore')
+        # Independent gone confirms success even when the close reply was lost.
+        for error in errors.values():
+            if isinstance(error, soak.Refused):
+                raise error
 
     def stage(self, ordinal):
         soak.require_processes_stopped(self.host, 'stage')
@@ -353,44 +410,112 @@ class RestartCampaign:
         cfg.write_text(re.sub(pattern, lambda m: m[1] + self.extra_mission.name + m[2], text), encoding='utf-8')
         bat = self.stager.server / soak.BAT_COPY
         raw = bat.read_text(encoding='utf-8')
+        old_mods = '"-mod=' + ';'.join(mods) + '"'
+        if raw.count(old_mods) != 1:
+            raise soak.Refused('no-xai start-bat replacement did not match')
         bat.write_text(raw.replace('"-mod=' + ';'.join(mods) + '"',
                                    '"-mod=' + ';'.join(retained) + '"'), encoding='utf-8')
 
     def collect(self, snapshots):
         return [launch_files(folder, before) for folder, before in zip(self.sources, snapshots)]
 
-    def watch(self, snapshots, seconds, predicate=None, lock=None):
+    def watch(self, snapshots, seconds, predicate=None, lock=None, start_on_load=False):
         deadline = self.host.clock() + seconds
+        load_deadline = self.host.clock() + soak.SERVER_READY_MINUTES * 60
+        load_started = False
+        unreadable = 0
+        unknown = dict.fromkeys((soak.SERVER_IMAGE, soak.CLIENT_IMAGE), 0)
         while True:
-            paths = self.collect(snapshots)
-            server, client = map(log_text, paths)
-            text = server + '\n' + client
+            try:
+                # Resolve each peer once its per-launch RPT exists; client starts later.
+                for index, (folder, before) in enumerate(zip(self.sources, snapshots)):
+                    if index == 1 and not self.rows[-1].get('client_started'):
+                        continue
+                    if not self.watch_paths[index]:
+                        found = launch_files(folder, before)
+                        if any(p.suffix.lower() == '.rpt' for p in found):
+                            self.watch_paths[index] = found
+                    for path in self.watch_paths[index]:
+                        if path.suffix.lower() not in ('.rpt', '.log'):
+                            continue
+                        lines, offset = soak.tail_lines(path, self.offsets.get(path, 0))
+                        self.offsets[path] = offset
+                        chunk = '\n'.join(lines)
+                        if rpt_summary.SCRIPT_ERROR.search(chunk) or VME.search(chunk) or crashed(chunk):
+                            raise soak.Refused('cycle crash/script/VME observed')
+                        if any(soak.kick_refusal(line) for line in lines):
+                            raise soak.Refused('cycle client kick observed (identity withheld)')
+                        # Keep predicate evidence, not every growing engine-log line in RAM.
+                        for line in lines:
+                            if (any(marker in line for marker in ('[HC Ready]', '[HC Persistence]', '[HC Use]',
+                                                                 '[HC Driver]', soak.CONNECT_ENABLED))
+                                    or RESTORES['world store'].search(line) or KILL.search(line) or SPAWN.search(line)
+                                    or soak.SERVER_PLAYER_CONNECTED.search(line)
+                                    or (lock and fault_observation(line, lock[0]))):
+                                self.watch_text[index].append(line)
+                # Shallow discovery catches new crash files without walking profile trees.
+                parents = {p.parent for group in self.watch_paths for p in group}
+                has_crash_file = any(crash_file(p) and p.relative_to(folder).as_posix() not in before
+                                     for folder, before in zip(self.sources, snapshots)
+                                     for parent in parents if parent.is_relative_to(folder)
+                                     for p in parent.iterdir() if p.is_file())
+                if has_crash_file:
+                    raise soak.Refused('cycle crash file observed')
+                unreadable = 0
+            except OSError:
+                unreadable += 1
+                if unreadable >= soak.UNREADABLE_POLLS:
+                    raise soak.Refused('cycle logs unreadable for repeated polls')
+            server, client = ('\n'.join(lines) for lines in self.watch_text)
+            if start_on_load and not load_started:
+                if '[HC Ready]' in server or RESTORES['world store'].search(server):
+                    deadline = self.host.clock() + seconds
+                    load_started = True
+                else:
+                    deadline = load_deadline
             if lock and (fault_observation(server, lock[0]) == 'FileExist under share-none' or
                          (not lock[1].closed_ack and any(feature == lock[0] + '_read_ok' and int(count) > 0
                           for _, feature, count in USE.findall(server)))):
                 raise soak.Refused('FileExist under share-none: Fresh/quarantine on locked store')
-            if rpt_summary.SCRIPT_ERROR.search(text) or VME.search(text) or rpt_summary.CRASH.search(text) or '0xc0000374' in text.lower():
-                raise soak.Refused('cycle crash/script/VME observed')
-            if any(p.suffix.lower() in ('.mdmp', '.dmp') or p.name.lower().startswith('crash_') for group in paths for p in group):
-                raise soak.Refused('cycle crash file observed')
-            if any(soak.kick_refusal(line) for line in text.splitlines()):
-                raise soak.Refused('cycle client kick observed (identity withheld)')
-            if predicate and predicate(server, client):
+            if predicate and predicate(server, client) and not unreadable:
                 return server, client
-            if self.rows[-1].get('join') and self.host.state(soak.CLIENT_IMAGE) != 'running':
-                raise soak.Refused('client exited or process state unknown')
-            if self.host.state(soak.SERVER_IMAGE) != 'running':
-                raise soak.Refused('server exited or process state unknown')
-            if self.host.clock() >= deadline:
+            for image in (soak.SERVER_IMAGE, soak.CLIENT_IMAGE):
+                if image == soak.CLIENT_IMAGE and not self.rows[-1].get('join'):
+                    continue
+                try:
+                    state = self.host.state(image)
+                except (OSError, InteropError):
+                    state = 'unknown'
+                if state == 'gone':
+                    raise soak.Refused('cycle process exited')
+                unknown[image] = 0 if state == 'running' else unknown[image] + 1
+                if unknown[image] >= soak.UNREADABLE_POLLS:
+                    raise soak.Refused('cycle process state repeatedly unknown')
+            if self.host.clock() >= deadline or (start_on_load and self.host.clock() >= load_deadline):
                 if predicate:
                     raise soak.Refused('cycle evidence deadline exceeded')
                 return server, client
             self.host.sleep(2)
 
+    def validate_launch(self, cycle):
+        bat = (self.stager.server / soak.BAT_COPY).read_text(encoding='utf-8')
+        for key, value in (('config', soak.CFG_COPY), ('profiles', soak.PROFILE_COPY)):
+            options = re.findall(r'-' + key + r'=([^\s"]+)', bat)
+            if options != [value]:
+                raise soak.Refused('staged start-bat replacement failed')
+        mods = soak.server_mods(bat.encode('utf-8'))
+        if (soak.TEST_MOD in mods) != cycle.xai:
+            raise soak.Refused('staged test-addon replacement failed')
+        templates = re.findall(r'\btemplate\s*=\s*"([^"]+)"\s*;',
+                               (self.stager.server / soak.CFG_COPY).read_text(encoding='utf-8'))
+        expected = self.stager.mission.name if cycle.xai else self.extra_mission.name
+        if templates != [expected]:
+            raise soak.Refused('staged mission template replacement failed')
+
     def archive(self, number, paths, cycle):
         folder = self.evidence / ('cycle-%02d-%s' % (number, cycle.kind))
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / 'selection.json').write_text(json.dumps(dict(targeted=True, fault=cycle.fault)), encoding='utf-8')
+        (folder / 'selection.json').write_text(json.dumps(dict(targeted=True, fault=cycle.fault, commit_sha=self.commit_sha)), encoding='utf-8')
         for peer, files in zip(('server', 'client'), paths):
             dest = folder / peer
             dest.mkdir(exist_ok=True)
@@ -415,6 +540,8 @@ class RestartCampaign:
             if not row['profile_continuity']:
                 raise soak.Refused('profile bytes changed between boots')
         snapshots = [snapshot(p) for p in self.sources]
+        self.stop_states = {}
+        self.watch_paths, self.watch_text, self.offsets = [[], []], [[], []], {}
         lock, failure = None, None
         boot_at = time.time()
         boot_clock = self.host.clock()
@@ -424,19 +551,20 @@ class RestartCampaign:
                 self.locks.append(lock)
                 lock.start()
             row['boot_at_utc'] = boot_at
+            self.validate_launch(cycle)
             self.host.launch_server(self.stager.win(self.stager.server))
             # Reuse the bounded appearance wait; this does not select logs or stage anything.
             helper = soak.Campaign(self.stager, self.host, {}, addon_build=None, step_script=None)
             helper.appear(soak.SERVER_IMAGE, 'restart server')
             fault = (cycle.store, lock) if lock else None
             if lock:
-                self.watch(snapshots, 180, lambda s, c: fault_observation(s, cycle.store) == 'read_unavailable', lock=fault)
+                self.watch(snapshots, 180, lambda s, c: fault_observation(s, cycle.store) == 'read_unavailable', lock=fault, start_on_load=True)
                 if not self.probe and cycle.kind == 'C':
                     self.watch(snapshots, 20, lock=fault)
+                    lock.release()
                     row['hashes_at_unlock'] = store_hashes(self.profile)
                     if locked_hashes(before, cycle.store) != locked_hashes(row['hashes_at_unlock'], cycle.store):
                         raise soak.Refused('locked store changed before release')
-                    lock.release()
                 elif not self.probe:
                     self.watch(snapshots, 45 * 60, lambda s, c: re.search(
                         r'store=%s reason=%s_read_exhausted attempt=12 action=retain_retry_next_boot' % (cycle.store, cycle.store), s), lock=fault)
@@ -449,13 +577,14 @@ class RestartCampaign:
                 paths = soak.client_mods(mods, self.stager.server, self.stager.client_root / '!Workshop', Path)
                 soak.require_dependency_parity(mods, self.stager.server, paths, self.log)
                 args = soak.client_arguments([self.stager.win(p) for p in paths], self.stager.win(self.client))
+                row['client_started'] = True
                 self.host.launch_client(self.stager.win(self.stager.client_root), args)
                 helper.appear(soak.CLIENT_IMAGE, 'restart client')
                 self.watch(snapshots, soak.CLIENT_JOIN_SECONDS, lambda s, c:
                            '[HC Driver] connect session start' in c and any(soak.SERVER_PLAYER_CONNECTED.search(l) for l in s.splitlines()))
                 row['join'] = True
                 joined_at = self.host.clock()
-                server, client = self.watch(snapshots, 300, lambda s, c: any(
+                server, client = self.watch(snapshots, 600, lambda s, c: any(
                     soak.DRIVER_DONE.search(l) and ('run=' + script['run_id'] + ' ') in l for l in c.splitlines()))
                 if re.search(r'\[HC Driver\] done .*\b(?:refused|unsupported|timeout)=[1-9]', client):
                     raise soak.Refused('driver steps refused/unsupported/timed out')
@@ -473,12 +602,18 @@ class RestartCampaign:
             except (Exception, KeyboardInterrupt):
                 failure = failure or 'graceful stop failed'
             # A pending fault lock remains held through shutdown; never discard it while DayZ lives.
-            gone = all(self.host.state(i) == 'gone' for i in soak.PROCESS_IMAGES)
-            if lock and gone:
+            states = getattr(self, 'stop_states', {})
+            try:
+                gone = row['stop'] or (states and all(s == 'gone' for s in states.values())) or all(
+                    self.host.state(i) == 'gone' for i in soak.PROCESS_IMAGES)
+            except (OSError, InteropError):
+                gone = False
+            if lock and gone and not lock.closed_ack:
                 try:
                     lock.release()
                 except Exception:
                     failure = failure or 'lock helper did not finish'
+            row['stop_errors'] = getattr(self, 'rows_stop_errors', {})
             paths = self.collect(snapshots)
             server, client = map(log_text, paths)
             for peer, files, needed in zip(('server', 'client'), paths, (True, cycle.join)):
@@ -486,7 +621,7 @@ class RestartCampaign:
                 if rpt_count != int(needed):
                     failure = failure or peer + ' per-launch RPT count is ambiguous or absent'
             folder = self.archive(number, paths, cycle)
-            crash_files = any(p.suffix.lower() in ('.mdmp', '.dmp') or p.name.lower().startswith('crash_') for group in paths for p in group)
+            crash_files = any(crash_file(p) for group in paths for p in group)
             # Lifecycle lines must occur once in the RPT, even if script logs repeat them.
             server, client = [log_text([p for p in group if p.suffix.lower() == '.rpt']) for group in paths]
             diagnostics = log_text([p for group in paths for p in group if p.suffix.lower() == '.log'])
@@ -495,18 +630,17 @@ class RestartCampaign:
                 row['clean'] = (not row['crash'] and row['script_e'] == row['vme'] == 0
                                 and row['connect'] and len(row['bridge_lines']) == len(row['teardown_lines']) == 1)
             row['crash_peers'] = [peer for peer, files in zip(('server', 'client'), paths)
-                                  if any(p.suffix.lower() in ('.mdmp', '.dmp') or p.name.lower().startswith('crash_') for p in files)
-                                  or rpt_summary.CRASH.search(log_text(files))
-                                  or re.search('0xc0000374', log_text(files), re.I)]
+                                  if any(crash_file(p) for p in files)
+                                  or crashed(log_text(files))]
             row['crash_summary'] = {peer: soak.crash_summary(folder / peer) for peer in row['crash_peers']}
-            row['lockout'] = lockout(self.killed_at, boot_at, server) if number > 1 and cycle.xai else 'not_applicable'
+            row['first_spawn_attempt_at_utc'] = event_time(server, SPAWN, boot_at)
+            row['patrol_killed_at_utc'] = self.killed_at
+            row['lockout'] = lockout(self.killed_at, row['first_spawn_attempt_at_utc'], server) if number > 1 and cycle.xai else 'not_applicable'
             if number == 1:
-                # The fixture is not proof of death; use the persisted real UTC cleared-at event.
-                match = re.search(r'site police-chernogorsk cleared-at=(\d+) saved=\d+', server)
-                if match:
-                    self.killed_at = int(match[1])
-                elif cycle.join:
-                    failure = failure or 'initial patrol death UTC evidence absent'
+                self.killed_at = event_time(server, KILL, boot_at)
+                row['patrol_killed_at_utc'] = self.killed_at
+                if self.killed_at is None and cycle.join:
+                    failure = failure or 'initial timestamped patrol death evidence absent'
             row['round_trip'] = round_trip(self.rows[-2], row) if number > 1 and cycle.xai else []
             try:
                 row['hashes_after'] = store_hashes(self.profile)
@@ -519,12 +653,9 @@ class RestartCampaign:
                     failure = failure or 'read retry-in-session evidence absent'
                 if row['fault_observation'] != 'read_unavailable':
                     failure = failure or 'read_unavailable absent or FileExist under share-none'
-                if row.get('hashes_after') and locked_hashes(before, cycle.store) != locked_hashes(row['hashes_after'], cycle.store):
+                if (self.probe or cycle.kind == 'D') and row.get('hashes_after') and locked_hashes(before, cycle.store) != locked_hashes(row['hashes_after'], cycle.store):
                     failure = failure or 'locked store changed during fault cycle'
-                if any(re.search(r'\b(?:save|saved|save_ok|save_complete)\b', l, re.I) and
-                       ('store=' + cycle.store in l or STORES[cycle.store] in l) and
-                       not re.search(r'save_refused|save_read_pending', l) for l in (server + '\n' + diagnostics).splitlines()):
-                    failure = failure or 'save line for locked store'
+                row['store_save_success_observability'] = 'unobservable: no store emits a save SUCCESS line; byte hashes are the data check'
             if cycle.fault:
                 row['expected_counters'] = {cycle.store + suffix: any(
                     key.endswith('/' + cycle.store + suffix) and count > 0
@@ -575,7 +706,7 @@ class RestartCampaign:
             except Exception:
                 failure = failure or 'restore refused'
                 self.log('stop DayZ by hand, then run restore')
-            write_report(self.evidence, self.rows, failure)
+            write_report(self.evidence, self.rows, failure, commit=self.commit_sha)
         return not failure
 
 
@@ -590,13 +721,16 @@ def restore_extra(stager):
         marker.unlink()
 
 
-def write_report(folder, rows, failure):
+def write_report(folder, rows, failure, *, commit=None):
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / 'selection.json').write_text(json.dumps(dict(targeted=True)), encoding='utf-8')
-    (folder / 'report.json').write_text(json.dumps(dict(targeted=True, failure=failure, cycles=rows), indent=2) + '\n', encoding='utf-8')
+    (folder / 'selection.json').write_text(json.dumps(dict(targeted=True, commit_sha=commit)), encoding='utf-8')
+    (folder / 'report.json').write_text(json.dumps(dict(targeted=True, failure=failure, cycles=rows, commit_sha=commit,
+        round_trip_observability='all domains unobservable: no comparable save/restore row counts',
+        store_save_success_observability='unobservable: no store emits save SUCCESS; byte hashes are the data check'), indent=2) + '\n', encoding='utf-8')
     fields = ('kind', 'xai', 'fault', 'join', 'stop', 'crash', 'script_e', 'vme', 'bridge_lines',
-              'teardown_lines', 'store_reads', 'store_rows', 'store_restores', 'round_trip', 'lockout', 'counters_woken', 'status')
+              'teardown_lines', 'store_reads', 'store_rows', 'store_restores', 'round_trip', 'lockout', 'patrol_killed_at_utc', 'first_spawn_attempt_at_utc', 'counters_woken', 'status')
     lines = ['# Restart campaign — targeted evidence', '', 'No multiplayer claim. Failure: ' + (failure or 'none'), '',
+             'All round-trip domains and store save SUCCESS lines are unobservable; byte hashes are the data check.', '',
              '| cycle | ' + ' | '.join(fields) + ' |', '| --- | ' + ' | '.join('---' for _ in fields) + ' |']
     for number, row in enumerate(rows, 1):
         lines.append('| %d | %s |' % (number, ' | '.join(json.dumps(row.get(f, 'unrun')).replace('|', '/') for f in fields)))
@@ -607,6 +741,22 @@ def write_report(folder, rows, failure):
             lines.append('| %d | %s | %s → %s | %s | %s |' % (number, domain['domain'], domain['save'],
                          domain['restore'], domain['status'], domain['proposed_line'].replace('|', '/')))
     (folder / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+
+def commit_sha():
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+
+
+def helper_state(marker):
+    pid = marker.read_text(encoding='ascii').strip()
+    if not re.fullmatch(r'[1-9][0-9]*', pid):
+        return 'unknown'
+    result = winproc.run('tasklist', ['/FI', 'PID eq ' + pid, '/FO', 'CSV', '/NH'])
+    if result.returncode:
+        return 'unknown'
+    if result.stdout.strip().startswith('INFO: No tasks are running'):
+        return 'gone'
+    return 'running' if re.search(r'"' + pid + r'"', result.stdout) else 'unknown'
 
 
 def main(argv=None, *, host=None, out=None):
@@ -640,31 +790,33 @@ def main(argv=None, *, host=None, out=None):
             server, client = soak.local_roots(args)
             stager = soak.Stager(server, client, STATE / 'staging')
             if args.mode == 'restore':
-                # A helper from an interrupted Python run self-expires. Never remove its profile early.
+                # Recorded Windows PID, not the WSL Popen PID, identifies an interrupted helper.
                 hc = server / soak.PROFILE_COPY / 'HollowCountry'
                 if (hc / 'restart-lock.started').exists() and not (hc / 'restart-lock.closed').exists():
                     (hc / 'restart-lock.release').write_text('release', encoding='ascii')
-                    raise soak.Refused('lock release signalled; wait for helper close then run restore again')
+                    if helper_state(hc / 'restart-lock.started') != 'gone':
+                        raise soak.Refused('lock release signalled; helper alive or unknown; retry restore after closure')
                 restore_when_gone(stager, host)
                 restore_extra(stager)
                 return 0
             if client is None:
                 raise soak.Refused('client install unavailable; pass --client-root')
+            sha = commit_sha()
             if args.mode == 'probe-lock':
-                STATE.mkdir(parents=True, exist_ok=True)
-                (STATE / ('probe-' + args.store + '.json')).write_text(json.dumps(dict(passed=False)), encoding='utf-8')
+                (STATE / 'probes').mkdir(parents=True, exist_ok=True)
+                (STATE / 'probes' / ('probe-' + args.store + '.json')).write_text(json.dumps(dict(passed=False, commit_sha=sha)), encoding='utf-8')
             if args.mode == 'run':
                 for store in set(args.fault_recover + args.fault_exhaust):
-                    proof = STATE / ('probe-' + store + '.json')
+                    proof = STATE / 'probes' / ('probe-' + store + '.json')
                     if not proof.is_file() or not json.loads(proof.read_text()).get('passed'):
                         raise soak.Refused('fault mode requires a successful native probe-lock --store ' + store)
             from tools.testing import test_addon
-            campaign = RestartCampaign(stager, host, cycles, STATE / 'last-run',
-                                       lambda: Path(test_addon.build()['path']), probe=args.mode == 'probe-lock',
+            campaign = RestartCampaign(stager, host, cycles, STATE / ('probes/' + args.store if args.mode == 'probe-lock' else 'last-run'),
+                                       lambda: Path(test_addon.build()['path']), probe=args.mode == 'probe-lock', commit=sha,
                                        log=lambda text: print(text, file=out, flush=True))
             ok = campaign.run()
             if args.mode == 'probe-lock':
-                (STATE / ('probe-' + args.store + '.json')).write_text(json.dumps(dict(passed=ok)), encoding='utf-8')
+                (STATE / 'probes' / ('probe-' + args.store + '.json')).write_text(json.dumps(dict(passed=ok, commit_sha=sha)), encoding='utf-8')
             print('restart: report.md and report.json written; targeted=true', file=out)
             return 0 if ok else 2
     except (OSError, ValueError, InteropError, LockRefused) as error:
