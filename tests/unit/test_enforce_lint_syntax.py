@@ -61,7 +61,7 @@ class FixtureCorpus(unittest.TestCase):
                     self.assertEqual([], [(f.line, f.symbol, f.message) for f in found])
 
     def test_other_rules_do_not_claim_these_ids(self):
-        self.assertEqual(set(RULE_IDS), set(syntax.RULES))
+        self.assertEqual(set(RULE_IDS) | {'HC-E059'}, set(syntax.RULES))
         for reserved in ('HC-E039', 'HC-E040', 'HC-E041'):
             self.assertNotIn(reserved, syntax.RULES)
         for rule in RULE_IDS:
@@ -146,6 +146,35 @@ class NativeParents(unittest.TestCase):
         found = self.run_rule(
             'modded class ItemBase\n{\n    void InitTemperature()\n    {\n    }\n}\n')
         self.assertEqual(1, len(found))
+
+
+class SingleLineReturns(unittest.TestCase):
+    def test_unbraced_if_then_return(self):
+        for body in ('if (value) return "1"; return "0";',
+                     'if (Check(value, Other())) return 1; return 0;'):
+            with self.subTest(body=body):
+                found = findings_for('HC-E059', 'class Fixture { static string HCBit(bool value) { ' + body + ' } }')
+                self.assertEqual(1, len(found))
+                self.assertEqual('Fixture.HCBit', found[0].symbol)
+
+    def test_safe_shapes(self):
+        cases = (
+            'string HCBit(bool value) {\n if (value) return "1";\n return "0";\n}',
+            'string HCBit(bool value) { if (value) { return "1"; } return "0"; }',
+            'void HCBit(bool value) { if (value) return; return; }',
+            'string HCBit(bool value) { return "if (value) return 1; return 0;"; }',
+            'string HCBit(bool value) { /* if (value) return 1; return 0; */ return "0"; }',
+            'string HCBit(bool value) { return "0"; }',
+            'Fixture() { if (Check()) return; return; }',
+            'string HCBit(bool value) { if (value) return "1"; else return "0"; }',
+        )
+        for method in cases:
+            with self.subTest(method=method):
+                self.assertEqual([], findings_for('HC-E059', 'class Fixture { ' + method + ' }'))
+
+    def test_global_function(self):
+        self.assertEqual(1, len(findings_for('HC-E059',
+            'static int HCBit(bool value) { if (value) return 1; return 0; }')))
 
 
 if __name__ == '__main__':

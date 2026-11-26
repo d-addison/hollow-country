@@ -341,7 +341,7 @@ class HCXAITactics
     protected static ref HCXTacticsScan s_Scan;
     protected static ref HCXTacticsView s_View = new HCXTacticsView;
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
-    // ref: HCXTacticsGroup is not Managed. Track() evicts the oldest record (RemoveOrdered(0)) and the sweep
+    // ref: HCXTacticsGroup is not Managed. Track() retains live records at capacity and the sweep
     // drops stale ones while a scan is still open, which freed a raw s_ScanGroup before ExecuteSmoke/Lure.
     protected static ref HCXTacticsGroup s_ScanGroup;
     protected static ref HCXAIAgentHold s_ScanActorHold;
@@ -512,7 +512,13 @@ class HCXAITactics
         HCXTacticsGroup known = HCFind(group);
         if (known) { return known; }
         int id = HCXExpansionBridge.HCGroupGetID(group);
-        if (HCXAITacticsPolicy.TrackedFull(s_Groups.Count(), s_Config.TrackedGroups)) { s_Groups.RemoveOrdered(0); }
+        // Retain cooldowns and cap-window usage for every live tracked group. The existing
+        // one-record sweep frees departed groups; newcomers back off until a slot is available.
+        if (HCXAITacticsPolicy.TrackedFull(s_Groups.Count(), s_Config.TrackedGroups))
+        {
+            s_Throttled++;
+            return null;
+        }
         HCXTacticsGroup created = new HCXTacticsGroup();
         created.GroupId = id;
         for (int slot = 0; slot < HCXAITacticsPolicy.FIRE_RING; slot++) { created.Fire.Insert(0); }

@@ -39,11 +39,17 @@ class HCXAISitePatrol : HCXExpansionPatrol
     protected bool m_HCDeathOverflow;
     protected int m_HCDeathFrames;
     protected int m_HCDeathNextReportMs;
+    protected int m_HCDeathStaleReports;
+    static const int HC_DEATH_STALE_REPORT_LIMIT = 6;
     protected int m_HCDeferredMember = -1;
     static const int HC_DEATH_HOLD_CAP_MS = 10000;
     void HCXAISitePatrol()
     {
         s_HCLiveSlots.Insert(this);
+        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-armed");
+        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-released");
+        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-deferred");
+        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-exit");
     }
     void ~HCXAISitePatrol()
     {
@@ -80,7 +86,11 @@ class HCXAISitePatrol : HCXExpansionPatrol
         bool first = !m_HCDeathHeld;
         m_HCDeathHeld = true;
         m_HCDeathFrames = 0;
-        m_HCDeathNextReportMs = GetGame().GetTime() + HC_DEATH_HOLD_CAP_MS;
+        if (first)
+        {
+            m_HCDeathNextReportMs = GetGame().GetTime() + HC_DEATH_HOLD_CAP_MS;
+            m_HCDeathStaleReports = 0;
+        }
         if (m_HCDeathKills < 2147483647) { m_HCDeathKills++; }
         if (!killed || m_HCDeathMembers.Count() >= 16) { m_HCDeathOverflow = true; }
         else { m_HCDeathMembers.Insert(killed); }
@@ -92,7 +102,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
             Print("[HCX SitePatrol] death_hold armed site=" + m_HCSiteId + " kills=" + m_HCDeathKills.ToString());
         }
         if (m_HCHold && m_HCHold.Deaths < 2147483647) { m_HCHold.Deaths++; }
-        HCModuleReadiness.HCUse("SitePatrols", "death-hold-armed");
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-armed");
     }
     // Two SYSTEM invocations prove a frame boundary even if armed before this
     // frame's update queue. Native Game.c:1552, DayZGame.c:3027, tools.c:115.
@@ -105,8 +115,16 @@ class HCXAISitePatrol : HCXExpansionPatrol
     {
         if (GetGame()) { GetGame().GetUpdateQueue(CALL_CATEGORY_SYSTEM).Remove(HCDeathFrame); }
     }
+    protected void HCDeathHoldExit(string reason)
+    {
+        Print("[HCX SitePatrol] death_hold_exit reason=" + reason + " site=" + m_HCSiteId);
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-exit");
+        this.HCEndPatrol();
+    }
     protected void HCDeathHoldStep()
     {
+        if (m_HCDeathOverflow) { this.HCDeathHoldExit("DEATH_HOLD_OVERFLOW"); return; }
+        if (!m_HCHold) { this.HCDeathHoldExit("DEATH_HOLD_IDENTITY_MISSING"); return; }
         bool terminal = false;
         bool clean = false;
         if (m_HCDeathFrames >= 2 && !m_HCDeathOverflow && (!m_HCHold || this.HCBridgeOwnsHold(m_HCHold)))
@@ -125,14 +143,20 @@ class HCXAISitePatrol : HCXExpansionPatrol
             m_HCDeathResumePending = true;
             m_HCDeathMembers.Clear();
             m_HCDeathKills = 0;
-            HCModuleReadiness.HCUse("SitePatrols", "death-hold-released");
+            HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-released");
             return;
         }
         int nowMs = GetGame().GetTime();
         if (nowMs < m_HCDeathNextReportMs) { return; }
         m_HCDeathNextReportMs = nowMs + HC_DEATH_HOLD_CAP_MS;
+        m_HCDeathStaleReports++;
+        if (m_HCDeathStaleReports >= HC_DEATH_STALE_REPORT_LIMIT)
+        {
+            this.HCDeathHoldExit("DEATH_HOLD_STALE_LIMIT");
+            return;
+        }
         Print("[HCX SitePatrol] death_hold_deferred reason=DEATH_HOLD_STALE site=" + m_HCSiteId);
-        HCModuleReadiness.HCUse("SitePatrols", "death-hold-deferred");
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-deferred");
     }
     protected void HCLogSkipped(string why)
     {
@@ -286,7 +310,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     void HCReleaseHold()
     {
         this.HCDeathFrameStop();
-        if (m_HCDeathHeld) { HCModuleReadiness.HCUse("SitePatrols", "death-hold-released"); }
+        if (m_HCDeathHeld) { HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-released"); }
         m_HCDeathHeld = false;
         m_HCDeathResumePending = false;
         m_HCDeathMembers.Clear();

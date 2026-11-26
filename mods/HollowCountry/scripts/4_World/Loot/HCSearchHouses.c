@@ -75,6 +75,7 @@ class HCSearchHouses
     protected bool m_Fault;
     protected bool m_Busy;
     protected bool m_ReadinessReported;
+    protected int m_SessionSweepNext;
     protected int m_RecycleActiveNext;
     protected int m_RecycleDetachedNext;
     protected float m_WindowStart;
@@ -112,6 +113,8 @@ class HCSearchHouses
     // CE/Hive may not exist yet. Supply registry and entity discovery stay lazy.
     void ReportReadiness()
     {
+        // SearchBinding already calls this each running tick, even after readiness is published.
+        if (m_Started) { SweepSessions(); }
         if (m_ReadinessReported) return;
         int templatesLoaded;
         int serviceStarted;
@@ -537,6 +540,25 @@ class HCSearchHouses
             if (vector.DistanceSq(observer.GetPosition(), slot.Structure.GetPosition()) <= 2500.0) { return false; }
         }
         return true;
+    }
+
+    // The existing service tick visits at most three reservations; never wait for an action callback.
+    protected void SweepSessions()
+    {
+        int limit = m_Sessions.Count();
+        if (limit > 3) { limit = 3; }
+        float now = GetGame().GetTickTime();
+        for (int inspected = 0; inspected < limit && m_Sessions.Count() > 0; inspected++)
+        {
+            if (m_SessionSweepNext >= m_Sessions.Count()) { m_SessionSweepNext = 0; }
+            ref HCSearchHouseSession session = m_Sessions[m_SessionSweepNext];
+            if (!session.Site || !session.Actor || now < session.Site.StartedAt || now > session.Site.Deadline)
+            {
+                // End clears both site and action ownership, without committing or refunding supplies.
+                End(session.Owner);
+            }
+            else { m_SessionSweepNext++; }
+        }
     }
 
     // Detached LRU handles retain only bounded binding metadata until range is safe.

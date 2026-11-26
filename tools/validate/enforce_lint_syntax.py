@@ -1,4 +1,4 @@
-"""Syntax and signature rules that the native compile gate refused on 2026-11-22 (HC-E042..HC-E047).
+"""Syntax and signature rules that the native compile gate refused on 2026-11-22 (HC-E042..HC-E047, HC-E059).
 
 Registered from tools.validate.enforce_lint (``rules_for``); no command line of its own. Each rule
 closes a gap that let a native compile error through an enforce_lint pass:
@@ -40,6 +40,7 @@ RULES = {
     'HC-E044': 'Enforce keyword used as a name (native compile: Expected name, not a keyword); tokenised, includes foreach slots and enum members',
     'HC-E045': 'bitwise or % operator inside a float expression (native compile: Unknown operator); compute it in int-only statements first',
     'HC-E046': 'field read on a typed receiver that has no such field (including parents and modded bodies)',
+    'HC-E059': 'single-line non-void body has an unbraced if-return followed by another return (gate 197: No return statement); expand the body onto separate lines',
     'HC-E047': 'initializer must be a literal: non-static const, vector const or a static primitive that reads another class or constant (read as 0 natively, build 169)',
 }
 
@@ -360,6 +361,34 @@ def rule_literal_initializers(project, source):
                                       f'{re.sub(r"\s+", " ", initial).strip()}')
 
 
+# ---------------------------------------------------------------- HC-E059
+
+def rule_single_line_returns(project, source):
+    """Gate 197 rejected this compact control flow despite its unconditional final return."""
+    el = _el(project)
+    for method in el._all_methods(source):
+        if not method.return_type or method.return_type == 'void':
+            continue
+        # Use original text for line boundaries: comments/strings are masked in code.
+        original = source.text[method.body_start:method.body_end + 1]
+        if '\n' in original or '\r' in original:
+            continue
+        body = source.body(method)
+        # Balanced conditions permit nested calls; a brace before return makes it safe.
+        for match in re.finditer(r'\bif\s*\(', body):
+            depth = 1
+            cursor = match.end()
+            while cursor < len(body) and depth:
+                depth += (body[cursor] == '(') - (body[cursor] == ')')
+                cursor += 1
+            if depth:
+                continue
+            if re.match(r'\s*return\b[^;{}]*;\s*return\b', body[cursor:]):
+                yield el._finding('HC-E059', source, method.body_start + match.start(),
+                                  el._symbol(method), RULES['HC-E059'])
+                break
+
+
 # ---------------------------------------------------------------- HC-E042
 
 Decl = namedtuple('Decl', 'name returns modifiers params offset source cls')
@@ -638,4 +667,4 @@ def rules_for(lint):
         return bound
     return tuple(bind(rule) for rule in (
         rule_parent_signatures, rule_reserved_method_names, rule_keyword_identifiers,
-        rule_float_bitwise, rule_receiver_fields, rule_literal_initializers))
+        rule_float_bitwise, rule_receiver_fields, rule_literal_initializers, rule_single_line_returns))

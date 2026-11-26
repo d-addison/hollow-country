@@ -1593,7 +1593,7 @@ class HCInfectedRoomCatalog
         while (s_BindAdmissionCursor < s_BindFound.Count())
         {
             House admitted = s_BindFound[s_BindAdmissionCursor];
-            if (!admitted)
+            if (!admitted || ConflictKnown(admitted))
             {
                 s_BindAdmissionCursor++;
                 continue;

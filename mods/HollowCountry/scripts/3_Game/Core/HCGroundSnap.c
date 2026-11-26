@@ -101,6 +101,8 @@ class HCGroundPlaceStats
 class HCGroundPlaced
 {
     static const float CELL = 64;
+    static const int MAX_FOOTPRINTS = 16384;
+    protected static bool s_CapLogged;
     protected static ref array<float> s_X = new array<float>;
     protected static ref array<float> s_Z = new array<float>;
     protected static ref array<float> s_Radius = new array<float>;
@@ -150,6 +152,23 @@ class HCGroundPlaced
 
     static void Add(vector pos, float radius, float shift)
     {
+        // Bound backing slots as well as live entries: HCForget leaves tombstones.
+        // Cache loss only suppresses old footprint shifts; it never moves a world object.
+        if (s_X.Count() >= MAX_FOOTPRINTS)
+        {
+            s_Cells.Clear();
+            s_X.Clear();
+            s_Z.Clear();
+            s_Radius.Clear();
+            s_Y.Clear();
+            s_Shift.Clear();
+            s_Dead = 0;
+            if (!s_CapLogged)
+            {
+                s_CapLogged = true;
+                Print("[HC Ground] footprint_cache_reset reason=GROUND_FOOTPRINT_CAP");
+            }
+        }
         if (radius > CELL * 0.5) { radius = CELL * 0.5; }
         int index = s_X.Count();
         s_X.Insert(pos[0]);
