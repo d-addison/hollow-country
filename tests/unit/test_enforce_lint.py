@@ -10,6 +10,63 @@ from tools.validate import enforce_lint as lint
 W = 'mods/HollowCountryExpansionAI/scripts/4_World/'
 
 
+class WeakParameterNewRule(unittest.TestCase):
+    def findings(self, text):
+        return [f for f in lint.lint_texts({W + 'Params.c': text}) if f.rule == 'HC-E060']
+
+    def test_defaulted_weak_parameter(self):
+        found = self.findings('class Probe { void Run(array<Man> r = null) { r = new array<Man>; } }')
+        self.assertEqual(1, len(found))
+        self.assertIn(lint.rule_weak_parameter_new, lint.ALL_RULES)
+        self.assertIn('HC-E060', lint.RULES)
+        self.assertEqual("native compile: Variable 'r' is not strong ref; own the new object "
+                         'in a strong local (HCFuelSiphon.c:106-115 idiom)', found[0].message)
+
+    def test_out_and_inout_parameters(self):
+        for modifier in ('out', 'inout'):
+            with self.subTest(modifier=modifier):
+                self.assertEqual([], self.findings(
+                    f'class Probe {{ void Run({modifier} array<Man> r) {{ r = new array<Man>; }} }}'))
+
+    def test_strong_local_idiom_and_member_fields(self):
+        self.assertEqual([], self.findings('''
+            class Probe {
+                ref array<Man> r;
+                void Run(array<Man> r = null, Probe other = null) {
+                    ref array<Man> strong = new array<Man>;
+                    r = strong;
+                    this /* member */ . r = new array<Man>;
+                    other.
+                        r = new array<Man>;
+                }
+                void LocalOnly() { array<Man> r = new array<Man>; }
+            }
+        '''))
+
+    def test_multiline_comments_strings_constructor_and_method_scope(self):
+        text = '''class Probe {
+            void Run(
+                map<string, ref array<Man>> r = null,
+                out array<Man> permitted = null
+            ) {
+                // r = new map<string, ref array<Man>>;
+                Print("r = new Thing(); { }");
+                /* r = new Thing(); */
+                if (!r) r /* assignment */ =
+                    new map<string, ref array<Man>>();
+                permitted = new array<Man>;
+            }
+            void Other() { ref Thing r = new Thing(); }
+        }'''
+        found = self.findings(text)
+        self.assertEqual(1, len(found))
+        self.assertEqual(9, found[0].line)
+
+    def test_file_function_and_multiple_assignments(self):
+        found = self.findings('void Run(Thing r) { r = new Thing();\n if (!r) { r = new Thing; } }')
+        self.assertEqual(2, len(found))
+
+
 class MemberAccessRule(unittest.TestCase):
     def findings(self, text, symbols=None, coverage=None):
         source = lint.es.Source(lint.Path(W + 'Access.c'), text)
