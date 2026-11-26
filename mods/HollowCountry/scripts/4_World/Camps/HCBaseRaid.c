@@ -113,7 +113,13 @@ class HCBaseRaid
     {
         // s_WarningPort is raw (HCBaseRaidPort is not Managed): replacing s_Port frees the old port, so drop a
         // pending warning that still points at it instead of calling HCCancel on freed memory later.
-        if (port != s_Port) { s_WarningPort = null; s_WarningCamp = null; }
+        if (port != s_Port)
+        {
+            // Cancel on the old port before it is freed; HCCancel is idempotent (the adapter's OnStop already calls it).
+            if (s_Port) { s_Port.HCCancel(); }
+            s_WarningPort = null;
+            s_WarningCamp = null;
+        }
         s_Port = port;
     }
     static HCBaseRaidPort HCGet() { return s_Port; }

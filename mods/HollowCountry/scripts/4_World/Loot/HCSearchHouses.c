@@ -40,7 +40,9 @@ class HCSearchHouseSlot
 class HCSearchHouseSession
 {
     ref HCInteriorSite Site;
-    ActionData Owner;
+    // ref: ActionData is not Managed. If an action is dropped without OnEndServer (player deleted mid-search) a
+    // raw Owner dangled, and another player's search of the same site dereferenced it in SessionValid.
+    ref ActionData Owner;
     PlayerBase Actor;
     string ActorId;
     int Row;
@@ -271,9 +273,17 @@ class HCSearchHouses
 
     HCSearchHouseSession SessionOfSite(string siteId)
     {
-        foreach (HCSearchHouseSession session : m_Sessions)
+        // A session whose actor is gone never reaches End(); release it here as End() would, so the site does not
+        // stay reserved for the rest of the session.
+        for (int index = m_Sessions.Count() - 1; index >= 0; index--)
         {
-            if (session.Site && session.Site.Id == siteId) return session;
+            HCSearchHouseSession session = m_Sessions[index];
+            if (!session.Site || session.Site.Id != siteId) continue;
+            if (session.Actor) return session;
+            session.Site.Owner = null;
+            HCInteriorActionData action = HCInteriorActionData.Cast(session.Owner);
+            if (action) action.Site = null;
+            m_Sessions.Remove(index);
         }
         return null;
     }
@@ -808,7 +818,7 @@ class HCSearchHouses
 
     bool SessionValid(ActionData data, HCSearchHouseSession session)
     {
-        if (!data || !session || session.Owner != data || session.Actor != data.m_Player || !data.m_Player) return false;
+        if (!data || !session || !session.Actor || session.Owner != data || session.Actor != data.m_Player || !data.m_Player) return false;
         if (!data.m_Player.GetIdentity() || data.m_Player.GetIdentity().GetPlayer() != data.m_Player) return false;
         return session.ActorId != "" && session.ActorId == data.m_Player.GetIdentity().GetId();
     }
