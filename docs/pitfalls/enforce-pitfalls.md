@@ -60,6 +60,7 @@ Skill: `hc-enforce-pitfalls`. Rule ids come from `tools/validate/enforce_lint.py
 | HC-E054 | two HC script RPC ids share a value; each RPC needs its own id |
 | HC-E055 | test addon HCOwns fx_ command is absent from HCAdminCatalog; HCReceive rejects it before the provider |
 | HC-E056 | PlayerIdentity script references compared; use HCPlayerIdentity.Same with non-empty GetId values |
+| HC-E057 | protected or private member accessed outside its declaring class or permitted subclass |
 | HC-L001 | Print of a bare variable (the engine logs "string name = '...'" instead of the text) |
 | HC-O026 | unresolved call-result ownership; inspect the factory and hold fresh results in a local |
 | HC-S001 | server commit point returns early without logging or telling the player why |
