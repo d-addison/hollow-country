@@ -171,6 +171,16 @@ class HCDebugGroupPinRow
 class HCGroupService
 {
     protected static ref HCGroupService s_Instance;
+    // Bounded soak trace for the 195/196 AV (no ids): 32 lines per process, then silent.
+    protected static int s_HCTraceBudget = 32;
+    protected static int s_HCTraceSnapshots = 0;
+    static string HCBit(bool value) { if (value) return "1"; return "0"; }
+    static void HCTrace(string line)
+    {
+        if (s_HCTraceBudget <= 0) return;
+        s_HCTraceBudget--;
+        Print("[HC Groups] trace " + line);
+    }
     protected ref HCGroupSettings m_Config;
     protected ref HCGroupState m_State;
     protected ref HCGroupStore m_Store;
@@ -372,7 +382,10 @@ class HCGroupService
         if (m_Peers.Count() >= 90 || m_Serial >= 1000000000) return;
         HCGroupPeer peer = new HCGroupPeer;
         peer.Id = uid;
-        peer.Identity = identity;
+        // Keep the player's own identity object; the event identity can be a different
+        // script object (that is why #373 compares by id) and is not ours to hold.
+        HCTrace("connect peers=" + m_Peers.Count().ToString());
+        peer.Identity = player.GetIdentity();
         peer.Player = player;
         peer.Name = identity.GetName();
         if (!HCGroupRules.TextValid(peer.Name, 64, false)) peer.Name = "Survivor";
@@ -590,6 +603,8 @@ class HCGroupService
         // Authenticated action durability barrier; routine discovery never calls it.
         if (!m_Store.Save(candidate)) { return HCGroupCode.STORAGE; }
         m_State = candidate;
+        HCTrace("commit groups=" + m_State.Groups.Count().ToString() + " invites=" + m_State.Invitations.Count().ToString());
+        s_HCTraceSnapshots = 2;
         HCModuleReadiness.HCUse("Groups", "group_mutated");
         return HCGroupCode.OK;
     }
@@ -910,6 +925,17 @@ class HCGroupService
                 {
                     if (marker.ExpiresUtc == 0 || marker.ExpiresUtc > m_LastUtc) snapshot.Markers.Insert(marker);
                 }
+            }
+        }
+        if (s_HCTraceSnapshots > 0)
+        {
+            s_HCTraceSnapshots--;
+            HCTrace("snapshot peers=" + m_Peers.Count().ToString() + " members=" + snapshot.Members.Count().ToString());
+            for (int traceIndex = 0; traceIndex < m_Peers.Count() && traceIndex < 4; traceIndex++)
+            {
+                HCGroupPeer traced = m_Peers.Get(traceIndex);
+                if (!traced) { HCTrace("snapshot peer=" + traceIndex.ToString() + " null=1"); continue; }
+                HCTrace("snapshot peer=" + traceIndex.ToString() + " identity=" + HCBit(traced.Identity != null) + " player=" + HCBit(traced.Player != null) + " self=" + HCBit(traced == peer));
             }
         }
         if (m_Healthy && kind != HCGroupSnapshotKind.POSITIONS)
