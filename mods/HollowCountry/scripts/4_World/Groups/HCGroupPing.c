@@ -1,5 +1,7 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // #256 look-at ping. Native 1.30: DayZPhysics.c:199 RaycastRV;
-// Object.c:238 GetBonePositionWS; human.c GetBoneIndexByName;
+// Object.c:238 GetBonePositionWS; human.c:1417 GetBoneIndexByName;
 // Game.c:914 GetTickTime; existing group RPC identity/session/replay envelope.
 // No persistence, new module, player positions in payloads, or map pins.
 class HCGroupPingWire
@@ -49,24 +51,31 @@ modded class HCGroupService
         return true;
     }
 
-    HCGroupRecord HCLookGroup(HCGroupPeer peer)
+    HCGroupRecord HCLookGroup(HCGroupPeer peer, map<string, PlayerBase> hcPlayers)
     {
-        if (!m_Healthy || !m_Config || !m_Config.Enabled || !m_State || !Live(peer)) { return null; }
-        if (Peer(peer.Id) != peer || peer.Identity.GetId() != peer.Id) { return null; }
-        if (!peer.Player.IsAlive() || peer.Player.IsUnconscious()) { return null; }
+        if (!m_Healthy || !m_Config || !m_Config.Enabled || !m_State || !Live(peer, hcPlayers)) { return null; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcPlayers, peer.Id);
+        PlayerIdentity hcPeerIdentity;
+        if (hcPeerPlayer) hcPeerIdentity = hcPeerPlayer.GetIdentity();
+        HCGroupPeer hcFoundPeer1 = Peer(peer.Id);
+        if (!hcPeerPlayer || !hcPeerIdentity || hcFoundPeer1 != peer || hcPeerIdentity.GetId() != peer.Id) { return null; }
+        if (!hcPeerPlayer.IsAlive() || hcPeerPlayer.IsUnconscious()) { return null; }
         return HCGroupRules.FindGroup(m_State, peer.Id);
     }
 
-    override int HCLookPing(HCGroupPeer peer, HCGroupRequest request)
+    override int HCLookPing(HCGroupPeer peer, HCGroupRequest request, map<string, PlayerBase> hcPlayers)
     {
-        HCGroupRecord group = HCLookGroup(peer);
+        HCGroupRecord group = HCLookGroup(peer, hcPlayers);
         if (!group || !m_Config.HCTeamPingEnabled) { return HCGroupCode.DENIED; }
         if (request.ExpectedRevision != m_State.Revision) { return HCGroupCode.CONFLICT; }
         float tick = GetGame().GetTickTime();
         // Failed geometry also consumes the cooldown; at most one ray per 5 s.
         if (!HCAdmitLookPing(peer.Id, tick)) { return HCGroupCode.RATE; }
         if (!HCGroupRules.PositionValid(request.Position)) { return HCGroupCode.INVALID; }
-        vector origin = peer.Player.GetBonePositionWS(peer.Player.GetBoneIndexByName("Head"));
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcPlayers, peer.Id);
+        vector origin = hcPeerPlayer.GetBonePositionWS(hcPeerPlayer.GetBoneIndexByName("Head"));
         vector direction = request.Position - origin;
         float distance = direction.Length();
         if (!(distance >= 1 && distance <= 300)) { return HCGroupCode.INVALID; }
@@ -77,7 +86,7 @@ modded class HCGroupService
         int component;
         // Never accept a point through geometry. Persist/relay the server hit,
         // not the client coordinate (third-person camera offsets can be refused).
-        if (!DayZPhysics.RaycastRV(origin, finish, contact, normal, component, null, null, peer.Player, false, false, ObjIntersectView)) { return HCGroupCode.INVALID; }
+        if (!DayZPhysics.RaycastRV(origin, finish, contact, normal, component, null, null, hcPeerPlayer, false, false, ObjIntersectView)) { return HCGroupCode.INVALID; }
         if (!HCGroupRules.PositionValid(contact) || vector.Distance(contact, request.Position) > 2) { return HCGroupCode.INVALID; }
         int now = HCGroupClock.Utc();
         if (!HCGroupRules.DeadlineFits(now, 10)) { return HCGroupCode.DENIED; }
@@ -109,16 +118,21 @@ modded class HCGroupService
         admitted.Expires = now + 10;
         m_HCLookPings.Insert(admitted);
         ref array<ref HCGroupPingRow> groupPoints = new array<ref HCGroupPingRow>;
-        foreach (HCGroupPingRow candidate : m_HCLookPings)
+        array<ref HCGroupPingRow> hcRows1 = m_HCLookPings;
+        foreach (HCGroupPingRow candidate : hcRows1)
         {
             if (groupPoints.Count() >= 3) { break; }
             if (candidate.GroupId == group.Id && candidate.Epoch == group.Epoch) { groupPoints.Insert(candidate); }
         }
         // At most 90 peers, three points each. No global broadcast or entity scan.
-        foreach (HCGroupPeer recipient : m_Peers)
+        array<ref HCGroupPeer> hcRows2 = m_Peers;
+        foreach (HCGroupPeer recipient : hcRows2)
         {
-            HCGroupRecord memberGroup = HCLookGroup(recipient);
+            HCGroupRecord memberGroup = HCLookGroup(recipient, hcPlayers);
             if (!memberGroup || memberGroup.Id != group.Id || memberGroup.Epoch != group.Epoch) { continue; }
+            PlayerBase hcRecipientPlayer = HCPlayerOf(hcPlayers, recipient.Id);
+            if (!hcRecipientPlayer) continue;
+            PlayerIdentity hcRecipientIdentity;
             HCGroupPingWire frame = new HCGroupPingWire;
             frame.GroupId = group.Id;
             frame.Epoch = group.Epoch;
@@ -128,20 +142,22 @@ modded class HCGroupService
             {
                 if (frame.Points.Count() >= 3) { break; }
                 if (point.GroupId != group.Id || point.Epoch != group.Epoch) { continue; }
-                if (vector.Distance(recipient.Player.GetPosition(), point.Point) > 1000) { continue; }
+                if (vector.Distance(hcRecipientPlayer.GetPosition(), point.Point) > 1000) { continue; }
                 frame.Points.Insert(point.Point);
                 frame.Expires.Insert(point.Expires);
             }
             ScriptRPC rpc = new ScriptRPC;
             rpc.Write(frame);
-            rpc.Send(null, HCGroupPingWire.RPC, true, recipient.Identity);
+            hcRecipientIdentity = hcRecipientPlayer.GetIdentity();
+            if (!hcRecipientIdentity) continue;
+            rpc.Send(null, HCGroupPingWire.RPC, true, hcRecipientIdentity);
         }
         return HCGroupCode.OK;
     }
-    override void Stop()
+    override void Stop(map<string, PlayerBase> hcPlayers)
     {
         m_HCLookPings.Clear();
         m_HCLookCooldowns.Clear();
-        super.Stop();
+        super.Stop(hcPlayers);
     }
 }

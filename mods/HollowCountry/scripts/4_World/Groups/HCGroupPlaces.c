@@ -1,3 +1,5 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // A server-only catalog. No unvisited catalog is included in any RPC DTO.
 // Native snapshot scripts-1.30.164289: 3_Game/Global/Game.c:449,578,594,611
 // (config reads), :931,934 (world); 3_Game/Global/World.c:82 (world size);
@@ -14,10 +16,15 @@ class HCGroupPlaces
     static HCGroupPlaceCatalog Load()
     {
         string path = "$profile:HollowCountry/Groups/places.json";
-        HCGroupPlaceCatalog catalog;
+        ref HCGroupPlaceCatalog catalog = new HCGroupPlaceCatalog;
         if (FileExist(path))
         {
-            if (!HCGroupJson<HCGroupPlaceCatalog>.Load(path, 65536, catalog)) return null;
+            string text;
+            string error;
+            // Native scripts-1.30.164289: 3_Game/gameplay.c:100; same bounded
+            // HCGroupIO read and validation as the previous HCGroupJson.Load path.
+            JsonSerializer js = new JsonSerializer;
+            if (!HCGroupIO.Read(path, 65536, text) || !js.ReadFromString(catalog, text, error)) return null;
         }
         else
         {
@@ -26,7 +33,8 @@ class HCGroupPlaces
         if (!catalog || catalog.SchemaVersion != 1 || !catalog.Places || catalog.Places.Count() > 256) return null;
         map<string, bool> ids = new map<string, bool>();
         float worldSize = GetGame().GetWorld().GetWorldSize();
-        foreach (HCGroupPlace place : catalog.Places)
+        array<ref HCGroupPlace> hcRows1 = catalog.Places;
+        foreach (HCGroupPlace place : hcRows1)
         {
             if (!HCGroupRules.PlaceValid(place) || ids.Contains(place.Id)) return null;
             if (place.Position[0] > worldSize || place.Position[2] > worldSize) return null;
@@ -78,11 +86,13 @@ modded class HCGroupRules
     override static bool StateValid(HCGroupState state, HCGroupSettings c, string world)
     {
         if (!super.StateValid(state, c, world)) { return false; }
-        foreach (HCGroupRecord pinGroup : state.Groups)
+        array<ref HCGroupRecord> hcRows2 = state.Groups;
+        foreach (HCGroupRecord pinGroup : hcRows2)
         {
             if (!pinGroup.HCTrailPlaceIds || pinGroup.HCTrailPlaceIds.Count() > 48) { return false; }
             map<string, bool> pinIds = new map<string, bool>();
-            foreach (string pinId : pinGroup.HCTrailPlaceIds)
+            array<string> hcRows3 = pinGroup.HCTrailPlaceIds;
+            foreach (string pinId : hcRows3)
             {
                 if (pinId.IndexOf("hc-found:") != 0 || !HCGroupRules.TextValid(pinId, 128, false) || pinIds.Contains(pinId)) { return false; }
                 pinIds.Set(pinId, true);
@@ -91,16 +101,16 @@ modded class HCGroupRules
         return true;
     }
 
-    override static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog)
+    override static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog, map<string, PlayerBase> hcPlayers)
     {
-        array<ref HCGroupPlace> visited = super.KnownPlaces(state, c, uid, catalog);
+        array<ref HCGroupPlace> visited = super.KnownPlaces(state, c, uid, catalog, hcPlayers);
         HCGroupPins pins = HCGroupPins.Get();
         HCGroupRecord pinGroup = HCGroupRules.FindGroup(state, uid);
         if (!pins || !pinGroup || !c.DiscoveryLayer) { return visited; }
         array<ref HCGroupPlace> combined = new array<ref HCGroupPlace>();
         // Received leads first, then up to 48 discovered shelters. All layers
         // together retain the existing validated MaxDiscoveries wire bound.
-        pins.Collect(pinGroup, c.MaxDiscoveries, combined);
+        pins.Collect(pinGroup, c.MaxDiscoveries, combined, hcPlayers);
         foreach (HCGroupPlace oldPlace : visited)
         {
             if (combined.Count() >= c.MaxDiscoveries) { break; }

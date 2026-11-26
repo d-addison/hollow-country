@@ -1,3 +1,5 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // Native 1.30.164289: 4_World/Classes/UserActionsComponent/
 // Actions/ActionInteractBase.c:41-60 interact command/conditions;
 // AnimatedActionBase.c:179,198-203 server execution hook;
@@ -34,12 +36,13 @@ class HCGroupInviteAction : ActionInteractBase
 
     override void OnExecuteServer(ActionData action_data)
     {
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         if (!action_data || !action_data.m_Player) return;
         PlayerBase target;
         if (action_data.m_Target) target = PlayerBase.Cast(action_data.m_Target.GetObject());
         int result = HCGroupCode.DISABLED;
         HCGroupService service = HCGroupService.Get();
-        if (service) result = service.HCInviteNearby(action_data.m_Player, target);
+        if (service) result = service.HCInviteNearby(action_data.m_Player, target, hcPlayers);
         string message = "Group invitation not sent.";
         if (result == HCGroupCode.OK) message = "Group invitation sent. Your friend can accept from the group map.";
         else if (result == HCGroupCode.DENIED) message = "Group invitation not sent: only the owner or an officer can invite, within 3 m.";

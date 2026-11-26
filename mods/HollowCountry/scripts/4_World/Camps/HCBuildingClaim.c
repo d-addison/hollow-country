@@ -457,13 +457,15 @@ class HCBuildingClaim
             m_Observers.Clear();
             return;
         }
+        map<string, PlayerBase> hcPlayers;
+        if (m_ObserverCursor < m_Observers.Count()) hcPlayers = HCGroupService.HCBuildPlayers();
         while (m_ObserverCursor < m_Observers.Count())
         {
             if (!m_Work.HCContinue() || !m_Units.HCTake(1)) { return; }
             PlayerBase player = PlayerBase.Cast(m_Observers[m_ObserverCursor]);
             m_ObserverCursor++;
             if (!HCActor(player)) { continue; }
-            if (vector.DistanceSq(player.GetPosition(), m_Examining.Position) <= m_Config.VisitRadiusMeters * m_Config.VisitRadiusMeters && groups.HCClaimActorGroup(player, false) == m_Examining.GroupId) { m_VisitObservedUtc = now; }
+            if (vector.DistanceSq(player.GetPosition(), m_Examining.Position) <= m_Config.VisitRadiusMeters * m_Config.VisitRadiusMeters && groups.HCClaimActorGroup(player, false, hcPlayers) == m_Examining.GroupId) { m_VisitObservedUtc = now; }
         }
         int groupState = groups.HCClaimGroupState(m_Examining.GroupId);
         HCAccumulateAbsence(m_Examining, groupState);
@@ -538,11 +540,19 @@ modded class HCGroupService
         if (HCGroupRules.ById(m_State, groupId)) { return 1; }
         return 0;
     }
-    int HCClaimActorGroup(PlayerBase player, bool manager)
+    // Native scripts-1.30.164289: 3_Game/Global/Game.c:945 GetPlayers;
+    // Entities/Man.c:21 GetIdentity; gameplay.c:368 GetId. Entry-local only.
+    int HCClaimActorGroup(PlayerBase player, bool manager, map<string, PlayerBase> hcPlayers = null)
     {
-        if (!HCClaimHealthy() || !player || !player.GetIdentity()) { return 0; }
-        HCGroupPeer peer = Peer(player.GetIdentity().GetId());
-        if (!Live(peer) || peer.Player != player) { return 0; }
+        map<string, PlayerBase> ownedPlayers = hcPlayers;
+        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
+        if (!HCClaimHealthy() || !player) { return 0; }
+        PlayerIdentity playerIdentity = player.GetIdentity();
+        if (!playerIdentity) { return 0; }
+        HCGroupPeer peer = Peer(playerIdentity.GetId());
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(ownedPlayers, peer.Id);
+        if (!Live(peer, ownedPlayers) || hcPeerPlayer != player) { return 0; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
         if (!group || (manager && HCGroupRules.Role(group, peer.Id) < 1)) { return 0; }
         return group.Id;

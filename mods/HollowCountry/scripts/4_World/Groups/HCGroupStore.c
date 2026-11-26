@@ -1,3 +1,7 @@
+// Inspected native scripts-1.30.164289: 3_Game/gameplay.c:100 ReadFromString;
+// tools/JsonFileLoader.c:85-99 MakeData (same prettyPrint=true save path).
+// 1_Core/proto/EnSystem.c:397 FileExist, :520-522 FindFile/Next/Close,
+// :525 MakeDirectory; 3_Game/Global/Game.c:934 GetWorldName.
 // Original bounded native persistence. Readback is not fsync or a promise about
 // power loss. Immutable intent/image/commit triples; never load an older ACL
 // when the highest discovered revision is incomplete, corrupt or incompatible.
@@ -97,15 +101,17 @@ class HCGroupStore
 
     bool Open(HCGroupSettings settings, out HCGroupState state)
     {
+        ref HCGroupState loaded = new HCGroupState;
         m_Settings = settings;
         if (!HCGroupRules.SettingsValid(settings)) return Fault();
         if (!FileExist(m_Root))
         {
             if (!MakeDirectory(m_Root)) return Fault();
-            state = new HCGroupState;
-            state.WorldName = GetGame().GetWorldName();
-            state.Revision = 1;
-            return Save(state);
+            loaded.WorldName = GetGame().GetWorldName();
+            loaded.Revision = 1;
+            if (!Save(loaded)) return false;
+            state = loaded;
+            return true;
         }
         string filename;
         FileAttr attr;
@@ -139,10 +145,11 @@ class HCGroupStore
         CloseFindFile(handle);
         if (valid && count == 0)
         {
-            state = new HCGroupState;
-            state.WorldName = GetGame().GetWorldName();
-            state.Revision = 1;
-            return Save(state);
+            loaded.WorldName = GetGame().GetWorldName();
+            loaded.Revision = 1;
+            if (!Save(loaded)) return false;
+            state = loaded;
+            return true;
         }
         if (!valid || highestIntent < 1 || highestIntent != highestImage || highestImage != highestCommit) { m_HCDamaged = true; return Fault(); }
         string imageText;
@@ -151,13 +158,16 @@ class HCGroupStore
         HCGroupReceipt receipt;
         HCGroupReceipt intentReceipt;
         if (!HCGroupJson<HCGroupReceipt>.Load(PathFor("commit_", highestCommit), 1024, receipt) || !HCGroupJson<HCGroupReceipt>.Load(PathFor("intent_", highestIntent), 1024, intentReceipt) || !receipt || !intentReceipt) { m_HCDamaged = true; return Fault(); }
-        if (!JsonFileLoader<HCGroupState>.LoadData(imageText, state, error) || !HCGroupRules.StateValid(state, settings, GetGame().GetWorldName())) { m_HCDamaged = true; return Fault(); }
+        // Native 3_Game/gameplay.c:100: fill a script-owned object, no out chain.
+        JsonSerializer js = new JsonSerializer;
+        if (!js.ReadFromString(loaded, imageText, error) || !HCGroupRules.StateValid(loaded, settings, GetGame().GetWorldName())) { m_HCDamaged = true; return Fault(); }
         if (!HCFieldsPresent(imageText)) { Print("[HC Groups] missing Color; runtime=PENDING"); m_HCDamaged = true; return Fault(); }
-        if (receipt.Version != 1 || intentReceipt.Version != 1 || receipt.WorldName != state.WorldName || intentReceipt.WorldName != state.WorldName || intentReceipt.Revision != receipt.Revision || intentReceipt.Length != receipt.Length || intentReceipt.Hash != receipt.Hash) { m_HCDamaged = true; return Fault(); }
-        if (!HCGroupRules.LatestComplete(highestIntent, highestImage, highestCommit, receipt.Revision, state.Revision, receipt.Length, imageText.Length(), receipt.Hash, imageText.Hash())) { m_HCDamaged = true; return Fault(); }
-        HCGroupRules.MigrateExplorers(state);
-        state.Invitations.Clear();
-        m_Latest = state.Revision;
+        if (receipt.Version != 1 || intentReceipt.Version != 1 || receipt.WorldName != loaded.WorldName || intentReceipt.WorldName != loaded.WorldName || intentReceipt.Revision != receipt.Revision || intentReceipt.Length != receipt.Length || intentReceipt.Hash != receipt.Hash) { m_HCDamaged = true; return Fault(); }
+        if (!HCGroupRules.LatestComplete(highestIntent, highestImage, highestCommit, receipt.Revision, loaded.Revision, receipt.Length, imageText.Length(), receipt.Hash, imageText.Hash())) { m_HCDamaged = true; return Fault(); }
+        HCGroupRules.MigrateExplorers(loaded);
+        loaded.Invitations.Clear();
+        m_Latest = loaded.Revision;
+        state = loaded;
         return true;
     }
 
@@ -179,11 +189,9 @@ class HCGroupStore
             // Soak 195/196 AV suspect (HC-E058 container replacement): with a raw local,
             // replacing the field can free the live array and the restore writes it back dangling.
             ref array<ref HCGroupInvitation> invitations = state.Invitations;
-            int invitesBefore = invitations.Count();
             state.Invitations = new array<ref HCGroupInvitation>;
             bool serialized = JsonFileLoader<HCGroupState>.MakeData(state, m_PendingText, error);
             state.Invitations = invitations;
-            if (HCGroupService.HCTraceArmed()) HCGroupService.HCTrace("save_swap invites_before=" + invitesBefore.ToString() + " restored=" + HCGroupService.HCBit(state.Invitations != null) + " invites_after=" + state.Invitations.Count().ToString());
             if (!serialized || m_PendingText.Length() > m_Settings.MaxStoreBytes) { Fault(); return HCSaveJob.STEP_FAILED; }
             HCGroupReceipt receipt = new HCGroupReceipt;
             receipt.Revision = state.Revision;

@@ -1,3 +1,5 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // HC-26: membership-epoch receipts, bounded lifecycle purge; runtime PENDING.
 // Corpse-run pins, server-owned; no entity serialization or client requests.
 // Installed scripts-1.30.164289 native evidence:
@@ -84,11 +86,17 @@ class HCDeathPins : Managed
 
     protected HCDeathPinState HCReadState(string path)
     {
-        HCDeathPinState loaded;
-        if (!HCGroupJson<HCDeathPinState>.Load(path, 131072, loaded)) { return null; }
+        ref HCDeathPinState loaded = new HCDeathPinState;
+        string text;
+        string error;
+        // Same bounded read and validation as HCGroupJson.Load; no native out chain.
+        // Native scripts-1.30.164289: 3_Game/gameplay.c:100 ReadFromString.
+        JsonSerializer js = new JsonSerializer;
+        if (!HCGroupIO.Read(path, 131072, text) || !js.ReadFromString(loaded, text, error)) { return null; }
         if (!loaded || !loaded.Rows || loaded.Rows.Count() > 256) { return null; }
         // Migrate only rows in this private death store, never arbitrary leads.
-        foreach (HCDeathPinRow row : loaded.Rows)
+        array<ref HCDeathPinRow> hcRows1 = loaded.Rows;
+        foreach (HCDeathPinRow row : hcRows1)
         {
             if (!row || !row.Pin) { return null; }
             string oldId = row.Pin.Id;
@@ -112,7 +120,8 @@ class HCDeathPins : Managed
         {
             // An interrupted staging write has not touched the live image.
             // Preserve malformed evidence unless the primary is still valid.
-            if (!HCReadState(PATH)) { return false; }
+            HCDeathPinState primary = HCReadState(PATH);
+            if (!primary) { return false; }
             return DeleteFile(temporary);
         }
         // HCV2ThreatStore retains the verified intent until promotion/readback
@@ -134,7 +143,8 @@ class HCDeathPins : Managed
         if (state.NextId < 1 || state.NextId > 1000000000 || state.Rows.Count() > 256) { return false; }
         map<string, bool> seen = new map<string, bool>;
         map<string, bool> pinIds = new map<string, bool>;
-        foreach (HCDeathPinRow row : state.Rows)
+        array<ref HCDeathPinRow> hcRows2 = state.Rows;
+        foreach (HCDeathPinRow row : hcRows2)
         {
             if (!row || row.GroupId < 1 || !HCGroupRules.TextValid(row.PlayerId, 128, false)) { return false; }
             if (row.Epoch < 0 || row.Epoch > 1000000000) { return false; }
@@ -165,7 +175,7 @@ class HCDeathPins : Managed
 
     // Called by existing membership/disconnect/refresh Broadcast, no new tick.
     // Deferred cleanup never grants permission: HCCollect checks epoch again.
-    void HCInvalidate()
+    void HCInvalidate(map<string, PlayerBase> hcPlayers)
     {
         if (!m_State) { return; }
         HCGroupService service = HCGroupService.Get();
@@ -245,21 +255,22 @@ class HCDeathPins : Managed
         return true;
     }
 
-    void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
+    void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output, map<string, PlayerBase> hcPlayers)
     {
         if (!m_State || !group || !output || cap < 1) { return; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
         HCPrune(now);
         HCGroupStringIndex members = new HCGroupStringIndex(group.Members);
-        foreach (HCDeathPinRow row : m_State.Rows)
+        array<ref HCDeathPinRow> hcRows3 = m_State.Rows;
+        foreach (HCDeathPinRow row : hcRows3)
         {
             if (output.Count() >= cap) { break; }
             if (row.GroupId != group.Id || row.Epoch != group.Epoch || !members.Has(row.PlayerId)) { continue; }
             if (HCGroupVisibility.HCSnapshotActive())
             {
                 HCGroupService service = HCGroupService.Get();
-                if (!service || !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin)) { continue; }
+                if (!service || !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin, hcPlayers)) { continue; }
             }
             output.Insert(row.Pin);
         }
@@ -274,10 +285,11 @@ modded class PlayerBase
         // retain identity before native corpse/mission cleanup runs.
         if (GetGame() && GetGame().IsServer())
         {
+            map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
             HCGroupService groups = HCGroupService.Get();
-            if (groups) { groups.HCPresentationFell(this); }
+            if (groups) { groups.HCPresentationFell(this, hcPlayers); }
             HCGroupPins pins = HCGroupPins.Get();
-            if (pins) { pins.HCPlayerFell(this); }
+            if (pins) { pins.HCPlayerFell(this, hcPlayers); }
         }
         super.EEKilled(killer);
     }
@@ -288,9 +300,10 @@ modded class HCGroupPins
 {
     override void OnStop()
     {
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         if (m_DeathPins) { m_DeathPins.HCStop(); }
         super.OnStop();
         HCGroupService groups = HCGroupService.Get();
-        if (groups) { groups.Broadcast(); }
+        if (groups) { groups.Broadcast(hcPlayers); }
     }
 }

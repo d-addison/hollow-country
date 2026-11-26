@@ -327,19 +327,26 @@ class HCCampModule : HCModule
 
     string GroupId(PlayerBase player)
     {
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
+        return HCGroupIdWithPlayers(player, hcPlayers);
+    }
+
+    protected string HCGroupIdWithPlayers(PlayerBase player, map<string, PlayerBase> hcPlayers)
+    {
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !player || !player.GetIdentity()) { return ""; }
-        return groups.HCCampReadGroupId(player);
+        return groups.HCCampReadGroupId(player, hcPlayers);
     }
 
     int NearMembers(HCCampRecord camp, float radius)
     {
         int count;
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         foreach (Man person : m_Players)
         {
             PlayerBase player = PlayerBase.Cast(person);
             if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion()) { continue; }
-            if (vector.DistanceSq(player.GetPosition(), camp.Position) <= radius * radius && GroupId(player) == camp.GroupId) { count++; }
+            if (vector.DistanceSq(player.GetPosition(), camp.Position) <= radius * radius && HCGroupIdWithPlayers(player, hcPlayers) == camp.GroupId) { count++; }
         }
         return count;
     }
@@ -347,10 +354,11 @@ class HCCampModule : HCModule
     void Tell(HCCampRecord camp, string authoredText)
     {
         // Cached online recipients, max 32, group ACL re-read for each send.
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         foreach (Man person : m_Players)
         {
             PlayerBase player = PlayerBase.Cast(person);
-            if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion() || GroupId(player) != camp.GroupId) { continue; }
+            if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion() || HCGroupIdWithPlayers(player, hcPlayers) != camp.GroupId) { continue; }
             NotificationSystem.SendNotificationToPlayerExtended(player, 8, "Hollow Country camp", authoredText);
         }
     }
@@ -373,11 +381,12 @@ class HCCampModule : HCModule
         vector position = fire.GetPosition();
         string selected;
         float best = HCGCCampGroupConfig.Get().CampBindDistanceSq;
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         foreach (Man person : m_Players)
         {
             PlayerBase player = PlayerBase.Cast(person);
             if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
-            string group = GroupId(player);
+            string group = HCGroupIdWithPlayers(player, hcPlayers);
             float distance = vector.DistanceSq(player.GetPosition(), position);
             if (group != "" && distance < best) { best = distance; selected = group; }
         }
@@ -770,11 +779,19 @@ class HCCampSaveJob : HCSaveJob
 // identity is persisted in camp data. No RPC or client-owned group admission.
 modded class HCGroupService
 {
-    string HCCampReadGroupId(PlayerBase player)
+    // Native scripts-1.30.164289: 3_Game/Global/Game.c:945 GetPlayers;
+    // Entities/Man.c:21 GetIdentity; gameplay.c:368 GetId. Entry-local only.
+    string HCCampReadGroupId(PlayerBase player, map<string, PlayerBase> hcPlayers = null)
     {
-        if (!m_Healthy || !m_State || !player || !player.GetIdentity()) { return ""; }
-        HCGroupPeer peer = Peer(player.GetIdentity().GetId());
-        if (!Live(peer) || peer.Player != player) { return ""; }
+        map<string, PlayerBase> ownedPlayers = hcPlayers;
+        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
+        if (!m_Healthy || !m_State || !player) { return ""; }
+        PlayerIdentity playerIdentity = player.GetIdentity();
+        if (!playerIdentity) { return ""; }
+        HCGroupPeer peer = Peer(playerIdentity.GetId());
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(ownedPlayers, peer.Id);
+        if (!Live(peer, ownedPlayers) || hcPeerPlayer != player) { return ""; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
         if (!group) { return ""; }
         return group.Id.ToString();
