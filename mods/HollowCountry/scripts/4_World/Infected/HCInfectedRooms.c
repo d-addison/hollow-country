@@ -146,6 +146,7 @@ class HCInfectedRoomCatalog
     static const string PRODUCTION_PATH = "$profile:HollowCountry/Infected/production-rooms.json";
     static const int MAX_PRODUCTION_BYTES = 1048576;
     static const int MAX_CONFIG_CLASSES = 32768;
+    static const int CENSUS_CLASSES_PER_CALL = 256;
     static const int MAX_PRODUCTION_CLASSES = 2048;
     static const int MAX_PRODUCTION_HOUSES = 64;
     static const int MAX_HOUSE_ANCHORS = 16;
@@ -186,6 +187,9 @@ class HCInfectedRoomCatalog
     protected static string s_TemplateReason = "rooms_templates_not_loaded";
     protected static int s_TemplateCovered = 0;
     protected static int s_TemplateDenominator = 0;
+    // Resumable CfgVehicles census (diagnostic log only): -1 = not started.
+    protected static int s_CensusCount = -1;
+    protected static int s_CensusCursor = 0;
     protected static ref array<ref HCInfectedRoomBinding> s_ProductionBindings = new array<ref HCInfectedRoomBinding>;
     protected static ref array<ref HCInfectedProductionRoomClass> s_ProductionClasses = new array<ref HCInfectedProductionRoomClass>;
     protected static bool s_ProductionAttempted = false;
@@ -505,6 +509,8 @@ class HCInfectedRoomCatalog
         s_TemplateReason = "rooms_templates_not_loaded";
         s_TemplateCovered = 0;
         s_TemplateDenominator = 0;
+        s_CensusCount = -1;
+        s_CensusCursor = 0;
     }
 
     static string ProductionReason()
@@ -1173,18 +1179,29 @@ class HCInfectedRoomCatalog
     }
 
     // Denominator = every loaded CfgVehicles House class, as ValidateProductionCoverage counts it.
-    static void CountTemplateClasses()
+    // At most CENSUS_CLASSES_PER_CALL config children per call (soak 196: the
+    // synchronous scan of the whole CfgVehicles tree cost ~21 ms in one AI tick).
+    // Returns true once the census is complete or refused.
+    static bool CountTemplateClassesStep()
     {
-        s_TemplateCovered = 0;
-        s_TemplateDenominator = 0;
-        int configCount = GetGame().ConfigGetChildrenCount("CfgVehicles");
-        if (configCount < 1 || configCount > MAX_CONFIG_CLASSES)
-            return;
-        for (int i = 0; i < configCount; i++)
+        if (s_CensusCount < 0)
+        {
+            s_TemplateCovered = 0;
+            s_TemplateDenominator = 0;
+            s_CensusCursor = 0;
+            s_CensusCount = GetGame().ConfigGetChildrenCount("CfgVehicles");
+            if (s_CensusCount < 1 || s_CensusCount > MAX_CONFIG_CLASSES)
+                return true;
+        }
+        int sliceEnd = s_CensusCursor + CENSUS_CLASSES_PER_CALL;
+        if (sliceEnd > s_CensusCount)
+            sliceEnd = s_CensusCount;
+        while (s_CensusCursor < sliceEnd)
         {
             string className;
-            if (!GetGame().ConfigGetChildName("CfgVehicles", i, className))
-                return;
+            if (!GetGame().ConfigGetChildName("CfgVehicles", s_CensusCursor, className))
+                return true;
+            s_CensusCursor++;
             if (!GetGame().IsKindOf(className, "House"))
                 continue;
             s_TemplateDenominator++;
@@ -1192,17 +1209,22 @@ class HCInfectedRoomCatalog
             if (row && row.Rooms == "covered")
                 s_TemplateCovered++;
             if (s_TemplateDenominator >= MAX_PRODUCTION_CLASSES)
-                return;
+                return true;
         }
+        return s_CensusCursor >= s_CensusCount;
     }
 
     static void LogTemplateAdmission()
     {
         if (s_TemplateLogged || !ProductionServer() || !HCInteriorTemplates.Loaded())
             return;
+        // The reason is set once when the census starts, so a refusal noted
+        // between slices stays readable.
+        if (s_CensusCount < 0)
+            s_TemplateReason = TEMPLATE_READY;
+        if (!CountTemplateClassesStep())
+            return;
         s_TemplateLogged = true;
-        s_TemplateReason = TEMPLATE_READY;
-        CountTemplateClasses();
         Print("[HollowCountry] " + TEMPLATE_READY + "; classes=" + s_TemplateCovered.ToString() + "/" + s_TemplateDenominator.ToString());
     }
 
