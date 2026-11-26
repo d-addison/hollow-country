@@ -22,6 +22,7 @@ COMPILE_MARKER = re.compile(r"Can't compile|Cannot compile", re.I)
 CORRUPTED = re.compile(r'Scripted variables corrupted upon\s+"([^"\r\n]+)"', re.I)
 CASCADE = re.compile(r"Bad type|Can.t find (?:class|variable)|Unknown type|Wrong number of template|Error in parameters|Failed to load .*script", re.I)
 CRASH = re.compile(r'NULL pointer|Unhandled exception|Access[_ ]violation|Exception code:|\bcrash(?:ed)?\b|\.mdmp\b|\.dmp\b|minidump|stack overflow', re.I)
+CRASH_HARD = re.compile(r'NULL pointer|Unhandled exception|Access[_ ]violation|Exception code:|\.mdmp\b|\.dmp\b|minidump|stack overflow', re.I)
 HC = re.compile(r'\[HC(?:\s+([^\]]+))?\]')
 READINESS = re.compile(r'ready|readiness|refus|unavailable|bind failed|degrad|missing|invalid|disabled|blocked|not available', re.I)
 NOT_READY = re.compile(r'\bready\s*=\s*false\b', re.I)
@@ -180,7 +181,10 @@ def failure(line, mission_loaded=False):
     if any(token in lowered for token in ('null pointer', 'unhandled exception', 'access violation',
                                           'access_violation', 'exception code:', 'crash', '.mdmp',
                                           '.dmp', 'minidump', 'stack overflow')) and CRASH.search(line):
-        return 'crashed'
+        # The bare word in our own tagged lines is content ("Incident crash", heli crash sites), not an engine
+        # crash; every other crash pattern still counts on any line.
+        if not ('[HC ' in line and not CRASH_HARD.search(line)):
+            return 'crashed'
     # Only the per-module [HC Ready] line decides; internal phase lines such as
     # "[HC Expansion AI] readiness (server start) ... Ready=false" are progress.
     if '[HC Ready]' in line and NOT_READY.search(line) and not re.search(r'\benabled\s*=\s*false\b', line, re.I):

@@ -15,6 +15,12 @@ CONNECT = 'Player connect enabled\n'
 
 
 class RptSummaryTests(unittest.TestCase):
+    def test_crash_word_in_hc_content_line_is_not_a_crash(self):
+        from tools.release import rpt_summary
+        self.assertIsNone(rpt_summary.failure('[HC Tour] stop=1 label="Incident crash" result=ok'))
+        self.assertEqual(rpt_summary.failure('16:19:06.537  ENGINE    (F): Crashed'), 'crashed')
+        self.assertEqual(rpt_summary.failure('[HC Bridge] Access violation during teardown'), 'crashed')
+
     def scan(self, text):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
