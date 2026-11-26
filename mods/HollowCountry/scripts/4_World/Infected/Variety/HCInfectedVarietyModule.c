@@ -34,8 +34,8 @@
 // EnScript.c:380/399/389 Count/Get/Set; EnConvert.c:30 int.ToString.
 class HCVarietyStepTimer : HCStepTimer
 {
-    protected ref array<int> m_HelperCurrent = {0, 0, 0, 0, 0};
-    protected ref array<int> m_HelperWorst = {0, 0, 0, 0, 0};
+    protected ref array<int> m_HelperCurrent = {0, 0, 0, 0, 0, 0, 0, 0};
+    protected ref array<int> m_HelperWorst = {0, 0, 0, 0, 0, 0, 0, 0};
 
     void HCVarietyStepTimer(string owner) { m_Owner = owner; }
 
@@ -43,11 +43,19 @@ class HCVarietyStepTimer : HCStepTimer
     {
         int ticks = TickCount(started);
         if (ticks > 0) { m_HelperCurrent[helper] = m_HelperCurrent[helper] + ticks; }
+        if (helper == 3)
+        {
+            // Splits of this place_fits call only, captured before another
+            // catalog consumer can overwrite the last-call measurements.
+            m_HelperCurrent[5] = m_HelperCurrent[5] + HCInfectedRoomCatalog.LastBindQueryTicks();
+            m_HelperCurrent[6] = m_HelperCurrent[6] + HCInfectedRoomCatalog.LastBindFilterTicks();
+            m_HelperCurrent[7] = m_HelperCurrent[7] + HCInfectedRoomCatalog.LastBindAdmissionTicks();
+        }
     }
 
     override void HCEndTick(int totalTicks)
     {
-        for (int index = 0; index < 5; index++)
+        for (int index = 0; index < 8; index++)
         {
             if (totalTicks > m_WorstTotal) { m_HelperWorst[index] = m_HelperCurrent[index]; }
             m_HelperCurrent[index] = 0;
@@ -61,6 +69,8 @@ class HCVarietyStepTimer : HCStepTimer
         string helpers = " near_standing=" + m_HelperWorst[0].ToString() + " context=" + m_HelperWorst[1].ToString();
         helpers += " near_corpse=" + m_HelperWorst[2].ToString() + " place_fits=" + m_HelperWorst[3].ToString();
         helpers += " sleep=" + m_HelperWorst[4].ToString();
+        helpers += " rooms_query=" + m_HelperWorst[5].ToString() + " rooms_filter=" + m_HelperWorst[6].ToString();
+        helpers += " rooms_admit=" + m_HelperWorst[7].ToString();
         line.Replace("; raw TickCount units;", helpers + "; raw TickCount units;");
         return line;
     }
@@ -68,7 +78,7 @@ class HCVarietyStepTimer : HCStepTimer
     override void HCCloseWindow()
     {
         super.HCCloseWindow();
-        for (int index = 0; index < 5; index++) { m_HelperWorst[index] = 0; }
+        for (int index = 0; index < 8; index++) { m_HelperWorst[index] = 0; }
     }
 }
 
