@@ -155,7 +155,7 @@ class PhaseMapTests(unittest.TestCase):
     def test_plan_reports_zero_unmapped_and_writes_nothing(self):
         lines, problems = camp.plan_text(PHASES)
         text = '\n'.join(lines)
-        self.assertEqual(problems, ["unreached counters: 3"])
+        self.assertEqual(problems, [])
         self.assertIn('unmapped counters: 0', text)
         for name in camp.PHASE_ORDER:
             self.assertIn(name, text)
@@ -169,11 +169,10 @@ class PhaseMapTests(unittest.TestCase):
                 self.assertEqual(PHASES['reach'][key]['status'], 'pending-driver')
                 self.assertTrue(all(p.startswith('pending-driver:') for p in problems))
         lines, unreached = camp.reach_lines(rows)
-        self.assertEqual(unreached, 3)
-        # The lead maps counters after native proof. Do not credit the final phase to fixtures.
-        self.assertEqual({key for key, _, _, problems in rows if problems},
-                         {"BodyStories/body_observed", "BodyStories/death_checked",
-                          "CampRespawn/respawn_reserved"})
+        self.assertEqual(unreached, 0)
+        # Lead remap: the single death and respawn moved from fixtures to ai_clear.
+        for key in ("BodyStories/body_observed", "BodyStories/death_checked", "CampRespawn/respawn_reserved"):
+            self.assertEqual(PHASES['reach'][key]['phase'], 'ai_clear')
 
     def test_every_how_token_names_a_real_step_fixture_or_setting(self):
         context = camp.reach_context()
@@ -1374,7 +1373,7 @@ class AIClearEvidenceTests(unittest.TestCase):
         self.assertEqual([by_id[key]['value'] for key in ids], ['0', '1'])
         self.assertEqual(sum(s['kind'] == 'respawn' for s in script['steps']), 1)
         self.assertEqual(camp.PHASE_ORDER[-2:], ('ai_clear', 'idle'))
-        self.assertEqual(next(p['minutes'] for p in PHASES['phases'] if p['name'] == 'ai_clear'), 15)
+        self.assertEqual(next(p['minutes'] for p in PHASES['phases'] if p['name'] == 'ai_clear'), 25)
 
     def test_evidence_preserves_terminal_duplicates_and_missing_despawns(self):
         lines = [

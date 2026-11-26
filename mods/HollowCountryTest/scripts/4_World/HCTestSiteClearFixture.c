@@ -30,6 +30,8 @@ class HCTestSiteClearFixture
     protected bool m_Done;
     protected DayZPlayerImplement m_ExpectedVictim;
     protected bool m_Attributed;
+    // Attributed mode: EEKilled may arrive after ProcessDirectDamage returns; confirm on the next tick.
+    protected bool m_AwaitAttribution;
 
     static bool HCStart(PlayerBase requester, out string reason)
     {
@@ -122,6 +124,13 @@ class HCTestSiteClearFixture
         if (HCServer.HCMissionFinishing()) { HCFinish("refused:mission-finishing"); return; }
         if (m_Done) { return; }
         int now = GetGame().GetTime();
+        if (m_AwaitAttribution)
+        {
+            m_AwaitAttribution = false;
+            m_ExpectedVictim = null;
+            if (!m_Attributed) { HCFinish("refused:attribution-unconfirmed"); return; }
+            m_Last = "requester-eekilled-deferred";
+        }
         if (m_Kills > 0 && m_Patrol && !m_Patrol.m_HCLive)
         {
             // Lifecycle observation only: report parsing verifies cleared-at/despawned/abandoned.
@@ -130,7 +139,12 @@ class HCTestSiteClearFixture
             return;
         }
         if (now - m_Started >= 180000) { HCFinish("timeout"); return; }
-        if (!m_Patrol || m_Patrol.m_HCFinished) { HCFinish("refused:patrol-unavailable"); return; }
+        if (!m_Patrol || m_Patrol.m_HCFinished)
+        {
+            if (m_Kills > 0) { m_Last = "patrol-gone"; HCFinish("terminal"); return; }
+            HCFinish("refused:patrol-unavailable");
+            return;
+        }
         if (!m_Requester || m_Requester.IsPendingDeletion() || !m_Requester.IsAlive() || !m_Requester.GetIdentity()) { HCFinish("refused:requester-unavailable"); return; }
         if (vector.DistanceSq(m_Requester.GetPosition(), m_Anchor) > 250000) { HCFinish("refused:requester-range"); return; }
         bool held = m_Patrol.HCDeathHeld();
@@ -138,7 +152,13 @@ class HCTestSiteClearFixture
         m_LastTick = now;
         if (!held && (m_Kills == 0 || now - m_LastKill >= 6000))
         {
-            if (m_Kills >= m_Limit || m_Kills >= 16) { HCFinish("refused:member-budget"); return; }
+            if (m_Kills >= m_Limit || m_Kills >= 16)
+            {
+                // Every starting member is down; HCEndPatrol may not have run yet.
+                m_Last = "member-budget";
+                HCFinish("terminal");
+                return;
+            }
             if (m_Patrol.m_HCPendingMembers > 0) { HCFinish("refused:not-ready"); return; }
             // Fresh weak snapshot before each damage call. Never touch the group after damage.
             array<DayZPlayerImplement> members = new array<DayZPlayerImplement>;
@@ -164,9 +184,10 @@ class HCTestSiteClearFixture
                 if (victim && !victim.IsPendingDeletion() && victim.IsAlive()) { HCFinish("refused:damage-not-lethal"); return; }
                 m_Kills++;
                 m_LastKill = now;
-                m_ExpectedVictim = null;
                 m_Last = "victim-dead";
-                if (m_Attributed) { m_Last = "requester-eekilled"; }
+                if (m_Attributed) { m_Last = "requester-eekilled"; m_ExpectedVictim = null; }
+                else if (m_Mode == "attributed") { m_AwaitAttribution = true; }
+                else { m_ExpectedVictim = null; }
                 int left = 0;
                 foreach (DayZPlayerImplement observed : members)
                 {
@@ -174,7 +195,6 @@ class HCTestSiteClearFixture
                 }
                 Print("[HC Test] fx_site_clear site=" + m_Site + " kind=" + m_Kind + " mode=" + m_Mode + " kill=" + m_Kills.ToString() + " members_left=" + left.ToString() + " held_ms=" + m_HeldMs.ToString());
                 m_HeldMs = 0;
-                if (m_Mode == "attributed" && !m_Attributed) { HCFinish("refused:attribution-unconfirmed"); return; }
             }
         }
         // Exactly one non-repeating chain; mission finishing is checked before any re-arm.

@@ -804,7 +804,7 @@ finally `fx_die` and one CampRespawn attempt with a 180-second timeout. Without 
 authored candidate, health mode is still requested at the first location and can refuse
 `no-patrol`. There is no existing stand-until-server-line step, so 200 seconds is always
 used. No existing step resolves the runtime death position, so the return walk is skipped.
-Travel, hold timeouts and respawn can make the phase longer than 15 minutes.
+Travel, hold timeouts and respawn can make the phase longer than its 25-minute budget.
 
 The existing admin RPC transports an integer, and the client accepts only digits.
 Thus `admin cmd=fx_site_clear value=0` encodes `mode=attributed` (also the default),
@@ -828,8 +828,10 @@ one-second callback chain uses `Game.c:1535/1550` and `2_GameLib/tools.c:61`.
 
 `3_Game/Entities/EntityAI.c:1104 EEKilled(Object killer)` is observed by a test-only
 override of the native `PlayerBase.c:1214` ancestor, which then calls `super`. It never fabricates a kill event. Attributed mode
-stops with `refused:attribution-unconfirmed` if the engine's synchronous event does not
-name the exact requester. A native experiment must establish that this API actually
+waits one tick for a deferred EEKilled (`last=requester-eekilled-deferred`), then stops with
+`refused:attribution-unconfirmed` if the event still does not name the exact requester.
+After the first kill, a patrol that is gone or a spent member budget reports `result=terminal`
+(`last=patrol-gone` or `last=member-budget`), not a refusal. A native experiment must establish that this API actually
 produces lethal requester-attributed damage through this build's full event chain.
 If it fails, the lead must use the existing `fx_shoot_held` pattern (requester's held
 weapon, nearest AI within 60 m), rather than crediting an unattributed death. That
