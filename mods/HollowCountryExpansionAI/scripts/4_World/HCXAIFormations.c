@@ -394,7 +394,10 @@ class HCXAIStyleFormation : eAIFormation
 class HCXAIGroupStyle
 {
     ref HCXAIGroupHold Hold;
-    HCXAIStyleFormation FormRef;
+    // ref: a raw FormRef only guards by address. When another owner replaces the group's formation the old
+    // one is freed and a new formation can reuse its address, so the identity check in ApplyFormation would
+    // pass and HCSetMode run on a foreign object. Holding it keeps the address unique for the compare.
+    ref HCXAIStyleFormation FormRef;
     ref array<ref HCXAIAgentHold> Halted = new array<ref HCXAIAgentHold>();
     int Seed;
     int Evals;
