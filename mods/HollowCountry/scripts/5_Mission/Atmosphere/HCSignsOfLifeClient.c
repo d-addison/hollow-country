@@ -72,7 +72,7 @@ class HCSignsOfLifeSnapshotClient
         if (rpcType != HCSignsHoldoutRPC.RPC_HOLDOUTS) { return; }
         int count;
         if (!ctx.Read(count) || count < 0 || count > 24) { return; }
-        array<vector> positions = m_HoldoutPositions;
+        ref array<vector> positions = m_HoldoutPositions;
         positions.Clear();
         m_HoldoutSeen.Clear();
         vector position;

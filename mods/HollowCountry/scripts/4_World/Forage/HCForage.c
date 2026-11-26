@@ -689,7 +689,7 @@ class HCForageModule : HCModule
             return;
         }
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_FORAGE, 8)) { return; }
-        HCForageNode selected = m_PendingSpawn;
+        ref HCForageNode selected = m_PendingSpawn;
         string type = m_PendingType;
         // Clear before creation; a failure spends the already durable cooldown.
         m_PendingSpawn = null;

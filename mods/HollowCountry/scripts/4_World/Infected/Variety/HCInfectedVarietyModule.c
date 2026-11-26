@@ -645,7 +645,7 @@ modded class HCInfectedModule
     // ZombieBase.c:182 GetMindStateSynced, :1090 IsCrawling; EnMath.c:126 RandomFloat01.
     protected int HCVarietyPostureStep(array<Man> players, float now, float nightness, float rain, int dormantCap, HCVarietyStepTimer steps)
     {
-        HCInfectedActor actor = m_HCPostureActor;
+        ref HCInfectedActor actor = m_HCPostureActor;
         if (!actor) { return 0; }
         // Slot identity first: the candidate is held across ticks, so confirm it is still tracked before reading it.
         if (m_HCPostureSlot >= m_Actors.Count() || m_Actors[m_HCPostureSlot] != actor)

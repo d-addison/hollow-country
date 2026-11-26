@@ -901,7 +901,7 @@ class HCCoreSelfTest
     protected static void StopStaged()
     {
         if (!s_Staged) { return; }
-        HCStagedStoreSelfTest staged = s_Staged;
+        ref HCStagedStoreSelfTest staged = s_Staged;
         s_Staged = null;
         staged.HCAbort();
     }

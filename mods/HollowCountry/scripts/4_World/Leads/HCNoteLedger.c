@@ -74,11 +74,13 @@ class HCNoteEntities
         return data && data.GetNoteText() != "";
     }
 
-    static array<Paper> TakeLoaded()
+    // HC-E058: copy out before releasing the owner; a returned raw borrow of s_Loaded would dangle.
+    static bool TakeLoaded(notnull array<Paper> into)
     {
-        array<Paper> loaded = s_Loaded;
+        if (!s_Loaded) { return false; }
+        into.Copy(s_Loaded);
         s_Loaded = null;
-        return loaded;
+        return true;
     }
 }
 
@@ -200,8 +202,8 @@ class HCNoteLedger : HCModule
     // Re-identify restored HC notes by their exact vanilla note text.
     protected void ResolveLoaded()
     {
-        array<Paper> loaded = HCNoteEntities.TakeLoaded();
-        if (!loaded) { return; }
+        ref array<Paper> loaded = new array<Paper>;
+        if (!HCNoteEntities.TakeLoaded(loaded)) { return; }
         m_LoadedText = new map<string, ref HCNoteTextMatches>;
         foreach (HCLeadNote indexed : m_Store.Data.Notes)
         {

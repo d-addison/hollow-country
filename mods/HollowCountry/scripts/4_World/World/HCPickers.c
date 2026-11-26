@@ -675,7 +675,7 @@ class HCScavengeTrip
             int now = HCWorldClock.UTC();
             if (!m_TheftPendingOwner || m_TheftPendingOwner != HCCampModule.Get() || now < m_TheftPendingUtc || now - m_TheftPendingUtc > 60) { m_TheftPendingCamp = null; return; }
             if (!m_TheftPendingOwner.HCDurable(m_TheftPendingReceipt)) { return; }
-            HCCampRecord camp = m_TheftPendingCamp;
+            ref HCCampRecord camp = m_TheftPendingCamp;
             m_TheftPendingCamp = null;
             HCTheftPickup(m_TheftPendingOwner, camp, m_TheftPendingCrate, now, m_TheftPendingLimit, true);
             return;

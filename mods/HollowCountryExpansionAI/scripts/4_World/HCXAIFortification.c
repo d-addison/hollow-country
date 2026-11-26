@@ -238,7 +238,7 @@ class HCXAIFortification
 
     protected void HCFinishPlacement()
     {
-        HCXAIFortificationSite site = m_PendingSite;
+        ref HCXAIFortificationSite site = m_PendingSite;
         m_PendingSite = null;
         // Recheck admission after the IO wait. No object exists on refusal, so
         // remove the reservation durably before retrying another alternative.

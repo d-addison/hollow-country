@@ -89,7 +89,7 @@ class HCBaseRaid
             return;
         }
         if (!owner.HCDurable(s_WarningReceipt)) { return; }
-        HCCampRecord camp = s_WarningCamp;
+        ref HCCampRecord camp = s_WarningCamp;
         s_WarningCamp = null;
         if (!HCEnabled() || !port || port != HCGet() || !port.HCReady() || !port.HCRetainedSeen(camp, s_WarningScan) || !HCRecipients(owner, camp))
         {

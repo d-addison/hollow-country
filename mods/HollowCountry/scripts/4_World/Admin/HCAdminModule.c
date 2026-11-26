@@ -705,7 +705,7 @@ class HCAdminModule : HCModule
         GetGame().GetPlayers(m_Players);
         if (m_Pending)
         {
-            HCAdminRequest request = m_Pending;
+            ref HCAdminRequest request = m_Pending;
             PlayerIdentity sender = m_PendingSender;
             m_Pending = null;
             m_PendingSender = null;
