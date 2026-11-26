@@ -538,11 +538,20 @@ modded class HCGroupService
         if (HCGroupRules.ById(m_State, groupId)) { return 1; }
         return 0;
     }
-    int HCClaimActorGroup(PlayerBase player, bool manager)
+    // Native scripts-1.30.164289: 3_Game/Global/Game.c:945 GetPlayers;
+    // Entities/Man.c:21 GetIdentity; gameplay.c:368 GetId. Entry-local only.
+    int HCClaimActorGroup(PlayerBase player, bool manager, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!HCClaimHealthy() || !player || !player.GetIdentity()) { return 0; }
         HCGroupPeer peer = Peer(player.GetIdentity().GetId());
-        if (!Live(peer) || peer.Player != player) { return 0; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        if (!Live(peer, hcRoster) || hcPeerPlayer != player) { return 0; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
         if (!group || (manager && HCGroupRules.Role(group, peer.Id) < 1)) { return 0; }
         return group.Id;

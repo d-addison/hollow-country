@@ -1,3 +1,5 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // Authored transaction rules. Service supplies authenticated sender.GetId(),
 // server UTC/world size and a disposable clone. Never commit a rejected clone.
 class HCGroupRules
@@ -134,8 +136,9 @@ class HCGroupRules
 
     static HCGroupRecord FindGroup(HCGroupState state, string uid)
     {
-        foreach (HCGroupRecord group : state.Groups)
+        for (int memberGroupIndex = 0; memberGroupIndex < state.Groups.Count(); memberGroupIndex++)
         {
+            HCGroupRecord group = state.Groups.Get(memberGroupIndex);
             if (group.Members.Find(uid) >= 0)
             {
                 return group;
@@ -146,8 +149,9 @@ class HCGroupRules
 
     static HCGroupRecord ById(HCGroupState state, int id)
     {
-        foreach (HCGroupRecord group : state.Groups)
+        for (int idGroupIndex = 0; idGroupIndex < state.Groups.Count(); idGroupIndex++)
         {
+            HCGroupRecord group = state.Groups.Get(idGroupIndex);
             if (group.Id == id)
             {
                 return group;
@@ -266,7 +270,8 @@ class HCGroupRules
                 return false;
             }
             HCGroupRecord offered = HCGroupRules.ById(state, invite.GroupId);
-            if (!offered || HCGroupRules.Role(offered, invite.InviterId) < HCGroupRole.OFFICER || offered.Name != invite.GroupName || HCGroupRules.FindGroup(state, invite.InviteeId))
+            HCGroupRecord hcFoundGroup1 = HCGroupRules.FindGroup(state, invite.InviteeId);
+            if (!offered || HCGroupRules.Role(offered, invite.InviterId) < HCGroupRole.OFFICER || offered.Name != invite.GroupName || hcFoundGroup1)
             {
                 return false;
             }
@@ -403,7 +408,8 @@ class HCGroupRules
             {
                 return HCGroupCode.DENIED;
             }
-            if (!HCGroupRules.TextValid(q.TargetId, 128, false) || q.TargetId == actor || HCGroupRules.FindGroup(state, q.TargetId))
+            HCGroupRecord hcFoundGroup2 = HCGroupRules.FindGroup(state, q.TargetId);
+            if (!HCGroupRules.TextValid(q.TargetId, 128, false) || q.TargetId == actor || hcFoundGroup2)
             {
                 return HCGroupCode.INVALID;
             }
@@ -704,8 +710,13 @@ class HCGroupRules
         return true;
     }
 
-    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog)
+    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
         map<string, bool> ids = new map<string, bool>();
         if (!c.DiscoveryLayer)

@@ -770,11 +770,20 @@ class HCCampSaveJob : HCSaveJob
 // identity is persisted in camp data. No RPC or client-owned group admission.
 modded class HCGroupService
 {
-    string HCCampReadGroupId(PlayerBase player)
+    // Native scripts-1.30.164289: 3_Game/Global/Game.c:945 GetPlayers;
+    // Entities/Man.c:21 GetIdentity; gameplay.c:368 GetId. Entry-local only.
+    string HCCampReadGroupId(PlayerBase player, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!m_Healthy || !m_State || !player || !player.GetIdentity()) { return ""; }
         HCGroupPeer peer = Peer(player.GetIdentity().GetId());
-        if (!Live(peer) || peer.Player != player) { return ""; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        if (!Live(peer, hcRoster) || hcPeerPlayer != player) { return ""; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
         if (!group) { return ""; }
         return group.Id.ToString();

@@ -1,3 +1,5 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // Row cursor native evidence: 1_Core/proto/EnScript.c:380 Count, :399 Get.
 // LC-T207 / LC-T305. EXP-T5 is diagnostic only (owner 2026-11-17).
 // Native snapshot scripts-1.30.164289: 3_Game/Entities/Object.c:287,517
@@ -95,16 +97,21 @@ class HCGroupPins : HCModule
 
     // Output is a received-only view, not the world catalog. Re-resolved on
     // every FULL frame; client expiry removes a lead without waiting for one.
-    void Collect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
+    void Collect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!group || !output || cap < 1) { return; }
         HCGCCampGroupConfig limits = HCGCCampGroupConfig.Get();
         if (cap > limits.PinLimit) { cap = limits.PinLimit; }
         // Effective pin policy applies to snapshots and debug collection alike.
         HCTeamPingModule teamPings = HCTeamPingModule.Get();
-        if (teamPings) { teamPings.HCCollect(group, cap, output); }
+        if (teamPings) { teamPings.HCCollect(group, cap, output, hcRoster); }
         // A corpse-run pin has priority over leads/trails at the existing cap.
-        if (m_DeathPins) { m_DeathPins.HCCollect(group, cap, output); }
+        if (m_DeathPins) { m_DeathPins.HCCollect(group, cap, output, hcRoster); }
         HCLeadModule leads = HCLeadModule.Get();
         HCWorldModule world = HCWorldModule.Get();
         if (m_Leads && leads && world)
@@ -144,7 +151,9 @@ class HCGroupPins : HCModule
         if (s_Instance != this || !(deltaTime > 0)) { return; }
         HCGroupService groups = HCGroupService.Get();
         if (!groups) { return; }
-        if (m_Trail) { groups.HCPinsDiscover(); }
+        array<Man> hcRoster = new array<Man>;
+        GetGame().GetPlayers(hcRoster);
+        if (m_Trail) { groups.HCPinsDiscover(hcRoster); }
         HCReached.Mark("map_pins.refresh");
         // Refresh FULL through the existing group path, including newly
         // received leads when no membership or discovery mutation occurs.
@@ -152,21 +161,26 @@ class HCGroupPins : HCModule
         if (m_RefreshSeconds >= HCGCCampGroupConfig.Get().PinRefreshSeconds)
         {
             m_RefreshSeconds = 0;
-            groups.Broadcast();
+            groups.Broadcast(hcRoster);
         }
         m_LogSeconds += deltaTime;
         if (m_LogSeconds >= HCGCCampGroupConfig.Get().PinLogSeconds)
         {
             m_LogSeconds = 0;
-            groups.HCPinsLog(this);
+            groups.HCPinsLog(this, hcRoster);
         }
     }
 
-    void HCPlayerFell(PlayerBase player)
+    void HCPlayerFell(PlayerBase player, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !m_DeathPins) { return; }
-        groups.HCPinsDeath(player, m_DeathPins);
+        groups.HCPinsDeath(player, m_DeathPins, hcRoster);
     }
 
     override void OnStop()
@@ -187,34 +201,48 @@ modded class HCGroupService
     protected ref HCGroupStringIndex m_TrailPrior;
     protected int m_TrailGroup;
 
-    void HCPinsDeath(PlayerBase player, HCDeathPins pins)
+    void HCPinsDeath(PlayerBase player, HCDeathPins pins, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!m_Healthy || !player || !pins || !GetGame().IsServer()) { return; }
         PlayerIdentity identity = player.GetIdentity();
         if (!identity) { return; }
         string uid = identity.GetId();
         HCGroupPeer peer = Peer(uid);
-        if (!Live(peer) || peer.Player != player) { return; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        if (!Live(peer, hcRoster) || hcPeerPlayer != player) { return; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, uid);
         if (!group) { return; }
         if (!pins.HCPublish(group, uid, identity.GetName(), player.GetPosition())) { return; }
         Print("[HollowCountry] V2 map pins death group=" + group.Id.ToString());
-        Broadcast();
+        Broadcast(hcRoster);
     }
 
-    void HCPinsDiscover()
+    void HCPinsDiscover(array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!m_Healthy || m_PendingState || !m_Config.DiscoveryLayer || m_Peers.Count() == 0) { return; }
         if (GetGame().GetTickTime() < m_DiscoveryBlockedUntil) { return; }
         if (m_HCPinsCursor >= m_Peers.Count()) { m_HCPinsCursor = 0; }
         HCGroupPeer explorer = m_Peers.Get(m_HCPinsCursor);
         m_HCPinsCursor++;
-        if (!Live(explorer) || !explorer.Player.IsAlive() || explorer.Player.IsUnconscious()) { return; }
+        PlayerBase hcExplorerPlayer;
+        if (explorer) hcExplorerPlayer = HCPlayerOf(hcRoster, explorer.Id);
+        if (!Live(explorer, hcRoster) || !hcExplorerPlayer.IsAlive() || hcExplorerPlayer.IsUnconscious()) { return; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, explorer.Id);
         if (!group || !group.HCTrailPlaceIds || group.HCTrailPlaceIds.Count() >= HCGCCampGroupConfig.Get().TrailPins) { return; }
-        vector actual = explorer.Player.GetPosition();
+        vector actual = hcExplorerPlayer.GetPosition();
         if (!HCGroupRules.PositionValid(actual)) { return; }
-        HCGroupState candidate;
+        ref HCGroupState candidate;
         HCGroupRecord candidateGroup;
         HCGroupStringIndex candidateTrails;
         HCGroupStringIndex trails = new HCGroupStringIndex(group.HCTrailPlaceIds);
@@ -241,9 +269,9 @@ modded class HCGroupService
         if (!candidate) { return; }
         if (candidateGroup.Revision >= 1000000000) { return; }
         HCGroupRules.Touch(candidateGroup, false);
-        int result = HCQueueCommit(candidate);
+        int result = HCQueueCommit(candidate, hcRoster);
         if (result == HCGroupCode.LIMIT) { m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60; }
-        if (result == HCGroupCode.STORAGE) { Stop(); return; }
+        if (result == HCGroupCode.STORAGE) { Stop(hcRoster); return; }
         if (result == HCGroupCode.OK)
         {
             m_TrailExplorerId = explorer.Id;
@@ -253,9 +281,14 @@ modded class HCGroupService
         }
     }
 
-    override void HCPostBatchSave()
+    override void HCPostBatchSave(array<Man> hcRoster = null)
     {
-        super.HCPostBatchSave();
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
+        super.HCPostBatchSave(hcRoster);
         HCGroupPeer explorer = null;
         if (m_TrailExplorerId != "") { explorer = Peer(m_TrailExplorerId); }
         if (explorer && explorer.Session != m_TrailExplorerSession) { explorer = null; }
@@ -263,7 +296,9 @@ modded class HCGroupService
         m_TrailExplorerId = "";
         m_TrailExplorerSession = "";
         m_TrailPrior = null;
-        if (!Live(explorer) || !prior || !explorer.Player.IsAlive() || explorer.Player.IsUnconscious()) { return; }
+        PlayerBase hcExplorerPlayer;
+        if (explorer) hcExplorerPlayer = HCPlayerOf(hcRoster, explorer.Id);
+        if (!Live(explorer, hcRoster) || !prior || !hcExplorerPlayer.IsAlive() || hcExplorerPlayer.IsUnconscious()) { return; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, explorer.Id);
         if (!group || group.Id != m_TrailGroup) { return; }
         HCGroupStringIndex committed = new HCGroupStringIndex(group.HCTrailPlaceIds);
@@ -275,13 +310,18 @@ modded class HCGroupService
             string id = "hc-found:" + shelter.Name;
             if (!prior.Has(id) && committed.Has(id))
             {
-                NotificationSystem.SendNotificationToPlayerExtended(explorer.Player, 10, shelter.Name, shelter.History);
+                NotificationSystem.SendNotificationToPlayerExtended(hcExplorerPlayer, 10, shelter.Name, shelter.History);
             }
         }
     }
 
-    void HCPinsLog(HCGroupPins pins)
+    void HCPinsLog(HCGroupPins pins, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!m_Healthy) { return; }
         int trailCount = 0;
         int leadCount = 0;
@@ -296,7 +336,7 @@ modded class HCGroupService
             HCGroupRecord group = m_State.Groups[m_HCPinsLogCursor];
             m_HCPinsLogCursor++;
             array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
-            pins.Collect(group, m_Config.MaxDiscoveries, known);
+            pins.Collect(group, m_Config.MaxDiscoveries, known, hcRoster);
             foreach (HCGroupPlace pin : known)
             {
                 if (pin.Id.IndexOf("hc-found:") == 0) { trailCount++; }
@@ -325,6 +365,8 @@ modded class HCDebugGroupPinsContributor
 {
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
+        array<Man> hcRoster = new array<Man>;
+        GetGame().GetPlayers(hcRoster);
         HCGroupService groups = HCGroupService.Get();
         HCGCCampGroupConfig limits = HCGCCampGroupConfig.Get();
         if (!snapshot.HCStarted)
@@ -356,7 +398,7 @@ modded class HCDebugGroupPinsContributor
             // until the next sweep completes. No whole-catalogue Collect call.
             int groupWork = groupCount - m_Cursor;
             if (groupWork > limits.DebugGroups) { groupWork = limits.DebugGroups; }
-            m_Total += groups.HCDebugPins(m_Cursor, groupWork, limits.DebugPins, m_Rows);
+            m_Total += groups.HCDebugPins(m_Cursor, groupWork, limits.DebugPins, m_Rows, hcRoster);
             m_Cursor += groupWork;
             if (m_Cursor >= groupCount)
             {

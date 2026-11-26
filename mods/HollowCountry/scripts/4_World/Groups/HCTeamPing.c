@@ -1,3 +1,5 @@
+// Entry-local roster port: native scripts-1.30.164289 3_Game/Global/Game.c:945;
+// resolver identity/life: Entities/Man.c:21, gameplay.c:368, Entities/Object.c:517.
 // HC-26 spec/plan/task: Wave 2 group presentation privacy. Runtime PENDING.
 // Uses existing Broadcast/Connected/Disconnected callbacks; no new tick/RPC.
 // Auth is canonical server peer + native sender identity, never keybind state.
@@ -92,12 +94,17 @@ class HCTeamPingModule : HCModule
         if (status == 2) { return "need help"; }
         return "";
     }
-    int HCReceive(HCGroupPeer peer, int status)
+    int HCReceive(HCGroupPeer peer, int status, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (s_Instance != this || !GetGame().IsServer()) { return HCGroupCode.DISABLED; }
         HCGroupService service = HCGroupService.Get();
         if (!service || !service.HCPresentationReady()) { HCReport("group_service_unavailable", 0); return HCGroupCode.DISABLED; }
-        HCGroupRecord group = service.HCPingGroup(peer);
+        HCGroupRecord group = service.HCPingGroup(peer, hcRoster);
         if (!group) { HCReport("sender_identity_membership_or_life", 0); return HCGroupCode.DENIED; }
         string label = HCStatus(status);
         if (label == "") { HCReport("status", 0); return HCGroupCode.INVALID; }
@@ -112,7 +119,10 @@ class HCTeamPingModule : HCModule
             if (cached.Account == peer.Id) { previous = cached; }
         }
         if (previous && now - previous.At < HCGCCampGroupConfig.Get().TeamPingCooldownSeconds) { HCReport("sender_rate", 0); return HCGroupCode.RATE; }
-        vector actual = peer.Player.GetPosition();
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = service.HCPlayerOf(hcRoster, peer.Id);
+        if (!hcPeerPlayer) { HCReport("sender_identity_membership_or_life", 0); return HCGroupCode.DENIED; }
+        vector actual = hcPeerPlayer.GetPosition();
         if (!HCGroupRules.PositionValid(actual)) { HCReport("position", 0); return HCGroupCode.INVALID; }
         if (!previous)
         {
@@ -135,20 +145,26 @@ class HCTeamPingModule : HCModule
         previous.Pin.Position = actual;
         previous.Pin.Radius = HCGCCampGroupConfig.Get().TeamPingRadiusMeters;
         previous.Pin.HCPinExpiresUtc = now + HCGCCampGroupConfig.Get().TeamPingSeconds;
-        int recipients = service.HCPingDeliver(group, peer, label);
+        int recipients = service.HCPingDeliver(group, peer, label, hcRoster);
         HCReport("none", recipients);
         HCReached.Mark("team_ping.received");
         if (recipients > 0) { HCModuleReadiness.HCUse("TeamPing", "ping_delivered"); }
         return HCGroupCode.OK;
     }
-    void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
+    void HCCollect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (s_Instance != this || !m_Rows || !group || !output || cap < 1) { return; }
         if (cap > HCGCCampGroupConfig.Get().PinLimit) { cap = HCGCCampGroupConfig.Get().PinLimit; }
         int now = HCGroupClock.Utc();
         if (now < 1) { return; }
         HCGroupStringIndex members = new HCGroupStringIndex(group.Members);
-        foreach (HCTeamPingRow row : m_Rows)
+        array<ref HCTeamPingRow> hcRows1 = m_Rows;
+        foreach (HCTeamPingRow row : hcRows1)
         {
             if (output.Count() >= cap) { break; }
             if (row.GroupId != group.Id || row.Epoch != group.Epoch) { continue; }
@@ -156,16 +172,21 @@ class HCTeamPingModule : HCModule
             HCGroupService service = HCGroupService.Get();
             if (!service) { continue; }
             HCGroupPeer source = service.Peer(row.Account);
-            HCGroupRecord current = service.HCPingGroup(source);
+            HCGroupRecord current = service.HCPingGroup(source, hcRoster);
             if (!current || current.Id != row.GroupId || current.Epoch != row.Epoch || source.Session != row.Session) { continue; }
-            if (HCGroupVisibility.HCSnapshotActive() && !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin)) { continue; }
+            if (HCGroupVisibility.HCSnapshotActive() && !service.HCPresentationAllows(HCGroupVisibility.HCRecipient(), row.Pin, hcRoster)) { continue; }
             output.Insert(row.Pin);
         }
     }
     // No independent scan/tick. Reuse group Broadcast's lifecycle/refresh path.
     // Authorization is always checked on collection even if cleanup yields.
-    void HCInvalidate()
+    void HCInvalidate(array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!m_Rows || s_Instance != this) { return; }
         HCGroupService service = HCGroupService.Get();
         m_Work.HCReset(HCGCCampGroupConfig.Get().TeamPingPruneRows);
@@ -179,7 +200,7 @@ class HCTeamPingModule : HCModule
             remaining--;
             HCGroupPeer peer;
             HCGroupRecord group;
-            if (service) { peer = service.Peer(row.Account); group = service.HCPingGroup(peer); }
+            if (service) { peer = service.Peer(row.Account); group = service.HCPingGroup(peer, hcRoster); }
             if (!group || group.Id != row.GroupId || group.Epoch != row.Epoch || peer.Session != row.Session || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds)
             {
                 m_Rows.RemoveOrdered(m_PruneCursor);
@@ -198,15 +219,21 @@ class HCTeamPingModule : HCModule
             if (m_Rows.Get(index).Account == uid) { m_Rows.RemoveOrdered(index); }
         }
     }
-    bool HCVisible(string uid, HCGroupPlace pin)
+    bool HCVisible(string uid, HCGroupPlace pin, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (s_Instance != this || !m_Rows || !pin) { return false; }
         HCGroupService service = HCGroupService.Get();
-        if (!service || !service.HCPresentationRange(uid, pin.Position)) { return false; }
+        if (!service || !service.HCPresentationRange(uid, pin.Position, hcRoster)) { return false; }
         HCGroupPeer recipient = service.Peer(uid);
         int now = HCGroupClock.Utc();
         HCTeamPingRow selected;
-        foreach (HCTeamPingRow row : m_Rows)
+        array<ref HCTeamPingRow> hcRows2 = m_Rows;
+        foreach (HCTeamPingRow row : hcRows2)
         {
             if (row.Pin.Id != pin.Id || now < row.At || now - row.At >= HCGCCampGroupConfig.Get().TeamPingSeconds) { continue; }
             selected = row;
@@ -214,9 +241,9 @@ class HCTeamPingModule : HCModule
         }
         if (!selected) { return false; }
         HCGroupPeer peer = service.Peer(selected.Account);
-        HCGroupRecord group = service.HCPingGroup(peer);
+        HCGroupRecord group = service.HCPingGroup(peer, hcRoster);
         if (!group || group.Id != selected.GroupId || group.Epoch != selected.Epoch || peer.Session != selected.Session) { return false; }
-        return group.Members.Find(uid) >= 0 && service.VisibilityAllows(peer, recipient);
+        return group.Members.Find(uid) >= 0 && service.VisibilityAllows(peer, recipient, hcRoster);
     }
     void HCReport(string reason, int recipients)
     {
@@ -241,6 +268,8 @@ class HCTeamPingModule : HCModule
     }
     override void OnStop()
     {
+        array<Man> hcRoster = new array<Man>;
+        GetGame().GetPlayers(hcRoster);
         if (s_Instance == this) { s_Instance = null; }
         HCGroupService groups = HCGroupService.Get();
         if (groups) { groups.HCPingPreference(false); }
@@ -248,7 +277,7 @@ class HCTeamPingModule : HCModule
         m_Status.HCPublish("off", "server_stop_requested");
         HCReport("none", 0);
         // FULL replaces cached Places, including when Groups remains enabled.
-        if (groups) { groups.Broadcast(); }
+        if (groups) { groups.Broadcast(hcRoster); }
     }
 }
 modded class HCGroupService
@@ -263,33 +292,56 @@ modded class HCGroupService
         if (!HCPresentationReady() || !m_State) { return null; }
         return HCGroupRules.FindGroup(m_State, uid);
     }
-    HCGroupRecord HCPingGroup(HCGroupPeer peer)
+    HCGroupRecord HCPingGroup(HCGroupPeer peer, array<Man> hcRoster = null)
     {
-        if (!HCPresentationReady() || !Live(peer) || !m_State) { return null; }
-        if (Peer(peer.Id) != peer || peer.Identity.GetId() != peer.Id) { return null; }
-        if (!peer.Player.IsAlive() || peer.Player.IsUnconscious()) { return null; }
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
+        if (!HCPresentationReady() || !Live(peer, hcRoster) || !m_State) { return null; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        PlayerIdentity hcPeerIdentity;
+        if (hcPeerPlayer) hcPeerIdentity = hcPeerPlayer.GetIdentity();
+        HCGroupPeer hcFoundPeer1 = Peer(peer.Id);
+        if (!hcPeerPlayer || !hcPeerIdentity || hcFoundPeer1 != peer || hcPeerIdentity.GetId() != peer.Id) { return null; }
+        if (!hcPeerPlayer.IsAlive() || hcPeerPlayer.IsUnconscious()) { return null; }
         return HCGroupRules.FindGroup(m_State, peer.Id);
     }
-    bool HCPresentationRange(string uid, vector position)
+    bool HCPresentationRange(string uid, vector position, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         HCGroupPeer recipient = Peer(uid);
-        if (!HCPingGroup(recipient) || !HasGPS(recipient)) { return false; }
+        if (!HCPingGroup(recipient, hcRoster) || !HasGPS(recipient, hcRoster)) { return false; }
         // Reuse validated operator MaxIconDistance (default ~1 km network bubble).
-        return HCGroupVisibility.HCWithinRange(position, recipient.Player.GetPosition(), m_Config.MaxIconDistance);
+        PlayerBase hcRecipientPlayer;
+        if (recipient) hcRecipientPlayer = HCPlayerOf(hcRoster, recipient.Id);
+        return HCGroupVisibility.HCWithinRange(position, hcRecipientPlayer.GetPosition(), m_Config.MaxIconDistance);
     }
-    bool HCPresentationAllows(string uid, HCGroupPlace pin)
+    bool HCPresentationAllows(string uid, HCGroupPlace pin, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!pin) { return false; }
         if (pin.Id.IndexOf("hc-ping:") == 0)
         {
-            if (!HCPresentationRange(uid, pin.Position)) { return false; }
+            if (!HCPresentationRange(uid, pin.Position, hcRoster)) { return false; }
             HCTeamPingModule pings = HCTeamPingModule.Get();
-            return pings && pings.HCVisible(uid, pin);
+            return pings && pings.HCVisible(uid, pin, hcRoster);
         }
         // Corpse-run pins are gated on membership/life only, never on the
         // recipient's distance: a respawned teammate kilometres away still
         // needs the pin (MapIcons semantics, HCGroupService member rows).
-        if (!HCPingGroup(Peer(uid))) { return false; }
+        HCGroupPeer hcFoundPeer1 = Peer(uid);
+        if (!HCPingGroup(hcFoundPeer1, hcRoster)) { return false; }
         // No live corpse-session observation exists for cached death pins.
         // Never invent corpse LOS/radio; refuse when either is required.
         if (m_Config.RequireLOS || m_Config.RequireRadio)
@@ -300,68 +352,114 @@ modded class HCGroupService
         }
         return true;
     }
-    int HCPingDeliver(HCGroupRecord group, HCGroupPeer source, string label)
+    int HCPingDeliver(HCGroupRecord group, HCGroupPeer source, string label, array<Man> hcRoster = null)
     {
-        HCGroupRecord current = HCPingGroup(source);
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
+        HCGroupRecord current = HCPingGroup(source, hcRoster);
         if (!group || !current || current.Id != group.Id || current.Epoch != group.Epoch) { return 0; }
         int count = 0;
         HCGroupStringIndex members = new HCGroupStringIndex(group.Members);
-        foreach (HCGroupPeer recipient : m_Peers)
+        array<ref HCGroupPeer> hcRows3 = m_Peers;
+        foreach (HCGroupPeer recipient : hcRows3)
         {
-            if (!HCPingGroup(recipient) || !members.Has(recipient.Id)) { continue; }
-            if (!HCPresentationRange(recipient.Id, source.Player.GetPosition()) || !VisibilityAllows(source, recipient)) { continue; }
+            if (!HCPingGroup(recipient, hcRoster) || !members.Has(recipient.Id)) { continue; }
+            PlayerBase hcSourcePlayer;
+            if (source) hcSourcePlayer = HCPlayerOf(hcRoster, source.Id);
+            if (!HCPresentationRange(recipient.Id, hcSourcePlayer.GetPosition(), hcRoster) || !VisibilityAllows(source, recipient, hcRoster)) { continue; }
             // The sender sees its own marker but is not told about itself.
-            if (recipient.Id != source.Id) { NotificationSystem.SendNotificationToPlayerExtended(recipient.Player, 5, "Teammate status", source.Name + ": " + label); }
-            SendSnapshot(recipient, HCGroupSnapshotKind.FULL, 0);
+            PlayerBase hcRecipientPlayer;
+            if (recipient) hcRecipientPlayer = HCPlayerOf(hcRoster, recipient.Id);
+            if (recipient.Id != source.Id) { NotificationSystem.SendNotificationToPlayerExtended(hcRecipientPlayer, 5, "Teammate status", source.Name + ": " + label); }
+            SendSnapshot(recipient, HCGroupSnapshotKind.FULL, 0, hcRoster);
             count++;
         }
         return count;
     }
-    override void SendSnapshot(HCGroupPeer peer, int kind, int requestId)
+    override void SendSnapshot(HCGroupPeer peer, int kind, int requestId, array<Man> hcRoster = null, PlayerBase hint = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
+        if (s_HCTraceSnapshots) HCProbe(4, peer);
+        if (!peer) return;
         // Gate at collection, independently of KnownPlaces modded-link order.
         bool previousActive = HCGroupVisibility.HCSnapshotActive();
         string previousUid = HCGroupVisibility.HCRecipient();
         string uid = "";
-        if (Live(peer) && Peer(peer.Id) == peer && peer.Identity.GetId() == peer.Id) { uid = peer.Id; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id, hint);
+        PlayerIdentity hcPeerIdentity;
+        if (hcPeerPlayer) hcPeerIdentity = hcPeerPlayer.GetIdentity();
+        HCGroupPeer hcFoundPeer1 = Peer(peer.Id);
+        if (Live(peer, hcRoster, hint) && hcFoundPeer1 == peer && hcPeerIdentity.GetId() == peer.Id) { uid = peer.Id; }
         HCGroupVisibility.HCSnapshot(true, uid);
-        super.SendSnapshot(peer, kind, requestId);
+        super.SendSnapshot(peer, kind, requestId, hcRoster, hint);
         HCGroupVisibility.HCSnapshot(previousActive, previousUid);
     }
-    override void Broadcast()
+    override void Broadcast(array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         HCTeamPingModule pings = HCTeamPingModule.Get();
-        if (pings) { pings.HCInvalidate(); }
+        if (pings) { pings.HCInvalidate(hcRoster); }
         HCDeathPins deaths = HCDeathPins.Get();
-        if (deaths) { deaths.HCInvalidate(); }
-        super.Broadcast();
+        if (deaths) { deaths.HCInvalidate(hcRoster); }
+        super.Broadcast(hcRoster);
     }
-    override void Connected(PlayerIdentity identity, PlayerBase player)
+    override void Connected(PlayerIdentity identity, PlayerBase player, array<Man> hcRoster = null)
     {
-        if (m_Healthy && identity && player && HCPlayerIdentity.Same(player.GetIdentity(), identity))
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
+        PlayerIdentity connectedIdentity;
+        if (player) connectedIdentity = player.GetIdentity();
+        if (m_Healthy && identity && player && HCPlayerIdentity.Same(connectedIdentity, identity))
         {
             HCTeamPingModule pings = HCTeamPingModule.Get();
             if (pings) { pings.HCForget(identity.GetId()); }
         }
-        super.Connected(identity, player);
+        super.Connected(identity, player, hcRoster);
     }
-    override void Disconnected(PlayerIdentity identity)
+    override void Disconnected(PlayerIdentity identity, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (identity)
         {
             HCGroupPeer peer = Peer(identity.GetId());
             HCTeamPingModule pings = HCTeamPingModule.Get();
-            if (pings && peer && (!peer.Identity || HCPlayerIdentity.Same(peer.Identity, identity))) { pings.HCForget(peer.Id); }
+            if (pings && peer) { pings.HCForget(peer.Id); }
         }
-        super.Disconnected(identity);
+        super.Disconnected(identity, hcRoster);
     }
-    void HCPresentationFell(PlayerBase player)
+    void HCPresentationFell(PlayerBase player, array<Man> hcRoster = null)
     {
+        if (!hcRoster)
+        {
+            hcRoster = new array<Man>;
+            GetGame().GetPlayers(hcRoster);
+        }
         if (!m_Healthy || !player || !player.GetIdentity()) { return; }
         HCGroupPeer peer = Peer(player.GetIdentity().GetId());
-        if (!Live(peer) || peer.Player != player) { return; }
+        PlayerBase hcPeerPlayer;
+        if (peer) hcPeerPlayer = HCPlayerOf(hcRoster, peer.Id);
+        if (!Live(peer, hcRoster) || hcPeerPlayer != player) { return; }
         HCTeamPingModule pings = HCTeamPingModule.Get();
-        if (pings) { pings.HCForget(peer.Id); Broadcast(); }
+        if (pings) { pings.HCForget(peer.Id); Broadcast(hcRoster); }
     }
 }
 modded class HCModuleRegistry

@@ -1,4 +1,13 @@
-// Native 1.30 evidence: see scratchpad-review/v1-groups/REPORT.md.
+// Inspected native scripts-1.30.164289 ports (callers resolve entry-local bodies):
+// 3_Game/CfgGameplayHandler.c:438/443 map/navigation ownership preferences;
+// Entities/EntityAI.c:882/1884/3409 root player/inventory/energy manager;
+// Systems/Inventory/Inventory.c:127/134 EnumerateInventory/CountInventory;
+// Entities/Object.c:517/547/1219 alive/transmitter/ruined;
+// tools/Component/ComponentEnergyManager.c:925 IsWorking;
+// 4_World/Entities/Core/Inherited/InventoryItem.c:18/53-55 frequency/GPS power;
+// Entities/AdvancedCommunication/AdvancedCommunication.c:158 radio frequency;
+// 3_Game/human.c:1417 bone index; Entities/Object.c:238 bone position;
+// 1_Core/proto/EnEntity.c:571 GetParent; 3_Game/Global/DayZPhysics.c:199 RaycastRV.
 // Inventory is read only. Over-budget equipment fails closed.
 class HCGroupEquipment
 {
