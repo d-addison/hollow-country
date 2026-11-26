@@ -42,7 +42,7 @@ PHASES_FILE = Path(__file__).with_name('soak_phases.json')
 EXPECTATIONS = ROOT / 'config/activity-expectations.json'
 STATE = Path.home() / '.cache/hollow-country/soak-campaign'
 PHASE_ORDER = ('join', 'group', 'walk_ai', 'walk_town', 'combat', 'loot', 'fixtures', 'actions', 'vehicle',
-               'walk_zone', 'scene', 'forest', 'survive', 'mission', 'idle')
+               'walk_zone', 'scene', 'forest', 'survive', 'mission', 'ai_clear', 'idle')
 # Test-profile settings the staging writes (the shipped defaults stay untouched): the smoke fixtures, and a
 # short Fortify breach window so one scripted barricade can be breached inside the run.
 SOAK_SETTINGS = {'EnableSmokeFixtures': True, 'FortifyBreachSeconds': 20}
@@ -1498,6 +1498,90 @@ def render_report(rows, drivers, release_summary, selection=None, warnings=None)
     return '\n'.join(lines) + '\n', totals
 
 
+def ai_clear_evidence(server_rpt):
+    """Only known evidence grammars; retain duplicate despawns and associate by fixture site."""
+    from tools.release import rpt_summary
+    site = r"[a-zA-Z0-9_-]{1,96}"
+    patterns = [
+        r"\[HC Test\] fx_site_clear site=(?P<site>" + site + r") (?:kind=(?:zone|site) )?mode=(?:attributed|health) (?:start=1 reason=live-patrol-selected|kill=\d+ members_left=\d+ held_ms=\d+|result=(?:terminal|timeout|refused:[a-z-]+) kills=\d+ elapsed_s=\d+ last=[a-z-]+)",
+        r"\[HCX SitePatrol\] death_hold armed site=(?P<site>" + site + r") kills=\d+",
+        r"\[HCX SitePatrol\] death_hold_deferred reason=DEATH_HOLD_STALE site=(?P<site>" + site + r")",
+        r"\[HC Expansion AI\] site (?P<site>" + site + r") cleared-at=\d+ saved=(?:true|false|0|1)",
+        r"\[HC Expansion AI\] site (?P<site>" + site + r") despawned \(intact=(?:false|0)\)",
+        r"\[HC ZoneGuards\] zone=(?P<site>" + site + r") from=held to=abandoned",
+    ]
+    found, selected, counts = [], set(), {}
+    raw_lines = list(rpt_summary.lines(server_rpt))
+    begin = next((i for i, line in enumerate(raw_lines)
+                  if "[HC Test] fx_site_clear " in line and " start=1 " in line), 0)
+    for raw in raw_lines[begin:]:
+        if "[HC Fixture] cmd=fx_die " in raw and selected:
+            break
+        for index, pattern in enumerate(patterns):
+            match = re.search(pattern, raw)
+            if not match:
+                continue
+            ident = match['site']
+            if index == 0 and ident != 'none':
+                selected.add(ident)
+            if index == 5:
+                ident = 'zg-' + ident
+            found.append((ident, index, match[0]))
+            break
+    lines = [line for ident, _, line in found if ident in selected or ident == 'none']
+    for ident in sorted(selected):
+        counts[ident] = sum(1 for key, kind, _ in found if key == ident and kind == 4)
+    return lines, counts
+
+
+def ai_clear_mode_counters(server_rpt, *, excluded=False):
+    """Observed receipts by mode window, not per-mode deltas: HC Use totals are cumulative."""
+    from tools.release import rpt_summary
+    mode = None
+    observed = []
+    for raw in rpt_summary.lines(server_rpt):
+        if mode and "[HC Fixture] cmd=fx_die " in raw:
+            break
+        start = re.search(r"\[HC Test\] fx_site_clear site=[a-zA-Z0-9_-]{1,96} mode=(attributed|health) start=1 reason=live-patrol-selected", raw)
+        if start:
+            mode = start[1]
+        pattern = (r"\[HC Use\] module=(Infected[a-zA-Z]*|Hordes|HordeReinforce|NavInf) feature=([a-zA-Z0-9_-]{1,96}) count=(\d+)(?: fixture=\d+)?"
+                   if excluded else r"\[HC Use\] module=(SitePatrols|AISelfDefence) feature=(death-hold-armed|death-hold-released|death-hold-deferred|hit_reaction) count=(\d+)(?: fixture=\d+)?")
+        receipt = re.search(pattern, raw)
+        if mode and receipt:
+            observed.append((mode, receipt[1] + '/' + receipt[2], int(receipt[3]), receipt[0]))
+    return observed
+
+
+def ai_clear_report_lines(server_rpt):
+    evidence, counts = ai_clear_evidence(server_rpt)
+    if not evidence:
+        return []
+    lines = ['', '## ai_clear', '',
+             'Infected counters excluded: abandoned-zone StepOverrun spawns confound this phase.',
+             'BodyStories/body_observed excluded for police and zone sites.', '']
+    lines += ['    ' + line for line in evidence]
+    lines += ['', '| site | despawned lines | exactly one |', '| --- | --- | --- |']
+    lines += ['| %s | %d | %s |' % (site, count, 'PASS' if count == 1 else 'FAIL')
+              for site, count in counts.items()]
+    lines += ['', 'Counter receipts observed during each mode (cumulative, not attributable deltas):', '',
+              '| mode | counter | observed totals |', '| --- | --- | --- |']
+    receipts = ai_clear_mode_counters(server_rpt)
+    for mode in ('attributed', 'health'):
+        keys = sorted({key for observed_mode, key, _, _ in receipts if observed_mode == mode})
+        if not keys:
+            lines.append('| %s | no receipt observed | unproven |' % mode)
+        for key in keys:
+            values = [str(value) for observed_mode, counter, value, _ in receipts
+                      if observed_mode == mode and counter == key]
+            lines.append('| %s | %s | %s |' % (mode, key, ', '.join(values)))
+    lines += ['', 'Sparse HC Use receipts cannot establish absence; inspect native per-mode deltas.', '']
+    lines += ['    ' + receipt for _, _, _, receipt in receipts]
+    excluded = sorted({key for _, key, _, _ in ai_clear_mode_counters(server_rpt, excluded=True)})
+    lines += ['', 'Excluded observed infected counters: ' + (', '.join(excluded) or 'none observed') + '.']
+    return lines
+
+
 def admin_tour_failure(server_rpt):
     """Return a fixed reason, never echo arbitrary server log contents."""
     from tools.release import rpt_summary
@@ -1525,7 +1609,11 @@ def build_report(phases, server_rpt, client_rpt, selection=None):
     from tools.release.rpt_summary import r2b_warnings
     from tools.release.acceptance_targets import load_targets
     warnings = r2b_warnings(server_rpt, load_targets()['perf_r2_max_ms'])
-    return render_report(rows, drivers, summary, selection, warnings)
+    text, totals = render_report(rows, drivers, summary, selection, warnings)
+    evidence = ai_clear_report_lines(server_rpt)
+    if evidence:
+        text += "\n".join(evidence) + "\n"
+    return text, totals
 
 
 def last_run_logs(state=STATE):
@@ -1576,9 +1664,12 @@ def _campaign_driver_plan(route):
         tokens = index.setdefault(phase, {})
         for step in phase_steps:
             token = driver_script.step_token(step, notes)
+            choice = notes.get(step['id'], '') if phase == 'ai_clear' else ''
             step['id'] = 's%02d' % (len(steps) + 1)
             steps.append(step)
             tokens.setdefault(token, []).append(step['id'])
+            if choice:
+                tokens.setdefault('choice:' + choice, []).append(step['id'])
             if step['kind'] == 'admin' and step['cmd'].startswith('fx_'):
                 tokens.setdefault('fixture:' + step['cmd'], []).append(step['id'])
     digest = hashlib.sha256(json.dumps(steps, sort_keys=True).encode('utf-8')).hexdigest()

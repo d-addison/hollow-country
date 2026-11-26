@@ -74,6 +74,11 @@
    "what": "on foot into a published mission zone from outside (enter zone=mission: in, out and in again until the server's radius receipt arrives)"
   },
   {
+   "name": "ai_clear",
+   "minutes": 25,
+   "what": "bounded foot route to an authored held guard site or police fallback; live requester-attributed and health clears, 120 s post-clear observation, death and one CampRespawn; infected counters excluded as zone-overrun confounds"
+  },
+  {
    "name": "idle",
    "minutes": 125,
    "what": "stand still; background and time-window counters (125 minutes); DebugSnapshot fires every 300 s"
@@ -175,8 +180,9 @@
   "optional-expansion-human-ai/nav_stuck_recovery": "fixtures",
   "optional-expansion-human-ai/stuck_recovery": "fixtures",
   "Events/mission_radius_entered": "mission",
-  "BodyStories/death_checked": "fixtures",
-  "BodyStories/body_observed": "fixtures",
+  "BodyStories/death_checked": "ai_clear",
+  "BodyStories/body_observed": "ai_clear",
+  "CampRespawn/respawn_reserved": "ai_clear",
   "InfectedReach/vehicle_battered": "fixtures",
   "InfectedReach/strike_landed": "fixtures",
   "InfectedReach/reach_actions": "fixtures",
@@ -367,7 +373,7 @@
    ]
   },
   "BodyStories/body_observed": {
-   "phase": "fixtures",
+   "phase": "ai_clear",
    "how": [
     "fixture:fx_die",
     "code:HCBodyStories.c"
@@ -376,7 +382,7 @@
    "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_die. No synthetic counter increments."
   },
   "BodyStories/death_checked": {
-   "phase": "fixtures",
+   "phase": "ai_clear",
    "how": [
     "fixture:fx_die",
     "code:HCBodyStories.c"
@@ -385,7 +391,7 @@
    "note": "Pending driver/fixture worker: exercise the real feature through fixture:fx_die. No synthetic counter increments."
   },
   "CampRespawn/respawn_reserved": {
-   "phase": "fixtures",
+   "phase": "ai_clear",
    "how": [
     "fixture:fx_camp_setup",
     "fixture:fx_die",

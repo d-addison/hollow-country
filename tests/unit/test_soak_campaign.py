@@ -156,7 +156,6 @@ class PhaseMapTests(unittest.TestCase):
         lines, problems = camp.plan_text(PHASES)
         text = '\n'.join(lines)
         self.assertEqual(problems, [])
-        self.assertNotIn('pending-driver:', text)
         self.assertIn('unmapped counters: 0', text)
         for name in camp.PHASE_ORDER:
             self.assertIn(name, text)
@@ -171,7 +170,9 @@ class PhaseMapTests(unittest.TestCase):
                 self.assertTrue(all(p.startswith('pending-driver:') for p in problems))
         lines, unreached = camp.reach_lines(rows)
         self.assertEqual(unreached, 0)
-        self.assertNotIn('pending-driver:', '\n'.join(lines))
+        # Lead remap: the single death and respawn moved from fixtures to ai_clear.
+        for key in ("BodyStories/body_observed", "BodyStories/death_checked", "CampRespawn/respawn_reserved"):
+            self.assertEqual(PHASES['reach'][key]['phase'], 'ai_clear')
 
     def test_every_how_token_names_a_real_step_fixture_or_setting(self):
         context = camp.reach_context()
@@ -1362,3 +1363,63 @@ class MainTests(Tmp):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class AIClearEvidenceTests(unittest.TestCase):
+    def test_plan_indexes_both_modes_and_reserves_one_respawn(self):
+        script, index = camp._campaign_driver_plan(camp.PHASE_ORDER)
+        by_id = {s['id']: s for s in script['steps']}
+        ids = index['ai_clear']['fixture:fx_site_clear']
+        self.assertEqual([by_id[key]['value'] for key in ids], ['0', '1'])
+        self.assertEqual(sum(s['kind'] == 'respawn' for s in script['steps']), 1)
+        self.assertEqual(camp.PHASE_ORDER[-2:], ('ai_clear', 'idle'))
+        self.assertEqual(next(p['minutes'] for p in PHASES['phases'] if p['name'] == 'ai_clear'), 25)
+
+    def test_evidence_preserves_terminal_duplicates_and_missing_despawns(self):
+        lines = [
+            '[HCX SitePatrol] death_hold armed site=zg-vmc kills=1',
+            '[HC Test] fx_site_clear site=zg-vmc kind=zone mode=attributed kill=1 members_left=1 held_ms=0',
+            '[HCX SitePatrol] death_hold_deferred reason=DEATH_HOLD_STALE site=zg-vmc',
+            '[HC Expansion AI] site zg-vmc cleared-at=123 saved=true',
+            '[HC ZoneGuards] zone=vmc from=held to=abandoned',
+            '[HC Expansion AI] site zg-vmc despawned (intact=false)',
+            '[HC Expansion AI] site zg-vmc despawned (intact=false)',
+            '[HC Test] fx_site_clear site=zg-vmc mode=attributed result=terminal kills=2 elapsed_s=12 last=patrol-not-live',
+            '[HC Test] fx_site_clear site=police-chernogorsk kind=site mode=health kill=1 members_left=0 held_ms=0',
+            '[HC Test] fx_site_clear site=police-chernogorsk mode=health result=timeout kills=1 elapsed_s=180 last=death-held',
+            '[HC Expansion AI] site unrelated despawned (intact=false)',
+            'unrelated private log',
+        ]
+        with tempfile.TemporaryDirectory() as folder:
+            rpt = Path(folder) / 'server.RPT'
+            rpt.write_text('\n'.join(lines))
+            evidence, counts = camp.ai_clear_evidence(rpt)
+            self.assertEqual(evidence, lines[:-2])
+            self.assertEqual(counts, {'police-chernogorsk': 0, 'zg-vmc': 2})
+            report = '\n'.join(camp.ai_clear_report_lines(rpt))
+            self.assertIn('| zg-vmc | 2 | FAIL |', report)
+            self.assertIn('| police-chernogorsk | 0 | FAIL |', report)
+            self.assertIn('Infected counters excluded', report)
+            rpt.write_text('\n'.join(lines[:6] + lines[7:8]))
+            self.assertIn('| zg-vmc | 1 | PASS |', '\n'.join(camp.ai_clear_report_lines(rpt)))
+
+    def test_mode_receipts_are_observations_not_credited_deltas(self):
+        with tempfile.TemporaryDirectory() as folder:
+            rpt = Path(folder) / 'server.RPT'
+            rpt.write_text('\n'.join([
+                '[HC Use] module=SitePatrols feature=death-hold-armed count=8',
+                '[HC Test] fx_site_clear site=zg-vmc mode=attributed start=1 reason=live-patrol-selected',
+                '[HC Use] module=SitePatrols feature=death-hold-armed count=9',
+                '[HC Use] module=AISelfDefence feature=hit_reaction count=1',
+                '[HC Test] fx_site_clear site=police-chernogorsk mode=health start=1 reason=live-patrol-selected',
+                '[HC Use] module=SitePatrols feature=death-hold-armed count=15',
+                '[HC Use] module=InfectedVariety feature=actor_woken count=4',
+            ]))
+            observed = camp.ai_clear_mode_counters(rpt)
+            self.assertEqual([row[:3] for row in observed], [
+                ('attributed', 'SitePatrols/death-hold-armed', 9),
+                ('attributed', 'AISelfDefence/hit_reaction', 1),
+                ('health', 'SitePatrols/death-hold-armed', 15)])
+            report = '\n'.join(camp.ai_clear_report_lines(rpt))
+            self.assertIn('cumulative, not attributable deltas', report)
+            self.assertIn('Excluded observed infected counters: InfectedVariety/actor_woken.', report)

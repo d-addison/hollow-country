@@ -13,6 +13,7 @@
 // on a tracked AI; one native Weapon.Fire discharge exactly as HCXWarningShot does),
 // fx_shoot_held (held requester weapon, nearest AI <=60 m), fx_door_press (closed door pressure),
 // fx_die (requester death, then normal CampRespawn), fx_car_zeds (occupied-car pressure),
+// fx_site_clear (bounded full clear, 0 attributed/default, 1 health),
 // fx_site_patrol_kill (SitePatrols/death-hold-armed and death-hold-released, real site member death).
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:594/611/612 ConfigGetChildName/
 // ConfigGetChildrenCount/ConfigIsExisting, :703 CreateObjectEx, :705 ObjectDelete, :1437 IsKindOf;
@@ -70,7 +71,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
         if (command == "fx_kit_place" || command == "fx_kit_refuse") { return true; }
         if (command == "fx_barricade" || command == "fx_melee" || command == "fx_shoot") { return true; }
         if (command == "fx_shoot_held" || command == "fx_door_press" || command == "fx_die") { return true; }
-        return command == "fx_car_zeds" || command == "fx_site_patrol_kill";
+        return command == "fx_car_zeds" || command == "fx_site_patrol_kill" || command == "fx_site_clear";
     }
 
     override bool HCFixture(string command, vector pos, out string reason)
@@ -87,6 +88,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
                 reason = "position-invalid";
                 if (HCDebugSnapshot.HCPositionValid(pos) && pos[1] == pos[1])
                 {
+                    if (command == "fx_site_clear") { done = HCTestSiteClearFixture.HCStart(HCRequestActor, reason); }
                     if (command == "fx_site_patrol_kill") { done = HCSitePatrolKill(pos, reason); }
                     if (command == "fx_animal") { done = HCAnimal(pos, reason, created); }
                     if (command == "fx_food") { done = HCFood(pos, reason, created); }
@@ -111,7 +113,7 @@ class HCTestReachFixtures : HCAdminFixtureProvider
 
     override void HCFixtureKit(array<string> lines)
     {
-        array<string> commands = {"fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade", "fx_melee", "fx_shoot", "fx_shoot_held", "fx_door_press", "fx_die", "fx_car_zeds", "fx_site_patrol_kill"};
+        array<string> commands = {"fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade", "fx_melee", "fx_shoot", "fx_shoot_held", "fx_door_press", "fx_die", "fx_car_zeds", "fx_site_patrol_kill", "fx_site_clear"};
         string value = "0";
         string why = "EnableSmokeFixtures-off";
         if (HCAdminFixtures.HCEnabled())

@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MISSION = ROOT / "mission" / "hollow-country"
 VERSION = 1
 PHASES = ("join", "group", "walk_ai", "walk_town", "combat", "loot", "fixtures", "actions",
-          "vehicle", "walk_zone", "scene", "forest", "survive", "mission", "idle")
+          "vehicle", "walk_zone", "scene", "forest", "survive", "mission", "ai_clear", "idle")
 # A phase that needs a place walks there first unless the route already stands within this of it, so
 # every phase also runs alone (a targeted soak drives join, the phase and idle).
 SPAWN_XZ = (6500.0, 2500.0)
@@ -392,6 +392,8 @@ def _phase_fixtures(b):
             b.walk(AI_SITE)
             b.admin(cmd)  # One retry after approaching the authored patrol site.
         elif cmd == "fx_die":
+            if "ai_clear" in getattr(b, "requested", set()):
+                continue  # Reserve the account's one respawn for the final driven phase.
             b.add("admin", cmd=cmd, value="")
             b.add("respawn", timeout_s=180)
         else:
@@ -481,6 +483,68 @@ def _phase_survive(b):
     b.add("survive", mode="always", timeout_s=120)
 
 
+def ai_clear_targets(origin):
+    """Offline reach preflight: held guard slots first, then police; bounded foot travel.
+
+    Authored ground slots are candidates, never claims of live actors or navmesh reachability.
+    The existing walk's arrival/stuck result is the native reach evidence.
+    """
+    candidates = []
+    for zone in _load("ai/zones.json").get("zones", []):
+        slots = zone.get("guard_slots") or []
+        if zone.get("default_state") != "held" or not slots:
+            continue
+        point = _xz(slots[0], "guard-slot")
+        distance = math.dist(origin, point)
+        if distance <= 1800:
+            candidates.append((0, distance, "zone:" + zone["id"], point))
+    point = resolve_waypoint(AI_SITE)
+    if math.dist(origin, point) <= 1800:
+        candidates.append((1, math.dist(origin, point), AI_SITE, point))
+    candidates.sort()
+    if not candidates:
+        return []
+    first = candidates[0]
+    # A second distinct authored site must be within the same short on-foot reach envelope.
+    second = sorted((math.dist(first[3], row[3]), row) for row in candidates[1:]
+                    if math.dist(first[3], row[3]) <= 500)
+    return [first] + ([second[0][1]] if second else [])
+
+
+def _phase_ai_clear(b):
+    origin = b.last_walk_target if b.uncertain else b.position
+    targets = ai_clear_targets(origin)
+    if not targets:
+        # No position writes and no speculative cross-map route. Retain a visible preflight note.
+        b.add("stand", seconds=1, note="ai_clear:skip:no-authored-site-within-1800m")
+        return
+    for mode, (_, distance, source, point) in enumerate(targets):
+        # Use the authored guard slot rather than a potentially remote zone centre.
+        leg = b.distance_to(point)
+        b.add("walk", to=list(point), gait="jog", arrive_m=50,
+              timeout_s=_timeout_for(leg, "jog"),
+              note="ai_clear:target=" + source + ":reason=held-guard-slot-or-police;reach=bounded-foot")
+        b.position = b.last_walk_target = point
+        b.uncertain = False
+        b.add("stand", seconds=20)
+        if mode == 0:
+            b.admin("fx_incident")
+            b.admin("fx_tactic")
+        b.add("admin", cmd="fx_site_clear", value=str(mode))
+        # Existing stand has no server-line predicate; the full 200 s covers the 180 s fixture cap.
+        b.add("stand", seconds=200)
+        b.add("stand", seconds=120)
+    if len(targets) == 1:
+        # A clear removes the live first site. Let the fixture select another live patrol nearby;
+        # otherwise it reports no-patrol without damage. Both modes are always requested.
+        b.add("admin", cmd="fx_site_clear", value="1")
+        b.add("stand", seconds=200)
+        b.add("stand", seconds=120)
+    b.add("admin", cmd="fx_die", value="")
+    b.add("respawn", timeout_s=180)
+    # No existing step can target the runtime death position: no return walk is fabricated.
+
+
 def _phase_idle(b):
     b.add("stand", seconds=60)
 
@@ -490,7 +554,7 @@ _PHASE_BUILDERS = {
     "walk_zone": _phase_walk_zone, "walk_town": _phase_walk_town, "combat": _phase_combat,
     "loot": _phase_loot, "fixtures": _phase_fixtures, "actions": _phase_actions, "vehicle": _phase_vehicle,
     "scene": _phase_scene, "forest": _phase_forest, "survive": _phase_survive, "mission": _phase_mission,
-    "idle": _phase_idle,
+    "ai_clear": _phase_ai_clear, "idle": _phase_idle,
 }
 
 
@@ -499,6 +563,7 @@ def build_plan(phases, *, phase_ranges=None):
     if not isinstance(phases, (list, tuple)) or not phases:
         raise ScriptError("phases must be a non-empty list")
     builder = _Builder()
+    builder.requested = set(phases)
     for phase in phases:
         if phase not in _PHASE_BUILDERS:
             raise ScriptError("unknown phase %r (known: %s)" % (phase, ", ".join(PHASES)))
@@ -536,6 +601,7 @@ def step_token(step, notes):
 def phase_index():
     """{phase: {token: [step ids]}} of the default route, the ids the written step file will carry."""
     builder = _Builder()
+    builder.requested = set(PHASES)
     index = {}
     for phase in PHASES:
         start = len(builder.steps)
@@ -543,7 +609,7 @@ def phase_index():
         tokens = index.setdefault(phase, {})
         for step in builder.steps[start:]:
             tokens.setdefault(step_token(step, builder.notes), []).append(step["id"])
-            if step["kind"] == "admin" and step["cmd"] in FIXTURES:
+            if step["kind"] == "admin" and step["cmd"].startswith("fx_"):
                 tokens.setdefault("fixture:" + step["cmd"], []).append(step["id"])
     return index
 

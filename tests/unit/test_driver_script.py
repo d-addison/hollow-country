@@ -29,7 +29,8 @@ class DriverScriptTests(unittest.TestCase):
 
     def test_initial_spawn_route_uses_nearest_legs_and_measured_lengths(self):
         script, notes = ds.build_plan(list(ds.PHASES))
-        walks = [step for step in script["steps"] if step["kind"] == "walk"]
+        walks = [step for step in script["steps"] if step["kind"] == "walk"
+                 and not notes[step["id"]].startswith("ai_clear:")]
         self.assertEqual([notes[s["id"]] for s in walks],
                          [ds.AI_SITE, ds.TOWN, ds.AI_SITE, ds.ZONE, ds.SCENE, ds.FOREST])
         first = walks[0]
@@ -37,6 +38,31 @@ class DriverScriptTests(unittest.TestCase):
         distance = math.dist(ds.SPAWN_XZ, first["to"])
         self.assertLess(distance, 100)
         self.assertEqual(first["timeout_s"], ds._timeout_for(distance + 150, first["gait"]))
+
+    def test_ai_clear_plan_uses_existing_steps_both_modes_and_one_respawn(self):
+        script, notes = ds.build_plan(["fixtures", "ai_clear"])
+        steps = script["steps"]
+        clear = [s for s in steps if s.get("cmd") == "fx_site_clear"]
+        self.assertEqual([s["value"] for s in clear], ["0", "1"])
+        self.assertEqual(sum(s["kind"] == "respawn" for s in steps), 1)
+        self.assertEqual(sum(s.get("cmd") == "fx_die" for s in steps), 1)
+        self.assertEqual(ds.PHASES[-2:], ("ai_clear", "idle"))
+        self.assertEqual(len(ds.phase_index()["ai_clear"]["fixture:fx_site_clear"]), 2)
+        self.assertTrue(any("reach=bounded-foot" in note for note in notes.values()))
+        for clear_step in clear:
+            following = steps[steps.index(clear_step) + 1]
+            self.assertEqual((following["kind"], following["seconds"]), ("stand", 200))
+        self.assertTrue(any(s["kind"] == "stand" and s["seconds"] == 120 for s in steps))
+
+    def test_ai_clear_prefers_authored_held_guard_and_short_second_site(self):
+        targets = ds.ai_clear_targets(ds.SPAWN_XZ)
+        self.assertEqual([row[2] for row in targets], ["zone:balota", ds.AI_SITE])
+        self.assertEqual(targets[0][3], (6652.3, 2907.0))
+        self.assertEqual(ds.ai_clear_targets((15000, 1000)), [])
+        script, notes = ds.build_plan(["ai_clear"])
+        self.assertEqual([s["to"] for s in script["steps"] if s["kind"] == "walk"],
+                         [list(row[3]) for row in targets])
+        self.assertTrue(all(s["arrive_m"] <= 150 for s in script["steps"] if s["kind"] == "walk"))
 
     def test_phase_ranges_describe_combined_route_not_standalone_lengths(self):
         ranges = {}
@@ -167,7 +193,8 @@ class DriverScriptTests(unittest.TestCase):
 
     def test_default_route_walks_only_to_resolved_waypoints(self):
         script, notes = ds.build_plan(list(ds.PHASES))
-        walks = [step for step in script["steps"] if step["kind"] == "walk"]
+        walks = [step for step in script["steps"] if step["kind"] == "walk"
+                 and not notes[step["id"]].startswith("ai_clear:")]
         self.assertEqual(len(walks), 6)
         self.assertTrue(any(notes[step["id"]].startswith("scene:") for step in walks))
         for step in walks:
