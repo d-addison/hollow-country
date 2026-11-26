@@ -96,6 +96,7 @@ RULES = {
     'HC-E037': 'UpdatePathgraphRegionByObject refreshes a flat-Y region; use HCPathgraphRefresh bounds with explicit Y margins',
     'HC-E049': 'modded class of an engine class the compiler refuses to mod (native compile: Engine class cannot be modded); hook the scripted subclass instead',
     'HC-E051': 'assignment into an indexed slot whose index calls a function (native compile: Function definition inside block); hold the index in a local first',
+    'HC-E057': 'protected or private member accessed outside its declaring class or permitted subclass',
     'HC-E056': 'PlayerIdentity script references compared; use HCPlayerIdentity.Same with non-empty GetId values',
     'HC-E048': 'foreach iterates a call result directly (native VME NULL pointer to instance, #337); hold the collection in a typed local first',
     'HC-E038': 'array.Remove(0) moves the LAST element into slot 0 (native EnScript.c Remove, unordered); use RemoveOrdered(0) or annotate "// HC-ORDER: unordered ok"',
@@ -175,6 +176,9 @@ class Project:
         self.native_globals = dict(PINNED_GLOBALS)
         self.native_globals.update((symbols or {}).get('globals', {}))
         self._receiver_cache = {}
+        self._access_cache = {}
+        self.receiver_coverage = Counter()
+        self.native_access = (symbols or {}).get('access_classes', {})
         self.provider_layers = provider_layers or {}
         self.storage_allowlist = load_storage_allowlist()
         self.provider_methods = load_provider_methods()
@@ -317,6 +321,149 @@ class Project:
         result = methods, fields, complete
         self._receiver_cache[key] = result
         return result
+
+
+def _access_members(source, definition):
+    """Include public declarations so a nearer declaration hides an ancestor."""
+    members = {f.name: ('private' if 'private' in f.modifiers else
+                        'protected' if 'protected' in f.modifiers else '')
+               for f in definition.fields}
+    for signature in source.class_signatures(definition):
+        access = ('private' if 'private' in signature.modifiers else
+                  'protected' if 'protected' in signature.modifiers else '')
+        # A public overload makes name-only access checking inconclusive.
+        if signature.name not in members or members[signature.name]:
+            members[signature.name] = access
+    return members
+
+
+def native_member_access(root):
+    """Supplement the native name/type cache, which omits field access modifiers.
+
+    For example 1.30.164289 3_Game/Entities/EntityAIType.c:3 declares the
+    protected m_TypeAttachmentGroupsHolder field. Parse installed declarations;
+    never infer access from naming conventions or the pinned names-only index.
+    """
+    classes = {}
+    for layer in es.LAYERS:
+        for path in sorted((Path(root) / layer).rglob('*.c')):
+            source = es.read_source(path)
+            for definition in source.classes:
+                classes.setdefault(definition.name, []).append({
+                    'layer': source.layer, 'members': _access_members(source, definition)})
+    return classes
+
+
+def _access_lineage(project, name, layer, seen=None):
+    """Visible authored and native ancestors, including modded inheritance links."""
+    seen = set() if seen is None else seen
+    if not name or name in seen:
+        return
+    seen.add(name)
+    yield name
+    parents = [d.base for d in project.links.get(name, ())
+               if d.base and (layer is None or d.source.layer is None or d.source.layer <= layer)]
+    parents += [d['parent'] for d in project.symbols.get(name, ())
+                if d['parent'] and (layer is None or d['layer'] <= layer)]
+    for parent in parents:
+        yield from _access_lineage(project, parent, layer, seen)
+
+
+def _member_access(project, kind, layer):
+    key = kind, layer
+    if key not in project._access_cache:
+        members = {}
+        # Derived declarations, then ancestors; modded bodies belong to the same class.
+        for owner in _access_lineage(project, kind, layer):
+            own = {}
+            for entry in project.native_access.get(owner, ()):
+                if layer is None or entry['layer'] <= layer:
+                    own.update({name: (access, owner, True)
+                                for name, access in entry['members'].items()})
+            for definition in project.links.get(owner, ()):
+                if layer is None or definition.source.layer is None or definition.source.layer <= layer:
+                    own.update({name: (access, owner, False) for name, access
+                                in _access_members(definition.source, definition).items()})
+            for name, declaration in own.items():
+                members.setdefault(name, declaration)
+        project._access_cache[key] = members
+    return project._access_cache[key]
+
+
+_MEMBER_CHAIN = re.compile(r'(?<![\w.)\]])\b[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)+')
+_DOTTED_MEMBER = re.compile(r'\.\s*([A-Za-z_]\w*)')
+
+
+def rule_member_access(project, source):
+    """HC-E057: explicit declared receivers only, as in HC-E012/HC-E046.
+
+    Count each member receiver, including unresolved call/index results, once.
+    Incomplete ancestry does not prevent checking a known declaration, but an
+    unknown receiver or declaration is never evidence of an access violation.
+    """
+    contexts = [(method, source.body(method), source.local_declarations(method))
+                for method in _all_methods(source)]
+    # Field initializers have a class context but no local bindings. Mask method
+    # declarations/bodies so their receivers are checked and counted only once.
+    for definition in source.classes:
+        start, end = definition.body_start, definition.body_end
+        body = source.code[start:end + 1]
+        for method in reversed(definition.methods):
+            left, right = source.header_start(method) - start, method.body_end + 1 - start
+            body = body[:left] + ' ' * (right - left) + body[right:]
+        context = es.Method('<initializer>', '', frozenset(), '', start, start, end, definition)
+        contexts.append((context, body, []))
+    for method, body, declarations in contexts:
+        fields = (project.receiver_members(method.owner.name, source.layer)[1]
+                  if method.owner else {})
+        parameters = {name: kind for kind, name, _ in method.parameters()}
+        total = len(list(_DOTTED_MEMBER.finditer(body)))
+        resolved = 0
+        caller = method.owner.name if method.owner else ''
+        caller_lineage = set(_access_lineage(project, caller, source.layer))
+        for chain in _MEMBER_CHAIN.finditer(body):
+            # A suffix of a call/index result must not become a bare receiver.
+            if body[:chain.start()].rstrip().endswith(('.', ')', ']')):
+                continue
+            offset = method.body_start + chain.start()
+            first = re.match(r'[A-Za-z_]\w*', chain[0])[0]
+            bindings = [kind for name, kind, start, end in declarations
+                        if name == first and start <= offset < end]
+            if first == 'this' and caller:
+                kind = caller
+            elif first == 'super' and caller:
+                # In a modded body super reaches the previous body of C, not
+                # C's parent (ZombieBase.c:583 declares its protected voice hook).
+                kind = (caller if method.owner.modded else
+                        next(iter(list(_access_lineage(project, caller, source.layer))[1:]), ''))
+            elif bindings:
+                kind = bindings[-1]
+            elif first in parameters:
+                kind = parameters[first]
+            elif first in fields:
+                kind = fields[first]
+            elif first in project.links or (project.engine_receivers and first in project.symbols):
+                kind = first
+            else:
+                kind = ''
+            for member in _DOTTED_MEMBER.finditer(chain[0]):
+                kind = project.resolve_typedef(kind)
+                known = kind in project.links or (project.engine_receivers and kind in project.symbols)
+                layers = project.declaring_layers(kind, source) if known else set()
+                if (not known or '<' in kind or
+                        (layers and source.layer is not None and min(layers) > source.layer)):
+                    break
+                resolved += 1
+                declaration = _member_access(project, kind, source.layer).get(member[1])
+                if declaration:
+                    access, owner, native = declaration
+                    allowed = caller == owner or (access == 'protected' and owner in caller_lineage)
+                    if access and not allowed:
+                        yield _finding('HC-E057', source, offset + member.start(1), _symbol(method),
+                                       f'{kind}.{member[1]}: {access} member declared in {owner}; '
+                                       f'access from {caller or "<file>"} is not permitted', native=native)
+                kind = project.receiver_members(kind, source.layer)[1].get(member[1], '')
+        project.receiver_coverage.update(total=total, resolved=resolved, unresolved=total - resolved)
 
 
 def _finding(rule, source, offset, symbol, message, native=False, key=None):
@@ -3123,7 +3270,7 @@ def rule_duplicate_rpc_ids(project, source):
 
 
 ALL_RULES = (rule_fixture_catalog, rule_duplicate_rpc_ids, rule_proto_native_methods, rule_config_only_weapon_compat, rule_engine_class_modded, rule_duplicate_locals, rule_static_const_literals, rule_fresh_arguments, rule_broken_else, rule_typename_null, rule_native_named_methods, rule_parse_issues, rule_ternary, rule_string_formula, rule_boolean_string_formula, rule_leading_operator, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
-             rule_receiver_layers, rule_receiver_methods, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
+             rule_receiver_layers, rule_receiver_methods, rule_member_access, rule_expansion_bridge, rule_dependency_bridges, rule_modded_module,
              rule_collection_keys, rule_handle_null, rule_identity_comparisons, rule_vanilla_storage,
              rule_type_named_variables, rule_modded_field_order,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
@@ -3134,12 +3281,14 @@ ALL_RULES = (rule_fixture_catalog, rule_duplicate_rpc_ids, rule_proto_native_met
              _names.make_rule(sys.modules[__name__], _syntax))
 
 
-def lint(sources, native=None, rules=ALL_RULES, symbols=None, provider_layers=None):
+def lint(sources, native=None, rules=ALL_RULES, symbols=None, provider_layers=None, receiver_coverage=None):
     project = Project(sources, native, symbols, provider_layers)
     findings = []
     for source in sources:
         for rule in rules:
             findings.extend(rule(project, source))
+    if receiver_coverage is not None:
+        receiver_coverage.update(project.receiver_coverage)
     return sorted(set(findings), key=lambda f: (f.path, f.line, f.rule, f.symbol, f.key))
 
 
@@ -3253,13 +3402,17 @@ def main(argv=None):
         else:
             found = native_global_functions(path, names)
         symbols = dict(symbols, globals=found)
+    if symbols is not None and native_origin != 'names-index':
+        symbols = dict(symbols, access_classes=native_member_access(path))
     provider_layers = {}
     if not args.no_native:
         project = Project(sources, native, symbols)
         unknown = {d.name for source in sources for d in source.classes
                    if d.modded and not project.declaring_layers(d.name, source)}
         provider_layers = workshop_class_layers(unknown)
-    findings = lint(sources, native, symbols=symbols, provider_layers=provider_layers)
+    receiver_coverage = {}
+    findings = lint(sources, native, symbols=symbols, provider_layers=provider_layers,
+                    receiver_coverage=receiver_coverage)
     client_blocks, client_findings = client_branch_coverage(
         sources, native, symbols, provider_layers)
     findings = sorted(set(findings + client_findings),
@@ -3276,10 +3429,15 @@ def main(argv=None):
     rpc_count = len(rpc_id_inventory(sources))
     if args.json:
         print(json.dumps({'rpc_ids': rpc_count, 'status': 'fail' if new or stale else 'pass', 'native': native is not None,
+                          'member_receivers': receiver_coverage,
                           'client_blocks': client_blocks, 'client_findings': len(client_findings),
                           'counts': {r: {'total': per_rule[r], 'new': new_rule[r]} for r in RULES},
                           'new': [asdict(f) for f in new], 'stale': stale}, indent=1))
     else:
+        total = receiver_coverage.get('total', 0)
+        unresolved = receiver_coverage.get('unresolved', 0)
+        share = unresolved / total if total else 0
+        print(f'enforce_lint: HC-E057 unresolved receivers={unresolved}/{total} ({share:.2%})')
         print(f'enforce_lint: RPC id inventory={rpc_count}')
         for block in client_blocks:
             print('client-branch: {path}:{line}-{end_line} {condition} '
