@@ -68,6 +68,11 @@ def ce_slots_main(mission):
           '(offline estimate; not native placement acceptance)'
           % (gate['status'].upper(), gate['demand'], gate['required_with_headroom'],
              max(0, gate['headroom_deficit']), ce_slot_pressure.LIMIT))
+    caps = gate.get('engine_caps')
+    if caps and caps['status'] != 'pass':
+        # A cap violation fails the gate even with deficit=0; name it so the FAIL line is not a mystery.
+        print('mission_sources: ce_slots engine_caps FAIL ' + ' '.join(
+            '%s.%s=%d>%d' % (v['class'], v['field'], v['actual'], v['cap']) for v in caps['violations'][:12]))
     return 1 if gate['status'] == 'fail' else 0
 
 
