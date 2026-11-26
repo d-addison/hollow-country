@@ -136,7 +136,8 @@ class HCGroupClock
     }
 }
 
-class HCGroupPeer
+// Managed: a weak holder (loop local, candidate, debug row) auto-nulls once m_Peers drops the only ref.
+class HCGroupPeer : Managed
 {
     string Id;
     string Name;
@@ -394,10 +395,14 @@ class HCGroupService
         if (!peer || (peer.Identity && !HCPlayerIdentity.Same(peer.Identity, identity))) return;
         // Persist batched discovery while the leaving explorer is still live.
         if (m_Healthy && FlushBatch() == HCGroupCode.STORAGE) { Stop(); return; }
-        m_Peers.Remove(m_Peers.Find(peer));
-        HCGroupRules.DropInvites(m_State, 0, peer.Id);
+        // HCGroupPeer is not Managed and m_Peers holds its only ref: Remove frees it. Read the id and drop
+        // the weak fields first; the freed peer must not be read or written afterwards (heap corruption).
+        string leaving = peer.Id;
         peer.Identity = null;
         peer.Player = null;
+        m_Peers.Remove(m_Peers.Find(peer));
+        peer = null;
+        HCGroupRules.DropInvites(m_State, 0, leaving);
         Broadcast();
     }
 

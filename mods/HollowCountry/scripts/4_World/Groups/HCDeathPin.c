@@ -34,7 +34,8 @@ class HCDeathPinState
     ref array<ref HCDeathPinRow> Rows = new array<ref HCDeathPinRow>;
 }
 
-class HCDeathPins
+// Managed: the static s_Instance auto-nulls if the owning ref is replaced without HCStop.
+class HCDeathPins : Managed
 {
     protected string m_StatusLogLine;
     protected float m_StatusLogAt;

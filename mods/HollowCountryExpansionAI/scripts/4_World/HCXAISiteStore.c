@@ -673,8 +673,11 @@ class HCXAISiteStorage : HCXAISiteBase
     {
         if (added)
         {
+            // HCXAICacheRow is not Managed and Rows holds its only ref: drop the raw index entry first,
+            // because RemoveItem frees the row and row.SiteId must not be read afterwards.
+            string siteId = row.SiteId;
+            if (m_CacheRows.Get(siteId) == row) { m_CacheRows.Remove(siteId); }
             m_Caches.Rows.RemoveItem(row);
-            if (m_CacheRows.Contains(row.SiteId)) { m_CacheRows.Remove(row.SiteId); }
             return;
         }
         memo.Restore(row);
