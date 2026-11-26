@@ -180,7 +180,10 @@ modded class HCGroupService
 {
     protected int m_HCPinsCursor;
     protected int m_HCPinsLogCursor;
-    protected HCGroupPeer m_TrailExplorer;
+    // Id + session, not the peer: HCGroupPeer is not Managed and a logout or reconnect frees it while the
+    // staged save is still pending. Re-resolved through Peer() after the save.
+    protected string m_TrailExplorerId;
+    protected string m_TrailExplorerSession;
     protected ref HCGroupStringIndex m_TrailPrior;
     protected int m_TrailGroup;
 
@@ -243,7 +246,8 @@ modded class HCGroupService
         if (result == HCGroupCode.STORAGE) { Stop(); return; }
         if (result == HCGroupCode.OK)
         {
-            m_TrailExplorer = explorer;
+            m_TrailExplorerId = explorer.Id;
+            m_TrailExplorerSession = explorer.Session;
             m_TrailPrior = trails;
             m_TrailGroup = candidateGroup.Id;
         }
@@ -252,9 +256,12 @@ modded class HCGroupService
     override void HCPostBatchSave()
     {
         super.HCPostBatchSave();
-        HCGroupPeer explorer = m_TrailExplorer;
+        HCGroupPeer explorer = null;
+        if (m_TrailExplorerId != "") { explorer = Peer(m_TrailExplorerId); }
+        if (explorer && explorer.Session != m_TrailExplorerSession) { explorer = null; }
         HCGroupStringIndex prior = m_TrailPrior;
-        m_TrailExplorer = null;
+        m_TrailExplorerId = "";
+        m_TrailExplorerSession = "";
         m_TrailPrior = null;
         if (!Live(explorer) || !prior || !explorer.Player.IsAlive() || explorer.Player.IsUnconscious()) { return; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, explorer.Id);

@@ -109,7 +109,13 @@ class HCBaseRaid
     protected static string s_Refusal;
     protected static string s_RequestRefusal;
 
-    static void HCBind(HCBaseRaidPort port) { s_Port = port; }
+    static void HCBind(HCBaseRaidPort port)
+    {
+        // s_WarningPort is raw (HCBaseRaidPort is not Managed): replacing s_Port frees the old port, so drop a
+        // pending warning that still points at it instead of calling HCCancel on freed memory later.
+        if (port != s_Port) { s_WarningPort = null; s_WarningCamp = null; }
+        s_Port = port;
+    }
     static HCBaseRaidPort HCGet() { return s_Port; }
     static HCBaseRaidConfig HCConfig() { return s_Config; }
     static bool HCOwns(string lease) { return (s_Port && s_Port.HCOwns(lease)) || HCCampProbes.HCVisitorOwns(lease); }

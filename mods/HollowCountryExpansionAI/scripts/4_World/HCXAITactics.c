@@ -341,7 +341,9 @@ class HCXAITactics
     protected static ref HCXTacticsScan s_Scan;
     protected static ref HCXTacticsView s_View = new HCXTacticsView;
     protected static ref HCWorkBudget s_Budget = new HCWorkBudget;
-    protected static HCXTacticsGroup s_ScanGroup;
+    // ref: HCXTacticsGroup is not Managed. Track() evicts the oldest record (RemoveOrdered(0)) and the sweep
+    // drops stale ones while a scan is still open, which freed a raw s_ScanGroup before ExecuteSmoke/Lure.
+    protected static ref HCXTacticsGroup s_ScanGroup;
     protected static ref HCXAIAgentHold s_ScanActorHold;
     protected static bool s_ScanSmoke;
     protected static vector s_ScanAim;

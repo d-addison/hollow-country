@@ -100,7 +100,8 @@ class HCDebugSnapshot
     protected int m_ContributorPoints;
     protected int m_ContributorRoutes;
     protected bool m_Describing;
-    // Weak owner: dropping an aborted capture releases the lock automatically.
+    // Raw, not auto-nulled: HCDebugSnapshot is not Managed, so the destructor below releases the lock when an
+    // aborted capture is dropped (otherwise every later capture is refused against a freed owner).
     protected static HCDebugSnapshot s_Capturing;
     protected static int s_CaptureTick = -1;
     protected ref HCWorkBudget m_RowBudget = new HCWorkBudget;
@@ -168,6 +169,11 @@ class HCDebugSnapshot
         int index = s_Contributors.Find(contributor);
         if (index >= 0) { s_Contributors.RemoveOrdered(index); }
         if (s_Contributors.Count() == 0) { s_Contributors = null; }
+    }
+
+    void ~HCDebugSnapshot()
+    {
+        if (s_Capturing == this) { s_Capturing = null; }
     }
 
     void HCDebugSnapshot(int worldTime)

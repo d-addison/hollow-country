@@ -1,6 +1,8 @@
 class HCInteriorActionData : ActionData
 {
-    HCInteriorSite Site;
+    // ref: HCInteriorSite is not Managed; HCSearchHouses.Stop() clears m_Sessions while an action is open.
+    // No cycle: the site's owner link is weak.
+    ref HCInteriorSite Site;
 }
 
 class HCActionSearchInteriorCB : ActionContinuousBaseCB

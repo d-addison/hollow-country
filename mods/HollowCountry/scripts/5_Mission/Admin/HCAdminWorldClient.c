@@ -18,7 +18,9 @@ class HCAdminWorldStyle
 }
 class HCAdminWorldPin
 {
-    HCAdminMark Mark;
+    // ref: HCAdminMark is not Managed. A snapshot reply replaces StaticRows/DynamicRows (freeing the old
+    // marks) before the next Refresh rebuilds m_Pins, and Click/Select read pin.Mark in between.
+    ref HCAdminMark Mark;
     HCAdminWorldStyle Style;
     vector Screen;
     int Count;

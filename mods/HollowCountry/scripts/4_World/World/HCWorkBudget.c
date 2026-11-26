@@ -236,7 +236,9 @@ class HCSaveScheduler : HCModule
     protected ref HCSaveStageBudget m_StageBudget = new HCSaveStageBudget;
     protected int m_TickStages;
     protected int m_StageLimit = 1; // stage cap of the dispatch that is running or ran last
-    protected HCSaveJob m_Active;
+    // ref: HCSaveJob is not Managed. An owner that quarantines unregisters and drops its job outside the
+    // dispatch (HCInfectedModule.Quarantine), which freed a raw m_Active held across ticks.
+    protected ref HCSaveJob m_Active;
     protected int m_SelectIndex;
     protected bool m_InDispatch;      // set for the whole of a dispatch; still set on entry = the last one aborted
     protected int m_TickDispatchMs = -1; // GetTime() of the last module-tick dispatch (one dispatch per frame)
@@ -593,7 +595,7 @@ class HCSaveScheduler : HCModule
             return;
         }
         m_InDispatch = true;
-        if (m_Active && (!m_Active.HCInFlight || s_Jobs.Find(m_Active) < 0))
+        if (m_Active && (s_Jobs.Find(m_Active) < 0 || !m_Active.HCInFlight))
         {
             // Completed or abandoned outside the scheduler (barrier write, stop).
             m_Active = null;
