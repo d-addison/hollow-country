@@ -50,6 +50,11 @@ class UseAfterRemoveRule(unittest.TestCase):
         symbols = {'classes': {'NativeBase': [{'modded': False, 'parent': 'Managed', 'layer': 2, 'fields': {}, 'methods': {}}]}}
         self.assertEqual([], lint.lint([source], symbols=symbols, rules=(lint.rule_use_after_remove,)))
 
+    def test_native_primitive_class_is_a_value(self):
+        source = es.Source(PATH, 'class Row { float Cost; } class Holder { ref array<ref Row> Rows; void Run() { float value = Rows.Get(0).Cost + Measure(); Rows.Set(0, new Row); Use(value); } }')
+        symbols = {'classes': {'float': [{'modded': False, 'parent': '', 'layer': 1, 'fields': {}, 'methods': {}}]}}
+        self.assertEqual([], lint.lint([source], symbols=symbols, rules=(lint.rule_use_after_remove,)))
+
     def test_nonowning_containers_and_primitive_values(self):
         for fields in ('ref array<Row> Rows;', 'ref map<int, Row> Rows;'):
             self.assertEqual([], self.findings('Row row = Rows[0]; Rows.Clear(); Use(row.Id);', fields=fields))
@@ -134,6 +139,90 @@ class UseAfterRemoveRule(unittest.TestCase):
     def test_remove_find_parameter_and_index_local(self):
         for mutation in ('Rows.Remove(Rows.Find(row));', 'int index = Rows.Find(row); Rows.Remove(index);', 'Rows.RemoveItem(row);'):
             self.assertEqual(1, len(self.findings(mutation + 'row.Id = 2;', params='Row row')))
+
+    def test_field_replacement_and_restore(self):
+        fields = 'ref Box Owner;'
+        extra = 'class Box { ref Row Item; ref array<ref Row> Items; }'
+        for replacement in ('null', 'new Row', 'Other()'):
+            for use in ('Use(row);', 'row.Id = 2;', 'Owner.Item = row;', 'Row copy = row;'):
+                with self.subTest(replacement=replacement, use=use):
+                    self.assertEqual(1, len(self.findings(
+                        f'Row row = Owner.Item; Owner.Item = {replacement}; {use}', fields=fields, extra=extra)))
+        for modifier in ('ref', 'autoptr'):
+            self.assertEqual([], self.findings(
+                f'{modifier} Row row = Owner.Item; Owner.Item = null; Owner.Item = row;', fields=fields, extra=extra))
+        self.assertEqual([], self.findings(
+            'Row row = Owner.Item; Owner.Item = row; Use(row.Id);', fields=fields, extra=extra))
+        self.assertEqual([], self.findings(
+            'Row row = Owner.Item; Owner.Item = null; Use(row.Id);', fields=fields, extra='class Box { Row Item; }'))
+
+    def test_field_borrow_transferred_before_release(self):
+        fields = 'ref Box Owner; ref Box Other; ref array<ref Row> Rows;'
+        extra = 'class Box { ref Row Item; }'
+        for transfer in ('Other.Item = row;', 'Rows.Insert(row);', 'Rows.InsertAt(row, 0);', 'Rows[0] = row;', 'Rows.Set(0, row);',
+                         'Rows[0] = row; Rows[1] = new Row;'):
+            with self.subTest(transfer=transfer):
+                self.assertEqual([], self.findings(
+                    'Row row = Owner.Item;' + transfer + 'Owner.Item = null; Use(row.Id);', fields=fields, extra=extra))
+        for transfer, release in (('Other.Item = row;', 'Other.Item = null;'),
+                                  ('Rows.Insert(row);', 'Rows.Resize(0);'),
+                                  ('Rows[0] = row;', 'Rows[0] = new Row;')):
+            self.assertEqual(1, len(self.findings(
+                'Row row = Owner.Item;' + transfer + 'Owner.Item = null;' + release + 'row.Id = 2;',
+                fields=fields, extra=extra)))
+        # Transferring a dangling pointer is itself a use, not a new safe owner.
+        self.assertEqual(1, len(self.findings(
+            'Row row = Owner.Item; Owner.Item = null; Other.Item = row;', fields=fields, extra=extra)))
+
+    def test_raw_container_field_restore(self):
+        for kind in ('array<ref Row>', 'map<int, ref Row>'):
+            fields = 'ref Box Owner;'
+            extra = f'class Box {{ ref {kind} Items; }}'
+            for use in ('Owner.Items = rows;', 'rows.Clear();', 'Row item = rows[0];'):
+                self.assertEqual(1, len(self.findings(
+                    f'{kind} rows = Owner.Items; Owner.Items = new {kind}; {use}', fields=fields, extra=extra)))
+                self.assertEqual([], self.findings(
+                    f'ref {kind} rows = Owner.Items; Owner.Items = new {kind}; {use}', fields=fields, extra=extra))
+            self.assertEqual([], self.findings(
+                f'{kind} rows = Owner.Items; ref {kind} hold = rows; Owner.Items = null; Use(rows);', fields=fields, extra=extra))
+        self.assertEqual([], self.findings(
+            'array<ref Row> rows = Rows; Rows.Clear(); Use(rows.Count());'))
+
+    def test_indexed_store_releases_slot(self):
+        for fields in ('ref array<ref Row> Rows;', 'ref map<int, ref Row> Rows;'):
+            self.assertEqual(1, len(self.findings('Row row = Rows[0]; Rows[0] = new Row; row.Id = 2;', fields=fields)))
+            for store in ('Rows[1] = new Row;', 'Rows[0] = row;'):
+                self.assertEqual([], self.findings('Row row = Rows[0];' + store + 'row.Id = 2;', fields=fields))
+        self.assertEqual([], self.findings('Row row = Rows[0]; Rows[0] = new Row; row.Id = 2;', fields='ref array<Row> Rows;'))
+
+    def test_whole_container_release(self):
+        for release in ('Rows.Resize(0);', 'Rows.Clear();', 'Rows = new array<ref Row>;', 'Rows = null;'):
+            self.assertEqual(1, len(self.findings('Row row = Rows[0];' + release + 'row.Next = null;')))
+            self.assertEqual([], self.findings('ref Row row = Rows[0];' + release + 'row.Next = null;'))
+            self.assertEqual([], self.findings('Row row = Rows[0]; row.Next = null;' + release))
+        self.assertEqual([], self.findings('Row row = Rows[0]; Rows.Resize(10); row.Next = null;'))
+
+    def test_find_whitespace_parameter_slot_replacement(self):
+        for spacing in ('Find(', 'Find (', 'Find  ( '):
+            prefix = f'int slot = Rows.{spacing}row);'
+            for release in ('Rows[slot] = new Row;', 'Rows.Remove(slot);', 'Rows.Resize(0);', 'Rows.Clear();'):
+                self.assertEqual(1, len(self.findings(prefix + release + 'row.Next = null;', params='Row row')))
+            self.assertEqual([], self.findings(prefix + 'Rows[slot] = row; row.Next = null;', params='Row row'))
+            self.assertEqual([], self.findings(prefix + 'Other.Clear(); row.Next = null;', params='Row row',
+                fields='ref array<ref Row> Rows; ref array<ref Row> Other;'))
+        self.assertEqual(1, len(self.findings(
+            'Row row; Rows.Find (key, row); Rows[key] = new Row; row.Id = 2;',
+            fields='ref map<int, ref Row> Rows;', params='int key')))
+
+    def test_extended_releases_exclude_managed_ancestry(self):
+        for row in ('class Row : Managed { int Id; }', 'class Row : EntityAI { int Id; }',
+                    'class Row : Object { int Id; }', 'class Row : PlayerIdentity { int Id; }',
+                    'class Base : Managed {} class Row : Base { int Id; }'):
+            for body in ('Row row = Hold; Hold = null; row.Id = 2;',
+                         'Row row = Rows[0]; Rows[0] = new Row; row.Id = 2;',
+                         'Row row = Rows[0]; Rows.Resize(0); row.Id = 2;',
+                         'int slot = Rows.Find (row); Rows[slot] = null; row.Id = 2;'):
+                self.assertEqual([], self.findings(body, fields='ref Row Hold; ref array<ref Row> Rows;', row=row))
 
     def test_disconnected_pre_fix_text(self):
         # Verbatim pre-fix method; only unrelated declarations are stubbed.

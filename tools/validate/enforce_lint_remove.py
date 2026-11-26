@@ -1,6 +1,6 @@
 """HC-E058: bounded intraprocedural ownership/use analysis, not an engine model.
 
-Only resolved owning ref arrays/maps and known non-Managed classes are checked.
+Only resolved owning ref fields/arrays/maps and known non-Managed classes are checked.
 A structured CFG keeps opposite if arms separate and models loop exits. Unknown
 factory results and unknown aliases are deliberately left alone. Small borrowed
 accessors (returning a container element/foreach item) are resolved by body, never
@@ -12,10 +12,11 @@ import re
 from tools.validate import enforce_source as es
 
 RULE = 'HC-E058'
-DESCRIPTION = 'raw non-Managed local used after removal/replacement from an owning ref container'
+DESCRIPTION = 'raw non-Managed local used after release by an owning ref field/container'
 VALUE = r'[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*'
 ACCESS = re.compile(rf'^({VALUE})(?:\s*\[(.*)\]|\s*\.\s*Get\s*\((.*)\))$', re.S)
-MUTATE = re.compile(rf'({VALUE})\s*\.\s*(Remove\w*|Clear|Set)\s*\(')
+MUTATE = re.compile(rf'({VALUE})\s*\.\s*(Remove\w*|Clear|Set|Resize)\s*\(')
+STORE = re.compile(rf'^(?:(?:ref|autoptr)\s+)?(?:\w+(?:<[^;]+>)?\s+)?({VALUE})(?:\s*\[([^]]+)\])?\s*=(?!=)\s*(.*)$', re.S)
 
 
 def compact(text):
@@ -40,6 +41,11 @@ def held_on_path(owners, facts):
 def unmanaged(project, kind, seen=None):
     """Use authored and installed native ancestry; incomplete ancestry is unknown."""
     kind = project.resolve_typedef(kind)
+    if kind in es.PRIMITIVES or project.is_enum(kind):
+        return False
+    # Script containers themselves are non-Managed, regardless of element type.
+    if re.fullmatch(r'(?:array|map|set)<.+>', kind):
+        return True
     if kind in {'Managed', 'Object', 'PlayerIdentity', 'PlayerIdentityBase', 'Widget'}:
         return False
     seen = (seen or set()) | {kind}
@@ -165,8 +171,11 @@ class Flow:
 
 
 def borrow(expression):
-    match = ACCESS.fullmatch(expression.strip())
+    expression = expression.strip()
+    match = ACCESS.fullmatch(expression)
     if match:
+        if match[3] is not None and es.matching_paren(expression, expression.find('(')) != len(expression) - 1:
+            return None
         return compact(match[1]), compact(match[2] if match[2] is not None else match[3])
     return None
 
@@ -199,6 +208,8 @@ def accessor(resolver, expression, method, offset):
 
 
 def strong_field(project, resolver, method, expression, offset):
+    if not re.fullmatch(VALUE, expression.strip()):
+        return False
     parts = compact(expression).rsplit('.', 1)
     kind = resolver.receiver(parts[0], method, offset) if len(parts) == 2 else method.owner.name if method.owner else ''
     name = parts[-1]
@@ -260,9 +271,6 @@ def findings(api, project, source):
     resolver = api._ownership(project)
     retained = retained_collections(project, resolver, source)
     for method in api._all_methods(source):
-        body = source.body(method)
-        if not MUTATE.search(body):
-            continue
         declarations = source.local_declarations(method)
         types = {name: kind for name, kind, _, _ in declarations}
         types.update({name: kind for kind, name, _ in method.parameters()})
@@ -286,6 +294,7 @@ def findings(api, project, source):
                 seen.add(state)
                 node = flow.nodes[index]
                 text = node.text
+                store = STORE.fullmatch(text.strip())
                 dead = origin is not None and origin[2]
                 # Check reads before assignment kills (row = row.Next is a read).
                 assignment = re.match(rf'(?:(?:ref|autoptr)\s+)?(?:\w+(?:<[^;]+>)?\s+)?{name}\s*=(?!=)\s*(.*)', text, re.S)
@@ -301,12 +310,13 @@ def findings(api, project, source):
                     read_text = '&&'.join(kept)
                 # Container identity operations only compare a pointer value;
                 # passing a released pointer to gameplay code can dereference it.
-                for identity_call in list(re.finditer(rf'({VALUE})\.(?:Remove\w*|Find|Contains)\(\s*{name}\s*\)', read_text)):
+                for identity_call in list(re.finditer(rf'({VALUE})\s*\.\s*(?:Remove\w*|Find|Contains)\s*\(\s*{name}\s*\)', read_text)):
                     kind = resolver.receiver(identity_call[1], method, node.offset)
                     if re.match(r'(?:array|map|set)<', kind):
                         read_text = read_text.replace(identity_call[0], ' ' * len(identity_call[0]))
-                if dead and not held_on_path(owners, facts) and (re.search(rf'\b{name}\s*\.', read_text) or
+                if dead and not held_on_path(owners, facts) and (re.search(rf'\b{name}\s*[.\[]', read_text) or
                              re.search(rf'(?:\(|,)\s*{name}\s*(?=[,)])', read_text) or
+                             (store and re.search(rf'\b{name}\b', store[3])) or
                              re.match(rf'return\s+{name}\b', read_text)):
                     if node.offset not in emitted:
                         emitted.add(node.offset)
@@ -318,42 +328,56 @@ def findings(api, project, source):
                 if assignment:
                     found = borrow(assignment[1]) or accessor(resolver, assignment[1], method, node.offset)
                     origin = (*found, False) if found and owning(project, resolver, method, found[0], node.offset) else None
+                    if not origin and strong_field(project, resolver, method, assignment[1], node.offset):
+                        origin = compact(assignment[1]), '@field', False
                     owners = frozenset({compact(assignment[1])}) if strong_field(project, resolver, method, assignment[1], node.offset) else frozenset()
                 loop = re.match(rf'foreach\s+\w+\s+{name}\s*:\s*({VALUE})\s*$', text)
                 if loop and owning(project, resolver, method, loop[1], node.offset):
                     origin = compact(loop[1]), '*', False
                 # Find(key, outLocal) establishes a borrow on the successful path.
-                for find in re.finditer(rf'({VALUE})\.Find\s*\(([^;]*?),\s*{name}\s*\)', text):
+                for find in re.finditer(rf'({VALUE})\s*\.\s*Find\s*\(([^;]*?),\s*{name}\s*\)', text):
                     if owning(project, resolver, method, find[1], node.offset):
                         origin = compact(find[1]), compact(find[2]), False
+                # Array Find(parameter) establishes which owner the raw parameter
+                # belongs to, including later stores through the returned slot.
+                for find in re.finditer(rf'({VALUE})\s*\.\s*Find\s*\(\s*{name}\s*\)', text):
+                    if origin is None and owning(project, resolver, method, find[1], node.offset):
+                        origin = compact(find[1]), '*', False
+                releases = []
                 for mutation in MUTATE.finditer(text):
-                    container, operation = compact(mutation[1]), mutation[2]
-                    if not owning(project, resolver, method, container, node.offset):
-                        continue
                     opening = mutation.end() - 1
                     close = es.matching_paren(text, opening)
                     args = [compact(a) for a in es.split_top(text[opening + 1:close], ',')]
+                    if mutation[2] != 'Resize' or args == ['0']:
+                        releases.append((compact(mutation[1]), mutation[2], args))
+                if store:
+                    destination = compact(store[1])
+                    if store[2] is not None:
+                        releases.append((destination, 'Set', [compact(store[2]), compact(store[3])]))
+                    else:
+                        releases.append((destination, 'Replace', [compact(store[3])]))
+                for container, operation, args in releases:
+                    if operation != 'Replace' and not owning(project, resolver, method, container, node.offset):
+                        continue
                     # Removal of a raw parameter by value / Find(parameter) is
                     # also direct evidence of its owning container.
                     by_value = args and (operation == 'RemoveItem' and args[0] == name or
                                          args[0] == f'{container}.Find({name})')
                     if origin is None and by_value:
                         origin = container, '*', False
-                    # A preceding index = container.Find(parameter) has the same
-                    # meaning, without treating map.Find's bool as a value.
-                    if origin is None and args and operation.startswith('Remove'):
-                        lookup = re.search(rf'\b{re.escape(args[0])}\s*=\s*{re.escape(container)}\.Find\({name}\)', body)
-                        if lookup and method.body_start + lookup.start() < node.offset:
-                            origin = container, '*', False
                     if origin and origin[0] == container:
                         owner_key = (method.owner.name if method.owner else '', container)
                         if owner_key in retained:
+                            continue
+                        if origin[1] == '@field' and operation != 'Replace':
+                            continue
+                        if operation == 'Replace' and args == [name]:
                             continue
                         # A different proven literal slot cannot release this value.
                         different = args and origin[1].isdigit() and args[0].isdigit() and origin[1] != args[0]
                         if operation == 'Set' and len(args) > 1 and args[1] == name:
                             continue
-                        if not different or operation == 'Clear':
+                        if not different or operation in {'Clear', 'Resize', 'Replace'}:
                             origin = origin[0], origin[1], True
                 # Strong locals, strong fields, and another owning slot retain
                 # the borrowed value. Invalidation of these owners is tracked.
@@ -361,30 +385,39 @@ def findings(api, project, source):
                 for owner in list(held):
                     if owner.startswith('?'):
                         container = owner[1:].split(':', 1)[0]
-                        if any(compact(mutation[1]) == container for mutation in MUTATE.finditer(text)):
+                        if any(receiver == container for receiver, _, _ in releases):
                             held.discard(owner)
                         continue
                     slot = re.fullmatch(r'(.+)\[([^]]+)\]', owner)
                     if slot:
-                        for mutation in MUTATE.finditer(text):
-                            if compact(mutation[1]) != slot[1]:
+                        for receiver, operation, args in releases:
+                            if receiver != slot[1]:
                                 continue
-                            close = es.matching_paren(text, mutation.end() - 1)
-                            arg = compact(es.split_top(text[mutation.end():close], ',')[0])
+                            if operation == 'Set' and args[1] == name:
+                                continue
+                            arg = args[0] if args else ''
+                            if operation not in {'Clear', 'Resize', 'Replace'} and arg.isdigit() and slot[2].isdigit() and arg != slot[2]:
+                                continue
                             held.discard(owner)
-                            if mutation[2] != 'Clear' and arg != slot[2]:
+                            if operation not in {'Clear', 'Resize', 'Replace'} and arg != slot[2]:
                                 condition = predicate(slot[2] + '!=' + arg)
                                 if condition:
                                     held.add('?' + slot[1] + ':' + condition[0])
-                    elif re.search(rf'\b{re.escape(owner)}\s*=(?!=)', text) or re.search(rf'\b{re.escape(owner)}\.(?:Clear|Remove\w*|Set)\(', text):
+                    elif any(receiver == owner and (operation == 'Replace' or origin and origin[1] != '@field')
+                             for receiver, operation, _ in releases):
                         held.discard(owner)
-                if not origin or not origin[2]:
-                    store = re.match(rf'(?:(?:ref|autoptr)\s+)?(?:\w+\s+)?({VALUE})\s*=\s*{name}\s*$', text)
-                    if store:
+                if not origin or not origin[2] or held_on_path(owners, facts):
+                    if store and store[2] is None and compact(store[3]) == name:
                         owner = compact(store[1])
-                        fields = api._fields_visible(project, method.owner.name) if method.owner else {}
-                        if owner in strong or (owner in fields and fields[owner].strong):
+                        if owner in strong or strong_field(project, resolver, method, owner, node.offset):
                             held.add(owner)
+                    for insert in re.finditer(rf'({VALUE})\s*\.\s*(Insert|InsertAt|Set)\s*\(([^;]*)\)', text):
+                        args = [compact(a) for a in es.split_top(insert[3], ',')]
+                        value = args[0] if args and insert[2] == 'InsertAt' else args[-1] if args else ''
+                        if value == name and owning(project, resolver, method, insert[1], node.offset):
+                            container = compact(insert[1])
+                            slot_key = args[1] if insert[2] == 'InsertAt' and len(args) > 1 else args[0] if len(args) > 1 else '*'
+                            held.add(container + '[' + slot_key + ']')
                     slot = re.match(rf'({VALUE})\s*\[[^]]+\]\s*=\s*{name}\s*$', text)
                     if slot and owning(project, resolver, method, slot[1], node.offset):
                         held.add(compact(slot[0]).split('=')[0])
