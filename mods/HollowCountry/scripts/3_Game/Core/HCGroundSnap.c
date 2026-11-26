@@ -101,6 +101,8 @@ class HCGroundPlaceStats
 class HCGroundPlaced
 {
     static const float CELL = 64;
+    static const int MAX_FOOTPRINTS = 16384;
+    protected static bool s_CapLogged;
     protected static ref array<float> s_X = new array<float>;
     protected static ref array<float> s_Z = new array<float>;
     protected static ref array<float> s_Radius = new array<float>;
@@ -137,7 +139,7 @@ class HCGroundPlaced
             int index = cell[slot];
             if (Math.AbsFloat(s_X[index] - pos[0]) <= 0.02 && Math.AbsFloat(s_Z[index] - pos[2]) <= 0.02)
             {
-                s_Radius.Set(index, 0.0001);
+                s_Radius.Set(index, -1);
                 s_Shift.Set(index, 0);
                 cell.RemoveOrdered(slot);
                 s_Dead++;
@@ -148,8 +150,51 @@ class HCGroundPlaced
         return forgotten;
     }
 
+    // Compact at most MAX_FOOTPRINTS slots, preserving every live height correction.
+    // Losing a live footprint would change CE loot height inside a standing building.
+    protected static void HCCompact()
+    {
+        s_Cells.Clear();
+        int live = 0;
+        for (int old = 0; old < s_X.Count(); old++)
+        {
+            if (s_Radius[old] < 0) { continue; }
+            s_X.Set(live, s_X[old]);
+            s_Z.Set(live, s_Z[old]);
+            s_Radius.Set(live, s_Radius[old]);
+            s_Y.Set(live, s_Y[old]);
+            s_Shift.Set(live, s_Shift[old]);
+            int key = CellKey(s_X[live], s_Z[live]);
+            array<int> cell = s_Cells.Get(key);
+            if (!cell)
+            {
+                cell = new array<int>;
+                s_Cells.Set(key, cell);
+            }
+            cell.Insert(live);
+            live++;
+        }
+        s_X.Resize(live);
+        s_Z.Resize(live);
+        s_Radius.Resize(live);
+        s_Y.Resize(live);
+        s_Shift.Resize(live);
+        s_Dead = 0;
+    }
+
     static void Add(vector pos, float radius, float shift)
     {
+        // Reclaim tombstones at half occupancy, or before refusing at the backing cap.
+        if (s_Dead > 0 && (s_Dead * 2 >= s_X.Count() || s_X.Count() >= MAX_FOOTPRINTS)) { HCCompact(); }
+        if (s_X.Count() >= MAX_FOOTPRINTS)
+        {
+            if (!s_CapLogged)
+            {
+                s_CapLogged = true;
+                Print("[HC Ground] footprint_add_refused reason=GROUND_FOOTPRINT_LIVE_CAP");
+            }
+            return;
+        }
         if (radius > CELL * 0.5) { radius = CELL * 0.5; }
         int index = s_X.Count();
         s_X.Insert(pos[0]);

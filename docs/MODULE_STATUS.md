@@ -460,7 +460,7 @@ installed mission overlays.
 
 | Module | Flag | State |
 | --- | --- | --- |
-| Grade, Lighting, WeatherDays | `EnableGrade` (weather also respects `EnableAtmosphere`) | being built / runtime acceptance pending |
+| Grade, Lighting, WeatherDays | `EnableGrade` (weather also respects `EnableAtmosphere`) | implemented / runtime acceptance pending |
 | OptionalPacks (AmbientAnimals), Polish (Hints, EnvSound) | `EnableAmbientLife` | being built / runtime acceptance pending |
 | SignsOfLife | `EnableSignsOfLife` | being built / runtime acceptance pending |
 | Shelters, WreckSalvage | `EnableTravel` | being built / runtime acceptance pending |
@@ -472,13 +472,24 @@ installed mission overlays.
 | Materializer, FactionConflict | `EnableEncounters` | being built / runtime acceptance pending |
 | Holdouts, Pickers, DeadDrops | `EnableEncounters` | being built / runtime acceptance pending |
 | Scenes and scene chains | `EnableEncounters` | being built / runtime acceptance pending |
-| Optional Expansion living-world addon (Factions, Stance, AskForNews, Checkpoints) | `EnableEncounters`, plus optional provider dependencies | being built / runtime acceptance pending |
+| Optional Expansion living-world addon (Factions, Stance, AskForNews, Checkpoints) | Adapter always enabled when loaded; `EnableEncounters` filters encounter adjuncts; optional provider dependencies | implemented / runtime acceptance pending |
 | Client grade, lighting, signs of life, hints, environmental sound, map pins and Morse presentation | Client-local defaults; server flags apply to corresponding server modules only | being built / runtime acceptance pending |
 | Travel CE content and optional animal mission overlays | Installed content; flags alone do not roll it back | being built / runtime acceptance pending |
 
 The [V2 acceptance checklist](LOCAL_ACCEPTANCE_V1.md#v2-living-country-scaffolding)
 retains feature steps, missing observations and single-client checks. Operator
 settings, profile files and dependency loading are in the [handbook](README.md#living-country--v2-operations).
+
+Source-list corrections (v16 P3 follow-up, 2026-11-26): Grade, Lighting and
+WeatherDays have registered implementations (`HCGradeModule`, `HCLightingModule`,
+`HCWeatherDaysModule`), and the optional Expansion addon has the registered
+`HCXAIAdapter` implementation; their “being built” states above were stale. The adapter's `IsEnabled` is
+always true; the row now distinguishes that from its encounter preference.
+No runtime acceptance was inferred. Site patrol death-hold armed/released receipts
+use the existing `SitePatrols` owner and registry. Deferred/forced exits are
+reason-coded Print lines only, with no constructor-time counter registration.
+The legacy `death-hold-deferred` registry/smoke-plan entries remain outside this
+worker's scope; native exit/use evidence remains pending.
 
 ## Earlier native diagnostics
 
