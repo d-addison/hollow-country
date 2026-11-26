@@ -5128,7 +5128,7 @@
         "tools/package/weapon_pack_sizes.json": "cdaeec7fbe7cb4642b3484b228dab1d30196baee56cc609d092963caa49a1517",
         "tools/release/acceptance_targets.py": "7873b33525548d06eadc5d835267033691598f34e5b51b4fe8bdc56e09e43ae5",
         "tools/release/activity_check.py": "80988b9bf28786ed812b4ac5dd37480176c5be62f2c4dec8b5e4d1738fc74dc7",
-        "tools/release/rpt_summary.py": "51fc69bc2bdb082a181e563520499886bd20ca9438bc1bd8303e7d9c4c73d580",
+        "tools/release/rpt_summary.py": "f996e59c583025b81530a08e052a18af4bd444612b9dca0b46f90c4ea57de55d",
         "tools/setup/server_report.py": "225025599bc906042af345db33d17e463fd95693de8f81585bc91a84090e90cc",
         "tools/setup/winproc.py": "640bec880000e1dac443f3815d946e874703a3881f39a37d726ad95c548b6392",
         "tools/validate/tick_cost_report.py": "512ca18f6dbf16b5035289f853179f7eabb6b3a88d8cb9d65df2e9ad08413fdc"
