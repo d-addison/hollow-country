@@ -283,7 +283,9 @@ modded class PlayerBase
     {
         // Match the existing Ecology hook's before-super observation pattern:
         // retain identity before native corpse/mission cleanup runs.
-        if (GetGame() && GetGame().IsServer())
+        // Both handlers need an identity; skip the roster build for AI and logged-out bodies.
+        PlayerIdentity hcFellIdentity = GetIdentity();
+        if (GetGame() && GetGame().IsServer() && hcFellIdentity)
         {
             map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
             HCGroupService groups = HCGroupService.Get();
