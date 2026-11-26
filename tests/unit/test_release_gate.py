@@ -95,7 +95,8 @@ class ReleaseGateTests(unittest.TestCase):
         for output, accepted in [('compile_gate: PASS status=timeout', False),
                                   ('compile_gate: FAIL status=mission-loaded-runtime-json', False),
                                   ('compile_gate: PASS status=mission-loaded-runtime-json', True)]:
-            with patch.object(gate, 'command', return_value=output):
+            with patch.object(gate, 'command', return_value=output), patch(
+                    'tools.release.dayz_update.build_check', return_value=('pass', 'synthetic manifests')):
                 if accepted:
                     steps.compile()
                 else:

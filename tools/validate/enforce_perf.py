@@ -2282,6 +2282,7 @@ def check(sources, root=ROOT):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('paths', nargs='*', help='only report these repository-relative source paths')
+    parser.add_argument('--native-scripts', type=Path, help='offline cache context; perf rules inspect authored sources only')
     parser.add_argument('--root', type=Path, default=ROOT)
     parser.add_argument('--baseline', type=Path, default=BASELINE)
     parser.add_argument('--write-baseline', action='store_true', help='explicitly acknowledge current findings at --baseline')
@@ -2291,6 +2292,8 @@ def main(argv=None):
     parser.add_argument('--stdin', metavar='PATH', help='replace this repository source with stdin, for historical checks')
     parser.add_argument('--json', action='store_true', help='print findings as JSON before the summary')
     args = parser.parse_args(argv)
+    if args.native_scripts and not (args.native_scripts.expanduser() / '3_Game').is_dir():
+        parser.error('native scripts context is missing 3_Game')
     root = args.root.resolve()
 
     def relative(path):

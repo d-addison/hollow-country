@@ -99,6 +99,7 @@ explicit .ToString() for every number in a string concatenation (a 27-plus line 
 "Formula too complex"; at most 9 compiled). statement_problems enforces the plus and ToString rule here
 until the shared probe_runtime lint carries it.
 """
+from tools.validate import dayz_build
 import argparse
 import math
 from pathlib import Path
@@ -639,7 +640,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     cache = args.native_scripts
     if cache is None:
-        default = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
+        default = dayz_build.native_scripts_dir()
         cache = default if (default / "3_Game").is_dir() else None
     try:
         plan = stage(args.source_runtime, args.destination, candidate=args.candidate,

@@ -17,6 +17,7 @@ import sys
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.validate import dayz_build
 from tools.package import interior_templates as templates
 from tools.setup import interior_sampler as sampler
 from tools.setup import probe_runtime as runtime
@@ -86,7 +87,7 @@ def prepare(wait_minutes=30, *, issue=None, classes=None, tag=None, run_size=64,
     # Source/destination preflights perform reads only, before the first mkdir.
     for destination in all_destinations:
         runtime.windows_runtime_root(destination)
-    native = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
+    native = dayz_build.native_scripts_dir()
     if not (native / "3_Game").is_dir():
         raise ValueError("pinned native scripts cache required for hook lint")
     if treatment_destination:

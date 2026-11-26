@@ -13,14 +13,21 @@ from pathlib import Path
 import re
 import stat
 
+if __package__ in (None, ''):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tools.validate import dayz_build
+
 
 RECORD_LIMIT = 32767
 SOURCE_LIMIT = 65536
 ARTIFACT_LIMIT = 1024 * 1024
 ARTIFACT_TOTAL = 8 * ARTIFACT_LIMIT
 SOURCE_NAMES = ('HCInteriorCatalog.c', 'HCInteriorRules.c', 'HCInteriorStore.c')
-BUILD = '1.30.164289'
-NATIVE_SHA = '09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a'
+BUILD = dayz_build.pinned()
+NATIVE_SHA = dayz_build.pin_record()['server_scripts_pbo_sha256']
 ASSET_PBOS = {
     'structures_residential': 'f47cbd5f46f3597cc83fef822ed405cbd69de0f160c414b6deb843cc3ff2106a',
     'structures_furniture': 'e5add5e387d17df70e680e966f1705f55940ba267dcb05e7b76b8013e9d4b448',

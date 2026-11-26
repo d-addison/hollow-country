@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 
+from tools.validate import dayz_build
 from tools.setup import diagnostic_mission as dm
 from tools.setup import probe_runtime as rt
 
@@ -312,7 +313,7 @@ def stage(tag, *, per_class=3, api='all', native=None, dry_run=False):
         raise ValueError('unknown API')
     run = secrets.token_hex(16)
     hook = render_hook(rows, apis, run)
-    issues = rt.lint_hook(hook.decode(), native_types=rt.native_type_names(native or Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'))
+    issues = rt.lint_hook(hook.decode(), native_types=rt.native_type_names(native or dayz_build.native_scripts_dir()))
     if issues:
         raise ValueError('generated hook failed lint: ' + '; '.join(issues[:3]))
     doc = dict(schema=1, kind='interior-resolve-probe', run=run, targets=rows, apis=apis,
@@ -429,7 +430,7 @@ def main(argv=None):
     st.add_argument('--tag', required=True)
     st.add_argument('--per-class', type=int, default=3)
     st.add_argument('--api', choices=('all',) + APIS, default='all')
-    st.add_argument('--native-scripts', type=Path, default=Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289')
+    st.add_argument('--native-scripts', type=Path, default=dayz_build.native_scripts_dir())
     st.add_argument('--dry-run', action='store_true')
     ing = sub.add_parser('ingest')
     ing.add_argument('--rpt', type=Path, required=True)

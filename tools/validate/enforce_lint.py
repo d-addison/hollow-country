@@ -30,6 +30,7 @@ from pathlib import Path
 import re
 import sys
 
+from tools.validate import dayz_build
 from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
 from tools.validate import enforce_json
@@ -46,7 +47,7 @@ BASELINE = Path(__file__).with_name('enforce_lint_baseline.json')
 STORAGE_ALLOWLIST = Path(__file__).with_name('enforce_lint_storage_allowlist.json')
 PROVIDER_METHODS = Path(__file__).with_name('enforce_lint_provider_methods.json')
 WORKSHOP_ROOT = Path('/mnt/e/HollowCountryLocal/friend-local-1')
-DEFAULT_CACHE = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289')
+DEFAULT_CACHE = dayz_build.native_scripts_dir()
 # Vanilla 1.30.164289 4_World/Entities/GardenBase/Slot.c declares class Slot(float); an authored
 # method named Slot made an unqualified call resolve to that class (native boot 026, commit acab865).
 PINNED_TYPES = frozenset(ENGINE_TYPE_NAMES) | {'Slot', 'PlayerBase', 'DayZPlayer', 'ActionBase', 'House'}

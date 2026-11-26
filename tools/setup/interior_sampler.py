@@ -31,6 +31,7 @@ more than 8 binary '+' is "Formula too complex", and a bare int or float joined 
 converts every number through HCProbeInt/HCProbeNum (which use ToString()); lint_sampler_hook
 checks both.
 """
+from tools.validate import dayz_build
 import argparse
 import hashlib
 import json
@@ -2774,7 +2775,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     cache = args.native_scripts
     if cache is None:
-        default = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
+        default = dayz_build.native_scripts_dir()
         cache = default if (default / "3_Game").is_dir() else None
     try:
         run = None

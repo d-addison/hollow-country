@@ -4,7 +4,7 @@ Run python3 -B -m tools.validate.native_symbols. The source-content hash also
 includes the parser so parser changes invalidate an otherwise current index.
 
 ``--emit-names-index`` writes the committed vanilla names index
-(tools/validate/data/vanilla_names_1.30.164289.json): a symbol table of class,
+(tools/validate/data/vanilla_names_<build>.json): a symbol table of class,
 parent, method, field and enum names only. It holds no code body, comment or
 string literal, and ``validate_names_index`` refuses to write or load one that
 does. Workers without the native cache use it through ``resolve``.
@@ -19,13 +19,14 @@ import re
 import sys
 import tempfile
 
+from tools.validate import dayz_build
 from tools.validate import enforce_source as es
 
-DEFAULT_SCRIPTS = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289')
-DEFAULT_OUTPUT = Path('~/.cache/hollow-country/native-symbols-1.30.json')
+DEFAULT_SCRIPTS = dayz_build.native_scripts_dir()
+DEFAULT_OUTPUT = dayz_build.symbols_cache_path()
 SCHEMA = 1
-BUILD = '1.30.164289'
-NAMES_INDEX = Path(__file__).resolve().parent / 'data' / ('vanilla_names_%s.json' % BUILD)
+BUILD = dayz_build.pinned()
+NAMES_INDEX = dayz_build.names_index_path()
 NAMES_SCHEMA = 1
 NAMES_KIND = 'vanilla-script-names'
 

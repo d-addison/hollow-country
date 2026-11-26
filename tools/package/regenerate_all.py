@@ -8,13 +8,14 @@ import subprocess
 import sys
 import tempfile
 
+from tools.validate import dayz_build
 from tools.release.rpt_summary import filtered
 from tools.release.ship_inputs import ADDONS
 from tools.validate import native_symbols
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSHOP = Path('/mnt/g/SteamLibrary/steamapps/workshop/content/221100')
-NATIVE_SCRIPTS = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
+NATIVE_SCRIPTS = dayz_build.native_scripts_dir()
 NAMES_INDEX_CHECK = 'vanilla_names_index'
 LOOT_OUTPUT = 'mission/hollow-country/loot-points/additions-interiors.json'
 # Preserve the complete integration baseline, then audit the geometry-generated

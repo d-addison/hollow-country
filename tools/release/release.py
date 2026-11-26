@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 
+from tools.validate import dayz_build
 from tools.package import compat_addon
 from tools.package.sign_wine import CACHE, sign
 from tools.package.weapon_pack_guards import WORKSHOP
@@ -27,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Workshop PBO and the friend bundle carry the same interiors.
 TEMPLATES_REL = 'mission/hollow-country/interiors/templates'
 ADDONS = ship_inputs.ADDONS
-NATIVE_SCRIPTS = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
+NATIVE_SCRIPTS = dayz_build.native_scripts_dir()
 
 
 def run(command, cwd=ROOT):
@@ -190,6 +191,7 @@ def native_compile_gate(tree, sha, workshop=WORKSHOP, addons=ADDONS):
 
 
 def build(args):
+    from tools.release.dayz_update import build_check
     sha = resolve_commit(args.commit, args.allow_unpushed)
     out = (args.out or Path('/mnt/d/HollowCountryLocal/signed-v1-' + args.build)).absolute()
     if out.exists() or out.is_symlink():
@@ -198,6 +200,9 @@ def build(args):
     if out.resolve().is_relative_to(ROOT) or out.resolve().is_relative_to(CACHE / ('build-' + args.build)):
         raise ValueError('Release output must be outside the source/build worktree')
     with worktree(sha, args.build) as tree, tempfile.TemporaryDirectory(prefix='hc-release-') as temp:
+        status, reason = build_check(pin=json.loads((tree / 'config/dayz-build.json').read_text()))
+        if status != 'pass':
+            raise ValueError('dayz_build: ' + status + ': ' + reason)
         from tools.package.generated_digests import verify_release
         digests = verify_release(tree, args.addons.absolute(), Path(getattr(args, 'workshop', WORKSHOP)).absolute(),
                                  waive_unavailable=bool(getattr(args, 'local_test_waivers', False)))

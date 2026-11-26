@@ -12,6 +12,13 @@ import re
 import sys
 from pathlib import Path
 
+if __package__ in (None, ''):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tools.validate import dayz_build
+
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / 'docs/experiments/v2-experiments.json'
 IDS = (
@@ -61,7 +68,7 @@ def _entry_errors(entry):
             errors.append(f'{name}: PENDING entry records {", ".join(recorded)}; record a verdict or clear them')
         return errors
     if not isinstance(entry.get('Build'), str) or not BUILD.fullmatch(entry['Build']):
-        errors.append(f'{name}: a {verdict} verdict needs the game Build (for example 1.30.164289)')
+        errors.append(f'{name}: a {verdict} verdict needs the game Build (for example {dayz_build.pinned()})')
     if not isinstance(entry.get('Date'), str) or not DATE.fullmatch(entry['Date']):
         errors.append(f'{name}: a {verdict} verdict needs the observation Date (YYYY-MM-DD)')
     if not _text(entry.get('Evidence')):

@@ -14,6 +14,7 @@ the generated hook appended. Only an optional --treatment-mapgroupproto replaces
 mapgroupproto.xml. Storage and profiles start empty so the census sees the initial
 spawn. Launch with tools/setup/Start-CEProbeServer.ps1 on Windows.
 """
+from tools.validate import dayz_build
 import argparse
 import datetime  # noqa: F401  (module attribute kept for callers that patched it before the shared runtime)
 import hashlib  # noqa: F401
@@ -566,7 +567,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     cache = args.native_scripts
     if cache is None:
-        default = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
+        default = dayz_build.native_scripts_dir()
         cache = default if (default / "3_Game").is_dir() else None
     try:
         plan = stage(args.source_runtime, args.destination, treatment_mapgroupproto=args.treatment_mapgroupproto,

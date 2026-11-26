@@ -531,6 +531,10 @@ class NativeSteps:
         return SCRIPTED_CHECKLIST if client_mode(self.args) == 'scripted' else CHECKLIST
 
     def compile(self):
+        from tools.release.dayz_update import build_check
+        status, reason = build_check()
+        if status != 'pass':
+            raise Refused('dayz_build: ' + status + ': ' + reason)
         output = command([sys.executable, '-B', '-m', 'tools.release.compile_gate',
                           '--tree', ROOT, '--commit', self.args.commit], 1200)
         passed = re.search(r'^compile_gate: PASS status=(mission-loaded-runtime-json|initialized|timeout)$',

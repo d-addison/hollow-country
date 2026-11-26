@@ -11,6 +11,7 @@ from typing import NamedTuple
 import sys
 
 from tools.package.regenerate_all import GEOMETRY_COMPARE_TIMEOUTS
+from tools.validate import dayz_build
 from tools.validate.cfgconvert_check import SKIPPED
 from tools.release.rpt_summary import filtered
 from tools.release.test_queue import submit_line
@@ -19,11 +20,11 @@ from tools.validate.wiring_audit import OFFLINE_EXCLUSIONS
 from tools.validate import layout_lint, source_cache
 
 ROOT = Path(__file__).resolve().parents[2]
-NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
+NATIVE = dayz_build.native_scripts_dir()
 CHECKS = ('enforce_lint', 'enforce_perf', 'layout_lint', 'cfgconvert_check',
           'settings_consistency', 'wiring_audit', 'regenerate_all', 'generated_digests',
           'mission_sources', 'hygiene', 'hc_events', 'ce_slot_pressure', 'overlay_vanilla', 'world_mesh_audit',
-          'asset_lint')
+          'asset_lint', 'dayz_build')
 # Checks whose entry point is not tools.validate.<name>. overlay_vanilla calls the
 # shared friendcycle function in-process; hygiene runs the whole repository
 # scan (secrets, local paths, banned provider text in mods/mission/config); hc_events and
@@ -36,7 +37,7 @@ COMMANDS = {
     'overlay_vanilla': ('tools.release.friendcycle', []),
 }
 # Gates that need installed or staged inputs; the CI profile lists them as exclusions.
-CI_ONLY_EXCLUDED = ('cfgconvert_check', 'wb_compile', 'ce_slot_pressure', 'overlay_vanilla', 'world_mesh_audit')
+CI_ONLY_EXCLUDED = ('dayz_build', 'cfgconvert_check', 'wb_compile', 'ce_slot_pressure', 'overlay_vanilla', 'world_mesh_audit')
 # Built assets for asset_lint: <stem>.p3d (or <stem>.ir.json) beside <stem>.model.cfg and
 # <stem>.sources.json; the config is the owned assets addon's config.cpp. assets_src holds
 # only ops recipes today, so the gate reports no applicable inputs until a built asset lands.
@@ -46,6 +47,7 @@ ASSET_CONFIG = ROOT / 'mods/HollowCountryAssets/config.cpp'
 
 # This list is the CI contract, not a blanket permission to skip a whole gate.
 CI_EXCLUSIONS = {
+    'dayz_build': 'requires installed client/server appmanifests; blocking on release host',
     'cfgconvert_check': 'requires the installed Windows DayZ Tools cfgconvert executable',
     'wb_compile': 'requires installed Windows Workbench; engine compilation is a separate lead gate',
     'overlay_vanilla': 'requires a host mission with vanilla map rows; pass --overlay-mission locally',
@@ -369,6 +371,8 @@ def execute(args, paths, scratch):
             if not runs:
                 rows.append((name, 'no applicable inputs (assets_src holds no built MLOD/IR)', scope))
                 continue
+        if name == 'cfgconvert_check' and os.environ.get('HC_NO_DAYZ_TOOLS') == '1':
+            gap = 'DayZ Tools disabled by HC_NO_DAYZ_TOOLS (worker restriction)'
         if gap:
             # A named gap is never a pass: strict fails it, the local run is incomplete.
             rows.append((name, ('FAIL (skipped: ' if args.strict else 'skipped: ') + gap + (')' if args.strict else ''), scope))
@@ -383,6 +387,8 @@ def execute(args, paths, scratch):
             arguments = ['--check']
             for census in getattr(args, 'native_census', []):
                 arguments += ['--native-census', str(census.expanduser().resolve())]
+            if os.environ.get('HC_NO_DAYZ_TOOLS') == '1':
+                arguments += ['--image-to-paa', str(scratch / 'disabled-ImageToPAA.exe')]
             if ci:
                 arguments += ['--addons', str(scratch / 'addons'), '--geometry-addons', str(scratch / 'addons'),
                               '--workshop', str(scratch / 'workshop'), '--source', str(scratch / 'stock'),

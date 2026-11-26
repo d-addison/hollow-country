@@ -12,6 +12,8 @@ only the directories and files named in their brief. No purchased assets are inc
 Dependency calls go only through the HC bridge classes; no direct eAI*/COT calls
 elsewhere.
 
+Use the [DayZ update workflow](tools/DAYZ_UPDATE.md) to check installed builds and
+prepare the next offline snapshot; `config/dayz-build.json` owns tool defaults.
 Installed source snapshot (local, never commit): use an external directory
 containing the scripts extracted from the installed DayZ 1.30.164289 build.
 Supply its actual path to the validators (`enforce_lint`, `native_symbols`, `preland`) through
