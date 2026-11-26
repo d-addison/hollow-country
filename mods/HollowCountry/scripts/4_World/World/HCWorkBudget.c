@@ -464,7 +464,7 @@ class HCSaveScheduler : HCModule
             // Events and the search journal own their journal admission/failure readiness (the search
             // journal reports through HCJobFailed); an unrelated store must not become unready because
             // this one candidate failed.
-            if (job.HCName() == "EventJournal" || job.HCName() == "SearchJournal") { Print("[HC Save] job=" + job.HCName() + " state=failed reason=job_local runtime=PENDING"); }
+            if (job.HCName() == "EventJournal" || job.HCName() == "SearchJournal" || job.HCName() == "FactionConflictQuota") { Print("[HC Save] job=" + job.HCName() + " state=failed reason=job_local runtime=PENDING"); }
             else { m_Fault = "save_job_write_faulted"; }
         }
         job.HCResetStats();
@@ -578,7 +578,7 @@ class HCSaveScheduler : HCModule
             bad.HCFaulted = true;
             bad.HCInFlight = false;
             HCUnregister(bad);
-            if (name != "EventJournal" && name != "SearchJournal") { m_Fault = "save_job_write_faulted"; }
+            if (name != "EventJournal" && name != "SearchJournal" && name != "FactionConflictQuota") { m_Fault = "save_job_write_faulted"; }
         }
         Print("[HC Save] job=" + name + " state=failed reason=dispatch_aborted runtime=PENDING");
     }
