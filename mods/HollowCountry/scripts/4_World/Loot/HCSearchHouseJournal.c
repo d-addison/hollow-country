@@ -704,7 +704,7 @@ class HCSearchHouseJournal
     // Caller excludes sessions/transfers, forgets registry handles and checks refresh age.
     bool Compact(int index)
     {
-        HCSearchHouseRow row = Row(index);
+        ref HCSearchHouseRow row = Row(index);
         if (!Healthy() || !row || row.Phase < 2) { return false; }
         string spentPath = TombstonePath(row.SupplyId);
         if (spentPath == "") { return Fail("unsafe compact supply identity"); }

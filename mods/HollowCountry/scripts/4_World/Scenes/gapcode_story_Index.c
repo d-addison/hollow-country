@@ -389,7 +389,7 @@ class HCGapcodeStoryIndex : Managed
     HCSceneChainDefinition HCTakePlan(int sequence, array<string> legacyIds)
     {
         if (!HCReady() || !m_Selected) { return null; }
-        HCGapcodeStoryCandidate selected = m_Selected;
+        ref HCGapcodeStoryCandidate selected = m_Selected;
         m_Selected = null;
         HCGapcodeStorySite source;
         if (!m_Sites.Find(selected.SiteId, source)) { return null; }

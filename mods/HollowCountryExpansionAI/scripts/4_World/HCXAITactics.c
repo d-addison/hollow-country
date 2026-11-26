@@ -378,7 +378,7 @@ class HCXAITactics
         work.HCReset(actors.Count(), HCPerfConfig.HCGet().SliceMs);
         int chosen = -1;
         float nearest = float.MAX;
-        HCXTacticsView saved = s_View;
+        ref HCXTacticsView saved = s_View;
         s_View = new HCXTacticsView;
         for (int index = 0; index < actors.Count(); index++)
         {

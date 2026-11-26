@@ -19,7 +19,7 @@ class HCReleaseRadius
             if (vector.DistanceSq(position, centre) > radiusSq) { m_NextOutside.Set(player, true); }
             else if (m_Outside.Contains(player)) { player.HCSendReleaseRadius(observation); }
         }
-        map<PlayerBase, bool> previous = m_Outside;
+        ref map<PlayerBase, bool> previous = m_Outside;
         m_Outside = m_NextOutside;
         m_NextOutside = previous;
         m_NextOutside.Clear();

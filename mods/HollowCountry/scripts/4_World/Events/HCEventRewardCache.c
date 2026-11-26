@@ -367,7 +367,7 @@ class HCEventPoliceStockLedger : HCEventRewardLedger
     // something; then the directory counts as unavailable (stock only) and is retried later.
     protected void HCPlanOverflow(bool whole)
     {
-        array<string> scanned = m_Listed;
+        ref array<string> scanned = m_Listed;
         m_Listed = new array<string>;
         array<string> siteIds = new array<string>;
         siteIds.Insert("coastal-police-source");

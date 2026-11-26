@@ -1556,7 +1556,7 @@ class HCWorldMaterializer : HCModule
         if (selected < 0) { return false; }
         if (apply)
         {
-            HCWorldProposalLease chosen = m_Active[selected];
+            ref HCWorldProposalLease chosen = m_Active[selected];
             m_Active[selected] = m_Active[0];
             m_Active[0] = chosen;
             chosen.Fixture = true;

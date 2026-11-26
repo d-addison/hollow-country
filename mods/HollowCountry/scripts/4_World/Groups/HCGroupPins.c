@@ -259,7 +259,7 @@ modded class HCGroupService
         HCGroupPeer explorer = null;
         if (m_TrailExplorerId != "") { explorer = Peer(m_TrailExplorerId); }
         if (explorer && explorer.Session != m_TrailExplorerSession) { explorer = null; }
-        HCGroupStringIndex prior = m_TrailPrior;
+        ref HCGroupStringIndex prior = m_TrailPrior;
         m_TrailExplorerId = "";
         m_TrailExplorerSession = "";
         m_TrailPrior = null;

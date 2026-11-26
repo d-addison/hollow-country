@@ -568,7 +568,7 @@ class HCSaveScheduler : HCModule
     // that was running instead of repeating the exception every frame.
     protected void HCDispatchAborted()
     {
-        HCSaveJob bad = m_Active;
+        ref HCSaveJob bad = m_Active;
         string name = "unknown";
         m_InDispatch = false;
         m_Active = null;

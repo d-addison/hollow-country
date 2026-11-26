@@ -244,7 +244,7 @@ class HCNavDoorQueue
     }
 }
 
-class HCNativeInfectedPack
+class HCNativeInfectedPack : Managed
 {
     // Last logged release summary, so the status line is emitted on change only. The quarantine is per
     // group (HCPackQuarantine); the former global ledger that blocked every new route is gone.

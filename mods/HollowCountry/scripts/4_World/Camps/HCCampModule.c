@@ -447,8 +447,8 @@ class HCCampModule : HCModule
         m_MaintenanceWork.HCReset(1);
         if (!m_MaintenanceWork.HCContinue()) { return; }
         if (!HCDurable(m_PendingCheckpoint)) { return; }
-        HCCampRecord camp = m_PendingCamp;
-        HCCampScan scan = m_PendingScan;
+        ref HCCampRecord camp = m_PendingCamp;
+        ref HCCampScan scan = m_PendingScan;
         if (now - m_PendingSince > 60)
         {
             // Never dispatch encounters from stale physical evidence.
@@ -636,7 +636,7 @@ class HCCampModule : HCModule
         if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); return false; }
         if (camp.AnchorKind == "claim")
         {
-            HCCampScan claimScan;
+            ref HCCampScan claimScan;
             if (m_ClaimSelectionTarget == camp && m_ClaimSelectionUtc == now) { claimScan = m_ClaimSelectionScan; }
             m_ClaimSelectionScan = null;
             m_ClaimSelectionTarget = null;

@@ -92,7 +92,7 @@ class HCModuleRegistry
         foreach (HCModule module : m_Modules) { phases.Insert(module.StartupPhase()); }
         for (int index = 1; index < m_Modules.Count(); index++)
         {
-            HCModule selected = m_Modules[index];
+            ref HCModule selected = m_Modules[index];
             int phase = phases[index];
             int previous = index - 1;
             while (previous >= 0)
