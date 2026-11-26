@@ -176,10 +176,14 @@ class HCGroupStore
         {
             if (!state || state.Revision != m_Latest + 1 || !HCGroupRules.StateValid(state, m_Settings, GetGame().GetWorldName())) { Fault(); return HCSaveJob.STEP_FAILED; }
             string error;
-            array<ref HCGroupInvitation> invitations = state.Invitations;
+            // Soak 195/196 AV suspect (HC-E058 container replacement): with a raw local,
+            // replacing the field can free the live array and the restore writes it back dangling.
+            ref array<ref HCGroupInvitation> invitations = state.Invitations;
+            int invitesBefore = invitations.Count();
             state.Invitations = new array<ref HCGroupInvitation>;
             bool serialized = JsonFileLoader<HCGroupState>.MakeData(state, m_PendingText, error);
             state.Invitations = invitations;
+            if (HCGroupService.HCTraceArmed()) HCGroupService.HCTrace("save_swap invites_before=" + invitesBefore.ToString() + " restored=" + HCGroupService.HCBit(state.Invitations != null) + " invites_after=" + state.Invitations.Count().ToString());
             if (!serialized || m_PendingText.Length() > m_Settings.MaxStoreBytes) { Fault(); return HCSaveJob.STEP_FAILED; }
             HCGroupReceipt receipt = new HCGroupReceipt;
             receipt.Revision = state.Revision;
