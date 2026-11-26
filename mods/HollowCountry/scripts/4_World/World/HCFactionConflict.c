@@ -10,8 +10,8 @@
 // Wave 16: ready means started, outcome store loaded, tick running. A missing combat
 // provider or an unsurveyed pair is a wait (HCDecline, logged once per reason), never a
 // refusal; only store faults and contradictory actor state refuse.
-// Persistence delegates
-// to HCEncounterStore (HCHoldouts.c:28) and the shared save scheduler/world checkpoint.
+// The journal is written by the shared save scheduler through HCEncounterStore;
+// startup load/recovery stays synchronous before jobs register.
 // Deaths reach HC-16 through its existing real EEKilled hook, never a second
 // debit from this journal. Native targeting/disengage/cargo acceptance PENDING.
 class HCConflictReadiness
@@ -35,15 +35,16 @@ class HCConflictPendingOutcome
     string RightFaction;
     string WinnerFaction;
     string LoserFaction;
-    string CampFaction;
-    bool EmptyCamp;
+    float Since = -1;
+    bool Warned;
     bool Fixture;
     int Revision;
 }
 
 class HCConflictQuotaSaveJob : HCSaveJob
 {
-    HCFactionConflict Owner; // Weak; the module retains this job.
+    // HCModule is not Managed: weak Owner never auto-nulls. OnStop must unregister first.
+    HCFactionConflict Owner;
     override string HCName() { return "FactionConflictQuota"; }
     override float HCInterval() { return 0; }
     override bool HCPendingCheckpoint() { return Owner && Owner.HCQuotaPendingCheckpoint(); }
@@ -51,6 +52,20 @@ class HCConflictQuotaSaveJob : HCSaveJob
     {
         if (!Owner) { return STEP_FAILED; }
         return Owner.HCStepQuota();
+    }
+}
+
+class HCConflictOutcomeSaveJob : HCSaveJob
+{
+    // HCModule is not Managed: weak Owner never auto-nulls. OnStop must unregister first.
+    HCFactionConflict Owner;
+    override string HCName() { return "FactionConflictOutcomes"; }
+    override float HCInterval() { return 0; }
+    override bool HCPendingCheckpoint() { return Owner && Owner.HCOutcomesPendingCheckpoint(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepOutcomes();
     }
 }
 
@@ -84,6 +99,18 @@ class HCFactionConflict : HCModule
     protected int m_QuotaDurable;
     protected float m_QuotaStepTime = -1;
     protected ref HCWorkBudget m_QuotaStepBudget = new HCWorkBudget;
+    protected ref HCConflictOutcomeSaveJob m_OutcomeJob;
+    protected int m_OutcomeRequested;
+    protected int m_OutcomeCheckpoint;
+    protected int m_OutcomeDurable;
+    protected int m_BindRevision;
+    protected int m_FinishRevision;
+    // Weak: m_Outcomes.Rows owns this row and is never pruned, like m_Current.
+    protected HCTerritoryOutcomeRow m_PendingBind;
+    protected float m_OutcomeSince = -1;
+    protected bool m_OutcomeWarned;
+    protected float m_OutcomeStepTime = -1;
+    // Both fallback pumps share m_QuotaStepBudget, reset once per tick; quota first.
     protected string m_Declined;
     protected string m_StatusReason;
     protected bool m_ProviderLogged;
@@ -114,6 +141,15 @@ class HCFactionConflict : HCModule
         if (!GetGame() || !GetGame().IsServer()) { HCRefuse("SERVER_AUTHORITY_REQUIRED"); return; }
         Print(HCV2Admission.Line("FactionConflict", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
         m_Refusal = "";
+        m_OutcomeRequested = 0;
+        m_OutcomeCheckpoint = 0;
+        m_OutcomeDurable = 0;
+        m_PendingBind = null;
+        m_BindRevision = 0;
+        m_FinishRevision = 0;
+        m_OutcomeSince = -1;
+        m_OutcomeWarned = false;
+        m_OutcomeStepTime = -1;
         m_ConflictConfig = HCConflictConfig.HCLoad();
         if (!m_ConflictConfig) { HCRefuse("CONFLICT_CONFIG_INVALID"); return; }
         if (!m_ConflictConfig.Enabled) { m_Operational.HCPublish("off", "conflict_operator_off"); return; }
@@ -129,10 +165,6 @@ class HCFactionConflict : HCModule
         m_QuotaDurable = 0;
         m_PendingQuota = null;
         m_QuotaStepTime = -1;
-        m_QuotaJob = new HCConflictQuotaSaveJob;
-        m_QuotaJob.Owner = this;
-        m_QuotaJob.HCUrgent = true;
-        HCSaveScheduler.HCRegister(m_QuotaJob);
         s_Active = true;
         s_WorkNow = -1;
         s_Instance = this;
@@ -149,11 +181,18 @@ class HCFactionConflict : HCModule
             return;
         }
         if (!m_Healthy) { HCRefuse("OUTCOME_STORE_INVALID"); return; }
-        if (HCTerritoryOutcomes.HCRecover(m_Outcomes) > 0 && !HCSave())
+        if (HCTerritoryOutcomes.HCRecover(m_Outcomes) > 0 && !HCSaveBeforeJobs())
         {
             HCRefuse("RESTART_OUTCOME_STORE_UNCERTAIN");
             return;
         }
+        m_QuotaJob = new HCConflictQuotaSaveJob;
+        m_QuotaJob.Owner = this;
+        m_QuotaJob.HCUrgent = true;
+        HCSaveScheduler.HCRegister(m_QuotaJob);
+        m_OutcomeJob = new HCConflictOutcomeSaveJob;
+        m_OutcomeJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_OutcomeJob);
     }
 
     override void OnAllModulesStarted()
@@ -190,9 +229,15 @@ class HCFactionConflict : HCModule
 
     protected void HCServiceWorld()
     {
+        HCResetFallbackBudget();
         HCPumpQuotaFallback();
+        HCPumpOutcomeFallback();
         if (!HCPollQuotaFault()) { return; }
+        if (!HCPollOutcomeFault()) { return; }
+        HCWarnStalls();
         HCApplyQuotaOutcome();
+        if (!HCOutcomesCommitted()) { return; }
+        HCPromoteBind();
         HCWorldModule world = HCWorldModule.Get();
         if (!world || !m_ConflictConfig) { return; }
         // Retry at most one durable receipt per tick, rotating even when viewers
@@ -208,7 +253,8 @@ class HCFactionConflict : HCModule
                 else
                 {
                     outcome.TerritoryApplied = true;
-                    if (!HCSave()) { return; }
+                    HCRequestSave();
+                    return;
                 }
             }
         }
@@ -217,7 +263,7 @@ class HCFactionConflict : HCModule
             if (m_Current.TerritoryEpoch == 0)
             {
                 m_Current.TerritoryEpoch = HCWorldClock.UTC();
-                HCSave();
+                HCRequestSave();
                 return;
             }
             HCFinishObserved(m_Current.Id);
@@ -259,6 +305,7 @@ class HCFactionConflict : HCModule
         if (!HCConflictQuota.HCReserve(s_Instance.m_Quota, s_Instance.m_ConflictConfig, pending.PlaceId, now)) { return false; }
         s_Instance.m_QuotaRequested++;
         pending.Revision = s_Instance.m_QuotaRequested;
+        pending.Since = GetGame().GetTickTime();
         s_Instance.m_PendingQuota = pending;
         s_Instance.m_QuotaJob.HCDirty = true;
         s_Instance.m_QuotaJob.HCUrgent = true;
@@ -278,22 +325,82 @@ class HCFactionConflict : HCModule
         return result;
     }
 
-    protected void HCPumpQuotaFallback()
+    protected void HCResetFallbackBudget()
     {
-        if (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(m_QuotaJob)) { return; }
         float now = GetGame().GetTickTime();
         if (now != m_QuotaStepTime)
         {
             m_QuotaStepTime = now;
             m_QuotaStepBudget.HCReset(HCWorldRuntimeConfig.HCGet().SaveStagesPerTick, HCPerfConfig.HCGet().SaveStageTargetMs);
         }
+    }
+
+    protected void HCPumpQuotaFallback()
+    {
+        if (!m_QuotaJob || m_QuotaJob.HCFaulted || !m_QuotaJob.HCDirty || !m_QuotaJob.HCUrgent) { return; }
+        if (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(m_QuotaJob)) { return; }
         if (m_QuotaStepBudget.HCContinue()) { HCSaveScheduler.HCPumpFallback(m_QuotaJob); }
+    }
+
+    protected void HCPumpOutcomeFallback()
+    {
+        if (!m_OutcomeJob || m_OutcomeJob.HCFaulted || !m_OutcomeJob.HCDirty || !m_OutcomeJob.HCUrgent) { return; }
+        if (HCPerfConfig.HCGet().EnableSharedSaves && HCSaveScheduler.HCRegistered(m_OutcomeJob)) { return; }
+        float outcomeNow = GetGame().GetTickTime();
+        if (m_OutcomeStepTime == outcomeNow) { return; }
+        m_OutcomeStepTime = outcomeNow;
+        if (m_QuotaStepBudget.HCContinue()) { HCSaveScheduler.HCPumpFallback(m_OutcomeJob); }
+    }
+
+    protected bool HCPollOutcomeFault()
+    {
+        if (!m_OutcomeJob || !m_OutcomeJob.HCFaulted) { return true; }
+        if (m_Healthy) { HCRefuse("OUTCOME_STORE_UNCERTAIN"); }
+        return false;
+    }
+
+    bool HCOutcomesPendingCheckpoint() { return m_Healthy && m_OutcomeDurable != m_OutcomeRequested; }
+    protected bool HCOutcomesCommitted() { return m_OutcomeDurable == m_OutcomeRequested; }
+
+    int HCStepOutcomes()
+    {
+        if (!m_Store || !m_Outcomes) { return HCSaveJob.STEP_FAILED; }
+        bool starting = !m_Store.SaveInFlight();
+        if (starting)
+        {
+            if (!m_Healthy) { return HCSaveJob.STEP_FAILED; }
+            m_OutcomeCheckpoint = m_OutcomeRequested;
+        }
+        // One unmeasured MakeData encode, <=128 rows / 256 KiB, cannot be preempted.
+        // SaveStep freezes at encode; later requests belong to the next image.
+        int result = m_Store.SaveStep(m_Outcomes);
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            m_OutcomeDurable = m_OutcomeCheckpoint;
+            if (HCOutcomesCommitted()) { m_OutcomeSince = -1; m_OutcomeWarned = false; }
+        }
+        return result;
+    }
+
+    protected void HCWarnStalls()
+    {
+        float now = GetGame().GetTickTime();
+        if (m_PendingQuota && !m_PendingQuota.Warned && m_PendingQuota.Since >= 0 && now - m_PendingQuota.Since >= 60)
+        {
+            m_PendingQuota.Warned = true;
+            Print("[HC Plan] HC-37 data_outcome_waiting place=" + m_PendingQuota.PlaceId + " age_s=" + (now - m_PendingQuota.Since).ToString() + " requested=" + m_QuotaRequested.ToString() + " durable=" + m_QuotaDurable.ToString() + " runtime=PENDING");
+        }
+        if (!HCOutcomesCommitted() && !m_OutcomeWarned && m_OutcomeSince >= 0 && now - m_OutcomeSince >= 60)
+        {
+            m_OutcomeWarned = true;
+            Print("[HC Plan] HC-37 outcome_receipt_waiting requested=" + m_OutcomeRequested.ToString() + " durable=" + m_OutcomeDurable.ToString() + " age_s=" + (now - m_OutcomeSince).ToString() + " runtime=PENDING");
+        }
     }
 
     protected bool HCPollQuotaFault()
     {
         if (!m_QuotaJob || !m_QuotaJob.HCFaulted) { return true; }
-        m_PendingQuota = null; // No retry or refund, including dispatch aborts.
+        HCDropQuotaOutcome("quota_store_faulted"); // No retry or refund, including dispatch aborts.
         return HCRefuse("CONFLICT_QUOTA_STORE_UNCERTAIN");
     }
 
@@ -307,6 +414,8 @@ class HCFactionConflict : HCModule
     protected void HCApplyQuotaOutcome()
     {
         if (!m_PendingQuota || m_QuotaDurable < m_PendingQuota.Revision) { return; }
+        if (!HCOutcomesCommitted()) { return; }
+        if (HCTerritoryPending(m_PendingQuota.PlaceId)) { HCDropQuotaOutcome("territory_pending"); return; }
         HCWorldModule world = HCWorldModule.Get();
         if (!world) { HCDropQuotaOutcome("world_stopped"); return; }
         string reason = world.HCApplyQuotaOutcome(m_PendingQuota, m_ConflictConfig, s_CombatPort);
@@ -317,19 +426,58 @@ class HCFactionConflict : HCModule
 
     override void OnStop()
     {
-        bool quotaFlushed = HCSaveScheduler.HCFlush(m_QuotaJob);
-        if (!HCPollQuotaFault()) { quotaFlushed = false; }
-        if (quotaFlushed && m_Healthy) { HCApplyQuotaOutcome(); }
-        else { HCDropQuotaOutcome("world_stopped"); }
-        m_PendingQuota = null;
-        HCSaveScheduler.HCUnregister(m_QuotaJob);
-        m_QuotaJob = null;
-        s_Active = false;
-        if (m_Healthy && m_Current && m_Current.State == "OBSERVING")
+        bool quotaFlushed = true;
+        if (m_QuotaJob) { quotaFlushed = HCSaveScheduler.HCFlush(m_QuotaJob); }
+        HCPollQuotaFault();
+        if (m_PendingQuota)
         {
-            m_Current.State = "UNKNOWN_STOP";
-            HCSave();
+            if (!m_Healthy) { HCDropQuotaOutcome("unhealthy_at_stop"); }
+            else if (!quotaFlushed) { HCDropQuotaOutcome("flush_failed"); }
+            else if (m_QuotaDurable < m_PendingQuota.Revision) { HCDropQuotaOutcome("not_durable_at_stop"); }
+            else { HCApplyQuotaOutcome(); }
         }
+        if (m_OutcomeJob && m_Healthy)
+        {
+            HCTerritoryOutcomeRow stopping = m_Current;
+            if (!stopping) { stopping = m_PendingBind; }
+            if (stopping && stopping.State == "OBSERVING")
+            {
+                stopping.State = "UNKNOWN_STOP";
+                HCRequestSave();
+            }
+        }
+        bool outcomeFlushed = true;
+        if (m_OutcomeJob && m_Store && (m_Healthy || m_Store.SaveInFlight()))
+        {
+            outcomeFlushed = HCSaveScheduler.HCFlush(m_OutcomeJob);
+        }
+        bool outcomeFaultFree = HCPollOutcomeFault();
+        if (!HCOutcomesCommitted())
+        {
+            string stopReason = "unhealthy_at_stop";
+            if (!outcomeFlushed) { stopReason = "flush_failed"; }
+            else if (!outcomeFaultFree) { stopReason = "faulted"; }
+            Print("[HC Plan] HC-37 outcome_receipts_not_durable_at_stop requested=" + m_OutcomeRequested.ToString() + " durable=" + m_OutcomeDurable.ToString() + " reason=" + stopReason);
+        }
+        if (m_QuotaJob) { HCSaveScheduler.HCUnregister(m_QuotaJob); }
+        if (m_OutcomeJob) { HCSaveScheduler.HCUnregister(m_OutcomeJob); }
+        m_QuotaJob = null;
+        m_OutcomeJob = null;
+        m_PendingQuota = null;
+        m_PendingBind = null;
+        m_BindRevision = 0;
+        m_FinishRevision = 0;
+        m_QuotaRequested = 0;
+        m_QuotaCheckpoint = 0;
+        m_QuotaDurable = 0;
+        m_QuotaStepTime = -1;
+        m_OutcomeRequested = 0;
+        m_OutcomeCheckpoint = 0;
+        m_OutcomeDurable = 0;
+        m_OutcomeSince = -1;
+        m_OutcomeWarned = false;
+        m_OutcomeStepTime = -1;
+        s_Active = false;
         m_Current = null;
         m_LeftActors.Clear();
         m_RightActors.Clear();
@@ -406,13 +554,31 @@ class HCFactionConflict : HCModule
         Print(line + " runtime=PENDING");
     }
 
-    protected bool HCSave()
+    // Recovery only, synchronous before either save job is registered.
+    protected bool HCSaveBeforeJobs()
     {
         if (m_Healthy && HCTerritoryOutcomes.HCValid(m_Outcomes) && m_Store.Save(m_Outcomes)) { return true; }
         // An uncertain transaction closes this feature; preserve all receipts
         // and intents. Never retry/refund/recreate after a failed barrier.
         m_Healthy = false;
         return HCRefuse("OUTCOME_STORE_UNCERTAIN");
+    }
+
+    protected int HCRequestSave()
+    {
+        if (!m_Healthy || !m_OutcomeJob || !HCTerritoryOutcomes.HCValid(m_Outcomes))
+        {
+            m_Healthy = false;
+            HCRefuse("OUTCOME_STORE_UNCERTAIN");
+            return 0;
+        }
+        m_OutcomeRequested++;
+        m_OutcomeJob.HCDirty = true;
+        m_OutcomeJob.HCUrgent = true;
+        float now = GetGame().GetTickTime();
+        m_OutcomeJob.HCDue = now;
+        if (m_OutcomeSince == -1) { m_OutcomeSince = now; }
+        return m_OutcomeRequested;
     }
 
     // Shared per-frame callback capacity. Death polling has its own one-row
@@ -450,11 +616,17 @@ class HCFactionConflict : HCModule
         {
             if (HCTerritoryOutcomes.HCSamePair(prior, leftLease, rightLease))
             {
-                // Retry can read its original receipt, never restart actors.
+                // Defensive retry can read its original receipt, never restart actors.
+                // The current adapter discards the offered id and never retries this path.
                 if (prior.PlaceId != place || prior.Survey != survey) { return ""; }
                 if (prior.Generation != leftIdentity.HCGeneration()) { HCDecline("LEASE_GENERATION_MISMATCH"); return ""; }
                 if (prior.LeftLease == leftLease && (prior.LeftFaction != leftFaction || prior.RightFaction != rightFaction)) { return ""; }
                 if (prior.LeftLease == rightLease && (prior.LeftFaction != rightFaction || prior.RightFaction != leftFaction)) { return ""; }
+                if (prior == m_PendingBind)
+                {
+                    if (m_OutcomeDurable >= m_BindRevision) { HCPromoteBind(); }
+                    else { HCDecline("RECEIPT_PENDING"); return ""; }
+                }
                 return prior.Id;
             }
             // A lease cannot fight a fresh encounter under a different pair.
@@ -462,7 +634,7 @@ class HCFactionConflict : HCModule
             if (prior.LeftLease == rightLease || prior.RightLease == rightLease) { return ""; }
         }
         if (HCTerritoryPending(place)) { HCDecline("TERRITORY_PUBLICATION_PENDING"); return ""; }
-        if (m_Current || m_Outcomes.Rows.Count() >= HCTerritoryOutcomes.MAX_ROWS)
+        if (m_Current || m_PendingBind || m_Outcomes.Rows.Count() >= HCTerritoryOutcomes.MAX_ROWS)
         {
             HCDecline("ENCOUNTER_OR_HISTORY_CAP");
             return "";
@@ -502,18 +674,30 @@ class HCFactionConflict : HCModule
         for (int rightIndex = 0; rightIndex < right.Count(); rightIndex++) { row.RightDead.Insert(false); }
         m_Outcomes.Rows.Insert(row);
         m_Outcomes.NextEncounter++;
-        if (!HCSave()) { return ""; }
-        m_Current = row;
+        int revision = HCRequestSave();
+        if (revision == 0) { return ""; }
+        m_PendingBind = row;
+        m_BindRevision = revision;
         m_LeftActors.Clear();
         m_RightActors.Clear();
         foreach (Object boundLeft : left) { m_LeftActors.Insert(boundLeft); }
         foreach (Object boundRight : right) { m_RightActors.Insert(boundRight); }
         m_ActorCursor = 0;
+        m_Declined = "RECEIPT_PENDING";
+        HCLog(row, "ready", "RECEIPT_PENDING");
+        return "";
+    }
+
+    protected void HCPromoteBind()
+    {
+        if (!m_PendingBind || m_OutcomeDurable < m_BindRevision) { return; }
+        m_Current = m_PendingBind;
+        m_PendingBind = null;
+        m_BindRevision = 0;
         m_Declined = "";
         m_StatusReason = "surveyed_pair_bound_observation_only";
         m_Operational.HCPublish("ready", "surveyed_pair_bound_observation_only");
-        HCLog(row, "ready", "CARGO_TRANSFER_UNVERIFIED");
-        return row.Id;
+        HCLog(m_Current, "ready", "CARGO_TRANSFER_UNVERIFIED");
     }
 
     override void OnTick(float deltaTime)
@@ -536,17 +720,19 @@ class HCFactionConflict : HCModule
         else { side = 1; slot -= m_LeftActors.Count(); body = m_RightActors[slot]; }
         // Deleted/unknown is never a casualty. Provider deletion is not death.
         if (!body || body.IsAlive()) { return; }
-        if (HCTerritoryOutcomes.HCDeath(m_Current, side, slot) && HCSave()) { HCLog(m_Current, "ready", "none"); }
+        // Recorded for the next image; this success has no gameplay effect.
+        if (HCTerritoryOutcomes.HCDeath(m_Current, side, slot) && HCRequestSave() > 0) { HCLog(m_Current, "ready", "none"); }
     }
 
+    // Defensive API: no mods/ callers; internal service drives completion.
     static bool HCFinish(string encounter)
     {
         if (!s_Active || !s_Instance || !GetGame() || !GetGame().IsServer()) { return false; }
         return s_Instance.HCFinishObserved(encounter);
     }
 
-    // Adapter calls after the real server EEKilled, before any player-killer
-    // filter. Only a pre-bound dead body can add a receipt; no global kill feed.
+    // Defensive API: no mods/ callers. Only a pre-bound dead body adds a receipt.
+    // True means recorded for the next durable image; no effect consumes this bool.
     static bool HCObserveKilled(Object body)
     {
         if (!s_Active || !s_Instance || !GetGame() || !GetGame().IsServer()) { return false; }
@@ -556,17 +742,18 @@ class HCFactionConflict : HCModule
         int slot = s_Instance.m_LeftActors.Find(body);
         if (slot < 0) { side = 1; slot = s_Instance.m_RightActors.Find(body); }
         if (!HCTerritoryOutcomes.HCDeath(s_Instance.m_Current, side, slot)) { return false; }
-        if (!s_Instance.HCSave()) { return false; }
+        if (s_Instance.HCRequestSave() == 0) { return false; }
         s_Instance.HCLog(s_Instance.m_Current, "ready", "none");
         return true;
     }
 
-    // HC-16 consumes a bounded detached receipt. This is NOT a second camp
-    // death debit, inventory snapshot, cargo grant or world-strength mutation.
+    // Defensive API: no mods/ callers. HC-16 may consume a bounded detached receipt.
+    // No second camp death debit, inventory snapshot, cargo grant or strength mutation.
     static HCTerritoryOutcomeRow HCOutcomeFact(string encounter)
     {
         if (!s_Active || !s_Instance || !GetGame() || !GetGame().IsServer()) { return null; }
         if (!s_Instance.m_Healthy || !s_Instance.m_Outcomes) { return null; }
+        if (!s_Instance.HCOutcomesCommitted()) { return null; }
         foreach (HCTerritoryOutcomeRow row : s_Instance.m_Outcomes.Rows)
         {
             if (row.Id != encounter) { continue; }
@@ -590,6 +777,11 @@ class HCFactionConflict : HCModule
                 if (completed.Id == encounter) { return completed.LeftSurvivors >= 0; }
             }
             return false;
+        }
+        if (m_FinishRevision > 0)
+        {
+            if (m_OutcomeDurable < m_FinishRevision) { return HCDecline("OUTCOME_RECEIPT_PENDING"); }
+            return HCCompleteObserved();
         }
         if (!s_CombatPort || !s_CombatPort.HCDisengaged(encounter)) { return HCDecline("DISENGAGEMENT_UNVERIFIED"); }
         // At most 2 * SIZE_CEILING bound handles. Check absence BEFORE mutating
@@ -615,7 +807,15 @@ class HCFactionConflict : HCModule
             else { HCTerritoryOutcomes.HCDeath(m_Current, 1, rightSlot); }
         }
         if (!HCTerritoryOutcomes.HCResolve(m_Current, leftSurvivors, rightSurvivors)) { return HCRefuse("CONTRADICTORY_ACTOR_STATE"); }
-        if (!HCSave()) { return false; }
+        int revision = HCRequestSave();
+        if (revision == 0) { return false; }
+        m_FinishRevision = revision;
+        return HCDecline("OUTCOME_RECEIPT_PENDING");
+    }
+
+    protected bool HCCompleteObserved()
+    {
+        m_FinishRevision = 0;
         m_StatusReason = "observed_pair_outcome_committed";
         m_Operational.HCPublish("ready", "observed_pair_outcome_committed");
         HCLog(m_Current, "ready", "CARGO_TRANSFER_UNVERIFIED");
@@ -950,8 +1150,6 @@ modded class HCWorldModule
             pending.Kind = "pressure";
             pending.PlaceId = place.Id;
             pending.Cell = cell;
-            pending.CampFaction = camp.FactionId;
-            pending.EmptyCamp = camp.Occupants == 0;
             HCFactionConflict.HCReserveDataOutcome(pending, now);
         }
     }
@@ -962,7 +1160,7 @@ modded class HCWorldModule
     {
         if (!m_Running || !m_Data || !config) { return "world_stopped"; }
         HCWorldPlace place = m_Data.Place(pending.PlaceId);
-        if (!place) { return "world_stopped"; }
+        if (!place) { return "place_missing"; }
         if (!HCConflictFar(place, config)) { return "near"; }
         if (HCConflictLeased(place.Id)) { return "leased"; }
         if (port && port.HCActiveAt(place.Id)) { return "active"; }
@@ -971,7 +1169,7 @@ modded class HCWorldModule
             HCWorldFaction left = m_Data.Faction(pending.LeftFaction);
             HCWorldFaction right = m_Data.Faction(pending.RightFaction);
             if (!left || !right || !HCConflictPolicy.HCOpposed(left, right, pending.Cell)) { return "not_opposed"; }
-            if (!AddFact("faction_clash", place.Id, 1)) { return "world_stopped"; }
+            if (!AddFact("faction_clash", place.Id, 1)) { return "add_fact_refused"; }
             if (pending.WinnerFaction == left.Id) { HCConflictPublish(left, right, place, pending.Cell); }
             if (pending.WinnerFaction == right.Id) { HCConflictPublish(right, left, place, pending.Cell); }
             string outcomeLine = "[HC Plan] HC-37 data_outcome place=" + place.Id + " winner=" + pending.WinnerFaction + " bodies=0 loot=0 runtime=PENDING";
@@ -982,12 +1180,20 @@ modded class HCWorldModule
         }
         else
         {
-            HCWorldFaction holder = m_Data.Faction(pending.CampFaction);
-            if (!holder) { return "world_stopped"; }
-            if (!AddFact("camp_infected_pressure", place.Id, 1)) { return "world_stopped"; }
-            if (!AddFact("holdout_alert", place.Id, 1)) { return "world_stopped"; }
+            array<ref HCWorldHoldout> liveCamps = m_Data.Holdouts;
+            HCWorldHoldout liveCamp;
+            foreach (HCWorldHoldout liveCandidate : liveCamps)
+            {
+                if (liveCandidate.PlaceId == pending.PlaceId) { liveCamp = liveCandidate; break; }
+            }
+            if (!liveCamp) { return "camp_missing"; }
+            HCWorldFaction holder = m_Data.Faction(liveCamp.FactionId);
+            if (!holder) { return "camp_faction_missing"; }
+            bool empty = liveCamp.Occupants == 0;
+            if (!AddFact("camp_infected_pressure", place.Id, 1)) { return "add_fact_refused"; }
+            if (!AddFact("holdout_alert", place.Id, 1)) { return "add_fact_refused"; }
             string outcome = "camp_holds";
-            if (pending.EmptyCamp)
+            if (empty)
             {
                 int claim = holder.Territory.Find(pending.Cell);
                 if (claim >= 0) { holder.Territory.Remove(claim); m_Dirty = true; }

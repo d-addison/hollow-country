@@ -391,7 +391,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `ClientUI/map_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c#MapMenu.OnShow`.
 - [ ] `Crafting/recipe_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c#HCCraftingGate.RecordCraft`.
 - [ ] `DeadDrops/cache_bound` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnTick`.
-- [ ] `FactionConflict/outcome_recorded` — `admin_action`, **implemented-unverified**, `fx_conflict`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCConflictStep`.
+- [ ] `FactionConflict/outcome_recorded` — `admin_action`, **implemented-unverified**, `fx_conflict`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCApplyQuotaOutcome`.
 - [ ] `Forage/item_picked` — `client_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCReleaseNode`.
 - [ ] `Forage/item_spawned` — `admin_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCResumeSpawn`.
 - [ ] `Grade/grade_applied` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Atmosphere/HCGradeSettingsClient.c#HCGradeSettingsClient.Update`.

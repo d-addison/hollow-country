@@ -3,7 +3,7 @@
 // :389 Set; EnString.c:199,240,448 Length/IndexOf/Get; EnConvert.c:30 ToString.
 // HCEncounterStore reuses verified intent/backup/copy/readback. This journal
 // MUST be backed up with world.json, ai-custody.json, camp state and Hive.
-// No routine writes: begin/death/finish are synchronous transaction barriers.
+// Begin/death/finish stage journal images; publication waits for durable revisions.
 class HCTerritoryOutcomeRow
 {
     string Id;

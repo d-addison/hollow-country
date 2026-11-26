@@ -306,7 +306,7 @@
     {
       "module": "FactionConflict",
       "feature": "outcome_recorded",
-      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCConflictStep",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCApplyQuotaOutcome",
       "trigger": "Far, unleased opposed factions pass budget and reserve/publish a data clash fact; no physical fight counts here.",
       "exercise": "admin_action",
       "steps": "1. Lead enables EnableSmokeFixtures only on the private R3 test profile before boot; keep it off on friend servers. 2. Authenticate through existing admin permission and inspect kit availability. 3. Pause -> AI & Camps -> fx_conflict -> Run. 4. Require selection receipt with fixture=1, then the real owner outcome and HC Use receipt with positive fixture count; refusal or selection alone is not ACTIVE. Nearest existing distant opposed pair/cell with no pending territory receipt, claimed lease or provider fight and eligible cooldown/daily fact budget. Normal HCConflictStep retains quota, budget and all outcome guards.",
