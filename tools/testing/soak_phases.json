@@ -74,6 +74,11 @@
    "what": "on foot into a published mission zone from outside (enter zone=mission: in, out and in again until the server's radius receipt arrives)"
   },
   {
+   "name": "ai_clear",
+   "minutes": 15,
+   "what": "bounded foot route to an authored held guard site or police fallback; live requester-attributed and health clears, 120 s post-clear observation, death and one CampRespawn; infected counters excluded as zone-overrun confounds"
+  },
+  {
    "name": "idle",
    "minutes": 125,
    "what": "stand still; background and time-window counters (125 minutes); DebugSnapshot fires every 300 s"

@@ -771,3 +771,143 @@ hold, and the same-door return. The existing module must emit
 `[HollowCountry] V2 client cellars visual=below_terrain_inside_building` during that
 walk. Existing preference opt-outs remain respected; changing admission or preferences
 is outside this worker's scope.
+
+## ai_clear: attributed full clear, death and respawn (#334)
+
+`ai_clear` is the last driven campaign phase, immediately before idle, with a nominal
+15-minute budget. It uses existing `walk`, `stand`, `admin` and `respawn` steps.
+The offline preflight considers authored guard slots of initially held zones within
+1800 m of the preceding planned position, preferring guards over the police fallback.
+A second distinct candidate must be within 500 m of the first. Each walk records its
+choice and `reason=held-guard-slot-or-police;reach=bounded-foot` in the plan index,
+uses the existing stuck/arrival checks and arrives within 50 m of the authored slot.
+These are bounded on-foot candidates, not proof of navmesh reachability or live AI.
+In particular, the preceding mission step can move to a runtime published mission;
+the offline planner cannot know its final position. The native walk result and the
+fixture's requester/member 500 m checks must validate that case. No position is written.
+
+When run from the normal join spawn, the choices are Balota's first held guard slot
+(6652.3, 2907.0), then police-chernogorsk (6564.47, 2551.96), about 366 m apart.
+The full default route's last known authored point is Bor South Rest, so its candidate
+is Zelenogorsk's held guard slot (2148.1, 3565.1); there is no second authored candidate
+within 500 m. Runtime live patrol selection can differ: the fixture prefers a different
+site on the second invocation, then zone guards, police-chernogorsk, and other nearby
+live director patrols, choosing the nearest live member within each preference class.
+No eligible candidate produces a refusal without a kill. A preflight with no nearby
+candidate produces a skip note and no death or respawn.
+
+The steps are: walk in; stand 20 seconds for radius/caution observations; invoke
+`fx_incident` and `fx_tactic`; request the attributed clear; stand 200 seconds (the
+fixture stops at 180); stand 120 seconds beside that site; approach the second site
+when available; stand 20 seconds, request the health clear, stand 200 then 120 seconds;
+finally `fx_die` and one CampRespawn attempt with a 180-second timeout. Without a second
+authored candidate, health mode is still requested at the first location and can refuse
+`no-patrol`. There is no existing stand-until-server-line step, so 200 seconds is always
+used. No existing step resolves the runtime death position, so the return walk is skipped.
+Travel, hold timeouts and respawn can make the phase longer than 15 minutes.
+
+The existing admin RPC transports an integer, and the client accepts only digits.
+Thus `admin cmd=fx_site_clear value=0` encodes `mode=attributed` (also the default),
+and `value=1` encodes `mode=health`. Literal `mode=...` text cannot cross that RPC;
+support would require changing client/RPC files outside this task's scope. The help
+row exposes the numeric choices. `fx_site_patrol_kill` is unchanged.
+
+The new test-only fixture uses native scripts-1.30.164289
+`3_Game/Entities/Object.c:1128-1138`:
+`ProcessDirectDamage(int damageType, EntityAI source, string componentName, string ammoName,
+vector modelPos, float damageCoef = 1.0, int flags = 0)`.
+The source is the authenticated requester, damage type is `DamageType.FIRE_ARM`
+(`3_Game/DamageSystem.c:10-13`), damage zone is empty/global, ammo is `Bullet_556x45`,
+model position is zero and the damage multiplier is 1000. The installed native
+`weapons_projectiles.pbo/config.bin` was inspected with the existing config reader:
+`CfgAmmo/Bullet_556x45` has parent `Bullet_Base`, scope 1. The fixture also checks that
+class in the live config (`3_Game/Global/Game.c:612`). Binary configs have no line numbers.
+Health mode uses `Object.c:1015 SetHealth("", "", 0)`. Supporting entity APIs are
+`Object.c:215/287/517` (pending deletion, position, alive); the one non-repeating
+one-second callback chain uses `Game.c:1535/1550` and `2_GameLib/tools.c:61`.
+
+`3_Game/Entities/EntityAI.c:1104 EEKilled(Object killer)` is observed by a test-only
+override of the native `PlayerBase.c:1214` ancestor, which then calls `super`. It never fabricates a kill event. Attributed mode
+stops with `refused:attribution-unconfirmed` if the engine's synchronous event does not
+name the exact requester. A native experiment must establish that this API actually
+produces lethal requester-attributed damage through this build's full event chain.
+If it fails, the lead must use the existing `fx_shoot_held` pattern (requester's held
+weapon, nearest AI within 60 m), rather than crediting an unattributed death. That
+fallback cannot safely be fired automatically after an already lethal unconfirmed
+hit, since it could kill a different member. No native experiment was run here.
+
+Each tick first checks mission finishing and never re-arms afterward. Entity references
+across callbacks are weak. The fixture snapshots at most 16 live members before damage,
+re-resolves through the public hold accessors before each subsequent kill, and waits for
+both `HCDeathHeld()==false` and six seconds after the preceding kill. No group is read
+while held. It stops on public `m_HCLive=false` after a kill, its initial member budget,
+16 kills, a refusal, or 180 seconds. `last=` describes observed public state, not a claim
+to have read an RPT line. The report independently verifies the actual terminal logs.
+The fixture never increments a counter and never sets `m_HCFinished`.
+
+Both modes should naturally reach `SitePatrols/death-hold-armed` per death and
+`SitePatrols/death-hold-released` after clean non-final deaths, or the diagnostic
+`SitePatrols/death-hold-deferred`. The final kill is terminal and is not expected to
+release. Attributed mode additionally exercises the attacker-dependent defence
+`SeedTarget`, adapter `RecordKill` (only when an encounter is actually bound), and
+Stance attacker memory; these calls do not each imply a separate use counter.
+Health mode cannot prove those paths. `AISelfDefence/hit_reaction` is conditional on a
+natural hit reaction, never an unconditional phase requirement. The approach/fixtures
+seek `optional-expansion-human-ai/site_radius_entered`,
+`v2-expansion-living-world/caution_warn`, `AIIncidents/response_started` and
+`AITactics/tactic_chosen`; the final respawn seeks `CampRespawn/respawn_reserved`.
+The campaign suppresses the earlier fixtures-phase death when ai_clear is selected,
+because CampRespawn has an 1800-second per-account cooldown
+(`HCCampRespawn.c:120-153`). The three existing reach rows still tied to fixtures
+(`BodyStories/body_observed`, `BodyStories/death_checked`, `CampRespawn/respawn_reserved`)
+are now explicitly unresolved; the lead owns remapping after native proof. No counter
+mapping or activity expectation was changed.
+
+Exact evidence to retain (placeholders denote values, not invented log wording):
+
+```text
+[HC Test] fx_site_clear site=<id> mode=<attributed|health> start=1 reason=live-patrol-selected
+[HC Test] fx_site_clear site=<id> kind=<zone|site> mode=<attributed|health> kill=<k> members_left=<n> held_ms=<ms>
+[HC Test] fx_site_clear site=<id> mode=<attributed|health> result=<terminal|timeout|refused:reason> kills=<k> elapsed_s=<s> last=<observation>
+[HCX SitePatrol] death_hold armed site=<id> kills=<n>
+[HCX SitePatrol] death_hold_deferred reason=DEATH_HOLD_STALE site=<id>
+[HC Expansion AI] site <id> cleared-at=<ts> saved=<b>
+[HC Expansion AI] site <id> despawned (intact=false)
+[HC ZoneGuards] zone=<id> from=held to=abandoned
+[HC Use] module=SitePatrols feature=death-hold-armed count=<n>
+[HC Use] module=SitePatrols feature=death-hold-released count=<n>
+[HC Use] module=SitePatrols feature=death-hold-deferred count=<n>
+[HC Use] module=AIIncidents feature=response_started count=<n>
+[HC Use] module=AITactics feature=tactic_chosen count=<n>
+[HC Use] module=AISelfDefence feature=hit_reaction count=<n>
+[HC Use] module=optional-expansion-human-ai feature=site_radius_entered count=<n>
+[HC Use] module=v2-expansion-living-world feature=caution_warn count=<n>
+[HC Use] module=CampRespawn feature=respawn_reserved count=<n>
+```
+
+Use counts are cumulative (an optional `fixture=<n>` suffix is retained by the normal
+counter system); compare before/after each mode in the native RPT, rather than attributing
+an entire run's totals to a mode. There is no clean-release text line beyond the existing
+use counter. `cleared-at` can also describe a partial raid, so it alone does not prove
+terminal teardown. The ai_clear report keeps the fixture, armed/deferred, cleared-at,
+despawned and abandoned lines for its selected sites and reports each site's despawn
+count, plus cumulative hold/hit-reaction receipts grouped by the mode start markers.
+A receipt observed in a window is not an attributable delta; missing receipts are unproven.
+Exactly one despawn line is required, with zero and duplicates marked FAIL.
+
+Suspected production defect, deliberately untouched: `HCXAISitePatrols.c:311-350`
+releases the hold only after `!HCHasGroup()` following provider despawn. If the provider
+slot remains set after the last member disappears, subsequent held ticks may re-enter
+`HCEndPatrol`. Measure across the 120-second observation. Note that `wasLive` guards the
+`Despawned` callback, so repeated entry might still emit only one despawn line; a count
+of one cannot alone disprove repeated entry. Do not assert `m_HCFinished`; zone guards
+set that only in `HCXZoneGuards.c:447 OnStop`.
+
+`BodyStories/body_observed` is excluded: it requires owned deaths at transient,
+materialized situation sites (`HCBodyStories.c:100-262`), excluding police and zone sites.
+All infected-family counts observed in this phase are excluded as confounded:
+abandonment enables `HCXZoneGuards.c:425-439 StepOverrun`, which can spawn infected
+300–1000 m away. Existing `Campaign.run` server/client process monitoring already ends
+a server-crash run mid-phase (`soak_campaign.py`, the `wait_for` call monitoring both
+images); no second crash/shutdown path was added. These are offline changes, not native
+or multiplayer proof; the lead runs the compile gate after merge, then the experiment.
