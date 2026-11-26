@@ -15,7 +15,9 @@ class HCInfectedVarietyRoutes
     protected static ref HCInfectedVarietyConfig s_Config;
     protected static ref HCInfectedVarietyRoutePack s_Pack;
     protected static string s_LastRefusal;
-    protected static ref array<HCInfectedActor> s_Roster;
+    // Strong refs: the roster outlives ticks while LOD may archive a member and
+    // later free it from the tombstone FIFO (HCInfectedActor is not Managed).
+    protected static ref array<ref HCInfectedActor> s_Roster;
     protected static string s_Fault;
 
     protected static float s_NextScan;
@@ -191,7 +193,8 @@ class HCInfectedVarietyRoutes
         foreach (HCInfectedActor attempted : roster) { attempted.InfectedEntity.HCVarietyRouteMark(); }
         if (!pack.HCBegin(roster, route, nativeDefaults, now, s_Config.MigrationLifetimeSeconds)) { HCRefuse("native_route_start_refused"); return; }
         s_Pack = pack;
-        s_Roster = roster;
+        s_Roster = new array<ref HCInfectedActor>;
+        foreach (HCInfectedActor held : roster) { s_Roster.Insert(held); }
         foreach (HCInfectedActor admitted : roster)
         {
             admitted.SearchPack = pack;
@@ -202,7 +205,7 @@ class HCInfectedVarietyRoutes
     static void HCClearRoster()
     {
         if (!s_Roster) { return; }
-        array<HCInfectedActor> roster = s_Roster;
+        array<ref HCInfectedActor> roster = s_Roster;
         foreach (HCInfectedActor actor : roster)
         {
             if (actor && actor.SearchPack == s_Pack) { actor.SearchPack = null; }
@@ -318,7 +321,7 @@ modded class HCInfectedModule
     protected int m_HCVarietyRouteScan;
     protected int m_HCVarietyRouteSize;
     protected string m_HCVarietyRoutePlace;
-    protected ref array<HCInfectedActor> m_HCVarietyRoutePending = new array<HCInfectedActor>;
+    protected ref array<ref HCInfectedActor> m_HCVarietyRoutePending = new array<ref HCInfectedActor>; // strong: resumes across ticks
 
     bool HCVarietyRouteScanning() { return m_HCVarietyRoutePlace != ""; }
 

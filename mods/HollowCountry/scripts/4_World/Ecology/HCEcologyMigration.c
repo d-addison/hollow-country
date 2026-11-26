@@ -15,7 +15,7 @@ class HCEcologyMigration
     protected int m_PendingUtc;
     protected HCNativeInfectedPack m_PendingPack;
     protected ref HCInfectedClue m_PendingClue;
-    protected ref array<HCInfectedActor> m_PendingMembers = new array<HCInfectedActor>;
+    protected ref array<ref HCInfectedActor> m_PendingMembers = new array<ref HCInfectedActor>; // strong: compared across ticks; a freed address can be reused
 
     bool Pending() { return m_SaveJob && (m_SaveJob.HCDirty || m_SaveJob.HCInFlight); }
     int HCCheckpointStep()
@@ -229,7 +229,7 @@ class HCEcologyMigration
         s_Service.m_PendingPack = pack;
         s_Service.m_PendingTownGoal = goal;
         s_Service.m_PendingMembers.Clear();
-        s_Service.m_PendingMembers.InsertAll(members);
+        foreach (HCInfectedActor queued : members) { s_Service.m_PendingMembers.Insert(queued); }
         if (!s_Service.Persist()) { s_Service.m_Fault = true; return 0; }
         return 3;
     }
@@ -285,7 +285,7 @@ class HCEcologyMigration
         m_PendingPack = pack;
         m_PendingClue = clue;
         m_PendingMembers.Clear();
-        m_PendingMembers.InsertAll(members);
+        foreach (HCInfectedActor prepared : members) { m_PendingMembers.Insert(prepared); }
         if (!Persist()) { m_Fault = true; return 0; }
         return 3; // retained continuation, no ordinary-route fallback while preparing
 

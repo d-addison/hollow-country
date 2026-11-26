@@ -52,7 +52,10 @@ class HCInfectedModule : HCModule
     protected string m_PacingHordeId;
     protected int m_PacingHordeAttempts;
     // Runtime-only offer: retry the same CE roster and fixed reservation anchor.
-    protected ref array<HCInfectedActor> m_PacingHordeCandidates = new array<HCInfectedActor>;
+    // Strong refs: the offer retries across ticks for up to 600 s while a dead
+    // candidate can be archived and then dropped from the tombstone FIFO; a raw
+    // HCInfectedActor (not Managed) would dangle. Eligibility re-checks the body.
+    protected ref array<ref HCInfectedActor> m_PacingHordeCandidates = new array<ref HCInfectedActor>;
     protected vector m_PacingHordeAnchor;
     protected int m_PacingHordeTarget;
     protected float m_PacingHordeDeadline;
@@ -991,7 +994,8 @@ class HCInfectedModule : HCModule
         if (!retryOffer)
         {
             m_PacingHordeId = "horde:" + nowUtc.ToString();
-            m_PacingHordeCandidates = candidates;
+            m_PacingHordeCandidates.Clear();
+            foreach (HCInfectedActor retained : candidates) { m_PacingHordeCandidates.Insert(retained); }
             m_PacingHordeAnchor = anchor;
             m_PacingHordeTarget = target;
             m_PacingHordePatrol = patrol;
