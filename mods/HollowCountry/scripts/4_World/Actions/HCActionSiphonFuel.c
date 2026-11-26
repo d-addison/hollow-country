@@ -452,8 +452,8 @@ class HCActionSiphonFuel : ActionContinuousBase
             }
             if (!s_Locks.Owns(data, GetGame().GetTime()) || !data.m_Target || data.m_Target.GetObject() != data.Donor || data.m_MainItem != data.Vessel || !ValidateLive(data.m_Player, data.m_Target, data.Vessel))
             {
-                s_Locks.Release(data);
                 data.DiagnosticStatus = "sample_rejected";
+                s_Locks.Release(data);
                 HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_DIAGNOSTIC, "Siphon diagnostic stopped; the reservation or live target changed.");
                 return;
             }
