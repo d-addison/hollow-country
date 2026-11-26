@@ -555,7 +555,18 @@ class HCSearchHouses
             if (!session.Site || !session.Actor || now < session.Site.StartedAt || now > session.Site.Deadline)
             {
                 // End clears both site and action ownership, without committing or refunding supplies.
-                End(session.Owner);
+                if (session.PickerAuthority)
+                {
+                    if (!m_Busy) { m_Sessions.Remove(m_SessionSweepNext); }
+                    else { m_SessionSweepNext++; }
+                }
+                else
+                {
+                    HCInteriorActionData action = HCInteriorActionData.Cast(session.Owner);
+                    if (action) { action.HCActivityStarted = false; }
+                    HCActivity().Add("house_interrupted");
+                    End(session.Owner);
+                }
             }
             else { m_SessionSweepNext++; }
         }

@@ -45,3 +45,25 @@ Items (each: confirm the defect in code first; if it is not real, say so with fi
 Validation before DONE: python3 -B -m tools.validate.preland --native-scripts ~/.cache/hollow-country/native-scripts/scripts-1.30.164289 --changed rt/v16-p3
 (world_mesh_audit is a known host-only failure; report others). Report per item: real/not real,
 file:line, what changed, and the lint/perf tail.
+
+## Fix round 2 (Opus review of 3db39d4c; same rules and owned files)
+F1 (P1) HCXAISitePatrols.c:49-52 + HCUse sites: revert the counter owner to "SitePatrols" (HCXUseRegistry.c:44-46,
+   r3_smoke_plan.json:1004-1028 already own SitePatrols/*). Remove the constructor HCRegisterUse lines. Do NOT add
+   feature counters for death-hold-exit / death-hold-deferred (failure paths stay 0 in a healthy soak -> INERT fails
+   R3); keep them as reason-coded Print lines only. Verify: python3 -B -c "from tools.release.activity_check import
+   check_smoke_plan; check_smoke_plan()" raises nothing.
+F2 (P2) HCXAISitePatrols.c:126-127,153-156: the new exits call HCEndPatrol with live members, skipping Despawn's
+   combat veto (DespawnAllowed ~:332) and the player-proximity check (~:334-344) -> survivors vanish in front of a
+   player. Before ending, apply the same veto + player-distance checks; if refused, release the hold (HCReleaseHold)
+   and mark the patrol not to resume (no new spawns/assignments) and keep deferring the end until the checks allow it.
+   One reason-coded line when the exit fires and when it is vetoed (rate-limited by the existing 10 s report clock).
+F3 (P2) HCSearchHouses.c:556-559: End(session.Owner) with Owner==null (picker sessions, PickerAuthority) ends every
+   picker session. Use: if (session.PickerAuthority) { if (!m_Busy) m_Sessions.Remove(m_SessionSweepNext); } else
+   End(session.Owner); and count swept non-picker sessions in the existing house_interrupted counter if one exists.
+F4 (P2) HCXAITactics.c:517-520: at capacity, evict the oldest record whose SmokeUntil/LureUntil have passed and whose
+   cap window expired (bounded scan of s_Groups, <= TrackedGroups); return null only when every record is still in
+   cooldown, and count that in a separate counter/summary field (not s_Throttled).
+F5 (P3) HCGroundSnap.c:155-171: do not wipe live footprints. When s_Dead is large (e.g. >= half of the slots), compact
+   (rebuild arrays + s_Cells without tombstones); at the live cap refuse new Adds with one reason-coded log line. Fix
+   the comment (cache loss changes CE spawn height inside still-standing buildings).
+Validate as before (preland --changed rt/v16-p3, lint, perf). Commit as a new commit on top of 3db39d4c.

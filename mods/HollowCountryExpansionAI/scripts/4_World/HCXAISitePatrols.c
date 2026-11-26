@@ -40,16 +40,13 @@ class HCXAISitePatrol : HCXExpansionPatrol
     protected int m_HCDeathFrames;
     protected int m_HCDeathNextReportMs;
     protected int m_HCDeathStaleReports;
+    protected string m_HCDeathEndReason;
     static const int HC_DEATH_STALE_REPORT_LIMIT = 6;
     protected int m_HCDeferredMember = -1;
     static const int HC_DEATH_HOLD_CAP_MS = 10000;
     void HCXAISitePatrol()
     {
         s_HCLiveSlots.Insert(this);
-        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-armed");
-        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-released");
-        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-deferred");
-        HCModuleReadiness.HCRegisterUse("optional-expansion-human-ai", "death-hold-exit");
     }
     void ~HCXAISitePatrol()
     {
@@ -75,14 +72,17 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     eAIGroup HCGroupIfSafe()
     {
-        if (m_HCDeathHeld) { return null; }
+        if (this.HCDeathHeld()) { return null; }
         if (!m_HCHold || !this.HCBridgeOwnsHold(m_HCHold)) { return null; }
         return m_HCHold.HCResolveFresh();
     }
-    bool HCDeathHeld() { return m_HCDeathHeld; }
+    // Director readers must also defer while an end-only patrol has released its hold;
+    // a temporarily null hold is not proof that its live group has disappeared.
+    bool HCDeathHeld() { return m_HCDeathHeld || (m_HCDeathEndReason != "" && !m_HCFinished); }
     // No provider call or new strong reference through the raw slot on this path.
     void HCArmDeath(DayZPlayerImplement killed)
     {
+        if (m_HCFinished || m_HCDeathEndReason != "") { return; }
         bool first = !m_HCDeathHeld;
         m_HCDeathHeld = true;
         m_HCDeathFrames = 0;
@@ -102,7 +102,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
             Print("[HCX SitePatrol] death_hold armed site=" + m_HCSiteId + " kills=" + m_HCDeathKills.ToString());
         }
         if (m_HCHold && m_HCHold.Deaths < 2147483647) { m_HCHold.Deaths++; }
-        HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-armed");
+        HCModuleReadiness.HCUse("SitePatrols", "death-hold-armed");
     }
     // Two SYSTEM invocations prove a frame boundary even if armed before this
     // frame's update queue. Native Game.c:1552, DayZGame.c:3027, tools.c:115.
@@ -117,9 +117,31 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     protected void HCDeathHoldExit(string reason)
     {
-        Print("[HCX SitePatrol] death_hold_exit reason=" + reason + " site=" + m_HCSiteId);
-        HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-exit");
+        if (m_HCDeathEndReason == "") { m_HCDeathEndReason = reason; m_HCDeathNextReportMs = 0; }
+        // End-only state survives HCReleaseHold: no provider update, assignments or spawns.
+        this.HCDeathEndStep();
+    }
+    protected void HCDeathEndStep()
+    {
+        if (m_HCFinished) { return; }
+        string refusal = "";
+        // An unknown/foreign hold cannot establish that live members are safe to remove.
+        if (this.HCHasGroup() && (!m_HCHold || !this.HCBridgeOwnsHold(m_HCHold))) { refusal = "DEATH_END_IDENTITY_MISSING"; }
+        else { refusal = this.HCDespawnRefusal(); }
+        if (refusal != "")
+        {
+            this.HCReleaseHold();
+            int nowMs = GetGame().GetTime();
+            if (nowMs >= m_HCDeathNextReportMs)
+            {
+                m_HCDeathNextReportMs = nowMs + HC_DEATH_HOLD_CAP_MS;
+                Print("[HCX SitePatrol] death_hold_exit_veto reason=" + refusal + " exit=" + m_HCDeathEndReason + " site=" + m_HCSiteId);
+            }
+            return;
+        }
+        Print("[HCX SitePatrol] death_hold_exit reason=" + m_HCDeathEndReason + " site=" + m_HCSiteId);
         this.HCEndPatrol();
+        m_HCFinished = true;
     }
     protected void HCDeathHoldStep()
     {
@@ -143,7 +165,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
             m_HCDeathResumePending = true;
             m_HCDeathMembers.Clear();
             m_HCDeathKills = 0;
-            HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-released");
+            HCModuleReadiness.HCUse("SitePatrols", "death-hold-released");
             return;
         }
         int nowMs = GetGame().GetTime();
@@ -156,7 +178,6 @@ class HCXAISitePatrol : HCXExpansionPatrol
             return;
         }
         Print("[HCX SitePatrol] death_hold_deferred reason=DEATH_HOLD_STALE site=" + m_HCSiteId);
-        HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-deferred");
     }
     protected void HCLogSkipped(string why)
     {
@@ -179,7 +200,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override bool CanSpawn()
     {
-        if (m_HCFinished || m_HCDeathHeld) { return false; }
+        if (m_HCFinished || m_HCDeathHeld || m_HCDeathEndReason != "") { return false; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return false; }
         string problem = director.HCPrepareRingSpawn(this);
@@ -195,7 +216,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override void Spawn()
     {
-        if (m_HCFinished) { return; }
+        if (m_HCFinished || m_HCDeathEndReason != "") { return; }
         if (m_HCDeathHeld) { this.HCLogSkipped("DEATH_HOLD_ACTIVE"); return; }
         if (this.HCHasGroup())
         {
@@ -235,7 +256,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override void SpawnAI_Deferred(int i)
     {
-        if (m_HCFinished) { return; }
+        if (m_HCFinished || m_HCDeathEndReason != "") { return; }
         if (m_HCDeathHeld) { m_HCDeferredMember = i; this.HCLogSkipped("DEATH_HOLD_ACTIVE"); return; }
         m_HCPendingMembers = 0;
         // An emptied group may already be out of the provider's group list (our hold keeps
@@ -310,7 +331,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     void HCReleaseHold()
     {
         this.HCDeathFrameStop();
-        if (m_HCDeathHeld) { HCModuleReadiness.HCUse("optional-expansion-human-ai", "death-hold-released"); }
+        if (m_HCDeathHeld) { HCModuleReadiness.HCUse("SitePatrols", "death-hold-released"); }
         m_HCDeathHeld = false;
         m_HCDeathResumePending = false;
         m_HCDeathMembers.Clear();
@@ -325,23 +346,34 @@ class HCXAISitePatrol : HCXExpansionPatrol
     {
         HCXExpansionBridge.HCHoldRemoveDeceasedAll(m_HCHold);
     }
-    override void Despawn(bool deferDespawnUntilLoosingAggro = false)
+    protected string HCDespawnRefusal()
     {
         // Despawn persistence: Final reads resolve in any lifecycle state, so a stopping patrol
         // still reads its real group and never persists a defaulted "cleared" site.
-        if (HCXExpansionBridge.HCHoldCountFinal(m_HCHold) > 0 && !HCXAISiteRules.DespawnAllowed(HCXExpansionBridge.HCHoldIsInCombatFinal(m_HCHold), HCXExpansionBridge.HCHoldForcePatrolDespawnFinal(m_HCHold))) { return; }
+        if (HCXExpansionBridge.HCHoldCountFinal(m_HCHold) > 0 && !HCXAISiteRules.DespawnAllowed(HCXExpansionBridge.HCHoldIsInCombatFinal(m_HCHold), HCXExpansionBridge.HCHoldForcePatrolDespawnFinal(m_HCHold))) { return "DEATH_END_COMBAT"; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (m_HCTransient && this.HCHasGroup())
         {
-            if (!director) { return; }
+            if (!director) { return "DEATH_END_DIRECTOR_MISSING"; }
             int memberIndex = 0;
             while (memberIndex < HCXExpansionBridge.HCHoldCount(m_HCHold))
             {
                 DayZPlayerImplement retiringMember = HCXExpansionBridge.HCHoldGetMember(m_HCHold, memberIndex);
-                if (retiringMember && (director.NearestPlayer(retiringMember.GetPosition()) < 200 || director.SeenByPlayer(retiringMember.GetPosition()))) { return; }
+                if (retiringMember && (director.NearestPlayer(retiringMember.GetPosition()) < 200 || director.SeenByPlayer(retiringMember.GetPosition()))) { return "DEATH_END_PLAYER_NEAR"; }
                 memberIndex++;
             }
         }
+        return "";
+    }
+    override void Despawn(bool deferDespawnUntilLoosingAggro = false)
+    {
+        if (m_HCDeathEndReason != "")
+        {
+            this.HCHoldMembers();
+            this.HCDeathEndStep();
+            return;
+        }
+        if (this.HCDespawnRefusal() != "") { return; }
         this.HCEndPatrol();
     }
     // Terminal teardown keeps persistence, bodies, provider despawn, then retirement.
@@ -376,6 +408,13 @@ class HCXAISitePatrol : HCXExpansionPatrol
     override void OnUpdate()
     {
         if (m_HCFinished || HCXExpansionBridge.HCSitePatrolBeingDestroyed(this)) { HCXExpansionBridge.HCSitePatrolStop(this); return; }
+        if (m_HCDeathEndReason != "")
+        {
+            // The released hold can be followed again solely for guarded teardown.
+            this.HCHoldMembers();
+            this.HCDeathEndStep();
+            return;
+        }
         if (m_HCDeathHeld) { this.HCDeathHoldStep(); return; }
         if (m_HCDeathResumePending)
         {
@@ -397,6 +436,7 @@ class HCXAISitePatrol : HCXExpansionPatrol
     }
     override void SetupAI(eAIBase ai)
     {
+        if (m_HCFinished || m_HCDeathEndReason != "") { return; }
         if (!this.HCBridgeSetupAI(ai)) { return; }
         // Deferred members still carry their temporary provider group here; hold m_Group instead.
         if (this.HCHasGroup())

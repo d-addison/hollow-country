@@ -360,6 +360,7 @@ class HCXAITactics
     protected static int s_Lost;
     protected static int s_Refused;
     protected static int s_Throttled;
+    protected static int s_LedgerFull;
     protected static int s_Deferred;
     protected static int s_FireEvents;
     protected static int s_Logged;
@@ -512,12 +513,31 @@ class HCXAITactics
         HCXTacticsGroup known = HCFind(group);
         if (known) { return known; }
         int id = HCXExpansionBridge.HCGroupGetID(group);
-        // Retain cooldowns and cap-window usage for every live tracked group. The existing
-        // one-record sweep frees departed groups; newcomers back off until a slot is available.
+        // Only expired cooldowns AND expired cap usage may be discarded. One bounded
+        // ledger pass (<= TrackedGroups), never evict the active inventory scan's record.
         if (HCXAITacticsPolicy.TrackedFull(s_Groups.Count(), s_Config.TrackedGroups))
         {
-            s_Throttled++;
-            return null;
+            int oldest = -1;
+            int oldestUntil = 2147483647;
+            for (int index = 0; index < s_Groups.Count(); index++)
+            {
+                HCXTacticsGroup candidate = s_Groups.Get(index);
+                if (candidate == s_ScanGroup) { continue; }
+                int smokeUntil = 0;
+                int lureUntil = 0;
+                int windowUntil = 0;
+                if (candidate)
+                {
+                    if (candidate.SmokeLast > 0) { smokeUntil = candidate.SmokeLast + s_Config.SmokeCooldownSec * 1000; }
+                    if (candidate.LureLast > 0) { lureUntil = candidate.LureLast + s_Config.LureCooldownSec * 1000; }
+                    if (candidate.WindowStart > 0) { windowUntil = candidate.WindowStart + s_Config.CapWindowSec * 1000; }
+                }
+                int expiredAt = Math.Max(windowUntil, Math.Max(smokeUntil, lureUntil));
+                if (nowMs < expiredAt) { continue; }
+                if (oldest < 0 || expiredAt < oldestUntil) { oldest = index; oldestUntil = expiredAt; }
+            }
+            if (oldest < 0) { s_LedgerFull++; return null; }
+            s_Groups.RemoveOrdered(oldest);
         }
         HCXTacticsGroup created = new HCXTacticsGroup();
         created.GroupId = id;
@@ -895,7 +915,7 @@ class HCXAITactics
             string summary = "[HCX Tactics] groups=" + s_Groups.Count().ToString() + "/" + s_Config.TrackedGroups.ToString() + " fire_events=" + s_FireEvents.ToString();
             summary = summary + " smoke_thrown=" + s_SmokeThrown.ToString() + " smoke_activated=" + s_SmokeActivated.ToString() + " smoke_dropped=" + s_Dropped.ToString();
             summary = summary + " lure_thrown=" + s_LureThrown.ToString() + " lure_noises=" + s_LureNoises.ToString() + " lost=" + s_Lost.ToString();
-            summary = summary + " refused=" + s_Refused.ToString() + " throttled=" + s_Throttled.ToString() + " deferred=" + s_Deferred.ToString() + " pending=" + s_Pending.Count().ToString();
+            summary = summary + " refused=" + s_Refused.ToString() + " throttled=" + s_Throttled.ToString() + " ledger_full=" + s_LedgerFull.ToString() + " deferred=" + s_Deferred.ToString() + " pending=" + s_Pending.Count().ToString();
             Print("" + summary);
         }
     }

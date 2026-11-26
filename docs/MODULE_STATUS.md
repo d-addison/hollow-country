@@ -485,11 +485,11 @@ WeatherDays have registered implementations (`HCGradeModule`, `HCLightingModule`
 `HCWeatherDaysModule`), and the optional Expansion addon has the registered
 `HCXAIAdapter` implementation; their “being built” states above were stale. The adapter's `IsEnabled` is
 always true; the row now distinguishes that from its encounter preference.
-No runtime acceptance was inferred. Site patrol death-hold armed/released/deferred
-and bounded-exit receipts now use the registered `optional-expansion-human-ai`
-owner, with zero-count registration when a patrol is constructed. The legacy
-`SitePatrols` registrations in `HCXUseRegistry.c` remain outside this worker's
-scope; native exit/use evidence remains pending.
+No runtime acceptance was inferred. Site patrol death-hold armed/released receipts
+use the existing `SitePatrols` owner and registry. Deferred/forced exits are
+reason-coded Print lines only, with no constructor-time counter registration.
+The legacy `death-hold-deferred` registry/smoke-plan entries remain outside this
+worker's scope; native exit/use evidence remains pending.
 
 ## Earlier native diagnostics
 
