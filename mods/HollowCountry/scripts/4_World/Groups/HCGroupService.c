@@ -215,10 +215,15 @@ class HCGroupService : Managed
     int HCStepBatchSave(map<string, PlayerBase> hcPlayers = null)
     {
         map<string, PlayerBase> ownedPlayers = hcPlayers;
-        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
         if (!m_Healthy || !m_PendingState) { return HCSaveJob.STEP_FAILED; }
         int result = m_Store.SaveStep(m_PendingState);
-        if (result == HCSaveJob.STEP_FAILED) { m_Healthy = false; Stop(ownedPlayers); return result; }
+        if (result == HCSaveJob.STEP_FAILED)
+        {
+            if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
+            m_Healthy = false;
+            Stop(ownedPlayers);
+            return result;
+        }
         if (result == HCSaveJob.STEP_DONE)
         {
             // Routine discovery changes no ACL/invitations. Preserve current
@@ -456,7 +461,10 @@ class HCGroupService : Managed
     // O(1) body lookup; Live still revalidates the current engine identity.
     // Broadcast: one roster build O(N), R<=90 recipients, P<=90 peers,
     // M<=MaxMembers<=90 member rows: O(N + R*(P+M)) identity/life reads.
-    // <=8,100 candidate visits plus <=8,100 member visits, O(N + P^2).
+    // Peer index built once per round: O(P); Member uses O(1) source lookups.
+    // Previously Member scanned P peers per row: O(N + R*(P+M)*P),
+    // up to 1,458,000 source-id comparisons at R=P=M=90.
+    // Now <=8,100 candidate + <=8,100 member visits: O(N + P + R*(P+M)).
     // Candidate rows scan all peers; only member rows are capped by MaxMembers.
     PlayerBase HCPlayerOf(map<string, PlayerBase> players, string uid, PlayerBase hint = null)
     {
@@ -481,13 +489,13 @@ class HCGroupService : Managed
 
     void Connected(PlayerIdentity identity, PlayerBase player, map<string, PlayerBase> hcPlayers = null)
     {
-        map<string, PlayerBase> ownedPlayers = hcPlayers;
-        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
         if (!m_Healthy || !identity || !player) return;
         PlayerIdentity connectedIdentity = player.GetIdentity();
         if (!HCPlayerIdentity.Same(connectedIdentity, identity)) return;
         string uid = identity.GetId();
         if (!HCGroupRules.TextValid(uid, 128, false)) return;
+        map<string, PlayerBase> ownedPlayers = hcPlayers;
+        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
         HCGroupPeer previous = Peer(uid);
         if (previous) { m_Peers.Remove(m_Peers.Find(previous)); }
         if (m_Peers.Count() >= 90 || m_Serial >= 1000000000 || s_HCPeerSerial >= 1000000000) return;
@@ -901,6 +909,19 @@ class HCGroupService : Managed
         }
     }
 
+    // Synchronous round context contains managed peers only, never engine handles.
+    // Preserve the public SendSnapshot signature used by the visibility override.
+    // Save/restore below also isolates a nested round; nothing survives its return.
+    protected ref map<string, HCGroupPeer> m_HCRoundPeers;
+
+    protected map<string, HCGroupPeer> HCPeersById()
+    {
+        map<string, HCGroupPeer> peers = new map<string, HCGroupPeer>;
+        array<ref HCGroupPeer> rows = m_Peers;
+        foreach (HCGroupPeer row : rows) { peers.Set(row.Id, row); }
+        return peers;
+    }
+
     void SendRound(int kind, map<string, PlayerBase> hcPlayers)
     {
         // Advance emitted rounds independently of Tick cadence: e.g. an
@@ -910,6 +931,9 @@ class HCGroupService : Managed
             m_PeerCursor = m_RoundCursor % m_Peers.Count();
             m_RoundCursor = (m_RoundCursor + 1) % m_Peers.Count();
         }
+        ref map<string, HCGroupPeer> previousPeers = m_HCRoundPeers;
+        map<string, HCGroupPeer> roundPeers = HCPeersById();
+        m_HCRoundPeers = roundPeers;
         int sent = 0;
         while (sent < m_Peers.Count())
         {
@@ -918,6 +942,7 @@ class HCGroupService : Managed
             HCGroupRecord hcFoundGroup1 = HCGroupRules.FindGroup(m_State, peer.Id);
             if (kind == HCGroupSnapshotKind.FULL || hcFoundGroup1) SendSnapshot(peer, kind, 0, hcPlayers);
         }
+        m_HCRoundPeers = previousPeers;
     }
 
     // Enqueue only: no Clone/Commit on the discovery cadence. FlushBatch
@@ -1043,13 +1068,12 @@ class HCGroupService : Managed
         return 4;
     }
 
-    HCGroupMember Member(string uid, HCGroupPeer recipient, bool position, map<string, PlayerBase> hcPlayers, PlayerBase hint = null)
+    HCGroupMember Member(string uid, HCGroupPeer source, HCGroupPeer recipient, bool position, map<string, PlayerBase> hcPlayers, PlayerBase hint = null)
     {
         HCGroupMember member = new HCGroupMember;
         member.Id = uid;
         member.Name = m_Names.Get(uid);
         if (member.Name == "") member.Name = "Offline member";
-        HCGroupPeer source = Peer(uid);
         member.Online = Live(source, hcPlayers, hint);
         // Candidates disclose invitation selection/availability only. The
         // default Alive=false means undisclosed here, not a death report.
@@ -1093,6 +1117,8 @@ class HCGroupService : Managed
         if (hcPeerPlayer) hcPeerIdentity = hcPeerPlayer.GetIdentity();
         if (!hcPeerPlayer || !hcPeerIdentity || hcPeerIdentity.GetId() != peer.Id) return;
         if (!HCGroupRules.MutationIdValid(peer.LastRequest)) return;
+        map<string, HCGroupPeer> ownedPeers = m_HCRoundPeers;
+        if (!ownedPeers) { ownedPeers = HCPeersById(); }
         HCGroupSnapshot snapshot = new HCGroupSnapshot;
         snapshot.Settings = m_Config;
         snapshot.Enabled = m_Healthy;
@@ -1116,7 +1142,8 @@ class HCGroupService : Managed
             foreach (string uid : hcRows10)
             {
                 if (s_HCTraceSnapshots) HCProbe(5, peer);
-                HCGroupMember rosterMember = Member(uid, peer, true, hcPlayers, hint);
+                HCGroupPeer sourcePeer = ownedPeers.Get(uid);
+                HCGroupMember rosterMember = Member(uid, sourcePeer, peer, true, hcPlayers, hint);
                 rosterMember.Role = HCGroupRules.Role(group, uid);
                 snapshot.Members.Insert(rosterMember);
             }
@@ -1137,7 +1164,7 @@ class HCGroupService : Managed
                 if (Live(candidate, hcPlayers) && candidate.Id != peer.Id)
                 {
                     if (s_HCTraceSnapshots) HCProbe(5, peer);
-                    HCGroupMember candidateMember = Member(candidate.Id, peer, false, hcPlayers, hint);
+                    HCGroupMember candidateMember = Member(candidate.Id, candidate, peer, false, hcPlayers, hint);
                     snapshot.Candidates.Insert(candidateMember);
                 }
             }

@@ -78,7 +78,7 @@ class HCBaseRaid
     protected static int s_WarningReceipt;
     protected static int s_WarningUtc;
 
-    static void HCAdvanceWarning(HCCampModule owner, int now)
+    static void HCAdvanceWarning(HCCampModule owner, int now, array<Man> roster, map<string, PlayerBase> players)
     {
         if (!s_WarningCamp || owner != s_WarningOwner) { return; }
         HCBaseRaidPort port = s_WarningPort;
@@ -91,12 +91,12 @@ class HCBaseRaid
         if (!owner.HCDurable(s_WarningReceipt)) { return; }
         ref HCCampRecord camp = s_WarningCamp;
         s_WarningCamp = null;
-        if (!HCEnabled() || !port || port != HCGet() || !port.HCReady() || !port.HCRetainedSeen(camp, s_WarningScan) || !HCRecipients(owner, camp))
+        if (!HCEnabled() || !port || port != HCGet() || !port.HCReady() || !port.HCRetainedSeen(camp, s_WarningScan) || !HCRecipients(owner, camp, roster, players))
         {
             if (port) { port.HCCancel(); }
             return;
         }
-        owner.Tell(camp, "Raiders have noticed your camp. A warned probe may return after a warning delay if it is unattended.");
+        owner.Tell(camp, "Raiders have noticed your camp. A warned probe may return after a warning delay if it is unattended.", roster, players);
         port.HCWarned(camp, now);
     }
 
@@ -177,10 +177,10 @@ class HCBaseRaid
         return s_Status;
     }
 
-    static bool HCRecipients(HCCampModule owner, HCCampRecord camp)
+    static bool HCRecipients(HCCampModule owner, HCCampRecord camp, array<Man> roster = null, map<string, PlayerBase> players = null)
     {
         if (!owner || !camp || !s_Config || !GetGame() || !GetGame().IsServer()) { return false; }
-        return owner.HCBaseRaidHasRecipients(camp, s_Config.MaxPlayers);
+        return owner.HCBaseRaidHasRecipients(camp, s_Config.MaxPlayers, roster, players);
     }
 
     // Same live attendance policy as HCCampTheft.HCAllowed, independently of
@@ -200,11 +200,12 @@ class HCBaseRaid
         array<Man> people = new array<Man>;
         GetGame().GetPlayers(people);
         if (people.Count() > s_Config.MaxPlayers) { return false; }
+        map<string, PlayerBase> attendancePlayers = HCGroupService.HCPlayersFromRoster(people);
         foreach (Man person : people)
         {
             PlayerBase player = PlayerBase.Cast(person);
             if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
-            if (owner.GroupId(player) == camp.GroupId && vector.DistanceSq(player.GetPosition(), camp.Position) <= s_Config.AttendanceRangeMeters * s_Config.AttendanceRangeMeters) { return false; }
+            if (owner.HCGroupIdWithPlayers(player, attendancePlayers) == camp.GroupId && vector.DistanceSq(player.GetPosition(), camp.Position) <= s_Config.AttendanceRangeMeters * s_Config.AttendanceRangeMeters) { return false; }
         }
         return HCObserverTransitionGate.CanTransition(at, s_Config.ObserverRangeMeters);
     }
@@ -246,14 +247,21 @@ modded class HCCampModule
 
     // Exact recipient list used by Tell in this synchronous camp scan; a
     // different player cache must not turn an undelivered warning into a debit.
-    bool HCBaseRaidHasRecipients(HCCampRecord camp, int cap)
+    bool HCBaseRaidHasRecipients(HCCampRecord camp, int cap, array<Man> roster = null, map<string, PlayerBase> players = null)
     {
-        array<Man> recipients = m_Players;
-        if (!recipients || recipients.Count() > cap) { return false; }
+        array<Man> recipients = roster;
+        if (!recipients)
+        {
+            recipients = new array<Man>;
+            GetGame().GetPlayers(recipients);
+        }
+        if (recipients.Count() == 0 || recipients.Count() > cap || recipients.Count() > HCGCCampGroupConfig.Get().CampPlayers) { return false; }
+        map<string, PlayerBase> ownedPlayers = players;
+        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCPlayersFromRoster(recipients); }
         foreach (Man recipient : recipients)
         {
             PlayerBase peer = PlayerBase.Cast(recipient);
-            if (peer && peer.IsAlive() && !peer.IsPendingDeletion() && peer.GetIdentity() && GroupId(peer) == camp.GroupId) { return true; }
+            if (peer && peer.IsAlive() && !peer.IsPendingDeletion() && peer.GetIdentity() && HCGroupIdWithPlayers(peer, ownedPlayers) == camp.GroupId) { return true; }
         }
         return false;
     }

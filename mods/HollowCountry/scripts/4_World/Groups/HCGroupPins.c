@@ -342,7 +342,6 @@ modded class HCDebugGroupPinsContributor
 {
     override void HCDescribe(HCDebugSnapshot snapshot)
     {
-        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
         HCGroupService groups = HCGroupService.Get();
         HCGCCampGroupConfig limits = HCGCCampGroupConfig.Get();
         if (!snapshot.HCStarted)
@@ -374,6 +373,7 @@ modded class HCDebugGroupPinsContributor
             // until the next sweep completes. No whole-catalogue Collect call.
             int groupWork = groupCount - m_Cursor;
             if (groupWork > limits.DebugGroups) { groupWork = limits.DebugGroups; }
+            map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
             m_Total += groups.HCDebugPins(m_Cursor, groupWork, limits.DebugPins, m_Rows, hcPlayers);
             m_Cursor += groupWork;
             if (m_Cursor >= groupCount)

@@ -68,7 +68,7 @@ class HCBuildingClaim
     protected int m_Cursor;
     protected int m_ObserverCursor;
     protected HCBuildingClaimRecord m_Examining;
-    protected ref array<Man> m_Observers = new array<Man>;
+    protected ref array<string> m_ObserverIds = new array<string>;
     protected int m_VisitObservedUtc;
     protected float m_Elapsed;
 
@@ -139,7 +139,7 @@ class HCBuildingClaim
     {
         m_Healthy = false;
         m_Status.HCPublish("refused", "claim_config_clock_or_journal_fault");
-        m_Observers.Clear();
+        m_ObserverIds.Clear();
         m_Examining = null;
         Print("[HC Plan] HC-17 claims=off state=refused reason=config_clock_or_journal_fault construction=off construction_scope=claim_aware native_construction=on kits=fence,watchtower,flag,shelter ai_fortified=0 ai_provider=ExpansionAI count=0 runtime=PENDING");
     }
@@ -328,7 +328,8 @@ class HCBuildingClaim
         if (!HCDoor(lockBuilding, lockDoor)) { return true; }
         HCGroupService lockGroups = HCGroupService.Get();
         if (!lockGroups || !lockGroups.HCClaimHealthy()) { return false; }
-        int lockGroupId = lockGroups.HCClaimActorGroup(player, false);
+        map<string, PlayerBase> actorPlayers = HCGroupService.HCBuildPlayers();
+        int lockGroupId = lockGroups.HCClaimActorGroup(player, false, actorPlayers);
         return s_Instance.HCCanLock(lockGroupId, HCIdentity(lockBuilding));
     }
 
@@ -343,7 +344,8 @@ class HCBuildingClaim
         if (!s_Instance.m_Healthy || !HCActor(player)) { return false; }
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !groups.HCClaimHealthy()) { return false; }
-        int groupId = groups.HCClaimActorGroup(player, false);
+        map<string, PlayerBase> actorPlayers = HCGroupService.HCBuildPlayers();
+        int groupId = groups.HCClaimActorGroup(player, false, actorPlayers);
         float radius = s_Instance.m_Config.VisitRadiusMeters;
         foreach (HCBuildingClaimRecord claim : s_Instance.m_Data.Claims)
         {
@@ -396,7 +398,8 @@ class HCBuildingClaim
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !groups.HCClaimHealthy()) { return "Claim service unavailable."; }
         // Re-read authenticated live peer and manager role at completion.
-        int groupId = groups.HCClaimActorGroup(player, true);
+        map<string, PlayerBase> actorPlayers = HCGroupService.HCBuildPlayers();
+        int groupId = groups.HCClaimActorGroup(player, true, actorPlayers);
         if (!release)
         {
             string refusal = HCFirstClaimRefusal(building, groupId);
@@ -408,7 +411,7 @@ class HCBuildingClaim
             // The actor's prompt flips at once; other members follow within one 5 s slice.
             HCBuildingClaimHint requestHints = HCBuildingClaimHint.Get();
             requestHints.HCIndex(m_Data.Claims);
-            requestHints.HCSend(player, groups, m_OnlineSeconds, true);
+            requestHints.HCSend(player, groups, m_OnlineSeconds, true, actorPlayers);
         }
         return result;
     }
@@ -441,8 +444,18 @@ class HCBuildingClaim
             if (!people || people.Count() > 32) { return; }
             if (m_Cursor >= m_Data.Claims.Count()) { m_Cursor = 0; }
             m_Examining = m_Data.Claims[m_Cursor];
-            m_Observers.Clear();
-            m_Observers.InsertAll(people);
+            m_ObserverIds.Clear();
+            foreach (Man man : people)
+            {
+                string observerUid = "";
+                if (man)
+                {
+                    PlayerIdentity id = man.GetIdentity();
+                    if (id) { observerUid = id.GetId(); }
+                }
+                // Keep even identity-less rows for the same cursor and unit charges.
+                m_ObserverIds.Insert(observerUid);
+            }
             m_ObserverCursor = 0;
             m_VisitObservedUtc = 0;
             m_Units.HCCharge(people.Count());
@@ -454,15 +467,16 @@ class HCBuildingClaim
         {
             m_Cursor = 0;
             m_Examining = null;
-            m_Observers.Clear();
+            m_ObserverIds.Clear();
             return;
         }
         map<string, PlayerBase> hcPlayers;
-        if (m_ObserverCursor < m_Observers.Count()) hcPlayers = HCGroupService.HCBuildPlayers();
-        while (m_ObserverCursor < m_Observers.Count())
+        if (m_ObserverCursor < m_ObserverIds.Count()) hcPlayers = HCGroupService.HCBuildPlayers();
+        while (m_ObserverCursor < m_ObserverIds.Count())
         {
             if (!m_Work.HCContinue() || !m_Units.HCTake(1)) { return; }
-            PlayerBase player = PlayerBase.Cast(m_Observers[m_ObserverCursor]);
+            // A respawned member's new body counts as a visit; no old body is retained.
+            PlayerBase player = hcPlayers.Get(m_ObserverIds[m_ObserverCursor]);
             m_ObserverCursor++;
             if (!HCActor(player)) { continue; }
             if (vector.DistanceSq(player.GetPosition(), m_Examining.Position) <= m_Config.VisitRadiusMeters * m_Config.VisitRadiusMeters && groups.HCClaimActorGroup(player, false, hcPlayers) == m_Examining.GroupId) { m_VisitObservedUtc = now; }
@@ -478,7 +492,7 @@ class HCBuildingClaim
         bool expired = HCShouldExpire(m_Examining, now, groupState);
         if (expired) { m_LastSteps.Remove(m_Examining.BuildingId); }
         m_Examining = null;
-        m_Observers.Clear();
+        m_ObserverIds.Clear();
         if (expired)
         {
             m_Data.Claims.RemoveOrdered(m_Cursor);
@@ -498,9 +512,11 @@ class HCBuildingClaim
         HCBuildingClaimHint hints = HCBuildingClaimHint.Get();
         hints.HCPrune(people);
         hints.HCIndex(m_Data.Claims);
+        map<string, PlayerBase> hintPlayers = HCGroupService.HCPlayersFromRoster(people);
         foreach (Man person : people)
         {
-            hints.HCSend(PlayerBase.Cast(person), groups, m_OnlineSeconds, false);
+            PlayerBase hintPlayer = PlayerBase.Cast(person);
+            hints.HCSend(hintPlayer, groups, m_OnlineSeconds, false, hintPlayers);
         }
     }
 
@@ -522,7 +538,7 @@ class HCBuildingClaim
     {
         if (!s_Instance) { return; }
         if (s_Instance.m_Healthy) { HCSaveScheduler.HCFlush(s_Instance.m_Save); }
-        s_Instance.m_Observers.Clear();
+        s_Instance.m_ObserverIds.Clear();
         s_Instance.m_Examining = null;
         s_Instance.m_Healthy = false;
         s_Instance.m_Status.HCPublish("off", "claim_owner_stopped");
@@ -545,8 +561,7 @@ modded class HCGroupService
     int HCClaimActorGroup(PlayerBase player, bool manager, map<string, PlayerBase> hcPlayers = null)
     {
         map<string, PlayerBase> ownedPlayers = hcPlayers;
-        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
-        if (!HCClaimHealthy() || !player) { return 0; }
+        if (!ownedPlayers || !HCClaimHealthy() || !player) { return 0; }
         PlayerIdentity playerIdentity = player.GetIdentity();
         if (!playerIdentity) { return 0; }
         HCGroupPeer peer = Peer(playerIdentity.GetId());
