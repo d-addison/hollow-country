@@ -1640,6 +1640,26 @@
       "note": "A server-confirmed approach into the radius of a currently published mission zone."
     },
     {
+      "module": "optional-expansion-human-ai",
+      "feature": "route_upgrade",
+      "signal": {
+        "tag": "[HC Use]",
+        "regex": "module=optional-expansion-human-ai feature=route_upgrade count=(?P<count>\\d+)",
+        "fields": [
+          "count"
+        ]
+      },
+      "comparison": "max",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISiteSurvey.c",
+      "scope": "runtime",
+      "conditional": "upgrade-only",
+      "required_when": "[HC Expansion AI] route upgrade queued",
+      "note": "Upgrade-only: no queued stale row is NOT_APPLICABLE. A queued upgrade requires positive use from validated stale serving or a completed background shadow."
+    },
+    {
       "module": "VehicleRetire",
       "feature": "retired",
       "signal": {

@@ -7,7 +7,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
     // EnDebug.c:96 Print; EnConvert.c:30 ToString. Output: at most six buckets.
     protected ref map<string, int> m_SurveyRefusals = new map<string, int>;
     protected ref map<string, bool> m_SurveyRefusalLogged = new map<string, bool>;
-    // Same policy-only bound as m_RouteResults. Key by route rather than state
+    // Same policy-only bound as m_RouteResults. Key by SITE id rather than state
     // object: a requalification can replace the state that recorded the failure.
     protected ref map<string, string> m_SurveyRefusalCodes = new map<string, string>;
 
@@ -193,7 +193,10 @@ class HCXAISiteSurvey : HCXAISiteStorage
         int result = 1;
         if (state.Failed) { result = 2; }
         int previous = m_RouteResults.Get(state.Site.Id);
-        if (previous == result) { return; }
+        if (previous == result)
+        {
+            if (result != 2 || m_SurveyRefusalCodes.Get(state.Site.Id) == this.HCRefusalBucket(state.Reason)) { return; }
+        }
         if (previous == 1) { m_QualifiedCount--; }
         if (previous == 2)
         {
@@ -227,15 +230,15 @@ class HCXAISiteSurvey : HCXAISiteStorage
         m_CacheReviewIds.Clear();
         int elapsed;
         if (m_SurveyStartedMs >= 0) { elapsed = Math.Max(0, GetGame().GetTime() - m_SurveyStartedMs) / 1000; }
-        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString() + " retained=" + m_CacheRetained.ToString() + " upgrade_requalified=" + m_UpgradeRequal.ToString() + " upgrade_deferred=" + m_UpgradeDeferred.Count().ToString());
+        Print("[HC Expansion AI] routes warm elapsed_s=" + elapsed.ToString() + " cached=" + m_CacheHits.ToString() + " requalified=" + m_Requalified.ToString() + " discarded=" + m_CacheDiscarded.ToString() + " retained=" + m_CacheRetained.ToString() + " upgrade_requalified=" + m_UpgradeRequal.ToString() + " upgrade_deferred=" + m_UpgradeDeferred.Count().ToString() + " upgrade_served_stale=" + m_UpgradeServedStale.ToString() + " upgrade_queue=" + m_UpgradeQueue.Count().ToString());
         if (m_LegacyAccepted > 0 || m_LegacyRefusedRequal > 0) { Print("[HC Expansion AI] route cache filter migration accepted=" + m_LegacyAccepted.ToString() + " requalify_refused=" + m_LegacyRefusedRequal.ToString()); }
     }
     // Stale "algorithm" rows (the chain version changed) are requalified HC_UPGRADE_REQUAL_PER_BOOT per boot;
-    // every other mismatch and any site a player stands near is always allowed.
+    // Other identity mismatches are uncapped; nearby deferred sites lead the background queue.
     override protected bool HCUpgradeRequalAllowed(HCXAISite site, string field)
     {
         if (field != "algorithm") { return true; }
-        if (m_UpgradeRequal < HCXAISiteDirector.HC_UPGRADE_REQUAL_PER_BOOT || this.HCWithinActivation(site))
+        if (m_UpgradeRequal < HCXAISiteDirector.HC_UPGRADE_REQUAL_PER_BOOT)
         {
             m_UpgradeRequal++;
             return true;
@@ -244,11 +247,199 @@ class HCXAISiteSurvey : HCXAISiteStorage
         {
             if (m_UpgradeDeferred.Count() == 0)
             {
-                Print("[HC Expansion AI] route chain upgrade: requalifying " + HCXAISiteDirector.HC_UPGRADE_REQUAL_PER_BOOT.ToString() + " stale routes this boot, the rest keep their stored row and follow on later boots");
+                Print("[HC Expansion AI] route chain upgrade: requalifying " + HCXAISiteDirector.HC_UPGRADE_REQUAL_PER_BOOT.ToString() + " stale routes during survey; the rest are served after validation, else deferred; background upgrades follow");
             }
             m_UpgradeDeferred.Set(site.Id, true);
         }
         return false;
+    }
+    protected void HCRetainUpgrade(HCXAISiteState state, string refusal)
+    {
+        if (m_CachePending.Contains(state.Site.Id))
+        {
+            m_CachePending.Remove(state.Site.Id);
+            m_CacheRetained++;
+        }
+        if (refusal != "")
+        {
+            state.Failed = true;
+            state.Reason = refusal;
+        }
+    }
+    protected void HCQueueRouteUpgrade(string siteId, bool first = false)
+    {
+        if (!m_PolicySiteIds.Contains(siteId)) { return; }
+        if (m_UpgradeShadow && m_UpgradeShadow.Site.Id == siteId) { return; }
+        if (m_UpgradeQueued.Contains(siteId))
+        {
+            if (!first) { return; }
+            m_UpgradeQueue.RemoveItem(siteId);
+        }
+        else if (m_UpgradeQueue.Count() >= m_PolicySiteIds.Count()) { return; }
+        if (!m_UpgradeQueuedLogged)
+        {
+            m_UpgradeQueuedLogged = true;
+            Print("[HC Expansion AI] route upgrade queued");
+        }
+        m_UpgradeQueued.Set(siteId, true);
+        if (first && m_UpgradeQueue.Count() > 0) { m_UpgradeQueue.InsertAt(siteId, 0); }
+        else { m_UpgradeQueue.Insert(siteId); }
+        if (m_UpgradeLogMs == 0) { m_UpgradeLogMs = GetGame().GetTime() + 300000; }
+    }
+    override protected void HCClearRouteUpgrade()
+    {
+        m_UpgradeShadow = null;
+        m_UpgradeQueue.Clear();
+        m_UpgradeQueued.Clear();
+        m_UpgradePending.Clear();
+        m_UpgradePendingIds.Clear();
+        m_UpgradePendingCursor = 0;
+        m_UpgradePickCursor = 0;
+        m_UpgradeLogMs = 0;
+    }
+    protected HCXAISiteState HCUpgradeLive(string siteId)
+    {
+        foreach (HCXAISiteState candidate : m_States)
+        {
+            if (!candidate.Transient && candidate.Site.Id == siteId) { return candidate; }
+        }
+        return m_Survey.Get(siteId);
+    }
+    override protected void HCApplyRouteUpgrade(HCXAISiteState state)
+    {
+        if (!state || state.Transient) { return; }
+        string siteId = state.Site.Id;
+        HCXAIRouteRow pending = m_UpgradePending.Get(siteId);
+        if (!pending) { return; }
+        if (!m_PolicySiteIds.Contains(siteId))
+        {
+            m_UpgradePending.Remove(siteId);
+            m_UpgradePendingIds.RemoveItem(siteId);
+            return;
+        }
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        if (state.Patrol || (encounters && encounters.SiteBound(siteId))) { return; }
+        state.PatrolPoints.Copy(pending.Waypoints);
+        state.OpenRoute = pending.OpenRoute;
+        state.Qualified = pending.Qualified;
+        state.Failed = !pending.Qualified;
+        state.Reason = pending.Reason;
+        state.Cached = false;
+        state.HCServingStale = false;
+        state.HCCachedRoute = null;
+        state.HCRouteCacheChecked = true;
+        this.HCRecordRouteState(state);
+        m_UpgradePending.Remove(siteId);
+        m_UpgradePendingIds.RemoveItem(siteId);
+    }
+    protected void HCUpgradeProgress(int nowMs, bool drained = false)
+    {
+        int remaining = m_UpgradeQueue.Count();
+        if (m_UpgradeShadow) { remaining++; }
+        if (!drained && (remaining == 0 || nowMs < m_UpgradeLogMs)) { return; }
+        m_UpgradeLogMs = nowMs + 300000;
+        Print("[HC Expansion AI] route upgrade background done=" + m_UpgradeDone.ToString() + " refused=" + m_UpgradeRefused.ToString() + " remaining=" + remaining.ToString() + " served_stale=" + m_UpgradeServedStale.ToString());
+    }
+    override protected bool HCStepRouteUpgrade()
+    {
+        if (m_Phase != "run" || !m_RoutesWarm) { return false; }
+        int nowMs = GetGame().GetTime();
+        this.HCUpgradeProgress(nowMs);
+        // Per alternate tick: one pending apply OR one pick and <=64 work units,
+        // <=64 queue probes and at most one FindPath; idle turns charge nothing.
+        if (m_UpgradePendingIds.Count() > 0)
+        {
+            if (m_UpgradePendingCursor >= m_UpgradePendingIds.Count()) { m_UpgradePendingCursor = 0; }
+            string pendingId = m_UpgradePendingIds[m_UpgradePendingCursor];
+            m_UpgradePendingCursor++;
+            HCXAISiteState pendingLive = this.HCUpgradeLive(pendingId);
+            HCXAIEncounters pendingEncounters = HCXAIEncounters.Active();
+            if (!pendingLive || !m_PolicySiteIds.Contains(pendingId) || (!pendingLive.Patrol && (!pendingEncounters || !pendingEncounters.SiteBound(pendingId))))
+            {
+                if (!this.HCTakeSiteUnits(64)) { return false; }
+                if (pendingLive) { this.HCApplyRouteUpgrade(pendingLive); }
+                else
+                {
+                    m_UpgradePending.Remove(pendingId);
+                    m_UpgradePendingIds.RemoveItem(pendingId);
+                }
+                return true;
+            }
+        }
+        if (!m_UpgradeShadow && (m_UpgradeQueue.Count() == 0 || nowMs < m_UpgradeNextMs)) { return false; }
+        if (!this.HCTakeSiteUnits(64)) { return false; }
+        m_SurveyWork.HCReset(64, Math.Min(HCPerfConfig.HCGet().SliceMs, 2));
+        if (!m_UpgradeShadow)
+        {
+            int pick = 0;
+            // Recheck moving observers on every pick; rotate the bounded scan so
+            // deep queue entries also get a turn. No retained player references.
+            for (int scan = 0; scan < 64 && scan < m_UpgradeQueue.Count() && m_SurveyWork.HCContinue(); scan++)
+            {
+                if (m_UpgradePickCursor >= m_UpgradeQueue.Count()) { m_UpgradePickCursor = 0; }
+                int queueIndex = m_UpgradePickCursor++;
+                HCXAISiteState nearState = this.HCUpgradeLive(m_UpgradeQueue[queueIndex]);
+                if (nearState && this.HCWithinActivation(nearState.Site)) { pick = queueIndex; break; }
+            }
+            string siteId = m_UpgradeQueue[pick];
+            m_UpgradeQueue.RemoveOrdered(pick);
+            m_UpgradeQueued.Remove(siteId);
+            m_UpgradeNextMs = nowMs + HCXAISiteDirector.HC_UPGRADE_BACKGROUND_INTERVAL_MS;
+            HCXAISiteState live = this.HCUpgradeLive(siteId);
+            if (!live || !live.Bound || !m_PolicySiteIds.Contains(siteId))
+            {
+                this.HCUpgradeProgress(nowMs, m_UpgradeQueue.Count() == 0);
+                return true;
+            }
+            // Exactly one owning ref. Never register this non-Transient state in
+            // the survey, cache review or live states, nor record its counters.
+            m_UpgradeShadow = new HCXAISiteState();
+            m_UpgradeShadow.Site = live.Site;
+            m_UpgradeShadow.LocalityId = live.LocalityId;
+            m_UpgradeShadow.Key = live.Key;
+            m_UpgradeShadow.Points.Copy(live.Points);
+            m_UpgradeShadow.HouseObject = live.HouseObject;
+            m_UpgradeShadow.CacheWorld = live.CacheWorld;
+            m_UpgradeShadow.Bound = true;
+            m_UpgradeShadow.HCRouteCacheChecked = true;
+            m_UpgradeShadow.HCCachedRoute = null;
+        }
+        string activeId = m_UpgradeShadow.Site.Id;
+        if (!m_PolicySiteIds.Contains(activeId))
+        {
+            m_UpgradeShadow = null;
+            this.HCUpgradeProgress(nowMs, m_UpgradeQueue.Count() == 0);
+            return true;
+        }
+        while (!m_UpgradeShadow.Qualified && !m_UpgradeShadow.Failed && m_SurveyWork.HCContinue())
+        {
+            int calls = m_UpgradeShadow.PathCalls;
+            this.QualifyStep(m_UpgradeShadow);
+            if (m_UpgradeShadow.HCAiWorldWaits > 0)
+            {
+                // QualifyStep saved nothing on AIWorld null. Drop all partial
+                // geometry and retry later, keeping the live route untouched.
+                m_UpgradeShadow = null;
+                this.HCQueueRouteUpgrade(activeId);
+                return true;
+            }
+            if (m_UpgradeShadow.PathCalls > calls || m_RingPathTick == m_Ticks) { break; }
+        }
+        if (!m_UpgradeShadow.Qualified && !m_UpgradeShadow.Failed) { return true; }
+        HCXAISiteState completedLive = this.HCUpgradeLive(activeId);
+        HCXAIRouteRow completedRow = this.RouteRow(activeId);
+        if (completedRow && completedLive)
+        {
+            if (!m_UpgradePending.Contains(activeId)) { m_UpgradePendingIds.Insert(activeId); }
+            m_UpgradePending.Set(activeId, completedRow);
+            this.HCApplyRouteUpgrade(completedLive);
+        }
+        HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_upgrade");
+        m_UpgradeDone++;
+        if (m_UpgradeShadow.Failed) { m_UpgradeRefused++; }
+        m_UpgradeShadow = null;
+        this.HCUpgradeProgress(nowMs, m_UpgradeQueue.Count() == 0);
+        return true;
     }
     override protected void HCCacheVerdict(string siteId, bool reused)
     {
@@ -323,20 +514,8 @@ class HCXAISiteSurvey : HCXAISiteStorage
         if (!row) { this.HCCacheVerdict(siteId, false); return; }
         if (!state) { this.HCCacheDiscard(row, "site_absent"); return; }
         if (state.Failed) { this.HCCacheDiscard(row, "site_failed"); return; }
-        string scalarField = HCXAISiteRules.HCRouteMismatch(row, row.Key, m_RouteValidity, m_RouteLegacyTerm);
-        if (scalarField != "" && !this.HCUpgradeRequalAllowed(state.Site, scalarField))
-        {
-            // Over this boot's upgrade cap: keep the stored row untouched, a later boot replaces it.
-            m_CachePending.Remove(siteId);
-            m_CacheRetained++;
-            return;
-        }
-        if (scalarField != "")
-        {
-            this.HCCacheDiscard(row, "validity_mismatch", scalarField);
-            state.HCCachedRoute = null;
-            return;
-        }
+        // Bind before diagnosing algorithm: v6's early mismatch must never hide
+        // an authored key/build/world/policy change or consume its upgrade cap.
         if (!state.Bound) { this.Bind(state); return; }
         this.QualifyStep(state, true);
     }
@@ -489,28 +668,33 @@ class HCXAISiteSurvey : HCXAISiteStorage
         {
             string cacheProblem;
             string cacheField = HCXAISiteRules.HCRouteMismatch(cached, state.Key, m_RouteValidity, m_RouteLegacyTerm);
-            if (cacheField != "" && !this.HCUpgradeRequalAllowed(state.Site, cacheField))
+            bool staleEligible = cacheField == "algorithm" && HCXAISiteRules.HCStaleServable(cached, state.Key, m_RouteValidity, m_RouteLegacyTerm);
+            if (staleEligible && !state.HCServingStale)
             {
-                // Chain-version upgrade spread over boots: no discard, no FindPath chain, no save this boot.
-                if (m_CachePending.Contains(state.Site.Id)) { m_CachePending.Remove(state.Site.Id); m_CacheRetained++; }
-                state.Failed = true;
-                state.Reason = "route requalification spread over later boots (chain upgrade)";
-                return;
+                if (!this.HCUpgradeRequalAllowed(state.Site, cacheField)) { state.HCServingStale = true; }
             }
-            if (cacheField != "") { cacheProblem = "validity_mismatch"; }
+            if (cacheField != "" && !state.HCServingStale) { cacheProblem = "validity_mismatch"; }
             else if (cached.Qualified && (!cached.Waypoints || cached.Waypoints.Count() < 2 || cached.Waypoints.Count() > HCXAISiteRules.HCMaxRouteWaypoints())) { cacheProblem = "no_geometry"; }
             if (cacheProblem == "")
             {
                 if (!cached.Qualified)
                 {
                     if (!this.HCTakeRouteCacheUnit()) { return; }
+                    if (state.HCServingStale)
+                    {
+                        state.Failed = true;
+                        state.Reason = cached.Reason;
+                        this.HCRetainUpgrade(state, "");
+                        this.HCQueueRouteUpgrade(state.Site.Id, cached.Reason.IndexOf("navmesh sample failed") >= 0);
+                        return;
+                    }
                     this.HCCacheVerdict(state.Site.Id, true);
                     state.Failed = true;
                     state.Reason = cached.Reason;
                     Print("[HC Expansion AI] site " + state.Site.Id + " route refused (cached for this route and build): " + cached.Reason);
                     return;
                 }
-                int tick = GetGame().GetTime();
+                int tick = m_Ticks;
                 if (m_CacheSampleTick != tick) { m_CacheSampleTick = tick; m_CacheSamples = 0; }
                 if (m_CacheSamples >= 4 || !this.HCTakeRouteCacheUnit()) { return; }
                 m_CacheSamples++;
@@ -521,17 +705,36 @@ class HCXAISiteSurvey : HCXAISiteStorage
                 else if (state.HCCacheCursor == cached.Waypoints.Count() - 1 && !cached.OpenRoute && state.Site.Behaviour == "LOOP" && vector.DistanceSq(point, cached.Waypoints[0]) > maxCachedLeg * maxCachedLeg) { cacheProblem = "closing_leg"; }
                 else
                 {
-                    vector sampled = this.NavSample(point, 0.5, m_Filter);
+                    vector sampled;
+                    if (state.HCCacheOutdoorSample) { sampled = this.GroundSample(point, 0.5); }
+                    else { sampled = this.NavSample(point, 0.5, m_Filter); }
                     if (sampled == vector.Zero || vector.Distance(sampled, point) > 0.5) { cacheProblem = "waypoint_sample"; }
+                    else if (state.HCServingStale && state.Site.Kind != "holdout" && !state.HCCacheOutdoorSample)
+                    {
+                        // The second native sample gets its own cache unit/tick slot.
+                        state.HCCacheOutdoorSample = true;
+                        return;
+                    }
                 }
                 if (cacheProblem == "")
                 {
+                    state.HCCacheOutdoorSample = false;
                     state.HCCacheCursor++;
                     if (state.HCCacheCursor < cached.Waypoints.Count()) { return; }
                     state.PatrolPoints.Copy(cached.Waypoints);
                     state.OpenRoute = cached.OpenRoute;
                     state.Qualified = true;
-                    if (cached.ValidityKey != m_RouteValidity)
+                    if (state.HCServingStale)
+                    {
+                        state.Reason = "validated stored route";
+                        state.Cached = true;
+                        m_UpgradeServedStale++;
+                        this.HCRetainUpgrade(state, "");
+                        this.HCQueueRouteUpgrade(state.Site.Id);
+                        HCModuleReadiness.HCUse("optional-expansion-human-ai", "route_upgrade");
+                        return;
+                    }
+                    if (HCXAISiteRules.HCLegacyRoute(cached, m_RouteValidity, m_RouteLegacyTerm))
                     {
                         // Accepted legacy row (#355): re-stamp it with the current key so the next boot matches exactly.
                         m_LegacyAccepted++;
@@ -541,6 +744,19 @@ class HCXAISiteSurvey : HCXAISiteStorage
                     this.HCReusedRoute(state);
                     return;
                 }
+            }
+            if (state.HCServingStale)
+            {
+                // Stale serving already exhausted the cap, which never decreases.
+                // Nearby failures requalify immediately and still consume a slot (R4).
+                if (!this.HCWithinActivation(state.Site))
+                {
+                    this.HCRetainUpgrade(state, "route requalification deferred (chain upgrade)");
+                    this.HCQueueRouteUpgrade(state.Site.Id, true);
+                    return;
+                }
+                m_UpgradeRequal++;
+                state.HCServingStale = false;
             }
             this.HCCacheDiscard(cached, cacheProblem, cacheField);
             state.HCCachedRoute = null;
@@ -650,6 +866,8 @@ class HCXAISiteSurvey : HCXAISiteStorage
             state.ClosestGap = vector.Distance(legFrom, legTo);
             state.AttemptPoints.Clear();
         }
+        if (state == m_UpgradeShadow && m_RingPathTick == m_Ticks) { return; }
+        if (state == m_UpgradeShadow) { m_UpgradePathTick = m_Ticks; }
         state.HCPath.Clear();
         int nativeBegan = TickCount(0);
         bool pathFound = world.FindPath(state.ChainFrom, legTo, m_Filter, state.HCPath);
@@ -891,6 +1109,7 @@ class HCXAISiteSurvey : HCXAISiteStorage
         }
         HCServer.HCTickWork().HCCharge(1);
         string ringProblem = this.HCRingPickProblem(pick, centre, ringObservers, original);
+        if (ringProblem == "spawn_ring_work_pending") { return ringProblem; }
         if (ringProblem != "")
         {
             m_RingDegrees = m_RingDegrees + 360.0 * (pick.Attempts + 0.5) / m_RingCandidates;
@@ -921,11 +1140,13 @@ class HCXAISiteSurvey : HCXAISiteStorage
     }
     override protected string HCRingRouteProblem(vector start, vector target)
     {
+        if (m_UpgradePathTick == m_Ticks) { return "spawn_ring_work_pending"; }
         AIWorld ringWorld = GetGame().GetWorld().GetAIWorld();
         if (!ringWorld) { return "spawn_ring_navmesh_unavailable"; }
         TVectorArray ringPath = new TVectorArray();
         HCServer.HCTickWork().HCCharge(1);
         int ringBegan = TickCount(0);
+        m_RingPathTick = m_Ticks;
         bool ringFound = ringWorld.FindPath(start, target, m_Filter, ringPath);
         this.HCSiteStageCost("ring_native_path", ringBegan);
         if (!ringFound || ringPath.Count() < 2) { return "spawn_ring_route_unreachable"; }

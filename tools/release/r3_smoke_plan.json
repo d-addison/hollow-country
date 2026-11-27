@@ -1318,6 +1318,16 @@
     },
     {
       "module": "optional-expansion-human-ai",
+      "feature": "route_upgrade",
+      "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
+      "trigger": "Validated stale route served or background shadow completed after route upgrade queued.",
+      "exercise": "server_soak",
+      "steps": "On an upgrade boot with identity-matching stale v6 rows, observe [HC Expansion AI] route upgrade queued and optional-expansion-human-ai/route_upgrade count>0 within 30 minutes. No queue is NOT_APPLICABLE; registration at count=0 is not evidence. Exercise remains unverified.",
+      "est_minutes": 5,
+      "prerequisites": "Upgrade boot with stale route rows; owner module ready. Background work requires completed survey, run phase and warm routes."
+    },
+    {
+      "module": "optional-expansion-human-ai",
       "feature": "site_radius_entered",
       "source": "mods/HollowCountryExpansionAI/scripts/4_World/HCXUseRegistry.c",
       "trigger": "Registered runtime counter; require a positive cumulative [HC Use] count from the owner path.",

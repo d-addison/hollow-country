@@ -1975,6 +1975,14 @@
     "code:HCXAISiteSurvey.c"
    ]
   },
+  "optional-expansion-human-ai/route_upgrade": {
+   "phase": "walk_ai",
+   "how": [
+    "timer:30m",
+    "code:HCXAISiteSurvey.c",
+    "code:HCXUseRegistry.c"
+   ]
+  },
   "optional-expansion-human-ai/site_actors": {
    "phase": "walk_ai",
    "how": [

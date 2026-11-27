@@ -96,6 +96,10 @@ class HCXAIRouteSave : HCSaveJob
 {
     HCXAISiteDirector Owner;
     bool HCShutdown;
+    // Coalesce routine whole images at five minutes, even when a newer revision
+    // arrives during snapshot/write. Shutdown flush still drains every revision.
+    override float HCInterval() { return Math.Max(300, super.HCInterval()); }
+    override bool HCPendingCheckpoint() { return m_SnapshotRevision != m_Revision; }
     override string HCName() { return "HCX-routes"; }
     protected ref HCStagedSaveImage m_Image = new HCStagedSaveImage();
     protected int m_Revision;
@@ -154,7 +158,7 @@ class HCXAIRouteSave : HCSaveJob
             return STEP_MORE;
         }
         int result = m_Image.HCStepImage();
-        if (result == STEP_DONE && m_SnapshotRevision != m_Revision) { return STEP_MORE; }
+        if (HCShutdown && result == STEP_DONE && m_SnapshotRevision != m_Revision) { return STEP_MORE; }
         return result;
     }
 }

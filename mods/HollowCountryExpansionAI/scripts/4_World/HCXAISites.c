@@ -26,6 +26,8 @@ class HCXAISiteState : Managed
     bool HCRouteCacheChecked;
     ref HCXAIRouteRow HCCachedRoute;
     int HCCacheCursor;
+    bool HCServingStale;
+    bool HCCacheOutdoorSample;
     string Reason;
     int Leg;
     int ChainSteps;
@@ -81,11 +83,12 @@ class HCXAISiteBase : Managed
     static const string DIAGNOSTIC = "$profile:HollowCountry/acceptance/xai_diagnostic_spawn.enable";
     static const string OBSERVER = "native-eai";
     static const int WORK_PER_TICK = 1;
-    // Chain-version upgrade (stale "algorithm" rows, e.g. chain-v6 to chain-v7): at most this many rows are
-    // discarded and requalified per boot. The rest keep their stored row and are replaced on later boots, so the
-    // upgrade boot neither spikes the AI_SITES tick cost nor holds the route owner late. Sites with a player
-    // inside their activation radius are exempt, so nobody meets an empty route they are standing next to.
+    // Survey-time chain upgrades are capped. Remaining qualified v6 rows are
+    // served after validation, else deferred; refused rows keep their reason.
+    // A volatile queue upgrades them on the survey's alternate tick slot, using
+    // one isolated shadow and never replacing geometry under a live owner.
     static const int HC_UPGRADE_REQUAL_PER_BOOT = 16;
+    static const int HC_UPGRADE_BACKGROUND_INTERVAL_MS = 20000;
     protected static HCXAISiteDirector s_Active;
     protected ref HCXAISitePolicy m_Policy;
     protected ref HCXAIRouteCache m_Routes;
@@ -108,6 +111,21 @@ class HCXAISiteBase : Managed
     protected int m_Requalified;
     protected int m_UpgradeRequal;
     protected ref map<string, bool> m_UpgradeDeferred = new map<string, bool>();
+    protected int m_UpgradeServedStale;
+    protected bool m_UpgradeQueuedLogged;
+    protected ref array<string> m_UpgradeQueue = new array<string>();
+    protected ref map<string, bool> m_UpgradeQueued = new map<string, bool>();
+    protected ref HCXAISiteState m_UpgradeShadow;
+    protected ref map<string, ref HCXAIRouteRow> m_UpgradePending = new map<string, ref HCXAIRouteRow>();
+    protected ref array<string> m_UpgradePendingIds = new array<string>();
+    protected int m_UpgradePendingCursor;
+    protected int m_UpgradePickCursor;
+    protected int m_UpgradeNextMs;
+    protected int m_UpgradeLogMs;
+    protected int m_UpgradeDone;
+    protected int m_UpgradeRefused;
+    protected int m_RingPathTick = -1;
+    protected int m_UpgradePathTick = -1;
     protected int m_CacheDiscarded;
     protected int m_CacheRetained;
     protected bool m_CacheReviewTurn;
@@ -272,6 +290,9 @@ class HCXAISiteBase : Managed
     protected HCXAISiteState HCSurveyState(HCXAISite site) { return null; }
     protected HCXAISiteState HCNearbySurveyState() { return null; }
     protected void HCStepSurvey() {  }
+    protected bool HCStepRouteUpgrade() { return false; }
+    protected void HCClearRouteUpgrade() {  }
+    protected void HCApplyRouteUpgrade(HCXAISiteState state) {  }
     protected void HCRecordRouteState(HCXAISiteState state) {  }
     protected string HCRefusedBy() { return "none"; }
     protected void HCMakeNearbyRoom() {  }
@@ -498,6 +519,7 @@ class HCXAISiteBase : Managed
     }
     void Stop()
     {
+        this.HCClearRouteUpgrade();
         if (m_Debug)
         {
             HCDebugSnapshot.HCUnregister(m_Debug);
@@ -578,6 +600,10 @@ class HCXAISiteBase : Managed
             {
                 this.HCStepSurvey();
                 return;
+            }
+            if (m_SurveyTurn && m_RoutesWarm && (!m_Localities || m_SurveyCursor >= m_Policy.Sites.Count()) && (m_UpgradeShadow || m_UpgradeQueue.Count() > 0 || m_UpgradePendingIds.Count() > 0))
+            {
+                if (this.HCStepRouteUpgrade()) { return; }
             }
             int runBegan = TickCount(0);
             this.StepRun();
