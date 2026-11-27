@@ -185,11 +185,17 @@ class HCShelterModule : HCModule
     protected ref array<Object> m_Objects = new array<Object>;
     // Startup-only fallback when all eight authored variants fail: one screen
     // of at most HC_RING_CANDIDATES yard anchors (SurfaceY only, 15 reads per
-    // candidate) and at most HC_RING_ATTEMPTS full prop placements.
+    // candidate) and at most HC_RING_ATTEMPTS full prop placements. If none
+    // is admissible, one wider screen adds 16 candidates and <=4 placements.
     static const int HC_RING_CANDIDATES = 16;
     static const int HC_RING_ATTEMPTS = 4;
     static const float HC_RING_INNER = 6.0;
     static const float HC_RING_OUTER = 12.0;
+    // One additional screen only if the first ring admits no full attempt.
+    // Keep the three prop offsets and all real placement checks unchanged.
+    static const float HC_RING2_INNER = 18.0;
+    static const float HC_RING2_OUTER = 24.0;
+    protected bool m_RingWider;
     protected int m_RingCandidate = -1;
     protected float m_RingRise;
     protected float m_RingBestRise;
@@ -575,6 +581,8 @@ class HCShelterModule : HCModule
     // Ring candidate shift in the barn model frame around the variant-0 yard
     // anchor: 0..7 at HC_RING_INNER, 8..15 at HC_RING_OUTER, 45 degree steps,
     // bearing 0 pointing outward (away from the windowless wall).
+    // The second screen uses 18/24m: tangential candidates reach new ground
+    // while HCInBarnAccessStrip still enforces the original finite yard.
     protected vector HCRingShift(int candidate)
     {
         float radius = HC_RING_INNER;
@@ -583,6 +591,11 @@ class HCShelterModule : HCModule
         {
             radius = HC_RING_OUTER;
             bearing = candidate - 8;
+        }
+        if (m_RingWider)
+        {
+            radius = HC_RING2_INNER;
+            if (candidate >= 8) { radius = HC_RING2_OUTER; }
         }
         float angle = bearing * 45 * Math.DEG2RAD;
         return Vector(-radius * Math.Cos(angle), 0, radius * Math.Sin(angle));
@@ -653,7 +666,7 @@ class HCShelterModule : HCModule
         return admissible;
     }
 
-    protected string HCRingScreenDetails()
+    protected string HCRingScreenDetails(string prefix = "")
     {
         string bestRise = "-1.00";
         string bestAt = "none";
@@ -662,7 +675,12 @@ class HCShelterModule : HCModule
             bestRise = HCFormatRise(m_RingBestRise);
             bestAt = "<" + m_RingBestAt[0].ToString() + "," + m_RingBestAt[2].ToString() + ">";
         }
-        return " access_rejected=" + m_RingAccessRejected.ToString() + " water_rejected=" + m_RingWaterRejected.ToString() + " terrain_rejected=" + m_RingTerrainRejected.ToString() + " rise_limit=0.25 best_rise=" + bestRise + " best_at=" + bestAt;
+        string details = " " + prefix + "access_rejected=" + m_RingAccessRejected.ToString();
+        details += " " + prefix + "water_rejected=" + m_RingWaterRejected.ToString();
+        details += " " + prefix + "terrain_rejected=" + m_RingTerrainRejected.ToString();
+        details += " " + prefix + "rise_limit=0.25 " + prefix + "best_rise=" + bestRise;
+        details += " " + prefix + "best_at=" + bestAt;
+        return details;
     }
 
     // Flattest untried screened candidate (each is offered once), or -1.
@@ -994,6 +1012,7 @@ class HCShelterModule : HCModule
         m_GroundRise = 0;
         m_LayoutVariant = 0;
         m_RingCandidate = -1;
+        m_RingWider = false;
         m_RingRise = 0;
         m_SoftVegetation = 0;
         m_RefusalPoint = entry.Position;
@@ -1027,6 +1046,8 @@ class HCShelterModule : HCModule
         }
         int admissible = 0;
         int attempts = 0;
+        int widerAdmissible = 0;
+        int widerAttempts = 0;
         if (!complete)
         {
             string variantReason = m_RefusalReason;
@@ -1042,11 +1063,32 @@ class HCShelterModule : HCModule
                 if (complete) { break; }
                 Print("[HollowCountry] V2 shelter ring candidate refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
             }
+            // Preserve the first screen's evidence before reusing its bounded
+            // candidate storage and counters. No second search after a real
+            // first-ring placement attempt, even when all such attempts fail.
+            string ringDetails = HCRingScreenDetails();
+            string widerDetails = "";
+            if (!complete && attempts == 0)
+            {
+                m_RingWider = true;
+                widerAdmissible = HCScreenRing(house);
+                while (widerAttempts < HC_RING_ATTEMPTS)
+                {
+                    m_RingCandidate = HCNextRingCandidate();
+                    if (m_RingCandidate < 0) { break; }
+                    widerAttempts = widerAttempts + 1;
+                    complete = HCPlaceBatch(house, layout, batch);
+                    if (complete) { break; }
+                    Print("[HollowCountry] V2 shelter ring2 candidate refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
+                }
+                widerDetails = " ring2_candidates=" + HC_RING_CANDIDATES.ToString() + " ring2_admissible=" + widerAdmissible.ToString() + " ring2_attempts=" + widerAttempts.ToString() + " ring2_cap=" + HC_RING_ATTEMPTS.ToString() + HCRingScreenDetails("ring2_");
+            }
             if (!complete)
             {
-                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString() + HCRingScreenDetails());
-                if (attempts == 0) { m_RefusalReason = variantReason; }
+                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString() + ringDetails + widerDetails);
+                if (attempts == 0 && widerAttempts == 0) { m_RefusalReason = variantReason; }
                 m_RingCandidate = -1;
+                m_RingWider = false;
                 RefuseShelter(entry, m_RefusalReason);
                 return;
             }
@@ -1064,8 +1106,16 @@ class HCShelterModule : HCModule
         entry.PlacementAnchor = fireSpot;
         if (m_RingCandidate >= 0)
         {
-            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=ring candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
+            string ringVariant = "ring";
+            if (m_RingWider)
+            {
+                ringVariant = "ring2";
+                admissible = widerAdmissible;
+                attempts = widerAttempts;
+            }
+            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + ringVariant + " candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
             m_RingCandidate = -1;
+            m_RingWider = false;
             return;
         }
         Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
