@@ -311,7 +311,8 @@ Native `[HC Driver]` lines are required to prove each step.
 | State | How the bot sees it (client-visible) | Recovery |
 |---|---|---|
 | Stuck | `walk`: no 1 m of progress for 20 s, two alternating sidesteps, then timeout `stuck sidesteps=2`. `route`: 8 s without progress per rung | `route` backs off 2 s, sidesteps +45 and -45 degrees for 2 s each, then scans doors in reach for up to 6 s. Then `refused detail=stuck-exhausted`. Never a teleport or a position fix. |
-| Dead | `!player.IsAlive()` or no player | The current step ends `refused detail=player-dead`. The driver waits for a new character. It never respawns itself. The rest of the run continues once a player exists (the `IsPlayerLoaded` gate). |
+| Calibration obstruction | Clearance contact or <0.30 m sample displacement at speed >=2 | Rotate the set, report `probe-blocked` for displacement obstruction, and retry within eight sets x four rays. Exhaustion refuses `calib-blocked`; a fitted gain other than the ray model refuses `probe-frame-unsupported`. |
+| Dead | `!player.IsAlive()` or no player during an open step | Close the non-respawn step `refused detail=player-dead`, request vanilla respawn, then recalibrate and continue at the next step. At most three recoveries per program; a fourth concludes `unscripted-death-limit`. Recovery has a 60 s deadline, including the player gap; expiry concludes `unscripted-death-timeout`. Scripted `respawn` bypasses the alive/hold/calibration gates. |
 | Unconscious or hit/stagger | `IsUnconscious()`, `GetCommand_Damage()` or `GetCommandModifier_Damage()` | Release movement, aim, raise, vehicle and action input; hold the same step with its timers frozen for up to 60 s, then resume. One `hold reason=unconscious` or `hold reason=hit` line per continuous hold; timeout `hold-timeout reason=<state>` if it does not recover. |
 | Bleeding | `IsBleeding()` | `combat` retreats. `survive` bandages with a bandage or rag from the inventory (`ActionBandageSelf`). With no bandage, it refuses with `no-bandage`. |
 | Hungry or thirsty | VirtualHud energy/water seriousness of at least WARNING, or a falling tendency | `survive` eats or drinks the best item in the inventory. With none, it refuses with `no-food` / `no-drink`, and the next `loot` step looks for some. |
@@ -417,117 +418,92 @@ Round 5 remains implemented-unverified until the lead's native checks.
 
 1. Wait for ten continuous seconds alive, conscious and in `HumanCommandMove` with a controller
    and mission controls enabled. Missing/unloaded players reset this timer and release movement.
-   A run waiting 60 s without readiness refuses.
-2. Use `mirror` (client predicts, existing server mirror applies). Run four probes in this
-   order: angle **0** (`fwd`), **+90** (`right`), **+45** (`diag`), **-90** (`left`). Each requests
-   speed **3.0** for **4 s**, then Stop and settle **2 s**. A failed probe ends the run; round 9
-   does not add fallback variant probes to the four-probe budget. The mirror/server/client
-   transport implementations remain available, but calibration selects mirror.
-3. Each probe collects five observations at 0.5 s intervals (0.5 through 2.5 s), plus Stop and
-   settled positions. `sample_s` records actual times; no observation is fabricated after a hitch.
-   `cur_speed` and `cur_angle` come from `HumanCommandMove`; `input_angle=idle` means
-   `GetCurrentInputAngle` returned false. Command-angle matching tolerates degrees or radians
-   (build 192 reports movement radians and input degrees). `dir` is body direction x,z.
-   New lists, appended after all existing keys, use two decimals: `heading` is controller
-   `GetHeadingAngle` converted from radians to degrees and negated to clockwise yaw, as vanilla does (CrossHairSelector.c:247, DayZPlayerCamera3rdPerson.c:478 "negative to yaw"); `local_dir` and `move_speed` are
-   `GetMovement` local x,z and speed; `model_speed` is `GetModelSpeed` local x,z; `movement`
-   pairs `HumanMovementState.m_iMovement/m_iStanceIdx`. Native proofs: `3_Game/human.c:22,28`,
-   `:1183-1184,1470`, `3_Game/Entities/Object.c:338`.
+   A run waiting 60 s without readiness refuses `movement-or-controls-not-ready`.
+2. Use `mirror` (the client and server each override their controller through the existing
+   leased path). Requests are degrees in the observed build: `input_angle=90`, while
+   `cur_angle=1.57` is the filtered movement angle in radians. The declaration itself does
+   not specify override units or world-frame conversion (`3_Game/human.c:253-256`);
+   `GetCurrentInputAngle` is unfiltered and `GetCurrentMovementAngle` filtered (`:459-470`).
+   The scripts do not establish that mirrored overrides add together. Each endpoint writes
+   one angle, rather than adding it to a prior angle.
 
-   Exact line templates (letters are placeholders, all sample lists have five entries):
+   Soak 203's forward vector <-6.80,4.41> has bearing -57.04 degrees; right
+   <9.44,-6.93> has bearing +126.28 degrees, a wrapped separation of -176.68 degrees.
+   Thus a request +90 was antiparallel, and the old camera-yaw clearance rays checked
+   unrelated bearings. `right_offset=-90` on a refused run was a default diagnostic,
+   not a measured fit. The diagonal's roughly 0.1 m per 0.5 s at speed 3 is obstruction
+   evidence and cannot qualify an angle model.
 
-   ```text
-   [HC Driver] calib probe=fwd|right|diag|left variant=mirror serial=N req_speed=3.00 req_angle=A pos=<x,z;...> cur_speed=<s;...> cur_angle=<a;...> input_angle=<a|idle;...> dir=<x,z;...> sample_s=<t;...> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5 heading=<h;...> local_dir=<x,z;...> move_speed=<s;...> model_speed=<x,z;...> movement=<m/i;...> clear_m=C camera=<c;...>
-   [HC Driver] calib result=ok|refused variant=mirror run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O right_offset=O apply=measured-camera-frame|measured-heading-frame|refused aim=disabled scale=S frame=heading|camera b0=B b90=B b45=B bm90=B resid45=R residm90=R controls=0|1
-   [HC Driver] server-move applied_frames=N refused=none|REASON serial=N
-   ```
+   Native source distinguishes horizontal model orientation (facing) from aim heading
+   (`3_Game/dayzplayer.c:1097-1102`). `GetMovement` returns a local direction, whereas
+   `GetHeadingAngle` describes camera heading (`3_Game/human.c:21-28`). The ordinary
+   `HeadingModel` calls `RotateOrient` (`4_World/Entities/DayZPlayerImplement.c:1715`);
+   that visible code only adjusts orientation beyond 0.95*pi aim/facing separation
+   (`DayZPlayerImplementHeading.c:64-114`). It does **not** show a lowered weapon causing
+   the body to face movement. The animation/native conversion is opaque. Constant
+   `GetDirection`, heading and camera readings do not prove the actual animation frame.
+   Consequently **the exact native cause of the 180-degree reversal remains unresolved**;
+   a +2 mapping below is an observed candidate, not an engine API claim.
+3. Probe requests are now **0, +45, +22.5, -45** (`fwd`, `right`, `diag`, `left`), each
+   speed 3 for 4 s, then Stop and settle 2 s. For the observed candidate gain +2 these
+   test forward, right, diagonal and left rather than repeating the forward line backwards.
+   Five real samples at 0.5–2.5 s record positions, current speed/angle, raw input angle,
+   body direction, controller heading, local movement, model speed, stance and camera.
+   Native readouts: `human.c:22,28,459-470,1183-1184,1470`,
+   `3_Game/Entities/Object.c:287,314,338`, `3_Game/Global/Game.c:732`.
+   Probe lines retain their fields and add `ray_bearing=B body=Y` before `clear_m`.
+   Legacy summary names `b90`, `b45`, `bm90` now mean the right/diag/left **world-bearing
+   targets**, not the numeric requests. Read `req_angle` in each probe line.
+4. Before each probe, cast one chest-height, terrain-following 16 m geometry ray ignoring
+   the player (`3_Game/Global/DayZPhysics.c:199`, `3_Game/Global/Game.c:1176`). Its bearing
+   is `body + measured_offset + 2*request`, using model direction yaw
+   (`3_Game/Entities/Object.c:314`) rather than raw camera yaw. Initially the offset is
+   zero, so the first ray uses expected body heading. A successful forward probe supplies
+   `measured_offset = Wrap180(forward_bearing - body - 2*forward_request)`;
+   all subsequent rays use that observed frame. This offset survives a blocked-set rotation.
+   The first ray remains an expectation: the historical all-zero body readings cannot
+   reveal the unexplained north-west frame before any motion has been observed.
 
-4. `moved_m` measures start to Stop; `settle_m` measures Stop to settled position. `back_m`
-   projects that drift toward the probe start (negative means continuing away). Only `back_m`
-   above **0.20 m** counts as `server-correction`; forward or sideways settling is allowed.
-   Every probe must move **>0.30 m**. No forward movement gives `no-moving-variant`; no movement
-   on a later probe retains `right-no-movement`. Readiness failures retain
-   `movement-or-controls-not-ready` and `readiness-lost`. At least three of five command-angle
-   samples per probe must match within 15 degrees, otherwise `command-angle-mismatch`.
-   Before each probe, take one chest-height (1.2 m) `RaycastRV` with `ObjIntersectGeom`,
-   ignoring the local player. Native `3_Game/Global/DayZPhysics.c:199` signature:
-   `RaycastRV(begPos,endPos,out contactPos,out contactDir,out contactComponent,results,with,ignore,sorted,ground_only,iType,radius,flags)`.
-   The ray reaches 16 m: soak 202 measured 13.5-14 m of probe travel (4 s at speed 3), plus
-   2 m. The earlier 29 m ray (4 s at 7 m/s) marked bearings blocked by walls 18-27 m away that
-   the probe never reached and refused every run at a fenced spawn. A wall inside the travel
-   that the ray misses still shows as a stalled probe.
-   `clear_m=16.00` means no contact; a contact prints its distance in a `probe=blocked`
-   line with `samples=0`, `duration_s=0.00`, `settle_s=0.00` and empty lists.
-   It sends no movement request. Rotate the entire requested probe set by 45 degrees,
-   discard previous samples, and restart at fwd. A run allows **eight rotations** (the full
-   circle), so at most 8 x 4 rays, one per update. Exhaustion refuses
-   `calib-blocked bearings=<...> rotations=8 rays=N`. Four runs per entity/session remain the cap.
+   A ray contact logs `probe=blocked` with no movement request. Any sample interval below
+   0.30 m with current speed >=2, including the final interval to Stop, instead logs
+   `calib retry reason=probe-blocked bearing=B rotation=N` after the completed probe line.
+   Both cases discard the set and rotate 45 world degrees (22.5 requested degrees), then
+   restart at forward. At most **eight sets x four rays**, one ray per update; exhaustion
+   is `calib-blocked bearings=<...> rotations=8 rays=N`. This bounds drive/settle pairs
+   to 32 (192 s nominal), plus readiness and frame overshoot.
 
-   Any sampled 0.5 s interval, or the final interval to Stop, with <0.30 m displacement
-   invalidates the whole run as `probe-stalled`. A camera change >5 degrees from the final
-   set's initial camera invalidates it as `probe-frame-changing`. Such samples never reach
-   the fit. These guards also cover a moving obstacle after the initial clearance ray;
-   a single ray cannot guarantee an obstacle-free swept character volume.
+   Low-speed stalls retain `probe-stalled`. Body change >5 degrees during a probe, or
+   camera change >5 degrees relative to the set's start, gives `probe-frame-changing`.
+   Displacement must exceed 0.30 m. After Stop, drift projected back toward the start
+   above 0.20 m refuses `server-correction`; forward/sideways settle drift is allowed.
+   Three of five command-angle samples must match the request within 15 degrees,
+   accepting the observed radians readout as well as degrees.
+5. Fit actual wrapped request differences against gains +1,-1,+2,-2. The training and
+   both held-out residuals must each be <=15 degrees. Since clearance used expected
+   gain +2, another fitted gain refuses `probe-frame-unsupported`; inconsistent bearings
+   refuse `angle-fit-mismatch`. Command disagreement gives `command-angle-mismatch`.
+   A consistent +2 fit gives `reason=frame-probe scale=2 frame=body
+   apply=measured-body-frame aim=disabled`. Steering reads live body yaw plus the measured
+   offset and divides desired relative bearing by the fitted gain. There is no aim override,
+   position write or teleport. These are conservative empirical checks, **not native proof**
+   that this spawn supports a correct calibration.
 
-5. Compute displacement bearings `b0`, `b90`, `b45`, `bm90` in degrees. Fit
-   `B(a) = B(0) + AngleScale*a`, choosing the best wrap-aware +90 residual among **+1,-1,+2,-2**.
-   +2 and -2 are indistinguishable at +90; the +45 residual breaks that tie. The training (+90) residual and both held-out
-   residuals, `resid45` and `residm90`, must independently be within **15 degrees**, otherwise
-   `angle-fit-mismatch` (replaces `command-angle-motion-mismatch`). Success is `frame-probe`.
-   `scale=2` means +45 requests predict +90 world-bearing turns, while `scale=1` predicts +45;
-   negative scales reverse the turn. This is an empirical fit, not a native API contract or
-   proof that an angle is applied twice. The legacy `angle_sign` is a derived diagnostic alias;
-   `right_offset` is now the +90 fit residual.
-
-   Choose `frame=heading` when controller heading has a >1-degree range across the probe readings
-   or differs from camera yaw (0.001-degree numerical tolerance); otherwise `frame=camera`.
-   After a clearance rotation, fit the actual wrapped request differences, rather than
-   assuming the first request is zero. `frame_offset` is
-   `Wrap180(B(first)-initial_selected_frame-AngleScale*first_request)`. Steering reads that same source
-   live and requests `Clamp(Wrap180(want-frame-frame_offset)/AngleScale,-180,180)`.
-   With absolute scale 2, a full circle uses requests in +/-90. Calibration never overrides aim.
-6. States are readiness → (clearance → drive → settle) → result: **24 s nominal**
-   for four clear probes plus four clearance updates. Restarts share the eight-ray budget,
-   bounding completed drive/settle pairs to eight (48 s nominal), plus readiness (60 s)
-   and update overshoot.
-   Startup failures retry after 15 s, at most three startup runs; pre-movement retries share
-   the **four-run session cap**. Step timers start after calibration. Readiness loss stops
-   immediately and refuses; an interrupted probe has no completed-probe line. At most eight
-   client probe lines and one result per run; no per-frame logs or new `[HC Use]` counters.
-   Issue #368 evidence assessment (soaks 191/192/201): request degrees are confirmed by
-   `input_angle=90` and `local_dir=<1,0>`; `cur_angle=1.57` is radians on this build despite
-   `human.c:459-460` listing degree angles. Native `human.c:256` declares the override but
-   gives no unit comment. `GetMovement` returns a local normalized direction (`human.c:22`);
-   `GetHeadingAngle` is camera heading in radians (`:27-28`), negated to clockwise yaw by
-   `5_Mission/GUI/CrossHairSelector.c:247` (also camera code `:478`, negative to yaw).
-   The conventional candidate is camera-relative clockwise degrees, scale +1. The observed
-   world movement does **not** establish it: run 1 has B0=-57.06, B90=126.32, B45=146.15,
-   Bm90=-77.79. The 183.38-degree forward/right separation chooses scale -2, but held-out
-   residuals are -66.79 and 159.27 degrees. No fixed candidate explains all four.
-   Identical forward displacement at another spawn argues against attributing all of this
-   to the fixture fence. Every logged body direction and heading is north/zero; there is no
-   observed body turn, but the reported direction alone cannot establish the animation's
-   world movement frame during a strafe. The forward path bends and later stops; the
-   diagonal's 0.1–0.15 m intervals are obstruction evidence, not an angle measurement.
-
-   The smallest missing frame observation is per-sample camera yaw: new `camera=<...>`
-   uses native `3_Game/Global/Game.c:732 GetCurrentCameraDirection`, converted by Atan2(x,z).
-   Compare it with interval displacement bearings, heading and body direction in the next
-   soak. If it changes while heading stays zero, the old constant-frame fit was unsupported;
-   if it stays zero too, the world mapping remains unresolved and needs further engine
-   evidence (potentially server mirror observations outside this brief's file scope).
-   We deliberately do not make the inconsistent historical samples accept. Calibration
-   remains implemented-unverified; a clear, consistent four-probe fit is still required.
-
-   The fixture <6500,2500> is a poor unrestricted start (owner-observed town fence), but
-   remains unchanged together with `SPAWN_XZ` and all derived targets. Clearance rejects
-   blocked requested bearings and stalled probes refuse; it does not promise this spawn
-   will calibrate until the world angle mapping is established. There is no verified
-   alternative spawn in this evidence. Existing characters are never repositioned.
-   Plain walk recovery now uses side-right (+45, speed 2), side-left (-45, speed 2),
-   then back-up (180, speed 1), each for 2 s after 8 s without 1 m progress. Ten metres
-   of fresh progress resets the ladder; exhaustion returns timeout. Route's door rung
-   and route behavior are unchanged.
+   On a good run, expect four probe lines with `req_angle=0.00,45.00,22.50,-45.00`,
+   five samples each, `moved_m>0.30`, `back_m<=0.20`, and summary bearings approximately
+   `B, Wrap180(B+90), Wrap180(B+45), Wrap180(B-90)`. The summary must report
+   `calib result=ok variant=mirror ... reason=frame-probe ... scale=2 frame=body`,
+   all three residuals within 15 degrees and `controls=0`. Subsequent ray bearings must
+   agree with those expected travel directions. If these conditions fail, calibration
+   remains refused; there is no automatic promotion of historical samples.
+6. Startup failures retry after 15 s, at most three startup runs; on-demand walk/route
+   retries share the four-run per-entity cap. Step timers start after calibration.
+   No native experiment was run for this change. A native-correct movement-frame contract
+   cannot be established from these scripts or the obstructed historical probes alone.
+   If the bounded retries still cannot obtain four clear consistent probes, the smallest
+   proposed fixture change is to move **only initial character creation** from <6500,2500>
+   to the nearest surveyed open patch with at least 16 m clearance on these four bearings.
+   A coordinate must be selected from an actual geometry survey; none is verified here.
+   The spawn, `SPAWN_XZ`, derived targets and existing characters are unchanged.
 
 7. The test-only `HCDriverMoveWire.RPC_MOVE` allocation is **4854091** (global lint inventory).
    The reliable player-targeted request contains serial, speed, angle, lease seconds and an
@@ -573,13 +549,32 @@ on-demand probe. It still requires the move command, controller and ready contro
 reasons are `no-move-command`, `no-input-controller`, `not-ready` or `no-movement`.
 The existing startup calibration remains; this change removes sprint's mapping dependency.
 
-`HCDriverStepHold` gates every step before any step or nested-loop timer advances. Alive
+`HCDriverStepHold` gates ordinary steps before any step or nested-loop timer advances;
+scripted respawn runs before this gate. Alive
 unconscious players and full-body/additive hit commands release input without discarding the
 walker leg or route/action phase. Native evidence: `3_Game/human.c:1559` returns
 `HumanCommandFullBodyDamage` from `GetCommand_Damage()`; `:1616` returns the light-hit
 `HumanCommandDamage` modifier from `GetCommandModifier_Damage()`; `3_Game/Entities/Man.c:63`
 provides `IsUnconscious()`. A continuous hold logs once, lasts at most 60 s, and resumes the
-same step; death refuses the current step with `player-dead` and waits for a new character.
+same step. Death refuses the current non-respawn step with `player-dead`, then requests
+vanilla respawn through the same helper as scripted `respawn`
+(`5_Mission/GUI/InGameMenu.c:346-365`; menu lookup/entry: `3_Game/tools/UIManager.c:4,160`).
+Recovery waits for a distinct loaded player with movement ready, resets calibration via
+`calib reset reason=respawn`, and continues the next step after fresh calibration.
+The recovery deadline is 60 s of local engine time (`3_Game/Global/Game.c:1535`), including
+missing/unloaded-player ticks. Three recoveries are allowed per program; the count survives
+player resets. A fourth death concludes `unscripted-death-limit`; expiry concludes
+`unscripted-death-timeout`. Even death during the final step completes recovery before done.
+Scripted `respawn` dispatches on a dead player and continues through the no-player gap;
+its own timeout and readiness checks remain active before normal calibration resumes.
+
+```text
+[HC Driver] unscripted-death step=<id> respawn=ok|timeout recoveries=<n>
+[HC Driver] conclude reason=unscripted-death-limit|unscripted-death-timeout
+```
+
+The `conclude` reason precedes the existing unchanged `done run=...` receipt, so the campaign
+parser still recognizes completion. These are driver receipts, never feature counters.
 Native actions can be interrupted by the engine: their existing completion checks still
 apply after recovery; frozen driver timers do not pause the engine's action animation.
 

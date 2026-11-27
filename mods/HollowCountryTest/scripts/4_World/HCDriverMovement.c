@@ -23,6 +23,10 @@ class HCDriverMovement
     static bool Calibrated;
     static float AngleSign = 1.0; // Derived diagnostic alias; steering uses AngleScale.
     static float AngleScale = 1.0;
+    // false selects live body direction plus the measured displacement offset in the walker.
+    // HumanInputController.GetHeadingAngle is camera/aim heading (native human.c:27-28),
+    // not an observed travel frame. Mirror writes the same requested angle at each endpoint;
+    // OverrideMovementAngle (human.c:256) is opaque, so additive angle processing is unproven.
     static bool HeadingFrame;
     static float HeadingOffset;
     static PlayerBase Owner;
