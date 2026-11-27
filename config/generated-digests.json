@@ -6432,6 +6432,7 @@
         "geometry_reader": "813c92a55f804fd01cc5cf477d528a3a77ed977f337af3655f5f19e2f9721f2e",
         "history/candidate": "7f1394f6fdbc673bcb08645943cf4d3ac1ecae9a9748967d8a97543be76fdf40",
         "history/prior": "f8c6dfca466900bf46f2da208f355b827c324490b7ede21a8c3090242b504492",
+        "native_census/0": "b254dc069c293e0c090e31be6a15b4af3e4d1017fa13ec97ef26d302026a4ecb",
         "stock/mapgrouppos.xml": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
         "stock/mapgroupproto.xml": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6"
       },
