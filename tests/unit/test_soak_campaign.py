@@ -645,6 +645,86 @@ class CampaignTests(Tmp):
         self.assertTrue(run.run())
         self.assertEqual(host.stopped_at[camp.CLIENT_IMAGE], 30 * 60)
 
+    def test_stalled_driver_idles_to_the_fallback_or_minimum_duration(self):
+        for minimum in (0, 200 * 60):
+            with self.subTest(minimum=minimum):
+                self.clock.t = 0
+                run, host = self.campaign(driver='running')
+                run.min_duration_seconds = minimum
+                log = []
+                run.log = log.append
+                sleep = run.sleep
+
+                def empty_server(seconds):
+                    sleep(seconds)
+                    rpt = self.server / camp.PROFILE_COPY / 'DayZServer_x64_1.RPT'
+                    with rpt.open('a') as stream:
+                        stream.write('[HC Perf] window=1 players_min=0 players_max=0\n')
+
+                run.sleep = empty_server
+                self.assertTrue(run.run())
+                stalled_at = camp.POLL_SECONDS + camp.DRIVER_STALL_MINUTES * 60
+                self.assertEqual(host.stopped_at[camp.SERVER_IMAGE],
+                                 max(minimum, stalled_at + PHASES['min_idle_minutes'] * 60))
+                self.assertIn('run: driver stalled minutes=15.5 last_step=s01; '
+                              'idling to the minimum duration', log)
+                self.assertFalse(any('did not finish in its budget' in line for line in log))
+                self.assertEqual(self.snapshot(), self.original)
+
+    def test_stall_requires_both_quiet_steps_and_continuously_empty_server(self):
+        for activity in ('players', 'steps', 'missing-perf', 'stale-perf'):
+            with self.subTest(activity=activity):
+                run, host = self.campaign(driver='running')
+                log = []
+                run.log = log.append
+                sleep = run.sleep
+                started_at = self.clock.t
+                completed_at = started_at + 35 * 60
+
+                def active_server(seconds):
+                    sleep(seconds)
+                    rpt = self.server / camp.PROFILE_COPY / 'DayZServer_x64_1.RPT'
+                    elapsed = self.clock.t - started_at
+                    if activity != 'missing-perf' and (activity != 'stale-perf' or elapsed == 30):
+                        # A positive window every ten minutes resets the zero-player interval.
+                        players = int(activity == 'players' and elapsed % 600 == 0)
+                        with rpt.open('a') as stream:
+                            stream.write('[HC Perf] window=1 players_max=%d\n' % players)
+                    rpt = self.stager.client_parent / camp.CLIENT_PROFILE / 'DayZ_x64_1.RPT'
+                    with rpt.open('a') as stream:
+                        if activity == 'steps' and elapsed % 600 == 0:
+                            stream.write('[HC Driver] step=s02 kind=wait result=ok\n')
+                        if self.clock.t == completed_at:
+                            stream.write('[HC Driver] done run=r1 steps=2 ok=2 refused=0 unsupported=0 timeout=0\n')
+
+                run.sleep = active_server
+                self.assertTrue(run.run())
+                self.assertEqual(host.stopped_at[camp.CLIENT_IMAGE], completed_at + camp.DRIVER_GRACE_SECONDS)
+                self.assertFalse(any('driver stalled' in line for line in log))
+
+    def test_interrupts_during_driver_wait_keep_evidence_stop_and_restore(self):
+        for interrupt in ('keyboard', 'sigterm'):
+            with self.subTest(interrupt=interrupt):
+                run, host = self.campaign(driver='running')
+                previous = camp.signal.getsignal(camp.signal.SIGTERM)
+
+                def interrupted(seconds):
+                    if interrupt == 'sigterm':
+                        camp.signal.raise_signal(camp.signal.SIGTERM)
+                    raise KeyboardInterrupt
+
+                run.sleep = interrupted
+                with self.assertRaises(KeyboardInterrupt):
+                    run.run()
+                self.assertIs(camp.signal.getsignal(camp.signal.SIGTERM), previous)
+                self.assertFalse(any(host.running.values()))
+                self.assertEqual(host.calls[-2:], ['stop ' + camp.CLIENT_IMAGE, 'stop ' + camp.SERVER_IMAGE])
+                self.assertEqual(self.snapshot(), self.original)
+                server, client = camp.last_run_logs(self.state)
+                self.assertIn(camp.CONNECT_ENABLED, server.read_text())
+                self.assertIn('[HC Driver] step=s01', client.read_text())
+                self.assertFalse(self.stager.receipt_path.exists())
+
     def test_final_receipt_for_another_run_cannot_shorten_this_run(self):
         run, host = self.campaign()
         run.step_script['run_id'] = 'expected'
@@ -1041,6 +1121,43 @@ class CampaignTests(Tmp):
         host.launch_client('G:\\DayZ', ['0', '-mod=G:\\a b;G:\\c'])
         self.assertEqual(2, len(host.winproc.scripts))
         self.assertNotIn('"', host.winproc.scripts[0])
+
+    def test_stop_blip_then_gone_does_not_send_another_close(self):
+        host = self.launch_host(['lost'], ['gone'])
+        host.state = mock.Mock(wraps=host.state)
+        host.stop(camp.SERVER_IMAGE)
+        self.assertEqual(len(host.winproc.scripts), 1)
+        host.state.assert_called_once_with(camp.SERVER_IMAGE)
+        self.assertEqual(host.clock(), camp.STOP_RETRY_SECONDS)
+
+    def test_stop_blip_then_running_retries_the_graceful_close(self):
+        host = self.launch_host(['lost', 0], ['running'])
+        host.stop(camp.SERVER_IMAGE)
+        self.assertEqual(len(host.winproc.scripts), 2)
+        self.assertEqual(host.clock(), camp.STOP_RETRY_SECONDS)
+
+    def test_three_stop_blips_leave_a_running_server_staged(self):
+        run, host = self.campaign()
+        close_host = self.launch_host(['lost'] * 3, ['running'])
+        close_host.sleep = self.clock.sleep
+        stop = host.stop
+
+        def graceful_stop(image):
+            if image == camp.SERVER_IMAGE:
+                close_host.stop(image)
+            else:
+                stop(image)
+
+        host.stop = graceful_stop
+        log = []
+        run.log = log.append
+        with self.assertRaisesRegex(camp.Refused, 'state=running.*Stop DayZ by hand'):
+            run.run()
+        self.assertEqual(len(close_host.winproc.scripts), 3)
+        self.assertEqual(self.clock.t, camp.DRIVER_GRACE_SECONDS + 2 * camp.STOP_RETRY_SECONDS + camp.STOP_WAIT_SECONDS)
+        self.assertTrue(host.running[camp.SERVER_IMAGE])
+        self.assertTrue(self.stager.receipt_path.exists())
+        self.assertIn('run: left staged. Stop DayZ by hand, then run restore', log)
 
     def test_a_lost_launch_reply_with_the_client_running_does_not_launch_twice(self):
         host = self.launch_host(['lost', 0], ['gone', 'running'])

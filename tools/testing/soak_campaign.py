@@ -31,6 +31,7 @@ import json
 from pathlib import Path
 import re
 import shutil
+import signal
 import sys
 import time
 
@@ -92,6 +93,8 @@ STRAY_STORAGE = 'storage_0'
 # A graceful stop saves the world first: the build 178 test server needed about 80 s after CloseMainWindow.
 STOP_WAIT_SECONDS = 240
 STOP_POLL_SECONDS = 5
+STOP_ATTEMPTS = 3
+STOP_RETRY_SECONDS = 10
 LAUNCH_ATTEMPTS = 3
 LAUNCH_TIMEOUT_SECONDS = 60
 LAUNCH_SETTLE_SECONDS = 30
@@ -108,6 +111,7 @@ CONNECT_ENABLED = 'Player connect enabled'
 # then an access violation). Stop at the first one and name it.
 SCRIPT_ERROR = 'SCRIPT    (E)'
 DRIVER_GRACE_SECONDS = 120
+DRIVER_STALL_MINUTES = 15
 # HCClientDriverSteps.c:101: the final receipt, not an individual step result.
 DRIVER_DONE = re.compile(
     r'\[HC Driver\] done run=([A-Za-z0-9_-]+) steps=\d+ ok=\d+ refused=\d+ unsupported=\d+ timeout=\d+\s*$')
@@ -748,9 +752,26 @@ class WindowsHost:
                   "if (-not $p[0].CloseMainWindow()) { Write-Output 'HC close refused'; exit 2 }; "
                   "if (-not $p[0].WaitForExit(%d)) { Write-Output 'HC close timeout'; exit 2 }; "
                   "Write-Output 'HC stopped'" % (name, STOP_WAIT_SECONDS * 1000))
-        result = self.winproc.run('powershell', [ps_encoded(script)], attempts=1, timeout=STOP_WAIT_SECONDS + 60)
-        if result.returncode:
-            raise Refused('graceful close request for %s failed' % image)
+        # At most 3 * 300 s close calls + 2 * (10 s delay + 94 s state query) = 1108 s per image.
+        # state() uses winproc's bounded 3 * 30 s queries and two 2 s delays; shutdown confirms exits separately.
+        for attempt in range(STOP_ATTEMPTS):
+            if attempt:
+                self.sleep(STOP_RETRY_SECONDS)
+                try:
+                    if self.state(image) == 'gone':
+                        return  # The close succeeded but its interop reply was lost.
+                except InteropError:
+                    pass  # An unreadable state is not proof of exit; the close is safe to repeat.
+            try:
+                result = self.winproc.run('powershell', [ps_encoded(script)], attempts=1,
+                                          timeout=STOP_WAIT_SECONDS + 60)
+            except InteropError:
+                if attempt == STOP_ATTEMPTS - 1:
+                    raise
+                continue
+            if result.returncode:
+                raise Refused('graceful close request for %s failed' % image)
+            return
 
     def launch_server(self, server_root_win):
         script = ("$ErrorActionPreference='Stop'; Start-Process -FilePath " + ps_quote(server_root_win + '\\' + BAT_COPY)
@@ -1195,6 +1216,16 @@ class Campaign:
         return found[-1] if found else None
 
     def run(self):
+        def terminate(signum, frame):
+            raise KeyboardInterrupt
+
+        previous = signal.signal(signal.SIGTERM, terminate)
+        try:
+            return self._run()
+        finally:
+            signal.signal(signal.SIGTERM, previous)
+
+    def _run(self):
         self.preflight()
         stager = self.stager
         driven = self.selection['phases'] if self.selection else PHASE_ORDER
@@ -1249,7 +1280,8 @@ class Campaign:
             self.log('run: client launched through the BattlEye launcher')
             client_dir = stager.client_parent / CLIENT_PROFILE
             follow = {'path': None, 'offset': 0, 'done': False, 'inert': False, 'steps': 0,
-                      'done_at': None, 'session': False, 'last_connect': 'no connect line', 'player': False}
+                      'done_at': None, 'session': False, 'last_connect': 'no connect line', 'player': False,
+                      'last_step': 'none', 'last_step_at': self.now()}
 
             def driver_progress():
                 path = self.newest(client_dir, '*.RPT')
@@ -1274,6 +1306,9 @@ class Campaign:
                         follow['inert'] = True
                     elif '[HC Driver] step=' in line:
                         follow['steps'] += 1
+                        match = re.search(r'\[HC Driver\] step=([A-Za-z0-9_-]+)\b', line)
+                        follow['last_step'] = match.group(1) if match else 'none'
+                        follow['last_step_at'] = self.now()
                     elif DRIVER_DONE.search(line):
                         match = DRIVER_DONE.search(line)
                         if match.group(1) == self.step_script.get('run_id', match.group(1)):
@@ -1307,10 +1342,43 @@ class Campaign:
             self.log('run: client session started and server player connect confirmed')
             phase_start = self.now()
             budget = int(total * 1.5) + JOIN_MINUTES
+            empty = {'since': None, 'confirmed_at': None}
+
+            def driver_finished_or_stalled():
+                if driver_progress():
+                    return True  # A final receipt keeps the existing completion/grace path.
+                path = self.newest(server_profile, 'DayZServer_x64_*.RPT')
+                if path is None:
+                    empty.update(since=None, confirmed_at=None)
+                    return False
+                if server_follow['path'] != path:
+                    server_follow.update(path=path, offset=0)
+                    empty.update(since=None, confirmed_at=None)
+                lines, server_follow['offset'] = tail_lines(path, server_follow['offset'])
+                for line in lines:
+                    if '[HC Perf]' in line:
+                        players = re.search(r'\bplayers_max=(\d+)\b', line)
+                        if players and int(players.group(1)) == 0:
+                            if empty['since'] is None:
+                                empty['since'] = self.now()
+                            empty['confirmed_at'] = self.now()
+                        else:
+                            empty.update(since=None, confirmed_at=None)
+                    elif SERVER_PLAYER_CONNECTED.search(line):
+                        empty.update(since=None, confirmed_at=None)
+                # Require zero-player samples spanning the full interval, not just an old zero sample.
+                quiet = self.now() - follow['last_step_at']
+                if (empty['since'] is not None and quiet >= DRIVER_STALL_MINUTES * 60
+                        and empty['confirmed_at'] - empty['since'] >= DRIVER_STALL_MINUTES * 60):
+                    self.log('run: driver stalled minutes=%g last_step=%s; idling to the minimum duration' %
+                             (quiet / 60, follow['last_step']))
+                    return True
+                return False
+
             try:
                 # The server too: a server crash mid-drive must end the run now, not after the whole budget
                 # (2026-11-23 soak 178: the server died 3 minutes in and the run waited an hour on the client).
-                self.wait_for('the driver to finish', budget, driver_progress, (SERVER_IMAGE, CLIENT_IMAGE))
+                self.wait_for('the driver to finish', budget, driver_finished_or_stalled, (SERVER_IMAGE, CLIENT_IMAGE))
             except Refused as error:
                 if str(error).startswith('timed out'):
                     self.log('run: driver did not finish in its budget; idling anyway (the report shows how far it got)')
