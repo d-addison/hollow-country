@@ -112,6 +112,7 @@ class HCXAISiteBase : Managed
     protected int m_UpgradeRequal;
     protected ref map<string, bool> m_UpgradeDeferred = new map<string, bool>();
     protected int m_UpgradeServedStale;
+    protected bool m_UpgradeQueuedLogged;
     protected ref array<string> m_UpgradeQueue = new array<string>();
     protected ref map<string, bool> m_UpgradeQueued = new map<string, bool>();
     protected ref HCXAISiteState m_UpgradeShadow;
@@ -289,7 +290,7 @@ class HCXAISiteBase : Managed
     protected HCXAISiteState HCSurveyState(HCXAISite site) { return null; }
     protected HCXAISiteState HCNearbySurveyState() { return null; }
     protected void HCStepSurvey() {  }
-    protected void HCStepRouteUpgrade() {  }
+    protected bool HCStepRouteUpgrade() { return false; }
     protected void HCClearRouteUpgrade() {  }
     protected void HCApplyRouteUpgrade(HCXAISiteState state) {  }
     protected void HCRecordRouteState(HCXAISiteState state) {  }
@@ -602,8 +603,7 @@ class HCXAISiteBase : Managed
             }
             if (m_SurveyTurn && m_RoutesWarm && (!m_Localities || m_SurveyCursor >= m_Policy.Sites.Count()) && (m_UpgradeShadow || m_UpgradeQueue.Count() > 0 || m_UpgradePendingIds.Count() > 0))
             {
-                this.HCStepRouteUpgrade();
-                return;
+                if (this.HCStepRouteUpgrade()) { return; }
             }
             int runBegan = TickCount(0);
             this.StepRun();

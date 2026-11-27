@@ -46,6 +46,7 @@ modded class HCModuleReadiness
             HCRegisterUse("SitePatrols", "death-hold-deferred");
             HCRegisterUse("optional-expansion-human-ai", "actor_spawned");
             HCRegisterUse("optional-expansion-human-ai", "route_cache");
+            HCRegisterUse("optional-expansion-human-ai", "route_upgrade");
             HCRegisterUse("optional-expansion-human-ai", "convoy_astar");
             HCRegisterUse("optional-expansion-human-ai", "stuck_recovery");
             HCRegisterUse("optional-expansion-human-ai", "site_radius_entered");
