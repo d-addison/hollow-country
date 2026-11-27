@@ -33,6 +33,7 @@ class HCDriverWalker
     protected int m_Sidesteps;
     protected float m_SideLeft;
     protected float m_SideSign = 1.0;
+    protected float m_RecoveryAt;
     protected string m_Detail;
     // Route mode: after HANDOVER_SECONDS without progress the walker flags m_Stuck and keeps going;
     // the route's stuck ladder (HCDriverRoute) decides what to do. Begin turns it off.
@@ -71,6 +72,7 @@ class HCDriverWalker
         m_Best = 1000000;
         m_NoProgress = 0;
         m_Sidesteps = 0;
+        m_RecoveryAt = 1000000;
         m_SideLeft = 0;
         m_SideSign = 1.0;
         m_Detail = "";
@@ -196,7 +198,8 @@ class HCDriverWalker
             m_Detail = "route-timeout remaining_m=" + Math.Round(dist).ToString();
             return HCDriverResult.TIMEOUT;
         }
-        // Stuck handling: 20 s without 1 m of progress = a sidestep, twice, then timeout.
+        // Walk recovery: 8 s without 1 m progress; right, left, back, then timeout.
+        // Ten metres of fresh progress resets the ladder, as in route mode.
         if (dist < m_Best - 1.0)
         {
             m_Best = dist;
@@ -212,17 +215,25 @@ class HCDriverWalker
             m_NoProgress = 0;
             m_Best = dist;
         }
-        if (m_NoProgress >= 20.0)
+        if (!m_Handover && m_NoProgress >= HCDriverWalker.HANDOVER_SECONDS)
         {
-            if (m_Sidesteps >= 2)
+            if (dist < m_RecoveryAt - 10.0) { m_Sidesteps = 0; }
+            m_RecoveryAt = dist;
+            if (m_Sidesteps >= 3)
             {
                 Release(player);
-                m_Detail = "stuck sidesteps=2 remaining_m=" + Math.Round(dist).ToString();
+                m_Detail = "stuck-exhausted rungs=3 remaining_m=" + Math.Round(dist).ToString();
                 return HCDriverResult.TIMEOUT;
             }
             m_Sidesteps = m_Sidesteps + 1;
             m_SideLeft = 2.0;
-            m_SideSign = -m_SideSign;
+            m_SideSign = 0.5;
+            if (m_Sidesteps == 2) { m_SideSign = -0.5; }
+            if (m_Sidesteps == 3) { m_SideSign = 2.0; }
+            string maneuver = "side-right";
+            if (m_Sidesteps == 2) { maneuver = "side-left"; }
+            if (m_Sidesteps == 3) { maneuver = "back-up"; }
+            Print("[HC Driver] step=" + HCDriverMovement.StepLabel + " stuck rung=" + m_Sidesteps.ToString() + " maneuver=" + maneuver);
             m_NoProgress = 0;
             m_Best = dist;
         }
@@ -258,7 +269,13 @@ class HCDriverWalker
             angle = Math.Clamp(diff / HCDriverMovement.AngleScale, -180.0, 180.0);
         }
         else { m_FrameSampling = false; m_FrameBad = 0; }
-        HCDriverMovement.Request(m_Speed, angle);
+        float recoverySpeed = m_Speed;
+        if (m_SideLeft > 0)
+        {
+            recoverySpeed = 2.0;
+            if (m_Sidesteps == 3) { recoverySpeed = 1.0; }
+        }
+        HCDriverMovement.Request(recoverySpeed, angle);
         return HCDriverResult.RUNNING;
     }
     // Position-only feedback: a 3.5-second window of steady commands. Turns, holds,
