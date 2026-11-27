@@ -114,7 +114,7 @@ MISSION_FILES = {'auditleaves_settings.json', 'README.md', 'INSTALL_AND_ROLLBACK
                  'events/transit-situations.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
-                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json', 'loot-points/additions-interiors.json', 'loot-points/floor-policy.json',
+                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json', 'loot-points/additions-interiors.json', 'loot-points/floor-policy.json', 'loot-points/shelf-fit.json',
                  # Groups and stock-frame WRP rows for Chernarus buildings without a stock loot group.
                  'loot-points/new-buildings.json',
                  # HC-14 infected variety policy read by tools/package/infected_variety.py install/rollback.

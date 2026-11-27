@@ -20,6 +20,9 @@ if __package__ in (None, ''):
 from tools.package import economy, loot_boost, xml_text  # noqa: E402
 
 FLOOR_POLICY = Path('mission/hollow-country/loot-points/floor-policy.json')
+SHELF_FIT = FLOOR_POLICY.with_name('shelf-fit.json')
+SHELF_FIT_KIND = 'hollow-country-shelf-fit'
+MAX_SHELF_FIT_BYTES = 2 * 1024 * 1024
 KIND = 'hollow-country-loot-floor-policy'
 MAX_POLICY_BYTES = 256 * 1024
 NAME = re.compile(r'[A-Za-z0-9_]{1,80}')
@@ -146,6 +149,68 @@ def shipped_policy(repo=None):
     return path.read_bytes() if path.is_file() else None
 
 
+def parse_shelf_fit(data):
+    """Refuse corrupt admission evidence; reason alone never authorizes a retag."""
+    if len(data) > MAX_SHELF_FIT_BYTES:
+        raise ValueError('shelf-fit exceeds its byte bound')
+    try:
+        doc = json.loads(data, object_pairs_hook=loot_boost._unique_object)
+    except (ValueError, UnicodeError) as exc:
+        raise ValueError('invalid shelf-fit JSON') from exc
+    if (not isinstance(doc, dict) or type(doc.get('schema')) is not int or doc['schema'] != 1
+            or doc.get('kind') != SHELF_FIT_KIND):
+        raise ValueError('not a shelf-fit document')
+    threshold = doc.get('threshold')
+    if (type(threshold) not in (int, float) or not math.isfinite(threshold)
+            or not 0 < threshold <= 1 or threshold != 0.30):
+        raise ValueError('shelf-fit threshold must be the owner threshold 0.30')
+    classes = doc.get('classes')
+    if not isinstance(classes, dict):
+        raise ValueError('shelf-fit classes must be a name table')
+    for name, row in classes.items():
+        if not NAME.fullmatch(name) or not isinstance(row, dict) or set(row) != {
+                'fit_share', 'candidate_points', 'longest_m', 'reason'}:
+            raise ValueError('shelf-fit class row shape')
+        share, points, longest, reason = (row[k] for k in
+                                         ('fit_share', 'candidate_points', 'longest_m', 'reason'))
+        if (type(share) not in (int, float) or not math.isfinite(share) or not 0 <= share <= 1
+                or type(points) is not int or points < 0
+                or (longest is not None and (type(longest) not in (int, float)
+                    or not math.isfinite(longest) or longest <= 0))
+                or reason not in ('fits', 'below_threshold', 'bounds_unknown', 'no_shelf_points')):
+            raise ValueError('shelf-fit class values outside bounds')
+        if ((reason == 'fits' and (share < threshold or points == 0 or longest is None))
+                or (reason == 'below_threshold' and (share >= threshold or points == 0 or longest is None))
+                or (reason == 'bounds_unknown' and (longest is not None or share != 0))
+                or (reason == 'no_shelf_points' and (points != 0 or share != 0))):
+            raise ValueError('shelf-fit reason contradicts evidence')
+    return doc
+
+
+def load_shelf_fit(repo=None):
+    """Enabled policy requires the companion file, including in installer bundles."""
+    path = Path(repo or loot_boost.REPO_ROOT) / SHELF_FIT
+    try:
+        with path.open('rb') as handle:
+            data = handle.read(MAX_SHELF_FIT_BYTES + 1)
+    except OSError:
+        raise ValueError('enabled floor policy requires readable loot-points/shelf-fit.json') from None
+    return parse_shelf_fit(data)
+
+
+def would_gain_shelf(name, cats, tags, nominal, policy):
+    """The old movable rule, restricted to rows gaining shelves; vanilla shelves stay untouched."""
+    return (policy['shelf_tag'] not in tags and (not tags or policy['floor_tag'] in tags)
+            and not _shelf_exempt(name, cats) and (bool(cats) or policy['floor_tag'] in tags or nominal > 0)
+            and not all(floor_eligible(name, category, policy) for category in (cats or [''])))
+
+
+def kept_vanilla(rows, policy, shelf_fit):
+    return sorted({name for name, cats, before, after, nominal, _ in rows
+                   if would_gain_shelf(name, cats, before, nominal, policy)
+                   and shelf_fit['classes'].get(name, {}).get('reason') != 'fits'})
+
+
 def floor_eligible(name, category, policy):
     """Only clothing and explicitly named garbage may retain floor eligibility."""
     return category in policy['floor_categories'] or name.lower() in policy['_classes']
@@ -163,8 +228,9 @@ def _shelf_exempt(name, categories):
             and re.fullmatch(r'Motorbike_[A-Za-z0-9_]+_Wheel_[A-Za-z0-9_]+', name, re.I) is not None)
 
 
-def retag_types(data, policy, roster=frozenset()):
+def retag_types(data, policy, roster=frozenset(), shelf_fit=None):
     """Return (bytes, rows). rows: (name, categories, tags_before, tags_after, nominal, usage)."""
+    shelf_fit = load_shelf_fit() if shelf_fit is None else shelf_fit
     economy.xml(data, 'types')
     text = data.decode('utf-8-sig')
     masked = loot_boost._mask(text)
@@ -183,16 +249,14 @@ def retag_types(data, policy, roster=frozenset()):
         nominal = re.search(r'<nominal>\s*(\d+)\s*</nominal>', body)
         value = int(nominal.group(1)) if nominal else 0
         after = list(tags)
-        # Roster membership protects supply quantities, never equipment floor placement.
-        movable = (not _shelf_exempt(name, cats) and (bool(cats) or floor_tag in tags or value > 0)
-                   and not all(floor_eligible(name, category, policy) for category in (cats or [''])))
-        if movable:
+        movable = would_gain_shelf(name, cats, tags, value, policy)
+        entry = shelf_fit['classes'].get(name, {})
+        if (movable and entry.get('reason') == 'fits'
+                and entry.get('fit_share', 0) >= shelf_fit['threshold']):
             after = [t for t in tags if t != floor_tag]
-            if (floor_tag in tags or not tags) and shelf_tag not in after:
-                after.append(shelf_tag)
-            if sorted(after) != sorted(tags):
-                edits.extend(_retag_edits(masked, opening.end(), body, tags, floor_tag, shelf_tag))
-                expected[name] = set(after)
+            after.append(shelf_tag)
+            edits.extend(_retag_edits(masked, opening.end(), body, tags, floor_tag, shelf_tag))
+            expected[name] = set(after)
         usages = tuple(re.findall(r'<usage\s+name="([^"]*)"', body))
         rows.append((name, tuple(cats), tuple(tags), tuple(after), value, usages))
     output = loot_boost._encode(loot_boost._apply(text, edits), data)
@@ -644,6 +708,7 @@ def rebalance_proto(data, rows_by_file, policy):
     after_groups = _scan(output_text, loot_boost._mask(output_text), default_lootmax)
     report['slots_after'] = sum(min(limit, sum(min(c['lootmax'], len(c['ys'])) for c in containers))
                                 for _, limit, containers in after_groups)
+    unexpected_floor_route = False
     for _, limit, containers in after_groups:
         floor_y = min((y for c in containers for y in c['ys']), default=0.0)
         for c in containers:
@@ -652,9 +717,13 @@ def rebalance_proto(data, rows_by_file, policy):
             accepted_after = {name: row for name, row in table.items() if _matches(row, c, 'after')}
             total = sum(row[3] for row in accepted_after.values())
             prohibited = sum(row[3] for name, row in accepted_after.items() if name in supply)
+            # Shelf-fit refusals deliberately retain vanilla floor eligibility.
+            # Only a changed row still using a floor container is a policy failure.
+            unexpected_floor_route |= any(name in supply and row[1] != row[2]
+                                          for name, row in accepted_after.items())
             if total:
                 report['floor_nonclothing_slots_after'] += min(limit, c['lootmax'], len(c['ys'])) * prohibited / total
-    if report['floor_nonclothing_slots_after']:
+    if unexpected_floor_route:
         raise ValueError('floor policy verification failed: equipment can still use a floor container')
     _verify_proto(data, output, report, policy)
     return output, report
@@ -720,5 +789,6 @@ def describe(report):
             % (report.get('retagged_types', 0), report['floor_containers'], report['converted'],
                report['kept_without_shelf_room'], report['displaced'], report['transferred'], report['unplaced'],
                report['floor_nonclothing_slots_before'], report['floor_nonclothing_slots_after'])
-            + ' weapon_floor_exception_slots=%d supply_gap_classes=%d runtime=PENDING'
-            % (report.get('weapon_exception_slots_after', 0), len(report.get('supply_gaps', {}))))
+            + ' weapon_floor_exception_slots=%d supply_gap_classes=%d shelf_fit_kept_vanilla=%d runtime=PENDING'
+            % (report.get('weapon_exception_slots_after', 0), len(report.get('supply_gaps', {})),
+               report.get('shelf_fit_kept_vanilla', 0)))
