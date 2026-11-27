@@ -156,7 +156,6 @@ class HCCampModule : HCModule
     protected int m_CheckpointUtc;
     protected ref HCV2ThreatStore<HCCampData> m_CheckpointWriter = new HCV2ThreatStore<HCCampData>;
     protected ref HCCampData m_Data;
-    protected ref array<Man> m_Players = new array<Man>();
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected ref HCOperationalOwner m_TheftOwner;
     protected string m_TheftLine;
@@ -325,40 +324,35 @@ class HCCampModule : HCModule
         return result;
     }
 
-    string GroupId(PlayerBase player)
-    {
-        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
-        return HCGroupIdWithPlayers(player, hcPlayers);
-    }
-
-    protected string HCGroupIdWithPlayers(PlayerBase player, map<string, PlayerBase> hcPlayers)
+    string HCGroupIdWithPlayers(PlayerBase player, map<string, PlayerBase> hcPlayers)
     {
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !player || !player.GetIdentity()) { return ""; }
         return groups.HCCampReadGroupId(player, hcPlayers);
     }
 
-    int NearMembers(HCCampRecord camp, float radius)
+    void Tell(HCCampRecord camp, string authoredText, array<Man> roster = null, map<string, PlayerBase> hcPlayers = null)
     {
-        int count;
-        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
-        foreach (Man person : m_Players)
+        array<Man> recipients = roster;
+        if (!recipients)
         {
-            PlayerBase player = PlayerBase.Cast(person);
-            if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion()) { continue; }
-            if (vector.DistanceSq(player.GetPosition(), camp.Position) <= radius * radius && HCGroupIdWithPlayers(player, hcPlayers) == camp.GroupId) { count++; }
+            recipients = new array<Man>;
+            GetGame().GetPlayers(recipients);
         }
-        return count;
-    }
-
-    void Tell(HCCampRecord camp, string authoredText)
-    {
-        // Cached online recipients, max 32, group ACL re-read for each send.
-        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
-        foreach (Man person : m_Players)
+        if (recipients.Count() > HCGCCampGroupConfig.Get().CampPlayers) { return; }
+        map<string, PlayerBase> ownedPlayers = hcPlayers;
+        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCPlayersFromRoster(recipients); }
+        map<string, bool> sent = new map<string, bool>;
+        // Re-read the group ACL per send; duplicate bodies never duplicate a notice.
+        foreach (Man person : recipients)
         {
             PlayerBase player = PlayerBase.Cast(person);
-            if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion() || HCGroupIdWithPlayers(player, hcPlayers) != camp.GroupId) { continue; }
+            if (!player || !player.IsAlive() || player.IsPendingDeletion() || HCGroupIdWithPlayers(player, ownedPlayers) != camp.GroupId) { continue; }
+            PlayerIdentity identity = player.GetIdentity();
+            if (!identity) { continue; }
+            string uid = identity.GetId();
+            if (sent.Contains(uid)) { continue; }
+            sent.Set(uid, true);
             NotificationSystem.SendNotificationToPlayerExtended(player, 8, "Hollow Country camp", authoredText);
         }
     }
@@ -375,14 +369,13 @@ class HCCampModule : HCModule
         world.AddFact(kind, place, severity);
     }
 
-    protected void Candidate(FireplaceBase fire, int now)
+    protected void Candidate(FireplaceBase fire, int now, array<Man> roster, map<string, PlayerBase> hcPlayers)
     {
         if (!fire || fire.IsPendingDeletion() || fire.GetHierarchyParent() || !fire.IsBurning()) { return; }
         vector position = fire.GetPosition();
         string selected;
         float best = HCGCCampGroupConfig.Get().CampBindDistanceSq;
-        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
-        foreach (Man person : m_Players)
+        foreach (Man person : roster)
         {
             PlayerBase player = PlayerBase.Cast(person);
             if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
@@ -450,7 +443,7 @@ class HCCampModule : HCModule
         m_PendingCheckpoint = HCRequestCheckpoint(now);
     }
 
-    protected void HCResumeCamp(int now)
+    protected void HCResumeCamp(int now, array<Man> roster, map<string, PlayerBase> hcPlayers)
     {
         if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
         m_MaintenanceWork.HCReset(1);
@@ -467,11 +460,8 @@ class HCCampModule : HCModule
         }
         // Native scripts-1.30.164289: 3_Game/Global/Game.c:945 GetPlayers.
         // Continuations must not reuse the pre-save observer snapshot.
-        m_Players.Clear();
-        GetGame().GetPlayers(m_Players);
-        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers)
+        if (roster.Count() > HCGCCampGroupConfig.Get().CampPlayers)
         {
-            m_Players.Clear();
             m_PendingCamp = null;
             m_PendingScan = null;
             return;
@@ -482,7 +472,7 @@ class HCCampModule : HCModule
         m_PendingStage++;
         if (stage == 0)
         {
-            HCReportTier(camp, m_PendingPreviousTier);
+            HCReportTier(camp, m_PendingPreviousTier, roster, hcPlayers);
             return;
         }
         if (stage == 1) { HCCampVisitors.Step(this, camp, scan, burning, now); return; }
@@ -500,11 +490,11 @@ class HCCampModule : HCModule
         HCCampTheft.Step(this, camp, scan, now);
     }
 
-    protected void HCReportTier(HCCampRecord camp, int previous)
+    protected void HCReportTier(HCCampRecord camp, int previous, array<Man> roster, map<string, PlayerBase> hcPlayers)
     {
         if (previous != camp.Tier)
         {
-            Tell(camp, "Camp tier is now " + camp.Tier.ToString() + ". Tiers change visits only.");
+            Tell(camp, "Camp tier is now " + camp.Tier.ToString() + ". Tiers change visits only.", roster, hcPlayers);
             Print("[HollowCountry] V2 camps tier camp=" + camp.Id + " from=" + previous.ToString() + " to=" + camp.Tier.ToString());
             if (camp.Tier == 3) { Fact(camp, "camp_settlement", 0); }
         }
@@ -638,11 +628,11 @@ class HCCampModule : HCModule
         reason = "camp-admin-shared-work-budget";
         // [HC TickCost] window 12 of 096: admit one arrival; charge actual players and scan calls below.
         if (camp.AnchorKind != "claim" && !HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return false; }
-        m_Players.Clear();
-        GetGame().GetPlayers(m_Players);
-        HCServer.HCTickWork().HCCharge(Math.Min(m_Players.Count(), HCGCCampGroupConfig.Get().CampPlayers));
+        array<Man> roster = new array<Man>;
+        GetGame().GetPlayers(roster);
+        HCServer.HCTickWork().HCCharge(Math.Min(roster.Count(), HCGCCampGroupConfig.Get().CampPlayers));
         reason = "camp-player-cap-exceeded";
-        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); return false; }
+        if (roster.Count() > HCGCCampGroupConfig.Get().CampPlayers) { return false; }
         if (camp.AnchorKind == "claim")
         {
             ref HCCampScan claimScan;
@@ -685,13 +675,14 @@ class HCCampModule : HCModule
         if (!m_Running || !(deltaTime > 0)) { return; }
         HCSaveScheduler.HCPumpFallback(m_SaveJob);
         if (m_SaveJob.HCFaulted) { Fail(); return; }
+        array<Man> roster = new array<Man>;
+        GetGame().GetPlayers(roster);
+        map<string, PlayerBase> hcPlayers;
         if (m_Recognitions.Count() > 0 && HCDurable(m_Recognitions[0].Receipt))
         {
             ref HCCampRecognition notice = m_Recognitions[0];
             m_Recognitions.RemoveOrdered(0);
-            m_Players.Clear();
-            GetGame().GetPlayers(m_Players);
-            if (notice.Kind != 2 && m_Players.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { Tell(notice.Camp, "Your group's fire is recognised as a camp. Nearby native structures determine its tier."); }
+            if (notice.Kind != 2 && roster.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { Tell(notice.Camp, "Your group's fire is recognised as a camp. Nearby native structures determine its tier.", roster, hcPlayers); }
             HCModuleReadiness.HCUse("Camps", "camp_recognised");
             if (notice.Kind == 0) { Print("[HollowCountry] V2 camps recognised camp=" + notice.Camp.Id + " tier=0"); }
             else if (notice.Kind == 1) { Print("[HC Plan] HC-17 containers=promoted_to_hearth camp=" + notice.Camp.Id + " runtime=PENDING"); }
@@ -702,11 +693,11 @@ class HCCampModule : HCModule
             Print("[HC Plan] HC-16 camp=" + m_VisitorCamp.Id + " level=" + m_VisitorCamp.Tier.ToString() + " supply=0 roles=0 state=refused refusal=VISITOR_BODY_NOT_OBSERVED runtime=PENDING");
             m_VisitorCamp = null;
         }
-        // Warning recipients must come from the current server roster after the save.
-        m_Players.Clear();
-        GetGame().GetPlayers(m_Players);
-        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); }
-        HCBaseRaid.HCAdvanceWarning(this, HCWorldClock.UTC());
+        // Preserve the former cleared warning roster on cap refusal without
+        // changing the entry-local snapshot used by recognition/maintenance.
+        array<Man> warningRoster = roster;
+        if (roster.Count() > HCGCCampGroupConfig.Get().CampPlayers) { warningRoster = new array<Man>; }
+        HCBaseRaid.HCAdvanceWarning(this, HCWorldClock.UTC(), warningRoster, hcPlayers);
         HCBuildingClaim claims = HCBuildingClaim.HCGet();
         if (claims) { claims.HCStep(deltaTime); }
         HCReached.Mark("camps.maintenance");
@@ -715,7 +706,8 @@ class HCCampModule : HCModule
             int pendingNow = HCWorldClock.UTC();
             if (pendingNow < m_LastUtc || pendingNow < 1) { Fail(); return; }
             m_LastUtc = pendingNow;
-            HCResumeCamp(pendingNow);
+            if (!hcPlayers && roster.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
+            HCResumeCamp(pendingNow, roster, hcPlayers);
             return;
         }
         m_Elapsed += Math.Min(deltaTime, HCGCCampGroupConfig.Get().CampTickSeconds);
@@ -724,14 +716,13 @@ class HCCampModule : HCModule
         int now = HCWorldClock.UTC();
         if (now < m_LastUtc || now < 1) { Fail(); return; }
         m_LastUtc = now;
-        m_Players.Clear();
-        GetGame().GetPlayers(m_Players);
         // No partial observer/group snapshot is used if the server exceeds cap.
-        if (m_Players.Count() > HCGCCampGroupConfig.Get().CampPlayers) { m_Players.Clear(); return; }
+        if (roster.Count() > HCGCCampGroupConfig.Get().CampPlayers) { return; }
         if (s_Fires.Count() > 0)
         {
             if (m_FireCursor >= s_Fires.Count()) { m_FireCursor = 0; }
-            Candidate(s_Fires[m_FireCursor], now);
+            if (!hcPlayers) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
+            Candidate(s_Fires[m_FireCursor], now, roster, hcPlayers);
             m_FireCursor++;
         }
         if (!m_Running) { return; }
@@ -751,7 +742,6 @@ class HCCampModule : HCModule
         m_Running = false;
         m_Status.HCPublish("off", "camp_owner_stopped");
         if (s_Instance == this) { s_Instance = null; }
-        m_Players.Clear();
     }
 }
 
@@ -784,8 +774,7 @@ modded class HCGroupService
     string HCCampReadGroupId(PlayerBase player, map<string, PlayerBase> hcPlayers = null)
     {
         map<string, PlayerBase> ownedPlayers = hcPlayers;
-        if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
-        if (!m_Healthy || !m_State || !player) { return ""; }
+        if (!ownedPlayers || !m_Healthy || !m_State || !player) { return ""; }
         PlayerIdentity playerIdentity = player.GetIdentity();
         if (!playerIdentity) { return ""; }
         HCGroupPeer peer = Peer(playerIdentity.GetId());

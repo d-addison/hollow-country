@@ -246,8 +246,9 @@ class HCEcologyRuntime
 		if (!HCEcologyRuntimeRules.Token(worldName) || !HCEcologyRuntimeRules.Token(session)) { m_StartRefusal = "invalid_token"; return false; }
 		int nowMs = GetGame().GetTime();
 		if (!HCEcologyRuntimeRules.ClockValid(nowMs)) { m_StartRefusal = "clock_invalid"; return false; }
-		if (!settings) { settings = HCEcologyRuntimeIO.Settings(); }
-		if (!HCEcologyRuntimeRules.SettingsValid(settings))
+		HCEcologyRuntimeSettings ownedSettings = settings;
+		if (!ownedSettings) { ownedSettings = HCEcologyRuntimeIO.Settings(); }
+		if (!HCEcologyRuntimeRules.SettingsValid(ownedSettings))
 		{
 			Print("[HC Ecology] invalid or unreadable settings; admission rejected");
 			// Start() prints the one HC-29 refusal line from m_StartRefusal (#192).
@@ -257,7 +258,7 @@ class HCEcologyRuntime
 		// Freeze caller-owned scalar preferences through the bounded native codec.
 		string text;
 		string error;
-		if (!JsonFileLoader<HCEcologyRuntimeSettings>.MakeData(settings, text, error)) { m_StartRefusal = "settings_encode_failed"; return false; }
+		if (!JsonFileLoader<HCEcologyRuntimeSettings>.MakeData(ownedSettings, text, error)) { m_StartRefusal = "settings_encode_failed"; return false; }
 		if (text.Length() > 2048) { m_StartRefusal = "settings_too_large"; return false; }
 		if (!JsonFileLoader<HCEcologyRuntimeSettings>.LoadData(text, m_Settings, error)) { m_StartRefusal = "settings_decode_failed"; return false; }
 		if (!m_Settings.Enabled)

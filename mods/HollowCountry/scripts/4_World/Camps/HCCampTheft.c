@@ -212,11 +212,12 @@ class HCCampTheft
         array<Man> people = new array<Man>();
         GetGame().GetPlayers(people);
         if (people.Count() > s_Config.MaxAttendancePlayers) { return false; }
+        map<string, PlayerBase> attendancePlayers = HCGroupService.HCPlayersFromRoster(people);
         for (int personIndex = 0; personIndex < people.Count(); personIndex++)
         {
             PlayerBase player = PlayerBase.Cast(people[personIndex]);
             if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
-            if (owner.GroupId(player) == camp.GroupId && vector.DistanceSq(player.GetPosition(), camp.Position) <= s_Config.AttendanceRangeMeters * s_Config.AttendanceRangeMeters) { return false; }
+            if (owner.HCGroupIdWithPlayers(player, attendancePlayers) == camp.GroupId && vector.DistanceSq(player.GetPosition(), camp.Position) <= s_Config.AttendanceRangeMeters * s_Config.AttendanceRangeMeters) { return false; }
         }
         return HCObserverTransitionGate.CanTransition(crate.GetPosition(), s_Config.ObserverRangeMeters);
     }

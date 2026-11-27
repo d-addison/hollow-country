@@ -219,6 +219,7 @@ modded class HCCampModule
         array<Man> players = new array<Man>;
         GetGame().GetPlayers(players);
         if (players.Count() > 32) { return false; }
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCPlayersFromRoster(players);
         foreach (Man person : players)
         {
             PlayerBase player = PlayerBase.Cast(person);
@@ -226,9 +227,11 @@ modded class HCCampModule
             // when a provider also includes its humans in GetPlayers.
             if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
             // Any existing living avatar for this identity refuses the shortcut.
-            if (player.GetIdentity() && player.GetIdentity().GetId() == account) { return false; }
-            if (allegiance.Members.Contains(player.GetIdentity().GetId())) { allegiance.OnlineMembers.Insert(player); }
-            if (vector.DistanceSq(player.GetPosition(), selected.Position) <= 10000 && GroupId(player) != groupId) { return false; }
+            PlayerIdentity playerIdentity = player.GetIdentity();
+            string playerUid = playerIdentity.GetId();
+            if (playerUid == account) { return false; }
+            if (allegiance.Members.Contains(playerUid)) { allegiance.OnlineMembers.Insert(player); }
+            if (vector.DistanceSq(player.GetPosition(), selected.Position) <= 10000 && HCGroupIdWithPlayers(player, hcPlayers) != groupId) { return false; }
         }
         array<Object> objects = new array<Object>;
         array<CargoBase> cargo = new array<CargoBase>;
@@ -262,7 +265,7 @@ modded class HCCampModule
             {
                 PlayerBase outsider = PlayerBase.Cast(observer);
                 if (!outsider || !outsider.IsAlive() || !outsider.GetIdentity()) { continue; }
-                if (GroupId(outsider) != groupId && vector.DistanceSq(outsider.GetPosition(), candidate) <= 10000) { unsafe = true; break; }
+                if (HCGroupIdWithPlayers(outsider, hcPlayers) != groupId && vector.DistanceSq(outsider.GetPosition(), candidate) <= 10000) { unsafe = true; break; }
             }
             foreach (HCCampRecord neighbourCamp : m_Data.Camps)
             {

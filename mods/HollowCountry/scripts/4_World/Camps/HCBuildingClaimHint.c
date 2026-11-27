@@ -88,10 +88,10 @@ class HCBuildingClaimHint
     // Server: one hint per online player, sent when it changes or every RESEND_SECONDS.
     // Bounded by the caller's player cap; each player costs one group lookup and one map read.
     // Call HCIndex first in the same round.
-    void HCSend(PlayerBase player, HCGroupService groups, int onlineSeconds, bool force)
+    void HCSend(PlayerBase player, HCGroupService groups, int onlineSeconds, bool force, map<string, PlayerBase> hcPlayers)
     {
         if (!player || !player.GetIdentity() || !groups) { return; }
-        int groupId = groups.HCClaimActorGroup(player, true);
+        int groupId = groups.HCClaimActorGroup(player, true, hcPlayers);
         bool manager = groupId > 0;
         bool holds = false;
         string type = "";

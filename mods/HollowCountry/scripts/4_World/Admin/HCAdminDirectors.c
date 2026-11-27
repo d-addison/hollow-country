@@ -474,16 +474,9 @@ modded class HCCampModule
         reason = "camp-clock-unavailable";
         if (now < m_LastUtc || now < 1) { return false; }
         int previousScan = nearest.LastScan;
-        m_Players.Clear();
-        for (int playerIndex = 0; playerIndex < players.Count(); playerIndex++)
-        {
-            if (playerIndex >= 32) { break; }
-            m_Players.Insert(players[playerIndex]);
-        }
         reason = "camp-observer-cap=32";
-        if (players.Count() > 32) { m_Players.Clear(); return false; }
+        if (players.Count() > 32) { return false; }
         StepCamp(nearest, now);
-        m_Players.Clear();
         reason = "normal-camp-criteria-or-cooldown; no-forced-age-tier-or-theft";
         if (!m_Running || nearest.LastScan == previousScan) { return false; }
         reason = "normal-camp-evaluation tier=" + nearest.Tier.ToString() + "; visitor-gates-retained; runtime-unverified";

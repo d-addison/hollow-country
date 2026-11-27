@@ -72,21 +72,21 @@ modded class HCCampModule
     protected static const int HC_BASES_CANDIDATES_PER_TICK = 16;
     protected static const float HC_BASES_REVISIT_SECONDS = 60.0;
 
-    override protected void Candidate(FireplaceBase fire, int now)
+    override protected void Candidate(FireplaceBase fire, int now, array<Man> roster, map<string, PlayerBase> hcPlayers)
     {
-        if (!m_HCBasesEnabled) { super.Candidate(fire, now); return; }
+        if (!m_HCBasesEnabled) { super.Candidate(fire, now, roster, hcPlayers); return; }
         if (!fire || fire.IsPendingDeletion() || fire.GetHierarchyParent() || !fire.IsBurning()) { return; }
         // Match the hearth owner's live nearest-group selection. Only native
         // storage rows may be promoted; an existing hearth keeps its binding.
         vector hearthPosition = fire.GetPosition();
         string hearthGroup;
         float hearthBest = 145; // Existing Candidate selection threshold.
-        array<Man> hearthPlayers = m_Players;
+        array<Man> hearthPlayers = roster;
         foreach (Man hearthPerson : hearthPlayers)
         {
             PlayerBase hearthPlayer = PlayerBase.Cast(hearthPerson);
             if (!hearthPlayer || !hearthPlayer.IsAlive() || !hearthPlayer.GetIdentity()) { continue; }
-            string hearthPeerGroup = GroupId(hearthPlayer);
+            string hearthPeerGroup = HCGroupIdWithPlayers(hearthPlayer, hcPlayers);
             float hearthDistance = vector.DistanceSq(hearthPlayer.GetPosition(), hearthPosition);
             if (hearthPeerGroup != "" && hearthDistance < hearthBest) { hearthBest = hearthDistance; hearthGroup = hearthPeerGroup; }
         }
@@ -95,7 +95,7 @@ modded class HCCampModule
         foreach (HCCampRecord hearthCamp : hearthCamps)
         {
             // Preserve the base owner's existing-fire match before group admission.
-            if (hearthCamp.FireClass == fire.GetType() && vector.DistanceSq(hearthCamp.Position, hearthPosition) <= 1) { super.Candidate(fire, now); return; }
+            if (hearthCamp.FireClass == fire.GetType() && vector.DistanceSq(hearthCamp.Position, hearthPosition) <= 1) { super.Candidate(fire, now, roster, hcPlayers); return; }
             if (hearthGroup == "" || hearthCamp.GroupId != hearthGroup) { continue; }
             string anchorClass = hearthCamp.FireClass;
             if (!GetGame().IsKindOf(anchorClass, "TentBase") && !GetGame().IsKindOf(anchorClass, "WoodenCrate") && !GetGame().IsKindOf(anchorClass, "SeaChest") && !GetGame().IsKindOf(anchorClass, "Barrel_ColorBase")) { continue; }
@@ -114,7 +114,7 @@ modded class HCCampModule
             HCRecognise(hearthStorage, now, 1);
             return;
         }
-        super.Candidate(fire, now);
+        super.Candidate(fire, now, roster, hcPlayers);
     }
 
     override void OnStart(HCSettings settings)
@@ -131,11 +131,11 @@ modded class HCCampModule
 
     // One server candidate, <=MaxCamps rows and <=MAX_PLAYERS cached actors per
     // dispatch. Reuse named native action reach rather than inventing a radius.
-    void HCBasesCandidate(ItemBase stash, int now)
+    bool HCBasesWantsPlayers(ItemBase stash, int now)
     {
-        if (!stash || stash.IsPendingDeletion() || stash.IsRuined() || !HCCampScan.StorageItem(stash)) { return; }
+        if (!stash || stash.IsPendingDeletion() || stash.IsRuined() || !HCCampScan.StorageItem(stash)) { return false; }
         string stashRef = HCCampScan.RefOf(stash);
-        if (stashRef == "") { return; } // Native persistence has not assigned it yet.
+        if (stashRef == "") { return false; } // Native persistence has not assigned it yet.
         vector stashPosition = stash.GetPosition();
         array<ref HCCampRecord> stashCamps = m_Data.Camps;
         foreach (HCCampRecord knownStash : stashCamps)
@@ -147,11 +147,19 @@ modded class HCCampModule
                 // Moving a native item never moves the stored camp anchor.
                 // A moved/stolen stash cannot become an unreviewed respawn site.
                 if (vector.DistanceSq(knownStash.Position, stashPosition) <= UAMaxDistances.DEFAULT * UAMaxDistances.DEFAULT) { knownStash.LastLit = now; }
-                return;
+                return false;
             }
         }
-        if (stashCamps.Count() >= HCAILimits.Get().MaxCamps) { return; }
-        array<Man> stashPlayers = HCPerfPlayers.HCGet();
+        if (stashCamps.Count() >= HCAILimits.Get().MaxCamps) { return false; }
+        return true;
+    }
+
+    void HCBasesCandidate(ItemBase stash, int now, array<Man> roster, map<string, PlayerBase> hcPlayers)
+    {
+        string stashRef = HCCampScan.RefOf(stash);
+        vector stashPosition = stash.GetPosition();
+        array<ref HCCampRecord> stashCamps = m_Data.Camps;
+        array<Man> stashPlayers = roster;
         if (!stashPlayers || stashPlayers.Count() > HCWorldMaterializer.MAX_PLAYERS) { return; }
         string selectedGroup;
         foreach (Man stashPerson : stashPlayers)
@@ -161,7 +169,7 @@ modded class HCCampModule
             PlayerBase stashPlayer = PlayerBase.Cast(stashPerson);
             if (!HCBuildingClaim.HCActor(stashPlayer)) { continue; }
             if (vector.DistanceSq(stashPlayer.GetPosition(), stashPosition) > HCBuildingClaimConfig.DEFAULT_ACTION_REACH_METERS * HCBuildingClaimConfig.DEFAULT_ACTION_REACH_METERS) { continue; }
-            string nearbyGroup = GroupId(stashPlayer);
+            string nearbyGroup = HCGroupIdWithPlayers(stashPlayer, hcPlayers);
             if (nearbyGroup == "") { continue; }
             // Contested proximity is not ownership evidence. Defer discovery.
             if (selectedGroup != "" && selectedGroup != nearbyGroup) { return; }
@@ -197,13 +205,22 @@ modded class HCCampModule
         int candidates = HC_BASES_CANDIDATES_PER_TICK;
         if (desired < HC_BASES_CANDIDATES_PER_TICK) { candidates = desired; candidates++; }
         if (candidates > stashCount) { candidates = stashCount; }
+        array<Man> roster;
+        map<string, PlayerBase> hcPlayers;
         for (int scanned = 0; scanned < candidates && scanned < HC_BASES_CANDIDATES_PER_TICK; scanned++)
         {
             if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_BASES, 1)) { return; }
             m_HCBasesCursor = m_HCBasesCursor % stashCount;
             ItemBase nextStash = HCBasesContainers.HCAt(m_HCBasesCursor);
             m_HCBasesCursor++;
-            HCBasesCandidate(nextStash, m_LastUtc);
+            if (!HCBasesWantsPlayers(nextStash, m_LastUtc)) { continue; }
+            if (!roster)
+            {
+                roster = new array<Man>;
+                GetGame().GetPlayers(roster);
+                if (roster.Count() <= HCWorldMaterializer.MAX_PLAYERS) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
+            }
+            HCBasesCandidate(nextStash, m_LastUtc, roster, hcPlayers);
         }
     }
 }
