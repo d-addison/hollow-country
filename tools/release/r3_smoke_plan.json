@@ -328,6 +328,18 @@
       "implementation_status": "implemented-unverified"
     },
     {
+      "module": "FactionConflict",
+      "feature": "territory_regrowth",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCRegrow",
+      "trigger": "A due regrowth pass (TerritoryRegrowthSeconds, default 1200 s real time) changes a faction's strength or exactly one territory membership; no-op passes, waits and clock rebases never count.",
+      "exercise": "server_soak",
+      "steps": "1. Boot on an existing (aged) world or a fresh one; no player action or fixture is needed. 2. Leave the server running at least 21 minutes after the first world step. 3. Require one [HC World] territory_regrow faction=... line and the territory_regrowth HC Use receipt. territory_regrow_wait reason=frozen|cell_protected|journal_place_missing|no_candidate lines alone are not ACTIVE.",
+      "est_minutes": 30,
+      "prerequisites": "EnableWorld on, world recovered; a faction below FactionStrengthMax, missing a home cell, below or at its target, or holding a stale cell; at least one unprotected candidate cell.",
+      "deterministic_exercise_proposal": "Owner 2026-11-26: territory grows and shifts constantly and never dies out. Natural cadence; no fixture. Native compile/soak evidence pending.",
+      "implementation_status": "implemented-unverified"
+    },
+    {
       "module": "FoodCompat",
       "feature": "food_compat_guard",
       "source": "mods/HollowCountry/scripts/4_World/Compat/HCFoodCompat.c#HCFoodCompat.Guarded",

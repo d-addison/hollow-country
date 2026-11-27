@@ -12,7 +12,8 @@
   ],
   "uses": [
     "outcome_recorded",
-    "journal_committed"
+    "journal_committed",
+    "territory_regrowth"
   ],
   "uses_source": "register_uses",
   "requires_shared_saves": false,
