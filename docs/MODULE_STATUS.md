@@ -821,7 +821,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Ecology | `animal_observed` |
 | Escalation | `state_advanced` |
 | Events | `police_supply_bound`, `cache_filled` (scene cache fill; registered at 0 in RegisterUses) |
-| FactionConflict | `outcome_recorded`, `journal_committed` (fixture journal persistence only; see below) |
+| FactionConflict | `outcome_recorded`, `journal_committed` |
 | Forage | `item_picked`, `item_spawned` |
 | FoodCompat | `food_compat_guard` (enabled only with the food pack; `food_compat_refused` is a fault counter registered on first refusal, no activity row) |
 | Grade | `grade_applied` |
