@@ -3376,7 +3376,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3396,7 +3395,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3416,7 +3414,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier2" />
@@ -3431,7 +3428,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier2" />
@@ -3446,7 +3442,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3466,7 +3461,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3486,7 +3480,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3506,7 +3499,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3526,7 +3518,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3546,7 +3537,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3566,7 +3556,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3586,7 +3575,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3606,7 +3594,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3626,7 +3613,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier1" />
@@ -3644,7 +3630,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -3678,7 +3663,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier2" />
@@ -3707,7 +3691,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -3722,7 +3705,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3742,7 +3724,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3762,7 +3743,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -3777,7 +3757,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -3817,7 +3796,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -3832,7 +3810,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -3912,7 +3889,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -3932,7 +3908,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -3952,7 +3927,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -3972,7 +3946,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -3987,7 +3960,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -4002,7 +3974,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier1" />
@@ -4020,7 +3991,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier2" />
@@ -4035,7 +4005,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -4072,7 +4041,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Military" />
@@ -4094,7 +4062,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Military" />
@@ -4117,7 +4084,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Hunting" />
     <usage name="Military" />
     <usage name="Police" />
@@ -4695,7 +4661,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4715,7 +4680,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4735,7 +4699,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4755,7 +4718,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4775,7 +4737,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4795,7 +4756,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4815,7 +4775,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Hunting" />
     <usage name="Village" />
     <value name="Tier1" />
@@ -4833,7 +4792,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Hunting" />
     <usage name="Village" />
     <value name="Tier1" />
@@ -4851,7 +4809,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier4" />
@@ -4866,7 +4823,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier4" />
@@ -4881,7 +4837,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier4" />
@@ -4896,7 +4851,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="ContaminatedArea" />
     <usage name="Military" />
     <usage name="Police" />
@@ -4913,7 +4867,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -4928,7 +4881,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -4948,7 +4900,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier1" />
@@ -4966,7 +4917,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Military" />
@@ -4988,7 +4938,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Military" />
@@ -5010,7 +4959,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Military" />
@@ -5032,7 +4980,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -5052,7 +4999,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="1" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -5092,7 +5038,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -5112,7 +5057,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="ContaminatedArea" />
     <usage name="Military" />
     <usage name="Police" />
@@ -5129,7 +5073,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier2" />
@@ -5144,7 +5087,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -5164,7 +5106,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -5179,7 +5120,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="ContaminatedArea" />
     <usage name="Military" />
     <usage name="Police" />
@@ -5196,7 +5136,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <value name="Tier2" />
     <value name="Tier3" />
@@ -5232,7 +5171,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <usage name="Town" />
@@ -5252,7 +5190,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="1" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier1" />
@@ -5270,7 +5207,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier1" />
@@ -5288,7 +5224,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier3" />
@@ -5304,7 +5239,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Town" />
@@ -5324,7 +5258,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -5339,7 +5272,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
   </type>
@@ -5353,7 +5285,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier2" />
@@ -5369,7 +5300,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Prison" />
     <value name="Tier1" />
@@ -5387,7 +5317,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -5402,7 +5331,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Military" />
     <usage name="Police" />
     <value name="Tier3" />
@@ -6113,7 +6041,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Farm" />
     <usage name="Hunting" />
     <usage name="Military" />
@@ -7134,7 +7061,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="weapons" />
-    <tag name="shelves" />
     <usage name="Hunting" />
     <usage name="Military" />
     <usage name="Police" />
@@ -7738,7 +7664,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="tools" />
-    <tag name="shelves" />
     <usage name="Industrial" />
     <usage name="Farm" />
     <usage name="Village" />
@@ -7757,7 +7682,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="tools" />
-    <tag name="shelves" />
     <usage name="Industrial" />
     <usage name="Farm" />
     <usage name="Village" />
@@ -7776,7 +7700,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="tools" />
-    <tag name="shelves" />
     <usage name="Industrial" />
     <usage name="Farm" />
     <usage name="Village" />
@@ -7795,7 +7718,7 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="tools" />
-    <tag name="shelves" />
+    <tag name="floor" />
     <usage name="Industrial" />
     <usage name="Farm" />
     <usage name="Village" />
@@ -7852,7 +7775,7 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="tools" />
-    <tag name="shelves" />
+    <tag name="floor" />
     <usage name="Industrial" />
     <usage name="Farm" />
     <usage name="Village" />
@@ -7909,7 +7832,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="tools" />
-    <tag name="shelves" />
     <usage name="Industrial" />
     <usage name="Farm" />
     <usage name="Village" />
@@ -8115,7 +8037,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="clothes" />
-    <tag name="shelves" />
     <usage name="Police" />
     <usage name="Industrial" />
     <usage name="Town" />
@@ -8133,7 +8054,6 @@
     <cost>100</cost>
     <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="0" deloot="0" />
     <category name="clothes" />
-    <tag name="shelves" />
     <usage name="Industrial" />
     <usage name="Town" />
     <usage name="Village" />

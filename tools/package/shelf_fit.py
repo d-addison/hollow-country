@@ -128,6 +128,18 @@ def generate(source, addons, workshop, repo=ROOT):
             nominal = int(row.findtext('nominal', '0'))
             usages = frozenset(c.get('name') for c in row.findall('usage'))
             table[classname] = (frozenset(cats), frozenset(tags), frozenset([policy['shelf_tag']]), nominal, usages)
+    # Use authored categories/usages/nominals for their candidate points, even
+    # after a refused shelf tag has been removed. This makes generation stable
+    # across the tag-only authored-row regeneration.
+    authored_path = repo / 'mission/hollow-country/ce/types.xml'
+    authored = loot.economy.xml(authored_path.read_bytes(), 'types').findall('type')
+    authored_names = {row.get('name') for row in authored}
+    for row in authored:
+        name = row.get('name')
+        table[name] = (frozenset(c.get('name') for c in row.findall('category')),
+                       frozenset(c.get('name') for c in row.findall('tag')),
+                       frozenset([policy['shelf_tag']]), int(row.findtext('nominal', '0')),
+                       frozenset(c.get('name') for c in row.findall('usage')))
     proto, positions = read(loot.PROTO), read('mapgrouppos.xml')
     proto, _, _ = loot._new_buildings(proto, positions, loot.SHIPPED, repo)
     overlay_raw = loot.shipped_points(repo)
@@ -144,7 +156,7 @@ def generate(source, addons, workshop, repo=ROOT):
     classes, totals, nominals = {}, Counter(), Counter()
     for name, row in sorted(table.items()):
         cats, tags, _, nominal, usages = row
-        if not floor.would_gain_shelf(name, cats, tags, nominal, policy):
+        if name not in authored_names and not floor.would_gain_shelf(name, cats, tags, nominal, policy):
             continue
         # _matches includes positive nominal; zero-quantity classes still need a
         # usable geometric route if an operator later raises their quantity.
@@ -171,6 +183,9 @@ def generate(source, addons, workshop, repo=ROOT):
                'repo': {p.relative_to(repo).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in repo_inputs},
                'pbo_names_sizes_sha256': hashlib.sha256(json.dumps(sorted(
                    (p.name, p.stat().st_size) for p in paths), separators=(',', ':')).encode()).hexdigest()},
+           'authored_candidates_sha256': hashlib.sha256(json.dumps(sorted(
+               (name, sorted(row[0]), row[3], sorted(row[4])) for name, row in table.items()
+               if name in authored_names), separators=(',', ':')).encode()).hexdigest(),
            'classes': classes}
     report = {'classes_by_reason': dict(sorted(totals.items())), 'nominal_by_reason': dict(sorted(nominals.items()))}
     unknown = [(name, table[name][3]) for name, r in classes.items()

@@ -1,19 +1,20 @@
 {
+  "authored_candidates_sha256": "c345eb1e81b902fb803ec76d681e8a190b7b74ca44e863de8900a6a29fe42a6e",
   "classes": {
     "ACOGOptic": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.829,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "ACOGOptic_6x": {
-      "candidate_points": 1253,
-      "fit_share": 0.856,
+      "candidate_points": 2013,
+      "fit_share": 0.684,
       "longest_m": 0.23,
       "reason": "fits"
     },
     "AK101": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 3.71,
       "reason": "below_threshold"
@@ -31,7 +32,7 @@
       "reason": "below_threshold"
     },
     "AK74": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 3.71,
       "reason": "below_threshold"
@@ -49,19 +50,19 @@
       "reason": "below_threshold"
     },
     "AK74_Hndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.897,
+      "candidate_points": 2013,
+      "fit_share": 0.795,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "AK74_WoodBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.83,
+      "candidate_points": 2013,
+      "fit_share": 0.66,
       "longest_m": 0.24,
       "reason": "fits"
     },
     "AKM": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 3.64,
       "reason": "below_threshold"
@@ -73,7 +74,7 @@
       "reason": "bounds_unknown"
     },
     "AKS74U": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 2.05,
       "reason": "below_threshold"
@@ -85,8 +86,8 @@
       "reason": "below_threshold"
     },
     "AKS74U_Bttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.844,
+      "candidate_points": 2013,
+      "fit_share": 0.684,
       "longest_m": 0.23,
       "reason": "fits"
     },
@@ -103,8 +104,8 @@
       "reason": "fits"
     },
     "AK_FoldingBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.801,
+      "candidate_points": 2013,
+      "fit_share": 0.63,
       "longest_m": 0.29,
       "reason": "fits"
     },
@@ -121,8 +122,8 @@
       "reason": "fits"
     },
     "AK_PlasticBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.83,
+      "candidate_points": 2013,
+      "fit_share": 0.662,
       "longest_m": 0.24,
       "reason": "fits"
     },
@@ -139,8 +140,14 @@
       "reason": "fits"
     },
     "AK_PlasticHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.832,
+      "longest_m": 0.16,
+      "reason": "fits"
+    },
+    "AK_RailHndgrd": {
+      "candidate_points": 2013,
+      "fit_share": 0.84,
       "longest_m": 0.16,
       "reason": "fits"
     },
@@ -156,9 +163,15 @@
       "longest_m": 0.16,
       "reason": "fits"
     },
+    "AK_Suppressor": {
+      "candidate_points": 2013,
+      "fit_share": 0.694,
+      "longest_m": 0.22,
+      "reason": "fits"
+    },
     "AK_WoodBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.83,
+      "candidate_points": 2013,
+      "fit_share": 0.66,
       "longest_m": 0.24,
       "reason": "fits"
     },
@@ -181,8 +194,8 @@
       "reason": "bounds_unknown"
     },
     "AK_WoodHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.897,
+      "candidate_points": 2013,
+      "fit_share": 0.795,
       "longest_m": 0.17,
       "reason": "fits"
     },
@@ -205,8 +218,8 @@
       "reason": "bounds_unknown"
     },
     "ASVAL": {
-      "candidate_points": 1108,
-      "fit_share": 0.223,
+      "candidate_points": 1253,
+      "fit_share": 0.197,
       "longest_m": 0.88,
       "reason": "below_threshold"
     },
@@ -235,159 +248,279 @@
       "reason": "fits"
     },
     "AmmoBox_00buck_10rnd": {
-      "candidate_points": 247,
-      "fit_share": 0.923,
+      "candidate_points": 2013,
+      "fit_share": 0.921,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "AmmoBox_12gaRubberSlug_10Rnd": {
-      "candidate_points": 152,
-      "fit_share": 0.98,
+      "candidate_points": 2013,
+      "fit_share": 0.921,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "AmmoBox_12gaSlug_10Rnd": {
-      "candidate_points": 247,
-      "fit_share": 0.923,
+      "candidate_points": 2013,
+      "fit_share": 0.921,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "AmmoBox_22_50Rnd": {
-      "candidate_points": 879,
-      "fit_share": 1.0,
+      "candidate_points": 2018,
+      "fit_share": 0.996,
       "longest_m": 0.09,
       "reason": "fits"
     },
     "AmmoBox_308WinTracer_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.855,
       "longest_m": 0.15,
       "reason": "fits"
     },
     "AmmoBox_308Win_20Rnd": {
-      "candidate_points": 102,
-      "fit_share": 0.803,
+      "candidate_points": 2013,
+      "fit_share": 0.855,
       "longest_m": 0.15,
       "reason": "fits"
     },
     "AmmoBox_357_20Rnd": {
-      "candidate_points": 315,
+      "candidate_points": 2018,
       "fit_share": 1.0,
       "longest_m": 0.06,
       "reason": "fits"
     },
     "AmmoBox_380_35rnd": {
-      "candidate_points": 152,
+      "candidate_points": 2013,
       "fit_share": 1.0,
       "longest_m": 0.06,
       "reason": "fits"
     },
     "AmmoBox_45ACP_25rnd": {
-      "candidate_points": 1108,
+      "candidate_points": 2013,
       "fit_share": 0.999,
       "longest_m": 0.08,
       "reason": "fits"
     },
     "AmmoBox_545x39Tracer_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.97,
+      "candidate_points": 2013,
+      "fit_share": 0.922,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "AmmoBox_545x39_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.97,
+      "candidate_points": 2013,
+      "fit_share": 0.922,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "AmmoBox_556x45Tracer_20Rnd": {
-      "candidate_points": 1108,
+      "candidate_points": 2013,
       "fit_share": 0.999,
       "longest_m": 0.08,
       "reason": "fits"
     },
     "AmmoBox_556x45_20Rnd": {
-      "candidate_points": 1108,
+      "candidate_points": 2013,
       "fit_share": 0.999,
       "longest_m": 0.08,
       "reason": "fits"
     },
     "AmmoBox_762x39Tracer_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.918,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "AmmoBox_762x39_20Rnd": {
-      "candidate_points": 1203,
-      "fit_share": 0.958,
+      "candidate_points": 2013,
+      "fit_share": 0.918,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "AmmoBox_762x54Tracer_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.855,
       "longest_m": 0.15,
       "reason": "fits"
     },
     "AmmoBox_762x54_20Rnd": {
-      "candidate_points": 1203,
-      "fit_share": 0.916,
+      "candidate_points": 2013,
+      "fit_share": 0.855,
       "longest_m": 0.15,
       "reason": "fits"
     },
     "AmmoBox_9x19_25rnd": {
-      "candidate_points": 1253,
-      "fit_share": 0.994,
+      "candidate_points": 2013,
+      "fit_share": 0.996,
       "longest_m": 0.09,
       "reason": "fits"
     },
     "AmmoBox_9x39AP_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.918,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "AmmoBox_9x39_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.918,
       "longest_m": 0.11,
       "reason": "fits"
     },
-    "Ammo_40mm_Chemgas": {
-      "candidate_points": 7,
+    "Ammo_12gaPellets": {
+      "candidate_points": 2113,
+      "fit_share": 0.996,
+      "longest_m": 0.09,
+      "reason": "fits"
+    },
+    "Ammo_12gaRubberSlug": {
+      "candidate_points": 2113,
+      "fit_share": 0.998,
+      "longest_m": 0.08,
+      "reason": "fits"
+    },
+    "Ammo_12gaSlug": {
+      "candidate_points": 2113,
+      "fit_share": 0.998,
+      "longest_m": 0.08,
+      "reason": "fits"
+    },
+    "Ammo_22": {
+      "candidate_points": 2018,
       "fit_share": 1.0,
+      "longest_m": 0.06,
+      "reason": "fits"
+    },
+    "Ammo_308Win": {
+      "candidate_points": 2049,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_308WinTracer": {
+      "candidate_points": 2049,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_357": {
+      "candidate_points": 2113,
+      "fit_share": 1.0,
+      "longest_m": 0.06,
+      "reason": "fits"
+    },
+    "Ammo_380": {
+      "candidate_points": 2082,
+      "fit_share": 1.0,
+      "longest_m": 0.05,
+      "reason": "fits"
+    },
+    "Ammo_40mm_Chemgas": {
+      "candidate_points": 2013,
+      "fit_share": 0.996,
       "longest_m": 0.09,
       "reason": "fits"
     },
     "Ammo_40mm_Explosive": {
-      "candidate_points": 1108,
-      "fit_share": 0.99,
+      "candidate_points": 2013,
+      "fit_share": 0.995,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "Ammo_40mm_Smoke_Black": {
-      "candidate_points": 1108,
-      "fit_share": 0.99,
+      "candidate_points": 2013,
+      "fit_share": 0.995,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "Ammo_40mm_Smoke_Green": {
-      "candidate_points": 1108,
-      "fit_share": 0.99,
+      "candidate_points": 2013,
+      "fit_share": 0.995,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "Ammo_40mm_Smoke_Red": {
-      "candidate_points": 1108,
-      "fit_share": 0.99,
+      "candidate_points": 2013,
+      "fit_share": 0.995,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "Ammo_40mm_Smoke_White": {
-      "candidate_points": 1108,
-      "fit_share": 0.99,
+      "candidate_points": 2013,
+      "fit_share": 0.995,
       "longest_m": 0.1,
+      "reason": "fits"
+    },
+    "Ammo_45ACP": {
+      "candidate_points": 2082,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_545x39": {
+      "candidate_points": 2049,
+      "fit_share": 1.0,
+      "longest_m": 0.05,
+      "reason": "fits"
+    },
+    "Ammo_545x39Tracer": {
+      "candidate_points": 2049,
+      "fit_share": 1.0,
+      "longest_m": 0.05,
+      "reason": "fits"
+    },
+    "Ammo_556x45": {
+      "candidate_points": 2113,
+      "fit_share": 1.0,
+      "longest_m": 0.06,
+      "reason": "fits"
+    },
+    "Ammo_556x45Tracer": {
+      "candidate_points": 2113,
+      "fit_share": 1.0,
+      "longest_m": 0.06,
+      "reason": "fits"
+    },
+    "Ammo_762x39": {
+      "candidate_points": 2113,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_762x39Tracer": {
+      "candidate_points": 2113,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_762x54": {
+      "candidate_points": 2049,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_762x54Tracer": {
+      "candidate_points": 2013,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
+      "reason": "fits"
+    },
+    "Ammo_9x19": {
+      "candidate_points": 2082,
+      "fit_share": 1.0,
+      "longest_m": 0.06,
+      "reason": "fits"
+    },
+    "Ammo_9x39": {
+      "candidate_points": 2013,
+      "fit_share": 1.0,
+      "longest_m": 0.08,
+      "reason": "fits"
+    },
+    "Ammo_9x39AP": {
+      "candidate_points": 2013,
+      "fit_share": 1.0,
+      "longest_m": 0.08,
       "reason": "fits"
     },
     "Ammo_CupidsBolt": {
@@ -421,8 +554,8 @@
       "reason": "fits"
     },
     "Ammo_HuntingBolt": {
-      "candidate_points": 102,
-      "fit_share": 0.196,
+      "candidate_points": 2049,
+      "fit_share": 0.244,
       "longest_m": 0.5,
       "reason": "below_threshold"
     },
@@ -499,13 +632,13 @@
       "reason": "bounds_unknown"
     },
     "Aug": {
-      "candidate_points": 7,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 2.08,
       "reason": "below_threshold"
     },
     "AugShort": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 2.08,
       "reason": "below_threshold"
@@ -529,13 +662,31 @@
       "reason": "bounds_unknown"
     },
     "B95": {
-      "candidate_points": 102,
-      "fit_share": 0.058,
+      "candidate_points": 951,
+      "fit_share": 0.151,
       "longest_m": 1.05,
       "reason": "below_threshold"
     },
+    "B95_Black": {
+      "candidate_points": 951,
+      "fit_share": 0.151,
+      "longest_m": 1.05,
+      "reason": "below_threshold"
+    },
+    "B95_Green": {
+      "candidate_points": 951,
+      "fit_share": 0.151,
+      "longest_m": 1.05,
+      "reason": "below_threshold"
+    },
+    "BDUPants": {
+      "candidate_points": 1904,
+      "fit_share": 0.204,
+      "longest_m": 0.64,
+      "reason": "below_threshold"
+    },
     "BUISOptic": {
-      "candidate_points": 1108,
+      "candidate_points": 2013,
       "fit_share": 1.0,
       "longest_m": 0.05,
       "reason": "fits"
@@ -550,6 +701,60 @@
       "candidate_points": 3904,
       "fit_share": 0.893,
       "longest_m": 0.12,
+      "reason": "fits"
+    },
+    "BalaclavaMask_Chain": {
+      "candidate_points": 4068,
+      "fit_share": 0.149,
+      "longest_m": 0.34,
+      "reason": "below_threshold"
+    },
+    "BalaclavaMask_Pig": {
+      "candidate_points": 3629,
+      "fit_share": 0.158,
+      "longest_m": 0.34,
+      "reason": "below_threshold"
+    },
+    "Ballerinas_Blue": {
+      "candidate_points": 3023,
+      "fit_share": 0.385,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "Ballerinas_Red": {
+      "candidate_points": 3023,
+      "fit_share": 0.385,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "Ballerinas_White": {
+      "candidate_points": 3023,
+      "fit_share": 0.385,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "Ballerinas_Yellow": {
+      "candidate_points": 3023,
+      "fit_share": 0.385,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "BallisticHelmet_Desert": {
+      "candidate_points": 1697,
+      "fit_share": 0.475,
+      "longest_m": 0.3,
+      "reason": "fits"
+    },
+    "BallisticHelmet_Navy": {
+      "candidate_points": 1697,
+      "fit_share": 0.475,
+      "longest_m": 0.3,
+      "reason": "fits"
+    },
+    "BallisticHelmet_Winter": {
+      "candidate_points": 1697,
+      "fit_share": 0.475,
+      "longest_m": 0.3,
       "reason": "fits"
     },
     "BarbedBaseballBat": {
@@ -672,11 +877,863 @@
       "longest_m": 0.22,
       "reason": "fits"
     },
+    "Book20000LieuesSousLesMers": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookADollsHouse": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAPrincessOfMars": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookATexasMatchmaker": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookATravelerInTime": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAVoyageToArcturus": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAfterLondon": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAliceInWonderland": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAndersen": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAndersensFairyTales": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAnnaKarenina": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookAroundTheWorldIn80Days": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookBettyZane": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookBilaNemoc": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookBlackBeauty": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookBlackJack": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookBuddenbrooks": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookCandide": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookCassidysRustlerRoundUp": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookCinqSemainesEnBallon": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookCrimeAndPunishment": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDasNibelungenlied": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDeLaTerreLaLune": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDeLorigineDesEspces": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDeadSouls": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDonQuichotte": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDonQuixote": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookDracula": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookErewhon": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookFatherGoriot": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookFaust": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookFaustErsterTeil": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookFlyingURanch": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookFrankenstein": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookGilgameshEpic": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookGreatExpectations": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookGulliversTravels": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookGunmansReckoning": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookHeartOfDarkness": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookHerland": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookHinduLiterature": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookHunger": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookIvanhoe": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookJapaneseLiterature": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookKidnapped": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookKingLear": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookKingSolomonsMines": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLaChartreuseDeParme": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLaComdieHumaine": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLaDbcle": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLeRougeEtLeNoir": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLenfer1Of2": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLesCorneilles": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLesTroisMousquetaires": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLleMystrieuse": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLonesomeLand": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookLordJim": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookMadameBovary": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookMiddlemarch": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookMobyDick": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookMrchenFrKinder": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookNaturalSelection": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookNjalsSaga": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookNostromo": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookPhilosophiaeNaturalis": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookPrideAndPrejudice": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookRasselas": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookRobinsonCrusoe": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookRobinsonCrusoeAdventures": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookRomeoUndJulia": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookRonickyDoone": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookRussian": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookScaramouche": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookSelectedStories": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookShe": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookSkyrider": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookSonsAndLovers": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookSpinifexAndSand": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookSunsetPass": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheAeneid": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheArtOfWar": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheBarrier": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheBrothersKaramazov": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheCallOfCthulhu": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheCallOfTheWild": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheCanterburyTales": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheComingRace": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheCosmicComputer": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheCountryOfTheBlind": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheDayOfTheBeast": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheDecameron": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheDesertOfWheat": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheGiacomoLeopardi": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheHeritageOfTheSioux": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheHiddenChildren": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheHoundOfTheBaskervilles": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheHouseOfTheSevenGables": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheIslandOfDoctorMoreau": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheJungleBook": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheJustifiedSinner": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheLastMan": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheLastOfThePlainsmen": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheLastTrail": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheMahabharataOfKrishna": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheManWhoWasThursday": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheMetamorphosesOfOvid": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheMetamorphosis": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheMonkARomance": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheOutlet": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookThePictureOfDorianGray": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookThePitAndThePendulum": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookThePossessed": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookThePrisonerOfZenda": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheQuirt": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheRaven": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheRedBadgeOfCourage": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheRightsOfWoman": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheScarletPimpernel": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheShunnedHouse": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheThreeMusketeers": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheThunderBird": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheTimeMachine": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheTrial": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheTurnOfTheScrew": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheVariableMan": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTheWarOfTheWorlds": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookThreeMenInABoat": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookToTheInteriorOfTheEarth": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTonyAndTheBeetles": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTrailin": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTranslationsOfShakuntala": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookTreasureIsland": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookUlysses": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookUncleSilas": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookVerwandlung": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookVoyageAuCentreDeLaTerre": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookWarAndPeace": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookWealthOfNations": {
+      "candidate_points": 2441,
+      "fit_share": 0.391,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookWielandOrTheTransformation": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookWutheringHeights": {
+      "candidate_points": 2649,
+      "fit_share": 0.387,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
+    "BookYouth": {
+      "candidate_points": 1836,
+      "fit_share": 0.452,
+      "longest_m": 0.28,
+      "reason": "fits"
+    },
     "BoonieHat_Desert": {
       "candidate_points": 1108,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
+    },
+    "BrakeFluid": {
+      "candidate_points": 3851,
+      "fit_share": 0.428,
+      "longest_m": 0.26,
+      "reason": "fits"
     },
     "BrassKnuckles_Dull": {
       "candidate_points": 3186,
@@ -727,7 +1784,7 @@
       "reason": "fits"
     },
     "CZ527": {
-      "candidate_points": 162,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -738,38 +1795,50 @@
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
+    "CZ527_Camo": {
+      "candidate_points": 951,
+      "fit_share": 0.0,
+      "longest_m": 2.0,
+      "reason": "below_threshold"
+    },
     "CZ527_Desert": {
-      "candidate_points": 2215,
+      "candidate_points": 915,
+      "fit_share": 0.0,
+      "longest_m": 2.0,
+      "reason": "below_threshold"
+    },
+    "CZ527_Green": {
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "CZ527_Winter": {
-      "candidate_points": 2215,
+      "candidate_points": 915,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "CZ527_Woodland": {
-      "candidate_points": 102,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "CZ550": {
-      "candidate_points": 102,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 1.24,
       "reason": "below_threshold"
     },
     "CZ61": {
-      "candidate_points": 152,
-      "fit_share": 0.059,
+      "candidate_points": 216,
+      "fit_share": 0.041,
       "longest_m": 0.57,
       "reason": "below_threshold"
     },
     "CZ75": {
-      "candidate_points": 1108,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.09,
       "reason": "below_threshold"
@@ -810,6 +1879,18 @@
       "longest_m": 0.07,
       "reason": "fits"
     },
+    "CanisterGasoline": {
+      "candidate_points": 2980,
+      "fit_share": 0.145,
+      "longest_m": 0.47,
+      "reason": "below_threshold"
+    },
+    "Cannabis": {
+      "candidate_points": 3904,
+      "fit_share": 0.654,
+      "longest_m": 0.19,
+      "reason": "fits"
+    },
     "Canteen": {
       "candidate_points": 1227,
       "fit_share": 0.593,
@@ -817,10 +1898,16 @@
       "reason": "fits"
     },
     "CarBattery": {
-      "candidate_points": 1568,
-      "fit_share": 0.448,
+      "candidate_points": 2980,
+      "fit_share": 0.451,
       "longest_m": 0.26,
       "reason": "fits"
+    },
+    "CarRadiator": {
+      "candidate_points": 2980,
+      "fit_share": 0.109,
+      "longest_m": 0.65,
+      "reason": "below_threshold"
     },
     "Carp": {
       "candidate_points": 3904,
@@ -1044,6 +2131,12 @@
       "longest_m": 1.46,
       "reason": "no_shelf_points"
     },
+    "CivSedanWheel": {
+      "candidate_points": 2980,
+      "fit_share": 0.099,
+      "longest_m": 0.7,
+      "reason": "below_threshold"
+    },
     "CivSedanWheel_Ruined": {
       "candidate_points": 0,
       "fit_share": 0.0,
@@ -1063,7 +2156,7 @@
       "reason": "fits"
     },
     "Colt1911": {
-      "candidate_points": 1108,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.09,
       "reason": "below_threshold"
@@ -1129,14 +2222,14 @@
       "reason": "fits"
     },
     "Crossbow_Autumn": {
-      "candidate_points": 102,
-      "fit_share": 0.058,
+      "candidate_points": 2049,
+      "fit_share": 0.107,
       "longest_m": 1.04,
       "reason": "below_threshold"
     },
     "Crossbow_Black": {
-      "candidate_points": 162,
-      "fit_share": 0.092,
+      "candidate_points": 2049,
+      "fit_share": 0.107,
       "longest_m": 1.04,
       "reason": "below_threshold"
     },
@@ -1147,8 +2240,8 @@
       "reason": "below_threshold"
     },
     "Crossbow_Wood": {
-      "candidate_points": 102,
-      "fit_share": 0.058,
+      "candidate_points": 2049,
+      "fit_share": 0.107,
       "longest_m": 1.04,
       "reason": "below_threshold"
     },
@@ -1195,13 +2288,13 @@
       "reason": "below_threshold"
     },
     "Deagle": {
-      "candidate_points": 315,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.18,
       "reason": "below_threshold"
     },
     "Deagle_Gold": {
-      "candidate_points": 315,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.18,
       "reason": "below_threshold"
@@ -1225,8 +2318,8 @@
       "reason": "fits"
     },
     "Derringer_Grey": {
-      "candidate_points": 315,
-      "fit_share": 0.942,
+      "candidate_points": 1977,
+      "fit_share": 0.901,
       "longest_m": 0.13,
       "reason": "fits"
     },
@@ -1260,32 +2353,332 @@
       "longest_m": 0.12,
       "reason": "fits"
     },
+    "EngineOil": {
+      "candidate_points": 3851,
+      "fit_share": 0.174,
+      "longest_m": 0.34,
+      "reason": "below_threshold"
+    },
     "Engraved1911": {
-      "candidate_points": 1108,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.09,
       "reason": "below_threshold"
     },
+    "ExpansionBigGyrocopter": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionBus": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionBusWheel": {
+      "candidate_points": 1568,
+      "fit_share": 0.116,
+      "longest_m": 0.97,
+      "reason": "below_threshold"
+    },
+    "ExpansionBusWheelDouble": {
+      "candidate_points": 1568,
+      "fit_share": 0.115,
+      "longest_m": 0.99,
+      "reason": "below_threshold"
+    },
+    "ExpansionBus_Blue": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionBus_Red": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionGyrocopter": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionHatchBird": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 3.89,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionHatchBirdDoors_CoDriver": {
+      "candidate_points": 1568,
+      "fit_share": 0.092,
+      "longest_m": 1.18,
+      "reason": "below_threshold"
+    },
+    "ExpansionHatchBirdDoors_Driver": {
+      "candidate_points": 1568,
+      "fit_share": 0.092,
+      "longest_m": 1.18,
+      "reason": "below_threshold"
+    },
+    "ExpansionHatchBirdHood": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.72,
+      "reason": "below_threshold"
+    },
+    "ExpansionHatchBirdTrunk": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.36,
+      "reason": "below_threshold"
+    },
+    "ExpansionHelicopterBattery": {
+      "candidate_points": 1568,
+      "fit_share": 0.288,
+      "longest_m": 0.34,
+      "reason": "below_threshold"
+    },
+    "ExpansionHydraulicHoses": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 2.0,
+      "reason": "below_threshold"
+    },
+    "ExpansionIgniterPlug": {
+      "candidate_points": 1568,
+      "fit_share": 0.842,
+      "longest_m": 0.13,
+      "reason": "fits"
+    },
+    "ExpansionMerlin": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionMerlinBackWheel": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionMerlinFrontWheel": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionMh6": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionTractor": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionTractorBackWheel": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionTractorDoorsCodriver": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionTractorDoorsDriver": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionTractorFrontWheel": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionTractor_Blue": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionTractor_Green": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionTractor_Red": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUAZ": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 5.9,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUAZCargo": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 5.9,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUAZDoorCargo1": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.32,
+      "reason": "below_threshold"
+    },
+    "ExpansionUAZDoorCargo2": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.32,
+      "reason": "below_threshold"
+    },
+    "ExpansionUAZDoorCoDriver": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.32,
+      "reason": "below_threshold"
+    },
+    "ExpansionUAZDoorDriver": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.32,
+      "reason": "below_threshold"
+    },
+    "ExpansionUAZDoorHood": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": 1.6,
+      "reason": "below_threshold"
+    },
+    "ExpansionUAZRoofless": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 5.9,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUAZWheel": {
+      "candidate_points": 1568,
+      "fit_share": 0.138,
+      "longest_m": 0.77,
+      "reason": "below_threshold"
+    },
+    "ExpansionUAZ_Green": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 5.9,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUh1h": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUh1hDoor_1_1": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionUh1hDoor_1_2": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionUh1hDoor_2_1": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionUh1hDoor_2_2": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "ExpansionUtilityBoat": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionUtilityBoat_Green": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "no_shelf_points"
+    },
+    "ExpansionZodiacBoat": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 4.86,
+      "reason": "no_shelf_points"
+    },
+    "Expansion_Mh6_Door_1_1": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "Expansion_Mh6_Door_1_2": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "Expansion_Mh6_Door_2_1": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
+    "Expansion_Mh6_Door_2_2": {
+      "candidate_points": 1568,
+      "fit_share": 0.0,
+      "longest_m": null,
+      "reason": "bounds_unknown"
+    },
     "FAL": {
-      "candidate_points": 7,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 1.44,
       "reason": "below_threshold"
     },
     "FAMAS": {
-      "candidate_points": 1108,
-      "fit_share": 0.25,
+      "candidate_points": 1253,
+      "fit_share": 0.221,
       "longest_m": 0.81,
       "reason": "below_threshold"
     },
     "FNP45_MRDSOptic": {
-      "candidate_points": 1108,
+      "candidate_points": 2013,
       "fit_share": 1.0,
       "longest_m": 0.05,
       "reason": "fits"
     },
     "FNX45": {
-      "candidate_points": 1108,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -1297,14 +2690,14 @@
       "reason": "below_threshold"
     },
     "Fal_FoldingBttstck": {
-      "candidate_points": 7,
-      "fit_share": 0.857,
+      "candidate_points": 2013,
+      "fit_share": 0.639,
       "longest_m": 0.27,
       "reason": "fits"
     },
     "Fal_OeBttstck": {
-      "candidate_points": 7,
-      "fit_share": 0.857,
+      "candidate_points": 2013,
+      "fit_share": 0.625,
       "longest_m": 0.29,
       "reason": "fits"
     },
@@ -1584,6 +2977,12 @@
       "longest_m": 0.15,
       "reason": "fits"
     },
+    "Flashlight": {
+      "candidate_points": 4024,
+      "fit_share": 0.599,
+      "longest_m": 0.2,
+      "reason": "fits"
+    },
     "FryingPan": {
       "candidate_points": 3186,
       "fit_share": 0.076,
@@ -1649,6 +3048,12 @@
       "fit_share": 0.0,
       "longest_m": 0.28,
       "reason": "no_shelf_points"
+    },
+    "Glock19": {
+      "candidate_points": 1977,
+      "fit_share": 0.0,
+      "longest_m": 2.06,
+      "reason": "below_threshold"
     },
     "Glock_Tan": {
       "candidate_points": 152,
@@ -1836,6 +3241,12 @@
       "longest_m": 1.36,
       "reason": "no_shelf_points"
     },
+    "HatchbackWheel": {
+      "candidate_points": 2980,
+      "fit_share": 0.093,
+      "longest_m": 0.73,
+      "reason": "below_threshold"
+    },
     "HatchbackWheel_Ruined": {
       "candidate_points": 0,
       "fit_share": 0.0,
@@ -1950,6 +3361,12 @@
       "longest_m": 1.45,
       "reason": "no_shelf_points"
     },
+    "Hatchback_02_Wheel": {
+      "candidate_points": 2980,
+      "fit_share": 0.126,
+      "longest_m": 0.54,
+      "reason": "below_threshold"
+    },
     "Hatchback_02_Wheel_Ruined": {
       "candidate_points": 0,
       "fit_share": 0.0,
@@ -1963,7 +3380,7 @@
       "reason": "below_threshold"
     },
     "HeadlightH7": {
-      "candidate_points": 6431,
+      "candidate_points": 2980,
       "fit_share": 0.999,
       "longest_m": 0.09,
       "reason": "fits"
@@ -2005,8 +3422,8 @@
       "reason": "fits"
     },
     "HoloOptic": {
-      "candidate_points": 1108,
-      "fit_share": 0.993,
+      "candidate_points": 2013,
+      "fit_share": 0.996,
       "longest_m": 0.09,
       "reason": "fits"
     },
@@ -2017,8 +3434,8 @@
       "reason": "fits"
     },
     "HuntingOptic": {
-      "candidate_points": 102,
-      "fit_share": 0.303,
+      "candidate_points": 2013,
+      "fit_share": 0.352,
       "longest_m": 0.31,
       "reason": "fits"
     },
@@ -2053,19 +3470,19 @@
       "reason": "fits"
     },
     "Izh18": {
-      "candidate_points": 905,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.57,
       "reason": "below_threshold"
     },
     "Izh18Shotgun": {
-      "candidate_points": 879,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.57,
       "reason": "below_threshold"
     },
     "Izh43Shotgun": {
-      "candidate_points": 162,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.18,
       "reason": "below_threshold"
@@ -2082,15 +3499,27 @@
       "longest_m": 0.08,
       "reason": "fits"
     },
+    "JungleBoots_Green": {
+      "candidate_points": 2017,
+      "fit_share": 0.428,
+      "longest_m": 0.32,
+      "reason": "fits"
+    },
     "KashtanOptic": {
-      "candidate_points": 1108,
+      "candidate_points": 2013,
       "fit_share": 0.0,
       "longest_m": 48.15,
       "reason": "below_threshold"
     },
+    "KazuarOptic": {
+      "candidate_points": 2013,
+      "fit_share": 0.348,
+      "longest_m": 0.32,
+      "reason": "fits"
+    },
     "KobraOptic": {
-      "candidate_points": 1108,
-      "fit_share": 0.892,
+      "candidate_points": 2013,
+      "fit_share": 0.775,
       "longest_m": 0.19,
       "reason": "fits"
     },
@@ -2161,14 +3590,14 @@
       "reason": "below_threshold"
     },
     "LeeEnfield": {
-      "candidate_points": 102,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
     },
     "Lockpick": {
-      "candidate_points": 6431,
-      "fit_share": 0.738,
+      "candidate_points": 1829,
+      "fit_share": 0.653,
       "longest_m": 0.16,
       "reason": "fits"
     },
@@ -2185,19 +3614,19 @@
       "reason": "below_threshold"
     },
     "Longhorn": {
-      "candidate_points": 102,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "LugWrench": {
-      "candidate_points": 1568,
-      "fit_share": 0.2,
+      "candidate_points": 2980,
+      "fit_share": 0.132,
       "longest_m": 0.51,
       "reason": "below_threshold"
     },
     "Luger": {
-      "candidate_points": 1108,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
@@ -2209,13 +3638,13 @@
       "reason": "fits"
     },
     "M14": {
-      "candidate_points": 1108,
-      "fit_share": 0.147,
+      "candidate_points": 1253,
+      "fit_share": 0.13,
       "longest_m": 1.15,
       "reason": "below_threshold"
     },
     "M16A2": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 2.94,
       "reason": "below_threshold"
@@ -2251,7 +3680,7 @@
       "reason": "fits"
     },
     "M4A1": {
-      "candidate_points": 7,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 1.45,
       "reason": "below_threshold"
@@ -2269,44 +3698,44 @@
       "reason": "below_threshold"
     },
     "M4_CQBBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.825,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "M4_CarryHandleOptic": {
-      "candidate_points": 1108,
-      "fit_share": 0.893,
+      "candidate_points": 2013,
+      "fit_share": 0.776,
       "longest_m": 0.18,
       "reason": "fits"
     },
     "M4_MPBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.894,
+      "candidate_points": 2013,
+      "fit_share": 0.793,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "M4_MPHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.893,
+      "candidate_points": 2013,
+      "fit_share": 0.782,
       "longest_m": 0.18,
       "reason": "fits"
     },
     "M4_OEBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.825,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "M4_PlasticHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.825,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "M4_RISHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.825,
       "longest_m": 0.17,
       "reason": "fits"
     },
@@ -2322,9 +3751,15 @@
       "longest_m": 0.17,
       "reason": "fits"
     },
+    "M4_Suppressor": {
+      "candidate_points": 2013,
+      "fit_share": 0.855,
+      "longest_m": 0.15,
+      "reason": "fits"
+    },
     "M4_T3NRDSOptic": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.903,
       "longest_m": 0.13,
       "reason": "fits"
     },
@@ -2335,8 +3770,8 @@
       "reason": "fits"
     },
     "M68Optic": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.899,
       "longest_m": 0.13,
       "reason": "fits"
     },
@@ -2353,31 +3788,37 @@
       "reason": "fits"
     },
     "MK4Optic_Black": {
-      "candidate_points": 152,
-      "fit_share": 0.092,
+      "candidate_points": 2013,
+      "fit_share": 0.313,
       "longest_m": 0.35,
-      "reason": "below_threshold"
+      "reason": "fits"
     },
     "MK4Optic_Green": {
-      "candidate_points": 1108,
-      "fit_share": 0.451,
+      "candidate_points": 2013,
+      "fit_share": 0.313,
       "longest_m": 0.35,
       "reason": "fits"
     },
     "MK4Optic_Tan": {
-      "candidate_points": 1108,
-      "fit_share": 0.451,
+      "candidate_points": 2013,
+      "fit_share": 0.313,
       "longest_m": 0.35,
       "reason": "fits"
     },
+    "MKII": {
+      "candidate_points": 1977,
+      "fit_share": 0.0,
+      "longest_m": 2.0,
+      "reason": "below_threshold"
+    },
     "MP18": {
-      "candidate_points": 910,
+      "candidate_points": 216,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
     },
     "MP5K": {
-      "candidate_points": 1108,
+      "candidate_points": 216,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -2389,20 +3830,20 @@
       "reason": "fits"
     },
     "MP5_PlasticHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.915,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "MP5_RailHndgrd": {
-      "candidate_points": 1108,
-      "fit_share": 0.927,
+      "candidate_points": 2013,
+      "fit_share": 0.862,
       "longest_m": 0.14,
       "reason": "fits"
     },
     "MP5k_StockBttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.824,
+      "candidate_points": 2013,
+      "fit_share": 0.657,
       "longest_m": 0.26,
       "reason": "fits"
     },
@@ -2431,32 +3872,32 @@
       "reason": "fits"
     },
     "Mag_1911_7Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2018,
+      "fit_share": 0.915,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_AK101_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.849,
+      "candidate_points": 2013,
+      "fit_share": 0.705,
       "longest_m": 0.21,
       "reason": "fits"
     },
     "Mag_AK74_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.849,
+      "candidate_points": 2013,
+      "fit_share": 0.705,
       "longest_m": 0.21,
       "reason": "fits"
     },
     "Mag_AK74_45Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.797,
+      "candidate_points": 2013,
+      "fit_share": 0.625,
       "longest_m": 0.29,
       "reason": "fits"
     },
     "Mag_AKM_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.845,
+      "candidate_points": 2013,
+      "fit_share": 0.697,
       "longest_m": 0.22,
       "reason": "fits"
     },
@@ -2467,8 +3908,8 @@
       "reason": "bounds_unknown"
     },
     "Mag_AKM_Drum75Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.848,
+      "candidate_points": 2013,
+      "fit_share": 0.705,
       "longest_m": 0.21,
       "reason": "fits"
     },
@@ -2479,182 +3920,182 @@
       "reason": "bounds_unknown"
     },
     "Mag_AKM_Palm30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.843,
+      "candidate_points": 2013,
+      "fit_share": 0.68,
       "longest_m": 0.23,
       "reason": "fits"
     },
     "Mag_Aug_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.893,
+      "candidate_points": 2013,
+      "fit_share": 0.788,
       "longest_m": 0.18,
       "reason": "fits"
     },
     "Mag_CMAG_10Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.918,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "Mag_CMAG_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.928,
+      "candidate_points": 2013,
+      "fit_share": 0.863,
       "longest_m": 0.14,
       "reason": "fits"
     },
     "Mag_CMAG_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.892,
+      "candidate_points": 2013,
+      "fit_share": 0.775,
       "longest_m": 0.19,
       "reason": "fits"
     },
     "Mag_CMAG_40Rnd": {
-      "candidate_points": 7,
-      "fit_share": 0.857,
+      "candidate_points": 2013,
+      "fit_share": 0.68,
       "longest_m": 0.23,
       "reason": "fits"
     },
     "Mag_CZ527_5rnd": {
-      "candidate_points": 162,
+      "candidate_points": 2049,
       "fit_share": 1.0,
       "longest_m": 0.06,
       "reason": "fits"
     },
     "Mag_CZ550_10Rnd": {
-      "candidate_points": 102,
-      "fit_share": 0.833,
+      "candidate_points": 2049,
+      "fit_share": 0.922,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "Mag_CZ61_20Rnd": {
-      "candidate_points": 152,
-      "fit_share": 0.973,
+      "candidate_points": 2077,
+      "fit_share": 0.917,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_CZ75_15Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2018,
+      "fit_share": 0.909,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_Deagle_9rnd": {
-      "candidate_points": 315,
-      "fit_share": 0.942,
+      "candidate_points": 2018,
+      "fit_share": 0.909,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_FAL_20Rnd": {
-      "candidate_points": 7,
-      "fit_share": 0.857,
+      "candidate_points": 2013,
+      "fit_share": 0.833,
       "longest_m": 0.16,
       "reason": "fits"
     },
     "Mag_FAMAS_25Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.897,
+      "candidate_points": 2013,
+      "fit_share": 0.795,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "Mag_FNX45_15Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2018,
+      "fit_share": 0.909,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_Glock_15Rnd": {
-      "candidate_points": 152,
-      "fit_share": 0.973,
+      "candidate_points": 2018,
+      "fit_share": 0.903,
       "longest_m": 0.13,
       "reason": "fits"
     },
     "Mag_IJ70_8Rnd": {
-      "candidate_points": 879,
-      "fit_share": 0.856,
+      "candidate_points": 2018,
+      "fit_share": 0.921,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "Mag_LeeEnfield_10Rnd": {
-      "candidate_points": 102,
+      "candidate_points": 2049,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
     },
     "Mag_Luger_8Rnd": {
-      "candidate_points": 1108,
+      "candidate_points": 2018,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
     },
     "Mag_M14_10Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.97,
+      "candidate_points": 2013,
+      "fit_share": 0.922,
       "longest_m": 0.1,
       "reason": "fits"
     },
     "Mag_M14_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.84,
       "longest_m": 0.15,
       "reason": "fits"
     },
     "Mag_MKII_10Rnd": {
-      "candidate_points": 879,
-      "fit_share": 0.815,
+      "candidate_points": 2018,
+      "fit_share": 0.903,
       "longest_m": 0.13,
       "reason": "fits"
     },
     "Mag_MP18_Drum32Rnd": {
-      "candidate_points": 910,
+      "candidate_points": 2113,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
     },
     "Mag_MP5_15Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2077,
+      "fit_share": 0.905,
       "longest_m": 0.13,
       "reason": "fits"
     },
     "Mag_MP5_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.892,
+      "candidate_points": 2077,
+      "fit_share": 0.773,
       "longest_m": 0.2,
       "reason": "fits"
     },
     "Mag_P1_8Rnd": {
-      "candidate_points": 879,
-      "fit_share": 0.843,
+      "candidate_points": 2018,
+      "fit_share": 0.915,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "Mag_PM73_15Rnd": {
-      "candidate_points": 152,
-      "fit_share": 0.973,
+      "candidate_points": 2077,
+      "fit_share": 0.917,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_PM73_25Rnd": {
-      "candidate_points": 152,
-      "fit_share": 0.953,
+      "candidate_points": 2077,
+      "fit_share": 0.782,
       "longest_m": 0.19,
       "reason": "fits"
     },
     "Mag_PP19_64Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.845,
+      "candidate_points": 2077,
+      "fit_share": 0.704,
       "longest_m": 0.22,
       "reason": "fits"
     },
     "Mag_Ruger1022_15Rnd": {
-      "candidate_points": 879,
-      "fit_share": 0.829,
+      "candidate_points": 2018,
+      "fit_share": 0.909,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_Ruger1022_30Rnd": {
-      "candidate_points": 879,
-      "fit_share": 0.623,
+      "candidate_points": 2018,
+      "fit_share": 0.776,
       "longest_m": 0.19,
       "reason": "fits"
     },
@@ -2671,94 +4112,100 @@
       "reason": "fits"
     },
     "Mag_SSG82_5rnd": {
-      "candidate_points": 152,
+      "candidate_points": 2049,
       "fit_share": 1.0,
       "longest_m": 0.07,
       "reason": "fits"
     },
     "Mag_STANAG_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.892,
+      "candidate_points": 2013,
+      "fit_share": 0.775,
       "longest_m": 0.19,
       "reason": "fits"
     },
     "Mag_STANAG_60Rnd": {
-      "candidate_points": 7,
-      "fit_share": 0.857,
+      "candidate_points": 2013,
+      "fit_share": 0.68,
       "longest_m": 0.23,
       "reason": "fits"
     },
     "Mag_SV98_10Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.921,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "Mag_SVD_10Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.915,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "Mag_Saiga_5Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.925,
+      "candidate_points": 2013,
+      "fit_share": 0.84,
       "longest_m": 0.16,
       "reason": "fits"
     },
     "Mag_Saiga_8Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.846,
+      "candidate_points": 2013,
+      "fit_share": 0.701,
       "longest_m": 0.22,
       "reason": "fits"
     },
     "Mag_Saiga_Drum20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.893,
+      "candidate_points": 2013,
+      "fit_share": 0.782,
       "longest_m": 0.18,
       "reason": "fits"
     },
     "Mag_Scout_5Rnd": {
-      "candidate_points": 152,
-      "fit_share": 1.0,
+      "candidate_points": 2077,
+      "fit_share": 0.996,
       "longest_m": 0.09,
       "reason": "fits"
     },
     "Mag_UMP_25Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.843,
+      "candidate_points": 2077,
+      "fit_share": 0.689,
       "longest_m": 0.24,
       "reason": "fits"
     },
     "Mag_VAL_20Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.894,
+      "candidate_points": 2013,
+      "fit_share": 0.793,
       "longest_m": 0.17,
       "reason": "fits"
     },
     "Mag_VSS_10Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.969,
+      "candidate_points": 2013,
+      "fit_share": 0.918,
       "longest_m": 0.11,
       "reason": "fits"
     },
     "Mag_Vikhr_30Rnd": {
-      "candidate_points": 1108,
-      "fit_share": 0.844,
+      "candidate_points": 2013,
+      "fit_share": 0.683,
       "longest_m": 0.23,
       "reason": "fits"
     },
     "Magnum": {
-      "candidate_points": 315,
-      "fit_share": 0.761,
+      "candidate_points": 1977,
+      "fit_share": 0.626,
       "longest_m": 0.29,
       "reason": "fits"
     },
     "Magnum_Gold": {
-      "candidate_points": 879,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
+    },
+    "MakarovIJ70": {
+      "candidate_points": 1977,
+      "fit_share": 0.0,
+      "longest_m": 2.0,
+      "reason": "below_threshold"
     },
     "MeatTenderizer": {
       "candidate_points": 3186,
@@ -2789,6 +4236,18 @@
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "bounds_unknown"
+    },
+    "MilitarySweater_Livonia": {
+      "candidate_points": 1697,
+      "fit_share": 0.223,
+      "longest_m": 0.57,
+      "reason": "below_threshold"
+    },
+    "MilitarySweater_NoPatch": {
+      "candidate_points": 1697,
+      "fit_share": 0.223,
+      "longest_m": 0.57,
+      "reason": "below_threshold"
     },
     "MorsecodeLeaflet_blood": {
       "candidate_points": 1545,
@@ -2821,13 +4280,13 @@
       "reason": "bounds_unknown"
     },
     "Mosin9130": {
-      "candidate_points": 879,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "Mosin9130_Black": {
-      "candidate_points": 2215,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -2851,13 +4310,13 @@
       "reason": "below_threshold"
     },
     "Mosin9130_Winter": {
-      "candidate_points": 2215,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "Mosin9130_Woodland": {
-      "candidate_points": 879,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -2873,6 +4332,18 @@
       "fit_share": 1.0,
       "longest_m": 0.08,
       "reason": "fits"
+    },
+    "Motorbike_01_Wheel_1": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 0.55,
+      "reason": "no_shelf_points"
+    },
+    "Motorbike_01_Wheel_2": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 0.58,
+      "reason": "no_shelf_points"
     },
     "Motorbike_02_ShieldFront_Red": {
       "candidate_points": 0,
@@ -2892,6 +4363,18 @@
       "longest_m": 0.59,
       "reason": "no_shelf_points"
     },
+    "Motorbike_02_Wheel_1": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 0.64,
+      "reason": "no_shelf_points"
+    },
+    "Motorbike_02_Wheel_2": {
+      "candidate_points": 0,
+      "fit_share": 0.0,
+      "longest_m": 0.62,
+      "reason": "no_shelf_points"
+    },
     "MouthRag": {
       "candidate_points": 6431,
       "fit_share": 0.492,
@@ -2899,9 +4382,27 @@
       "reason": "fits"
     },
     "Mp133Shotgun": {
-      "candidate_points": 152,
-      "fit_share": 0.026,
+      "candidate_points": 951,
+      "fit_share": 0.148,
       "longest_m": 1.06,
+      "reason": "below_threshold"
+    },
+    "NBCBootsWhite": {
+      "candidate_points": 1914,
+      "fit_share": 0.332,
+      "longest_m": 0.36,
+      "reason": "fits"
+    },
+    "NBCHoodWhite": {
+      "candidate_points": 1914,
+      "fit_share": 0.268,
+      "longest_m": 0.43,
+      "reason": "below_threshold"
+    },
+    "NBCJacketWhite": {
+      "candidate_points": 1914,
+      "fit_share": 0.175,
+      "longest_m": 0.69,
       "reason": "below_threshold"
     },
     "NBCPack_Grey": {
@@ -2915,6 +4416,12 @@
       "fit_share": 0.0,
       "longest_m": null,
       "reason": "no_shelf_points"
+    },
+    "NBCPantsWhite": {
+      "candidate_points": 1914,
+      "fit_share": 0.206,
+      "longest_m": 0.53,
+      "reason": "below_threshold"
     },
     "NVGHeadstrap": {
       "candidate_points": 1545,
@@ -2940,6 +4447,18 @@
       "longest_m": 0.9,
       "reason": "below_threshold"
     },
+    "NavyUniformJacket": {
+      "candidate_points": 1697,
+      "fit_share": 0.19,
+      "longest_m": 0.74,
+      "reason": "below_threshold"
+    },
+    "NavyUniformPants": {
+      "candidate_points": 1697,
+      "fit_share": 0.209,
+      "longest_m": 0.64,
+      "reason": "below_threshold"
+    },
     "Netting": {
       "candidate_points": 1618,
       "fit_share": 0.459,
@@ -2950,6 +4469,24 @@
       "candidate_points": 383,
       "fit_share": 0.292,
       "longest_m": 0.41,
+      "reason": "below_threshold"
+    },
+    "OKZKCap_Beige": {
+      "candidate_points": 1904,
+      "fit_share": 0.432,
+      "longest_m": 0.31,
+      "reason": "fits"
+    },
+    "OMKJacket_Navy": {
+      "candidate_points": 1697,
+      "fit_share": 0.18,
+      "longest_m": 0.8,
+      "reason": "below_threshold"
+    },
+    "OMKPants_Navy": {
+      "candidate_points": 1697,
+      "fit_share": 0.21,
+      "longest_m": 0.62,
       "reason": "below_threshold"
     },
     "Offroad_02_Door_1_1": {
@@ -3067,10 +4604,10 @@
       "reason": "below_threshold"
     },
     "P1": {
-      "candidate_points": 879,
-      "fit_share": 0.296,
+      "candidate_points": 1977,
+      "fit_share": 0.335,
       "longest_m": 0.33,
-      "reason": "below_threshold"
+      "reason": "fits"
     },
     "P1907_Bayonet": {
       "candidate_points": 1827,
@@ -3079,44 +4616,44 @@
       "reason": "bounds_unknown"
     },
     "PM73Rak": {
-      "candidate_points": 152,
-      "fit_share": 0.059,
+      "candidate_points": 216,
+      "fit_share": 0.041,
       "longest_m": 0.56,
       "reason": "below_threshold"
     },
     "PP19": {
-      "candidate_points": 1108,
-      "fit_share": 0.278,
+      "candidate_points": 216,
+      "fit_share": 0.037,
       "longest_m": 0.7,
       "reason": "below_threshold"
     },
     "PP19_Bttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.843,
+      "candidate_points": 2013,
+      "fit_share": 0.68,
       "longest_m": 0.23,
       "reason": "fits"
     },
     "PSO11Optic": {
-      "candidate_points": 1108,
-      "fit_share": 0.824,
+      "candidate_points": 2013,
+      "fit_share": 0.651,
       "longest_m": 0.27,
       "reason": "fits"
     },
     "PSO1Optic": {
-      "candidate_points": 1108,
-      "fit_share": 0.824,
+      "candidate_points": 2013,
+      "fit_share": 0.651,
       "longest_m": 0.27,
       "reason": "fits"
     },
     "PSO6Optic": {
-      "candidate_points": 1108,
-      "fit_share": 0.491,
+      "candidate_points": 2013,
+      "fit_share": 0.343,
       "longest_m": 0.32,
       "reason": "fits"
     },
     "PUScopeOptic": {
-      "candidate_points": 1203,
-      "fit_share": 0.882,
+      "candidate_points": 2013,
+      "fit_share": 0.792,
       "longest_m": 0.17,
       "reason": "fits"
     },
@@ -3142,6 +4679,30 @@
       "candidate_points": 3904,
       "fit_share": 0.882,
       "longest_m": 0.13,
+      "reason": "fits"
+    },
+    "Pen_Black": {
+      "candidate_points": 3186,
+      "fit_share": 0.872,
+      "longest_m": 0.12,
+      "reason": "fits"
+    },
+    "Pen_Blue": {
+      "candidate_points": 3186,
+      "fit_share": 0.872,
+      "longest_m": 0.12,
+      "reason": "fits"
+    },
+    "Pen_Green": {
+      "candidate_points": 3186,
+      "fit_share": 0.872,
+      "longest_m": 0.12,
+      "reason": "fits"
+    },
+    "Pen_Red": {
+      "candidate_points": 3186,
+      "fit_share": 0.872,
+      "longest_m": 0.12,
       "reason": "fits"
     },
     "PepperSeeds": {
@@ -3187,14 +4748,14 @@
       "reason": "below_threshold"
     },
     "PistolOptic": {
-      "candidate_points": 102,
-      "fit_share": 0.647,
+      "candidate_points": 2013,
+      "fit_share": 0.691,
       "longest_m": 0.22,
       "reason": "fits"
     },
     "PistolSuppressor": {
-      "candidate_points": 1253,
-      "fit_share": 0.901,
+      "candidate_points": 2013,
+      "fit_share": 0.776,
       "longest_m": 0.18,
       "reason": "fits"
     },
@@ -3240,11 +4801,77 @@
       "longest_m": 2.16,
       "reason": "below_threshold"
     },
-    "PlateCarrierPouches_Winter": {
-      "candidate_points": 1764,
-      "fit_share": 0.639,
+    "PlateCarrierHolster_Black": {
+      "candidate_points": 1697,
+      "fit_share": 0.3,
+      "longest_m": 0.42,
+      "reason": "fits"
+    },
+    "PlateCarrierHolster_Desert": {
+      "candidate_points": 1697,
+      "fit_share": 0.3,
+      "longest_m": 0.42,
+      "reason": "fits"
+    },
+    "PlateCarrierHolster_Green": {
+      "candidate_points": 1697,
+      "fit_share": 0.3,
+      "longest_m": 0.42,
+      "reason": "fits"
+    },
+    "PlateCarrierHolster_Winter": {
+      "candidate_points": 1697,
+      "fit_share": 0.3,
+      "longest_m": 0.42,
+      "reason": "fits"
+    },
+    "PlateCarrierPouches_Black": {
+      "candidate_points": 1697,
+      "fit_share": 0.627,
       "longest_m": 0.27,
       "reason": "fits"
+    },
+    "PlateCarrierPouches_Desert": {
+      "candidate_points": 1697,
+      "fit_share": 0.627,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "PlateCarrierPouches_Green": {
+      "candidate_points": 1697,
+      "fit_share": 0.627,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "PlateCarrierPouches_Winter": {
+      "candidate_points": 1697,
+      "fit_share": 0.627,
+      "longest_m": 0.27,
+      "reason": "fits"
+    },
+    "PlateCarrierVest_Black": {
+      "candidate_points": 1697,
+      "fit_share": 0.212,
+      "longest_m": 0.62,
+      "reason": "below_threshold"
+    },
+    "PlateCarrierVest_Desert": {
+      "candidate_points": 1697,
+      "fit_share": 0.212,
+      "longest_m": 0.62,
+      "reason": "below_threshold"
+    },
+    "PlateCarrierVest_Green": {
+      "candidate_points": 1697,
+      "fit_share": 0.212,
+      "longest_m": 0.62,
+      "reason": "below_threshold"
+    },
+    "PlateCarrierVest_Winter": {
+      "candidate_points": 1697,
+      "fit_share": 0.212,
+      "longest_m": 0.62,
+      "reason": "below_threshold"
     },
     "PleurotusMushroom": {
       "candidate_points": 3904,
@@ -3313,7 +4940,7 @@
       "reason": "fits"
     },
     "R12": {
-      "candidate_points": 152,
+      "candidate_points": 216,
       "fit_share": 0.0,
       "longest_m": 2.2,
       "reason": "below_threshold"
@@ -3361,8 +4988,8 @@
       "reason": "fits"
     },
     "ReflexOptic": {
-      "candidate_points": 1108,
-      "fit_share": 0.993,
+      "candidate_points": 2013,
+      "fit_share": 0.996,
       "longest_m": 0.09,
       "reason": "fits"
     },
@@ -3385,7 +5012,7 @@
       "reason": "fits"
     },
     "Repeater": {
-      "candidate_points": 162,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -3403,7 +5030,7 @@
       "reason": "fits"
     },
     "Ruger1022": {
-      "candidate_points": 879,
+      "candidate_points": 1977,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
@@ -3457,8 +5084,8 @@
       "reason": "fits"
     },
     "SKS": {
-      "candidate_points": 1108,
-      "fit_share": 0.139,
+      "candidate_points": 1253,
+      "fit_share": 0.123,
       "longest_m": 1.19,
       "reason": "below_threshold"
     },
@@ -3468,57 +5095,69 @@
       "longest_m": 0.37,
       "reason": "fits"
     },
+    "SKS_Black": {
+      "candidate_points": 1253,
+      "fit_share": 0.123,
+      "longest_m": 1.19,
+      "reason": "below_threshold"
+    },
     "SKS_Desert": {
-      "candidate_points": 1108,
-      "fit_share": 0.139,
+      "candidate_points": 1253,
+      "fit_share": 0.123,
+      "longest_m": 1.19,
+      "reason": "below_threshold"
+    },
+    "SKS_Green": {
+      "candidate_points": 1253,
+      "fit_share": 0.123,
       "longest_m": 1.19,
       "reason": "below_threshold"
     },
     "SKS_Winter": {
-      "candidate_points": 1108,
-      "fit_share": 0.139,
+      "candidate_points": 1253,
+      "fit_share": 0.123,
       "longest_m": 1.19,
       "reason": "below_threshold"
     },
     "SKS_Woodland": {
-      "candidate_points": 1108,
-      "fit_share": 0.139,
+      "candidate_points": 1253,
+      "fit_share": 0.123,
       "longest_m": 1.19,
       "reason": "below_threshold"
     },
     "SSG82": {
-      "candidate_points": 152,
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 2.02,
       "reason": "below_threshold"
     },
     "SV98": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 2.0,
       "reason": "below_threshold"
     },
     "SVD": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 1.24,
       "reason": "below_threshold"
     },
     "SVD_Wooden": {
-      "candidate_points": 2215,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 1.24,
       "reason": "below_threshold"
     },
     "Saiga": {
-      "candidate_points": 1108,
+      "candidate_points": 1253,
       "fit_share": 0.0,
       "longest_m": 2.01,
       "reason": "below_threshold"
     },
     "Saiga_Bttstck": {
-      "candidate_points": 1108,
-      "fit_share": 0.802,
+      "candidate_points": 2013,
+      "fit_share": 0.634,
       "longest_m": 0.28,
       "reason": "fits"
     },
@@ -3655,14 +5294,14 @@
       "reason": "bounds_unknown"
     },
     "Scout": {
-      "candidate_points": 78,
-      "fit_share": 0.038,
+      "candidate_points": 216,
+      "fit_share": 0.013,
       "longest_m": 1.08,
       "reason": "below_threshold"
     },
     "Scout_Chernarus": {
-      "candidate_points": 152,
-      "fit_share": 0.019,
+      "candidate_points": 216,
+      "fit_share": 0.013,
       "longest_m": 1.08,
       "reason": "below_threshold"
     },
@@ -3786,6 +5425,12 @@
       "longest_m": 1.29,
       "reason": "no_shelf_points"
     },
+    "Sedan_02_Wheel": {
+      "candidate_points": 2980,
+      "fit_share": 0.093,
+      "longest_m": 0.74,
+      "reason": "below_threshold"
+    },
     "Sedan_02_Wheel_Ruined": {
       "candidate_points": 0,
       "fit_share": 0.0,
@@ -3832,6 +5477,30 @@
       "candidate_points": 6283,
       "fit_share": 0.0,
       "longest_m": 3.74,
+      "reason": "below_threshold"
+    },
+    "Shemag_Brown": {
+      "candidate_points": 3023,
+      "fit_share": 0.119,
+      "longest_m": 0.38,
+      "reason": "below_threshold"
+    },
+    "Shemag_Green": {
+      "candidate_points": 3023,
+      "fit_share": 0.119,
+      "longest_m": 0.38,
+      "reason": "below_threshold"
+    },
+    "Shemag_Red": {
+      "candidate_points": 3023,
+      "fit_share": 0.119,
+      "longest_m": 0.38,
+      "reason": "below_threshold"
+    },
+    "Shemag_White": {
+      "candidate_points": 3023,
+      "fit_share": 0.119,
+      "longest_m": 0.38,
       "reason": "below_threshold"
     },
     "ShippingContainerKeys_Green": {
@@ -3918,33 +5587,57 @@
       "longest_m": 0.55,
       "reason": "below_threshold"
     },
+    "SnowstormUshanka_Brown": {
+      "candidate_points": 3119,
+      "fit_share": 0.15,
+      "longest_m": 0.37,
+      "reason": "below_threshold"
+    },
+    "SnowstormUshanka_Navy": {
+      "candidate_points": 3119,
+      "fit_share": 0.15,
+      "longest_m": 0.37,
+      "reason": "below_threshold"
+    },
+    "SnowstormUshanka_Olive": {
+      "candidate_points": 3119,
+      "fit_share": 0.15,
+      "longest_m": 0.37,
+      "reason": "below_threshold"
+    },
+    "SnowstormUshanka_White": {
+      "candidate_points": 3119,
+      "fit_share": 0.15,
+      "longest_m": 0.37,
+      "reason": "below_threshold"
+    },
     "SodaCan_Cola": {
-      "candidate_points": 3904,
-      "fit_share": 0.889,
+      "candidate_points": 2489,
+      "fit_share": 0.859,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "SodaCan_Fronta": {
-      "candidate_points": 3904,
-      "fit_share": 0.889,
+      "candidate_points": 2489,
+      "fit_share": 0.859,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "SodaCan_Kvass": {
-      "candidate_points": 3904,
-      "fit_share": 0.889,
+      "candidate_points": 2489,
+      "fit_share": 0.859,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "SodaCan_Pipsi": {
-      "candidate_points": 3904,
-      "fit_share": 0.889,
+      "candidate_points": 2489,
+      "fit_share": 0.859,
       "longest_m": 0.12,
       "reason": "fits"
     },
     "SodaCan_Spite": {
-      "candidate_points": 3904,
-      "fit_share": 0.889,
+      "candidate_points": 2489,
+      "fit_share": 0.859,
       "longest_m": 0.12,
       "reason": "fits"
     },
@@ -3966,6 +5659,12 @@
       "longest_m": 0.12,
       "reason": "fits"
     },
+    "SparkPlug": {
+      "candidate_points": 2980,
+      "fit_share": 0.999,
+      "longest_m": 0.08,
+      "reason": "fits"
+    },
     "SpearBone": {
       "candidate_points": 6431,
       "fit_share": 0.0,
@@ -3985,9 +5684,15 @@
       "reason": "bounds_unknown"
     },
     "SportingOptic": {
-      "candidate_points": 162,
-      "fit_share": 0.518,
+      "candidate_points": 2044,
+      "fit_share": 0.704,
       "longest_m": 0.22,
+      "reason": "fits"
+    },
+    "StarlightOptic": {
+      "candidate_points": 2013,
+      "fit_share": 0.343,
+      "longest_m": 0.32,
       "reason": "fits"
     },
     "Stone": {
@@ -4000,6 +5705,12 @@
       "candidate_points": 6431,
       "fit_share": 0.878,
       "longest_m": 0.13,
+      "reason": "fits"
+    },
+    "TLRLight": {
+      "candidate_points": 1253,
+      "fit_share": 1.0,
+      "longest_m": 0.07,
       "reason": "fits"
     },
     "TacticalBaconCan_Opened": {
@@ -4140,10 +5851,28 @@
       "longest_m": null,
       "reason": "bounds_unknown"
     },
+    "UKAssVest_Winter": {
+      "candidate_points": 1697,
+      "fit_share": 0.192,
+      "longest_m": 0.72,
+      "reason": "below_threshold"
+    },
     "UMP45": {
-      "candidate_points": 1108,
-      "fit_share": 0.262,
+      "candidate_points": 216,
+      "fit_share": 0.027,
       "longest_m": 0.76,
+      "reason": "below_threshold"
+    },
+    "USMCJacket_Desert": {
+      "candidate_points": 1697,
+      "fit_share": 0.18,
+      "longest_m": 0.8,
+      "reason": "below_threshold"
+    },
+    "USMCPants_Desert": {
+      "candidate_points": 1697,
+      "fit_share": 0.21,
+      "longest_m": 0.62,
       "reason": "below_threshold"
     },
     "UndergroundStash": {
@@ -4152,6 +5881,12 @@
       "longest_m": 1.22,
       "reason": "below_threshold"
     },
+    "UniversalLight": {
+      "candidate_points": 1253,
+      "fit_share": 0.932,
+      "longest_m": 0.14,
+      "reason": "fits"
+    },
     "UnknownFoodCan_Opened": {
       "candidate_points": 3904,
       "fit_share": 0.893,
@@ -4159,14 +5894,14 @@
       "reason": "fits"
     },
     "VSS": {
-      "candidate_points": 1108,
-      "fit_share": 0.214,
+      "candidate_points": 1253,
+      "fit_share": 0.189,
       "longest_m": 0.91,
       "reason": "below_threshold"
     },
     "Vikhr": {
-      "candidate_points": 1108,
-      "fit_share": 0.269,
+      "candidate_points": 1253,
+      "fit_share": 0.24,
       "longest_m": 0.72,
       "reason": "below_threshold"
     },
@@ -4195,7 +5930,19 @@
       "reason": "below_threshold"
     },
     "Winchester70": {
-      "candidate_points": 102,
+      "candidate_points": 951,
+      "fit_share": 0.0,
+      "longest_m": 1.23,
+      "reason": "below_threshold"
+    },
+    "Winchester70_Black": {
+      "candidate_points": 951,
+      "fit_share": 0.0,
+      "longest_m": 1.23,
+      "reason": "below_threshold"
+    },
+    "Winchester70_Green": {
+      "candidate_points": 951,
       "fit_share": 0.0,
       "longest_m": 1.23,
       "reason": "below_threshold"

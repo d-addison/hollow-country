@@ -76,6 +76,31 @@ def construction_kit(stock, name):
     return row
 
 
+def authored_shelf_tags(rows, vanilla, shelf_fit):
+    """Restrict HC-authored shelf tags; change no other authored field.
+
+    Vanilla shelf tags are already admitted. Otherwise only proven geometry may
+    retain an authored shelf restriction; refused rows recover their own vanilla
+    tags (never a parent's tags for a class absent from vanilla).
+    """
+    changed = []
+    for row in rows:
+        name = row.get('name')
+        before = [node.get('name') for node in row.findall('tag')]
+        stock = vanilla.get(name)
+        native = stock.findall('tag') if stock is not None else []
+        if ('shelves' not in before or any(n.get('name') == 'shelves' for n in native)
+                or shelf_fit['classes'].get(name, {}).get('reason') == 'fits'):
+            continue
+        index = next(i for i, node in enumerate(row) if node.tag == 'tag')
+        for node in row.findall('tag'):
+            row.remove(node)
+        for offset, node in enumerate(native):
+            row.insert(index + offset, copy.deepcopy(node))
+        changed.append(name)
+    return changed
+
+
 def placement_budget(layers, proto_bytes, pos_bytes):
     """Offline usage/tag pressure estimate, never engine-qualified placement capacity.
 

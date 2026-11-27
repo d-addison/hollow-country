@@ -1598,6 +1598,14 @@ unobserved until a server soak.
 The floor policy adds `shelves` only for classes proven to fit at least 30% of
 candidate shelf points. Other rows keep their vanilla tags, including untagged
 and floor routes; existing vanilla shelf rows and Motorbike wheels are untouched.
+The same admission rule covers HC-authored CE rows: vanilla shelf tags may stay;
+otherwise a refused row recovers its own vanilla tags, or no tags when no vanilla
+row exists. `military_loot.regenerate` owns this tag-only refresh through
+`economy.authored_shelf_tags`. Authored regeneration takes a pristine mission via
+`military_loot --regenerate --source` or the shared `HC_GENERATED_SOURCE` setting
+(the latter also supplies it during digest regeneration).
+The calibration includes all authored classes using
+their authored categories and usages, independently of their current tags.
 An enabled policy refuses installation if its companion `shelf-fit.json` is missing
 or invalid. The receipt lists and counts rows kept on their vanilla route.
 

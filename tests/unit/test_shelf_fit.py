@@ -22,6 +22,24 @@ class ShelfFit(unittest.TestCase):
             with patch.object(shelf_fit.pbo, 'read_member', return_value=raw):
                 self.assertIsNone(models.longest('Tool'))
 
+    def test_authored_tags_restore_only_native_tags(self):
+        import xml.etree.ElementTree as ET
+        from tools.package import economy
+        rows = ET.fromstring('<types>' + ''.join(
+            '<type name="%s"><nominal>8</nominal><min>3</min><category name="tools"/>'
+            '<tag name="shelves"/><usage name="Farm"/></type>' % name
+            for name in ('Absent', 'Floor', 'NativeShelf', 'Fits', 'Missing')) + '</types>')
+        stock = economy._unique(ET.fromstring('<types><type name="Floor"><tag name="floor"/></type>'
+            '<type name="NativeShelf"><tag name="shelves"/></type></types>'))
+        before = {r.get('name'): economy._retained(r, {'tag'}) for r in rows}
+        evidence = {'classes': {'Absent': shelf_fit.classify(2, [.2]),
+                               'Fits': shelf_fit.classify(.1, [.2])}}
+        self.assertEqual(economy.authored_shelf_tags(rows, stock, evidence), ['Absent', 'Floor', 'Missing'])
+        self.assertEqual([[n.get('name') for n in r.findall('tag')] for r in rows],
+                         [[], ['floor'], ['shelves'], ['shelves'], []])
+        self.assertEqual(before, {r.get('name'): economy._retained(r, {'tag'}) for r in rows})
+        self.assertEqual(economy.authored_shelf_tags(rows, stock, evidence), [])
+
     def test_encoding_is_deterministic(self):
         doc = dict(schema=1, kind=shelf_fit.floor.SHELF_FIT_KIND, threshold=.3,
                    classes={'Tool': shelf_fit.classify(.1, [.2])})
