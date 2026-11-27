@@ -81,7 +81,7 @@ class HCShelterCatalog
         HCCandidate("gapcov-balota-roof", "balota exterior rest", "Land_Misc_FeedShack", "4544.932617 59.827011 3130.591064", "balota", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-belaya-polyana-roof", "belaya-polyana exterior rest", "Land_Barn_Wood2", "14188.152344 131.525253 14838.943359", "belaya-polyana", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-berezhki-roof", "berezhki exterior rest", "Land_Misc_FeedShack", "14917.326172 159.152939 14257.607422", "berezhki", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
-        HCCandidate("gapcov-berezino-roof", "berezino exterior rest", "Land_BusStop_City", "12360.422852 10.900807 9651.760742", "berezino", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-berezino-roof", "berezino exterior rest", "Land_BusStop_City", "12339.121094 10.95068 9653.517578", "berezino", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-bogatyrka-roof", "bogatyrka exterior rest", "Land_Barn_Wood2", "1808.760254 293.057983 9146.089844", "bogatyrka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-bor-roof", "bor exterior rest", "Land_Barn_Wood2", "3100.955811 249.415558 4238.387207", "bor", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-chernaya-polyana-roof", "chernaya-polyana exterior rest", "Land_BusStop_City", "12141.347656 96.841225 13641.462891", "chernaya-polyana", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
@@ -100,12 +100,13 @@ class HCShelterCatalog
         HCCandidate("gapcov-kamyshovo-roof", "kamyshovo exterior rest", "Land_Misc_FeedShack", "11816.854492 60.724621 4013.427734", "kamyshovo", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-karmanovka-roof", "karmanovka exterior rest", "Land_Misc_FeedShack", "12624.743164 110.643318 14528.345703", "karmanovka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-khelm-roof", "khelm exterior rest", "Land_Barn_Wood2", "12241.135742 95.680054 10614.205078", "khelm", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-komarovo-roof", "komarovo exterior rest", "Land_Misc_FeedShack", "2813.140625 105.813576 2482.883545", "komarovo", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-kozlovka-roof", "kozlovka exterior rest", "Land_Misc_FeedShack", "4444.75293 317.184357 5074.055664", "kozlovka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-krasnostav-roof", "krasnostav exterior rest", "Land_BusStop_City", "11212.105469 196.35141 12197.904297", "krasnostav", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-krasnoye-roof", "krasnoye exterior rest", "Land_Misc_FeedShack", "6220.273438 465.571747 15337.134766", "krasnoye", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
-        HCCandidate("gapcov-kumyrna-roof", "kumyrna exterior rest", "Land_Misc_FeedShack", "8171.711426 184.208511 5446.868652", "kumyrna", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-kumyrna-roof", "kumyrna exterior rest", "Land_Misc_FeedShack", "7635.495605 286.682617 6637.404785", "kumyrna", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-lopatino-roof", "lopatino exterior rest", "Land_Misc_FeedShack", "2563.891602 261.918457 9221.756836", "lopatino", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
-        HCCandidate("gapcov-mogilevka-roof", "mogilevka exterior rest", "Land_Misc_FeedShack", "6997.211426 217.29245 4549.72168", "mogilevka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-mogilevka-roof", "mogilevka exterior rest", "Land_Misc_FeedShack", "8171.711426 184.208511 5446.868652", "mogilevka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-msta-roof", "msta exterior rest", "Land_Misc_FeedShack", "11756.543945 200.672852 5805.47998", "msta", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-myshkino-roof", "myshkino exterior rest", "Land_Misc_FeedShack", "2543.650391 366.802979 7593.288574", "myshkino", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-nadezhdino-roof", "nadezhdino exterior rest", "Land_Misc_FeedShack", "5263.218262 295.056061 4857.912109", "nadezhdino", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
@@ -116,7 +117,7 @@ class HCShelterCatalog
         HCCandidate("gapcov-novy-sobor-roof", "novy-sobor exterior rest", "Land_Misc_FeedShack", "8118.444824 407.60434 8237.876953", "novy-sobor", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-nw-airfield-roof", "nw-airfield exterior rest", "Land_Misc_FeedShack", "5026.818359 267.413544 11275.800781", "nw-airfield", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-olsha-roof", "olsha exterior rest", "Land_Barn_Wood2", "13791.62207 43.747513 12868.035156", "olsha", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
-        HCCandidate("gapcov-orlovets-roof", "orlovets exterior rest", "Land_Misc_FeedShack", "12378.510742 105.373116 7740.572266", "orlovets", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-orlovets-roof", "orlovets exterior rest", "Land_Misc_FeedShack", "11733.568359 168.370041 7100.322754", "orlovets", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-pavlovo-roof", "pavlovo exterior rest", "Land_Barn_Wood2", "1409.074463 141.003555 4047.021729", "pavlovo", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-polana-roof", "polana exterior rest", "Land_Barn_Wood2", "10677.808594 214.414337 7923.848633", "polana", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-polesovo-roof", "polesovo exterior rest", "Land_Misc_FeedShack", "5298.107422 213.97818 13590.946289", "polesovo", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
@@ -127,7 +128,7 @@ class HCShelterCatalog
         HCCandidate("gapcov-severograd-roof", "severograd exterior rest", "Land_BusStop_City", "8068.223145 121.205116 12586.291992", "severograd", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-shakhovka-roof", "shakhovka exterior rest", "Land_Barn_Wood2", "9710.349609 216.305511 6487.099121", "shakhovka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-skvsch-biathlon-arena-roof", "skvsch-biathlon-arena exterior rest", "Land_Misc_FeedShack", "80.261421 411.262756 10449.132813", "skvsch-biathlon-arena", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
-        HCCandidate("gapcov-sosnovka-roof", "sosnovka exterior rest", "Land_Misc_FeedShack", "2057.715088 314.685272 6277.850586", "sosnovka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-sosnovka-roof", "sosnovka exterior rest", "Land_Misc_FeedShack", "3063.543945 364.262665 6581.65625", "sosnovka", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-staroye-roof", "staroye exterior rest", "Land_Misc_FeedShack", "10643.481445 247.555817 6059.513672", "staroye", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-stary-yar-roof", "stary-yar exterior rest", "Land_Barn_Wood2", "4850.998047 476.733582 15220.709961", "stary-yar", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-svergino-roof", "svergino exterior rest", "Land_BusStop_City", "9667.137695 77.460258 13778.698242", "svergino", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
@@ -145,7 +146,7 @@ class HCShelterCatalog
         HCCandidate("gapcov-vysotovo-roof", "vysotovo exterior rest", "Land_BusStop_City", "5716.401367 58.884052 2425.210205", "vysotovo", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-zabolotye-roof", "zabolotye exterior rest", "Land_Barn_Wood2", "1029.501343 341.571014 9965.56543", "zabolotye", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-zaprudnoye-roof", "zaprudnoye exterior rest", "Land_BusStop_City", "5387.128418 161.014206 12627.210938", "zaprudnoye", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
-        HCCandidate("gapcov-zelenogorsk-roof", "zelenogorsk exterior rest", "Land_BusStop_City", "2837.758301 205.57312 5262.322754", "zelenogorsk", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
+        HCCandidate("gapcov-zelenogorsk-roof", "zelenogorsk exterior rest", "Land_BusStop_City", "2687.125732 205.440842 5265.591309", "zelenogorsk", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
         HCCandidate("gapcov-zvir-roof", "zvir exterior rest", "Land_Barn_Wood2", "555.201538 152.866577 5393.116211", "zvir", "map-wide", "exterior-rest", "runtime_access_clearance_pending");
     }
 

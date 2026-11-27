@@ -426,21 +426,21 @@
           5360.409668
         ],
         "LocalityId": "zelenogorsk",
-        "DistanceToLabelM": 286.82,
+        "DistanceToLabelM": 247.863,
         "StockRowIndex": 1411,
         "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
         "RuntimeAcceptance": "PENDING"
       },
       {
-        "Name": "Bor South Rest",
+        "Name": "Zabolotye Track Barn",
         "Position": [
-          3100.955811,
-          249.415558,
-          4238.387207
+          1634.676147,
+          311.890808,
+          9857.233398
         ],
-        "LocalityId": "bor",
-        "DistanceToLabelM": 272.853,
-        "StockRowIndex": 1955,
+        "LocalityId": "zabolotye",
+        "DistanceToLabelM": 420.307,
+        "StockRowIndex": 736,
         "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
         "RuntimeAcceptance": "PENDING"
       },
@@ -452,7 +452,7 @@
           7004.783203
         ],
         "LocalityId": "pustoshka",
-        "DistanceToLabelM": 981.904,
+        "DistanceToLabelM": 964.045,
         "StockRowIndex": 2482,
         "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
         "RuntimeAcceptance": "PENDING"
@@ -465,7 +465,7 @@
           5515.677246
         ],
         "LocalityId": "pulkovo",
-        "DistanceToLabelM": 272.224,
+        "DistanceToLabelM": 292.436,
         "StockRowIndex": 3722,
         "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
         "RuntimeAcceptance": "PENDING"
@@ -478,7 +478,7 @@
           6487.099121
         ],
         "LocalityId": "shakhovka",
-        "DistanceToLabelM": 82.26,
+        "DistanceToLabelM": 52.853,
         "StockRowIndex": 7300,
         "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
         "RuntimeAcceptance": "PENDING"
@@ -491,7 +491,7 @@
           7923.848633
         ],
         "LocalityId": "polana",
-        "DistanceToLabelM": 263.188,
+        "DistanceToLabelM": 238.233,
         "StockRowIndex": 8264,
         "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
         "RuntimeAcceptance": "PENDING"
@@ -579,7 +579,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 665.497
+        "distance_to_label_m": 669.949
       },
       "LocalityId": "balota",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -664,7 +664,7 @@
         "stock_row_index": 11599,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 130.944
+        "distance_to_label_m": 147.958
       },
       "LocalityId": "belaya-polyana",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -749,7 +749,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 367.252
+        "distance_to_label_m": 468.949
       },
       "LocalityId": "berezhki",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -759,9 +759,9 @@
       "Name": "berezino exterior rest",
       "BuildingClass": "Land_BusStop_City",
       "Position": [
-        12360.422852,
-        10.900807,
-        9651.760742
+        12339.121094,
+        10.95068,
+        9653.517578
       ],
       "Enabled": true,
       "ClipMin": [
@@ -817,11 +817,11 @@
       "Evidence": {
         "stock_row": {
           "name": "Land_BusStop_City",
-          "pos": "12360.422852 10.900807 9651.760742",
-          "rpy": "-0.017967 -0.021444 129.959030",
-          "a": "-39.959042"
+          "pos": "12339.121094 10.950680 9653.517578",
+          "rpy": "0.016390 0.022672 -54.135818",
+          "a": "144.135803"
         },
-        "stock_row_index": 10145,
+        "stock_row_index": 10055,
         "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
         "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
         "sample_position": [
@@ -834,7 +834,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 109.873
+        "distance_to_label_m": 74.771
       },
       "LocalityId": "berezino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -919,7 +919,7 @@
         "stock_row_index": 859,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 449.269
+        "distance_to_label_m": 365.03
       },
       "LocalityId": "bogatyrka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1004,7 +1004,7 @@
         "stock_row_index": 1955,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 272.853
+        "distance_to_label_m": 272.986
       },
       "LocalityId": "bor",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1089,7 +1089,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 129.9
+        "distance_to_label_m": 132.655
       },
       "LocalityId": "chernaya-polyana",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1174,7 +1174,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 471.915
+        "distance_to_label_m": 388.746
       },
       "LocalityId": "chernogorsk",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1259,7 +1259,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 537.588
+        "distance_to_label_m": 568.725
       },
       "LocalityId": "devils-castle",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1344,7 +1344,7 @@
         "stock_row_index": 11067,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 441.502
+        "distance_to_label_m": 439.79
       },
       "LocalityId": "dobroye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1429,7 +1429,7 @@
         "stock_row_index": 5189,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 508.915
+        "distance_to_label_m": 530.891
       },
       "LocalityId": "dubovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1514,7 +1514,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 668.024
+        "distance_to_label_m": 715.89
       },
       "LocalityId": "dubrovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1599,7 +1599,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 831.863
+        "distance_to_label_m": 860.418
       },
       "LocalityId": "galkino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1684,7 +1684,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 276.432
+        "distance_to_label_m": 304.761
       },
       "LocalityId": "gorka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1769,7 +1769,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 576.341
+        "distance_to_label_m": 576.295
       },
       "LocalityId": "guglovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1854,7 +1854,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 162.472
+        "distance_to_label_m": 191.414
       },
       "LocalityId": "gvozdno",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -1939,7 +1939,7 @@
         "stock_row_index": 3792,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 46.692
+        "distance_to_label_m": 33.115
       },
       "LocalityId": "kabanino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2024,7 +2024,7 @@
         "stock_row_index": 6026,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 382.633
+        "distance_to_label_m": 380.953
       },
       "LocalityId": "kalinovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2109,7 +2109,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 674.537
+        "distance_to_label_m": 653.489
       },
       "LocalityId": "kamenka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2194,7 +2194,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 658.188
+        "distance_to_label_m": 646.367
       },
       "LocalityId": "kamyshovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2279,7 +2279,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 179.768
+        "distance_to_label_m": 227.325
       },
       "LocalityId": "karmanovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2364,9 +2364,94 @@
         "stock_row_index": 9966,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 179.876
+        "distance_to_label_m": 192.039
       },
       "LocalityId": "khelm",
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+    },
+    {
+      "Id": "gapcov-komarovo-roof",
+      "Name": "komarovo exterior rest",
+      "BuildingClass": "Land_Misc_FeedShack",
+      "Position": [
+        2813.140625,
+        105.813576,
+        2482.883545
+      ],
+      "Enabled": true,
+      "ClipMin": [
+        -3.89135,
+        -3.28937,
+        -2.25146
+      ],
+      "ClipMax": [
+        3.89135,
+        3.28937,
+        2.25146
+      ],
+      "AccessMin": [
+        -5.89135,
+        -20,
+        -4.25146
+      ],
+      "AccessMax": [
+        5.89135,
+        20,
+        4.25146
+      ],
+      "YardMin": [
+        -19.39135,
+        -20,
+        -12
+      ],
+      "YardMax": [
+        -6.391349999999999,
+        20,
+        12
+      ],
+      "Slots": [
+        [
+          -8.39135,
+          0,
+          0
+        ],
+        [
+          -8.39135,
+          0,
+          -3
+        ],
+        [
+          -8.39135,
+          0,
+          3
+        ]
+      ],
+      "History": "Walkers rested under the stock roof. A cold grate, chair and empty box stand outside the reserved walk-around lane.",
+      "RuntimeAcceptance": "PENDING",
+      "StockGrants": 0,
+      "Evidence": {
+        "stock_row": {
+          "name": "Land_Misc_FeedShack",
+          "pos": "2813.140625 105.813576 2482.883545",
+          "rpy": "-0.000000 0.000000 48.988640",
+          "a": "41.011353"
+        },
+        "stock_row_index": 1661,
+        "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
+        "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
+        "sample_position": [
+          6889.01,
+          340.438,
+          10862.5
+        ],
+        "sample_is_candidate": false,
+        "path_tests": 0,
+        "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
+        "within_named_content_proxy": true,
+        "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+        "distance_to_label_m": 865.818
+      },
+      "LocalityId": "komarovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
     },
     {
@@ -2449,7 +2534,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 340.748
+        "distance_to_label_m": 343.039
       },
       "LocalityId": "kozlovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2534,7 +2619,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 143.183
+        "distance_to_label_m": 172.143
       },
       "LocalityId": "krasnostav",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2619,7 +2704,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 361.767
+        "distance_to_label_m": 368.651
       },
       "LocalityId": "krasnoye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2629,9 +2714,9 @@
       "Name": "kumyrna exterior rest",
       "BuildingClass": "Land_Misc_FeedShack",
       "Position": [
-        8171.711426,
-        184.208511,
-        5446.868652
+        7635.495605,
+        286.682617,
+        6637.404785
       ],
       "Enabled": true,
       "ClipMin": [
@@ -2687,11 +2772,11 @@
       "Evidence": {
         "stock_row": {
           "name": "Land_Misc_FeedShack",
-          "pos": "8171.711426 184.208511 5446.868652",
-          "rpy": "-0.000000 0.000000 -78.291336",
-          "a": "168.291336"
+          "pos": "7635.495605 286.682617 6637.404785",
+          "rpy": "0.015057 -0.023578 57.437054",
+          "a": "32.562946"
         },
-        "stock_row_index": 6464,
+        "stock_row_index": 5962,
         "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
         "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
         "sample_position": [
@@ -2704,7 +2789,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 620.537
+        "distance_to_label_m": 690.033
       },
       "LocalityId": "kumyrna",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2789,7 +2874,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 841.345
+        "distance_to_label_m": 831.238
       },
       "LocalityId": "lopatino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2799,9 +2884,9 @@
       "Name": "mogilevka exterior rest",
       "BuildingClass": "Land_Misc_FeedShack",
       "Position": [
-        6997.211426,
-        217.29245,
-        4549.72168
+        8171.711426,
+        184.208511,
+        5446.868652
       ],
       "Enabled": true,
       "ClipMin": [
@@ -2857,11 +2942,11 @@
       "Evidence": {
         "stock_row": {
           "name": "Land_Misc_FeedShack",
-          "pos": "6997.211426 217.292450 4549.721680",
-          "rpy": "-0.000000 0.000000 -4.419368",
-          "a": "94.419365"
+          "pos": "8171.711426 184.208511 5446.868652",
+          "rpy": "-0.000000 0.000000 -78.291336",
+          "a": "168.291336"
         },
-        "stock_row_index": 5521,
+        "stock_row_index": 6464,
         "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
         "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
         "sample_position": [
@@ -2874,7 +2959,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 851.816
+        "distance_to_label_m": 617.902
       },
       "LocalityId": "mogilevka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -2959,7 +3044,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 571.173
+        "distance_to_label_m": 552.564
       },
       "LocalityId": "msta",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3044,7 +3129,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 598.404
+        "distance_to_label_m": 583.713
       },
       "LocalityId": "myshkino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3129,7 +3214,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 635.575
+        "distance_to_label_m": 646.766
       },
       "LocalityId": "nadezhdino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3214,7 +3299,7 @@
         "stock_row_index": 6918,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 206.56
+        "distance_to_label_m": 250.734
       },
       "LocalityId": "nagornoye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3299,7 +3384,7 @@
         "stock_row_index": 10692,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 121.767
+        "distance_to_label_m": 110.185
       },
       "LocalityId": "nizhnee",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3384,7 +3469,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 259.936
+        "distance_to_label_m": 234.11
       },
       "LocalityId": "novaya-petrovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3469,7 +3554,7 @@
         "stock_row_index": 4347,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 430.131
+        "distance_to_label_m": 447.89
       },
       "LocalityId": "novoselki",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3554,7 +3639,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": false,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 1097.385
+        "distance_to_label_m": 1100.158
       },
       "LocalityId": "novy-sobor",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3639,7 +3724,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 974.269
+        "distance_to_label_m": 974.275
       },
       "LocalityId": "nw-airfield",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3724,7 +3809,7 @@
         "stock_row_index": 11335,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 390.773
+        "distance_to_label_m": 416.906
       },
       "LocalityId": "olsha",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3734,9 +3819,9 @@
       "Name": "orlovets exterior rest",
       "BuildingClass": "Land_Misc_FeedShack",
       "Position": [
-        12378.510742,
-        105.373116,
-        7740.572266
+        11733.568359,
+        168.370041,
+        7100.322754
       ],
       "Enabled": true,
       "ClipMin": [
@@ -3792,11 +3877,11 @@
       "Evidence": {
         "stock_row": {
           "name": "Land_Misc_FeedShack",
-          "pos": "12378.510742 105.373116 7740.572266",
-          "rpy": "-0.000000 0.000000 179.228226",
-          "a": "-89.228218"
+          "pos": "11733.568359 168.370041 7100.322754",
+          "rpy": "-0.002219 -0.027888 94.549713",
+          "a": "-4.549715"
         },
-        "stock_row_index": 10125,
+        "stock_row_index": 9211,
         "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
         "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
         "sample_position": [
@@ -3809,7 +3894,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 504.224
+        "distance_to_label_m": 497.921
       },
       "LocalityId": "orlovets",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3894,7 +3979,7 @@
         "stock_row_index": 560,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 341.548
+        "distance_to_label_m": 344.703
       },
       "LocalityId": "pavlovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -3979,7 +4064,7 @@
         "stock_row_index": 8264,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 263.188
+        "distance_to_label_m": 238.233
       },
       "LocalityId": "polana",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4064,7 +4149,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 658.452
+        "distance_to_label_m": 649.244
       },
       "LocalityId": "polesovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4149,7 +4234,7 @@
         "stock_row_index": 3722,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 272.224
+        "distance_to_label_m": 292.436
       },
       "LocalityId": "pulkovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4234,7 +4319,7 @@
         "stock_row_index": 6930,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 103.364
+        "distance_to_label_m": 80.07
       },
       "LocalityId": "pusta",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4319,7 +4404,7 @@
         "stock_row_index": 2058,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 138.402
+        "distance_to_label_m": 121.441
       },
       "LocalityId": "pustoshka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4404,7 +4489,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 467.177
+        "distance_to_label_m": 487.853
       },
       "LocalityId": "rogovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4489,7 +4574,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 101.061
+        "distance_to_label_m": 74.903
       },
       "LocalityId": "severograd",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4574,7 +4659,7 @@
         "stock_row_index": 7300,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 82.26
+        "distance_to_label_m": 52.853
       },
       "LocalityId": "shakhovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4659,7 +4744,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 746.089
+        "distance_to_label_m": 725.344
       },
       "LocalityId": "skvsch-biathlon-arena",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4669,9 +4754,9 @@
       "Name": "sosnovka exterior rest",
       "BuildingClass": "Land_Misc_FeedShack",
       "Position": [
-        2057.715088,
-        314.685272,
-        6277.850586
+        3063.543945,
+        364.262665,
+        6581.65625
       ],
       "Enabled": true,
       "ClipMin": [
@@ -4727,11 +4812,11 @@
       "Evidence": {
         "stock_row": {
           "name": "Land_Misc_FeedShack",
-          "pos": "2057.715088 314.685272 6277.850586",
-          "rpy": "-0.000000 0.000000 -139.037216",
-          "a": "-130.962784"
+          "pos": "3063.543945 364.262665 6581.656250",
+          "rpy": "-0.000000 0.000000 -170.743134",
+          "a": "-99.256859"
         },
-        "stock_row_index": 1022,
+        "stock_row_index": 1957,
         "class_source": "interior-sampler-112/profiles/HCInteriorSampler/census.json",
         "class_sha256": "5c83a9854c12dc47f3dd36e79c819e503cf90323c409d453947f85ef8dc49bc1",
         "sample_position": [
@@ -4744,7 +4829,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 499.137
+        "distance_to_label_m": 532.519
       },
       "LocalityId": "sosnovka",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4829,7 +4914,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 800.393
+        "distance_to_label_m": 796.055
       },
       "LocalityId": "staroye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4914,7 +4999,7 @@
         "stock_row_index": 3453,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 265.695
+        "distance_to_label_m": 236.476
       },
       "LocalityId": "stary-yar",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -4999,7 +5084,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 198.669
+        "distance_to_label_m": 215.602
       },
       "LocalityId": "svergino",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5084,7 +5169,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 16.089
+        "distance_to_label_m": 10.15
       },
       "LocalityId": "svetloyarsk",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5169,7 +5254,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 448.082
+        "distance_to_label_m": 206.648
       },
       "LocalityId": "svyatoy-roman-ski-resort",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5254,7 +5339,7 @@
         "stock_row_index": 2801,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 661.183
+        "distance_to_label_m": 654.238
       },
       "LocalityId": "tisy",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5339,7 +5424,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 663.986
+        "distance_to_label_m": 657.269
       },
       "LocalityId": "tisy-military",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5424,7 +5509,7 @@
         "stock_row_index": 1723,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 271.389
+        "distance_to_label_m": 254.706
       },
       "LocalityId": "topolniki",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5509,7 +5594,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 881.732
+        "distance_to_label_m": 827.744
       },
       "LocalityId": "tulga",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5594,7 +5679,7 @@
         "stock_row_index": 11355,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 117.43
+        "distance_to_label_m": 100.482
       },
       "LocalityId": "turovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5679,7 +5764,7 @@
         "stock_row_index": 1126,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 203.45
+        "distance_to_label_m": 206.343
       },
       "LocalityId": "vavilovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5764,7 +5849,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 175.456
+        "distance_to_label_m": 178.018
       },
       "LocalityId": "vybor",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5849,7 +5934,7 @@
         "stock_row_index": 3060,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 78.361
+        "distance_to_label_m": 78.238
       },
       "LocalityId": "vybor-military",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -5934,7 +6019,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 596.784
+        "distance_to_label_m": 560.453
       },
       "LocalityId": "vyshnoye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -6019,7 +6104,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 131.775
+        "distance_to_label_m": 139.098
       },
       "LocalityId": "vysotovo",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -6104,7 +6189,7 @@
         "stock_row_index": 366,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 229.038
+        "distance_to_label_m": 210.515
       },
       "LocalityId": "zabolotye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -6189,7 +6274,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 239.016
+        "distance_to_label_m": 185.245
       },
       "LocalityId": "zaprudnoye",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -6199,9 +6284,9 @@
       "Name": "zelenogorsk exterior rest",
       "BuildingClass": "Land_BusStop_City",
       "Position": [
-        2837.758301,
-        205.57312,
-        5262.322754
+        2687.125732,
+        205.440842,
+        5265.591309
       ],
       "Enabled": true,
       "ClipMin": [
@@ -6257,11 +6342,11 @@
       "Evidence": {
         "stock_row": {
           "name": "Land_BusStop_City",
-          "pos": "2837.758301 205.573120 5262.322754",
-          "rpy": "-0.058171 0.011757 -168.573486",
-          "a": "-101.426506"
+          "pos": "2687.125732 205.440842 5265.591309",
+          "rpy": "0.007753 0.038798 -78.699310",
+          "a": "168.699295"
         },
-        "stock_row_index": 1750,
+        "stock_row_index": 1478,
         "class_source": "interior-sampler-110/profiles/HCInteriorSampler/census.json",
         "class_sha256": "ddf1e0be15b2ec9fbd6af78df342de06431711e3a6ad75bd17e7d930db8ddd5b",
         "sample_position": [
@@ -6274,7 +6359,7 @@
         "design": "Exterior room and three slots derived from clipping envelope; full roof plus 2m access envelope reserved on all sides. No measured site path, rain-cover or clearance verdict implied.",
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 104.985
+        "distance_to_label_m": 109.194
       },
       "LocalityId": "zelenogorsk",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -6359,7 +6444,7 @@
         "stock_row_index": 201,
         "within_named_content_proxy": true,
         "stock_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
-        "distance_to_label_m": 78.864
+        "distance_to_label_m": 92.412
       },
       "LocalityId": "zvir",
       "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
@@ -6376,7 +6461,7 @@
       "HCCandidate(\"gapcov-balota-roof\", \"balota exterior rest\", \"Land_Misc_FeedShack\", \"4544.932617 59.827011 3130.591064\", \"balota\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-belaya-polyana-roof\", \"belaya-polyana exterior rest\", \"Land_Barn_Wood2\", \"14188.152344 131.525253 14838.943359\", \"belaya-polyana\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-berezhki-roof\", \"berezhki exterior rest\", \"Land_Misc_FeedShack\", \"14917.326172 159.152939 14257.607422\", \"berezhki\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
-      "HCCandidate(\"gapcov-berezino-roof\", \"berezino exterior rest\", \"Land_BusStop_City\", \"12360.422852 10.900807 9651.760742\", \"berezino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-berezino-roof\", \"berezino exterior rest\", \"Land_BusStop_City\", \"12339.121094 10.95068 9653.517578\", \"berezino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-bogatyrka-roof\", \"bogatyrka exterior rest\", \"Land_Barn_Wood2\", \"1808.760254 293.057983 9146.089844\", \"bogatyrka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-bor-roof\", \"bor exterior rest\", \"Land_Barn_Wood2\", \"3100.955811 249.415558 4238.387207\", \"bor\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-chernaya-polyana-roof\", \"chernaya-polyana exterior rest\", \"Land_BusStop_City\", \"12141.347656 96.841225 13641.462891\", \"chernaya-polyana\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
@@ -6395,12 +6480,13 @@
       "HCCandidate(\"gapcov-kamyshovo-roof\", \"kamyshovo exterior rest\", \"Land_Misc_FeedShack\", \"11816.854492 60.724621 4013.427734\", \"kamyshovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-karmanovka-roof\", \"karmanovka exterior rest\", \"Land_Misc_FeedShack\", \"12624.743164 110.643318 14528.345703\", \"karmanovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-khelm-roof\", \"khelm exterior rest\", \"Land_Barn_Wood2\", \"12241.135742 95.680054 10614.205078\", \"khelm\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-komarovo-roof\", \"komarovo exterior rest\", \"Land_Misc_FeedShack\", \"2813.140625 105.813576 2482.883545\", \"komarovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-kozlovka-roof\", \"kozlovka exterior rest\", \"Land_Misc_FeedShack\", \"4444.75293 317.184357 5074.055664\", \"kozlovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-krasnostav-roof\", \"krasnostav exterior rest\", \"Land_BusStop_City\", \"11212.105469 196.35141 12197.904297\", \"krasnostav\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-krasnoye-roof\", \"krasnoye exterior rest\", \"Land_Misc_FeedShack\", \"6220.273438 465.571747 15337.134766\", \"krasnoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
-      "HCCandidate(\"gapcov-kumyrna-roof\", \"kumyrna exterior rest\", \"Land_Misc_FeedShack\", \"8171.711426 184.208511 5446.868652\", \"kumyrna\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-kumyrna-roof\", \"kumyrna exterior rest\", \"Land_Misc_FeedShack\", \"7635.495605 286.682617 6637.404785\", \"kumyrna\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-lopatino-roof\", \"lopatino exterior rest\", \"Land_Misc_FeedShack\", \"2563.891602 261.918457 9221.756836\", \"lopatino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
-      "HCCandidate(\"gapcov-mogilevka-roof\", \"mogilevka exterior rest\", \"Land_Misc_FeedShack\", \"6997.211426 217.29245 4549.72168\", \"mogilevka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-mogilevka-roof\", \"mogilevka exterior rest\", \"Land_Misc_FeedShack\", \"8171.711426 184.208511 5446.868652\", \"mogilevka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-msta-roof\", \"msta exterior rest\", \"Land_Misc_FeedShack\", \"11756.543945 200.672852 5805.47998\", \"msta\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-myshkino-roof\", \"myshkino exterior rest\", \"Land_Misc_FeedShack\", \"2543.650391 366.802979 7593.288574\", \"myshkino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-nadezhdino-roof\", \"nadezhdino exterior rest\", \"Land_Misc_FeedShack\", \"5263.218262 295.056061 4857.912109\", \"nadezhdino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
@@ -6411,7 +6497,7 @@
       "HCCandidate(\"gapcov-novy-sobor-roof\", \"novy-sobor exterior rest\", \"Land_Misc_FeedShack\", \"8118.444824 407.60434 8237.876953\", \"novy-sobor\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-nw-airfield-roof\", \"nw-airfield exterior rest\", \"Land_Misc_FeedShack\", \"5026.818359 267.413544 11275.800781\", \"nw-airfield\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-olsha-roof\", \"olsha exterior rest\", \"Land_Barn_Wood2\", \"13791.62207 43.747513 12868.035156\", \"olsha\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
-      "HCCandidate(\"gapcov-orlovets-roof\", \"orlovets exterior rest\", \"Land_Misc_FeedShack\", \"12378.510742 105.373116 7740.572266\", \"orlovets\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-orlovets-roof\", \"orlovets exterior rest\", \"Land_Misc_FeedShack\", \"11733.568359 168.370041 7100.322754\", \"orlovets\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-pavlovo-roof\", \"pavlovo exterior rest\", \"Land_Barn_Wood2\", \"1409.074463 141.003555 4047.021729\", \"pavlovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-polana-roof\", \"polana exterior rest\", \"Land_Barn_Wood2\", \"10677.808594 214.414337 7923.848633\", \"polana\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-polesovo-roof\", \"polesovo exterior rest\", \"Land_Misc_FeedShack\", \"5298.107422 213.97818 13590.946289\", \"polesovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
@@ -6422,7 +6508,7 @@
       "HCCandidate(\"gapcov-severograd-roof\", \"severograd exterior rest\", \"Land_BusStop_City\", \"8068.223145 121.205116 12586.291992\", \"severograd\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-shakhovka-roof\", \"shakhovka exterior rest\", \"Land_Barn_Wood2\", \"9710.349609 216.305511 6487.099121\", \"shakhovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-skvsch-biathlon-arena-roof\", \"skvsch-biathlon-arena exterior rest\", \"Land_Misc_FeedShack\", \"80.261421 411.262756 10449.132813\", \"skvsch-biathlon-arena\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
-      "HCCandidate(\"gapcov-sosnovka-roof\", \"sosnovka exterior rest\", \"Land_Misc_FeedShack\", \"2057.715088 314.685272 6277.850586\", \"sosnovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-sosnovka-roof\", \"sosnovka exterior rest\", \"Land_Misc_FeedShack\", \"3063.543945 364.262665 6581.65625\", \"sosnovka\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-staroye-roof\", \"staroye exterior rest\", \"Land_Misc_FeedShack\", \"10643.481445 247.555817 6059.513672\", \"staroye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-stary-yar-roof\", \"stary-yar exterior rest\", \"Land_Barn_Wood2\", \"4850.998047 476.733582 15220.709961\", \"stary-yar\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-svergino-roof\", \"svergino exterior rest\", \"Land_BusStop_City\", \"9667.137695 77.460258 13778.698242\", \"svergino\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
@@ -6440,7 +6526,7 @@
       "HCCandidate(\"gapcov-vysotovo-roof\", \"vysotovo exterior rest\", \"Land_BusStop_City\", \"5716.401367 58.884052 2425.210205\", \"vysotovo\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-zabolotye-roof\", \"zabolotye exterior rest\", \"Land_Barn_Wood2\", \"1029.501343 341.571014 9965.56543\", \"zabolotye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-zaprudnoye-roof\", \"zaprudnoye exterior rest\", \"Land_BusStop_City\", \"5387.128418 161.014206 12627.210938\", \"zaprudnoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
-      "HCCandidate(\"gapcov-zelenogorsk-roof\", \"zelenogorsk exterior rest\", \"Land_BusStop_City\", \"2837.758301 205.57312 5262.322754\", \"zelenogorsk\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
+      "HCCandidate(\"gapcov-zelenogorsk-roof\", \"zelenogorsk exterior rest\", \"Land_BusStop_City\", \"2687.125732 205.440842 5265.591309\", \"zelenogorsk\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-zvir-roof\", \"zvir exterior rest\", \"Land_Barn_Wood2\", \"555.201538 152.866577 5393.116211\", \"zvir\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");"
     ]
   }

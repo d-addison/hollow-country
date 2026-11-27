@@ -743,11 +743,11 @@
       "ResidentialClusters": 64,
       "NativeHabitatFiles": 11,
       "NativeZoneRows": 3254,
-      "LabelPointsOutsideWildlife": 31,
+      "LabelPointsOutsideWildlife": 26,
       "ExistingRegionalScenes": 5,
       "LegacyBarns": 6,
-      "AdditionalExteriorScenes": 69,
-      "ShelterGapLocalities": 14,
+      "AdditionalExteriorScenes": 70,
+      "ShelterGapLocalities": 13,
       "ObservedShelters": 0
     },
     "Detail": "forage/habitats.json#gapcov_membership",
@@ -772,7 +772,7 @@
       ],
       [
         "belaya-polyana",
-        0
+        1
       ],
       [
         "berezhki",
@@ -832,11 +832,11 @@
       ],
       [
         "galkino",
-        0
+        2
       ],
       [
         "gorka",
-        1
+        0
       ],
       [
         "green-mountain",
@@ -844,7 +844,7 @@
       ],
       [
         "grishino",
-        2
+        1
       ],
       [
         "guglovo",
@@ -860,11 +860,11 @@
       ],
       [
         "kalinovka",
-        1
+        0
       ],
       [
         "kamenka",
-        0
+        1
       ],
       [
         "kamensk",
@@ -896,11 +896,11 @@
       ],
       [
         "krasnoye",
-        1
+        0
       ],
       [
         "kumyrna",
-        1
+        0
       ],
       [
         "lopatino",
@@ -908,7 +908,7 @@
       ],
       [
         "mogilevka",
-        2
+        3
       ],
       [
         "msta",
@@ -920,11 +920,11 @@
       ],
       [
         "nadezhdino",
-        1
+        2
       ],
       [
         "nagornoye",
-        0
+        1
       ],
       [
         "nizhnee",
@@ -948,7 +948,7 @@
       ],
       [
         "nw-airfield",
-        0
+        1
       ],
       [
         "olsha",
@@ -956,7 +956,7 @@
       ],
       [
         "orlovets",
-        0
+        1
       ],
       [
         "otmel",
@@ -972,7 +972,7 @@
       ],
       [
         "polana",
-        0
+        2
       ],
       [
         "polesovo",
@@ -988,7 +988,7 @@
       ],
       [
         "pulkovo",
-        2
+        3
       ],
       [
         "pusta",
@@ -1004,7 +1004,7 @@
       ],
       [
         "rogovo",
-        1
+        2
       ],
       [
         "severograd",
@@ -1016,7 +1016,7 @@
       ],
       [
         "sinystok",
-        1
+        2
       ],
       [
         "skalisty",
@@ -1036,7 +1036,7 @@
       ],
       [
         "staroye",
-        0
+        1
       ],
       [
         "stary-sobor",
@@ -1044,7 +1044,7 @@
       ],
       [
         "stary-yar",
-        0
+        1
       ],
       [
         "svergino",
@@ -1072,11 +1072,11 @@
       ],
       [
         "tulga",
-        0
+        1
       ],
       [
         "turovo",
-        1
+        0
       ],
       [
         "vavilovo",
@@ -1088,7 +1088,7 @@
       ],
       [
         "vybor-military",
-        2
+        1
       ],
       [
         "vyshnaya-dubrovka",
@@ -1116,7 +1116,7 @@
       ],
       [
         "zvir",
-        3
+        1
       ]
     ]
   }
