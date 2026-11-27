@@ -508,8 +508,9 @@ Selection refusals keep their matching prefix and use these fixed formats:
 ```
 
 `daily_cap` is computed once before the fx_conflict place loop. Its `budget`
-count combines place cooldown and global daily-cap exclusions; it is not a
-cooldown-only count. Each place increments only its first failing filter, in
+count combines place cooldown and global daily-cap exclusions: with
+`daily_cap=0` it is exactly the number of places on cooldown; with `daily_cap=1`
+it counts every place that reached that filter. Each place increments only its first failing filter, in
 pending / near / leased order, followed by active / budget / held / not_opposed
 for fx_conflict. On a journal selection refusal,
 `pending + near + leased + not_opposed == places`. `not_opposed` counts places,
@@ -553,19 +554,19 @@ Failure handling below is source evidence; engine experiments remain pending.
 | EnableSmokeFixtures off | EnableSmokeFixtures-off; no row | HFC:305; HCAdminFixtures.c:27 |
 | Module refused/unhealthy, config/job null | conflict-owner-unavailable; no row | HFC:308, HFC:316 |
 | Outcome job faulted before health poll | conflict-owner-unavailable; no row | HFC:316 |
-| Dirty journal/current encounter/bind/finish/quota pending | conflict-journal-busy; no row | HFC:318 |
-| Second run this boot | fixture-journal-once; no row | HFC:320 |
-| Rows >= MAX_ROWS - 32 (96) | journal-history-headroom; no row | HFC:322 |
+| Dirty journal/current encounter/bind/finish/quota pending | conflict-journal-busy; no row | HFC:319-320 |
+| Second run this boot | fixture-journal-once; no row | HFC:321-322 |
+| Rows >= MAX_ROWS - 32 (96) | journal-history-headroom; no row | HFC:323-324 |
 | No opposed cell anywhere; a pending/far/leased-qualified place exists | fixture-journal-queued forced=1 with counts; raiders/hostile row, BOTH_REMAIN; territory/strength/quota/facts unchanged | HFC:1235, HFC:1278, HFC:1299 |
-| Every place pending/near/leased | no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=0; no row | HFC:1264, HFC:1297 |
+| Every place pending/near/leased | no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=0; no row | HFC:1265, HFC:1297 |
 | Forced row, crash after bind durable | UNKNOWN_RESTART; never promoted/pending/applied; next boot selection unaffected | HFC:152, HFC:195; HTO:99 |
-| Forced row finished durable, not applied, then stop | Next boot applies via HCConflictObserved; no publish, fixture line or counter | HFC:269, HFC:1465 |
-| Forced place goes near before apply | TERRITORY_PUBLICATION_PENDING until FAR | HFC:272, HFC:1475 |
+| Forced row finished durable, not applied, then stop | Next boot applies via HCConflictObserved; no publish, fixture line or counter | HFC:269, HFC:1466 |
+| Forced place goes near before apply | TERRITORY_PUBLICATION_PENDING until FAR | HFC:272, HFC:1476 |
 | fx_conflict after forced journal | HCFixtureJournalHolds excludes journal place; selection refusal includes counts and daily_cap | HFC:401, HFC:1205, HFC:1221 |
 | Kit apply=false with fallback | Available; no state change or callback capacity spent | HFC:361, HFC:1299 |
-| Invalid fixture pre-check | fixture-row-invalid; no insertion or module refusal | HFC:343, HFC:355; HTO:122 |
-| Kit apply=false | No callback capacity spent; no journal/cursor/once change | HFC:357; HCAdminFixtures.c:76 |
-| Callback exhausted | conflict-callback-budget; no row | HFC:359 |
+| Invalid fixture pre-check | fixture-row-invalid; no insertion or module refusal | HFC:347-359; HTO:122 |
+| Kit apply=false | No callback capacity spent; no journal/cursor/once change | HFC:360-361; HCAdminFixtures.c:76 |
+| Callback exhausted | conflict-callback-budget; no row | HFC:362-363 |
 | HCRequestSave=0 or mid-image job fault | OUTCOME_STORE_UNCERTAIN; never promoted, no counter; WorldSaves owner not faulted | HFC:365, HFC:451, HFC:676, HFC:803 |
 | Real offer while fixture current | ENCOUNTER_OR_HISTORY_CAP; no second OBSERVING row (assuming earlier production offer guards pass) | HFC:747 |
 | Player within 1500 m before apply | TERRITORY_PUBLICATION_PENDING until FAR; territory unchanged | HFC:270, HFC:1397, HFC:1403 |

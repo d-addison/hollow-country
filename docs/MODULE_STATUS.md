@@ -956,8 +956,9 @@ Selection refusals keep their matching prefix and use these fixed formats:
 ```
 
 `daily_cap` is computed once before the fx_conflict place loop. Its `budget`
-count combines place cooldown and global daily-cap exclusions; it is not a
-cooldown-only count. Each place increments only its first failing filter, in
+count combines place cooldown and global daily-cap exclusions: with
+`daily_cap=0` it is exactly the number of places on cooldown; with `daily_cap=1`
+it counts every place that reached that filter. Each place increments only its first failing filter, in
 pending / near / leased order, followed by active / budget / held / not_opposed
 for fx_conflict. On a journal selection refusal,
 `pending + near + leased + not_opposed == places`. `not_opposed` counts places,
