@@ -307,7 +307,11 @@ class HCSalvageRecipe extends RecipeBase
             return false;
         if (!IsOwnedEmptyLooseItem(ingredients[0], player) || !IsOwnedEmptyLooseItem(ingredients[1], player))
             return false;
-        if (ingredients[1].GetHealth("", "") <= m_HCWear)
+        // Native Object.GetHealth raises a VME on the client ("cannot be called on client"; soak 202,
+        // inventory recipe preview via PluginRecipesManager.GetValidRecipes). The client keeps the
+        // health-level gate above (IsRuined); PluginRecipesManager.c:330 PerformRecipeServer reruns
+        // CanDo on the server, where the exact wear check refuses a worn tool.
+        if (GetGame().IsServer() && ingredients[1].GetHealth("", "") <= m_HCWear)
             return false;
         if (ingredients[0].IsKindOf("CableReel"))
         {
