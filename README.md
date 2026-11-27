@@ -375,15 +375,20 @@ Trade recipe `RecipeId="bandage-for-food"` exchanges `LeftClass="BandageDressing
 
 Fresh worlds keep bulk authored starting claims. Each due real-time pass then recovers
 strength and changes at most one claim: stale release, missing home reclaim, nearest
-authored add below target, or farthest non-home release at target. Reclaims/adds rank
-seven-day cooldown-free cells first; the last released cell is excluded from the next
+authored add below target, or farthest non-home release at target. Reclaims/adds
+exclude cells cooling for the configured `CooldownSeconds` after
+clash, pushed or infected-pressure facts; a landless faction may reclaim one cooling
+home only when no eligible non-cooling home is available. Cooling homes do not block
+other shifts/releases; the last released cell is excluded from the next
 add. Journal, fixture and lease protection covers aliases and never stalls the world
 step. Protected cells retry next minute without stamping the pass; strength still
 recovers at interval cadence. FactionConflict off/refused runs strength only while
-World runs. Existing parties can return to full Size as strength recovers; deaths do
-not reduce their stored Size. No entities, loot, stock, party rows or refunds are
-created. A healthy aged world should change within about 20 minutes of the first
-world step (fresh bootstrap about 21); runtime/upgrade verification is pending.
+World runs, without regrowth change lines or activity counters. Fresh factions wait
+unchanged until the module can run Seed. Existing parties can return to full Size
+as strength recovers; deaths do not reduce their stored Size. No entities, loot, stock, party rows or refunds are
+created. An aged world is due at its first world step and should change within about
+one minute of it; a fresh world changes about 20 minutes after Seed (default cadence).
+Runtime/upgrade verification is pending.
 `[HC World] territory_regrow` reports real changes, counted by
 `[HC Use] module=FactionConflict feature=territory_regrowth`; waits/rebases count none.
 

@@ -72,7 +72,7 @@ class HCConflictOutcomeSaveJob : HCSaveJob
 // One pass owns its maps and commits before yielding. Validated limits: <=64
 // places/held cells, <=128 journal rows, one lease scan and one Facts scan;
 // candidate geometry does at most P*P <=4096 horizontal distance checks.
-// Native EnScript.c:866/906/917 map Get/Remove/Contains; EnString.c:396 Split.
+// Native EnScript.c:866/906/917 map Get/Remove/Contains; EnString.c:286 Contains, :396 Split.
 class HCTerritoryRegrowth
 {
     ref array<string> Cells = new array<string>;
@@ -91,6 +91,13 @@ class HCTerritoryRegrowth
     string Shifted = "none";
     string Released = "none";
     bool Blocked;
+
+    static void HCReset()
+    {
+        s_Released.Clear();
+        s_Wait.Clear();
+        s_StrengthAt.Clear();
+    }
 
     static bool Home(string faction, int index)
     {
@@ -117,7 +124,7 @@ class HCTerritoryRegrowth
         return true;
     }
 
-    void Build(HCWorldData data, HCWorldFaction faction, int now)
+    void Build(HCWorldData data, HCWorldFaction faction, int now, int cooldownSeconds)
     {
         for (int placeIndex = 0; placeIndex < data.Places.Count(); placeIndex++)
         {
@@ -137,8 +144,10 @@ class HCTerritoryRegrowth
         foreach (HCWorldFact fact : facts)
         {
             if (fact.At > now) { continue; }
-            if (fact.Kind != "faction_clash" && fact.Kind != "camp_infected_pressure") { continue; }
-            if (now - fact.At < 604800) { cooldownPlaces.Set(fact.PlaceId, true); }
+            // empty_camp_claim_falls writes camp_infected_pressure (plus holdout_alert).
+            bool conflictFact = fact.Kind == "faction_clash" || fact.Kind == "camp_infected_pressure" || fact.Kind.Contains("_pushed_");
+            if (!conflictFact) { continue; }
+            if (now - fact.At < cooldownSeconds) { cooldownPlaces.Set(fact.PlaceId, true); }
         }
         for (int cooldownIndex = 0; cooldownIndex < data.Places.Count(); cooldownIndex++)
         {
@@ -196,18 +205,39 @@ class HCTerritoryRegrowth
         }
         int target = Math.Min(HCWorldLimits.TERRITORY, Math.Min(Cells.Count(), Homes.Count() + extra));
         string reclaim = "";
+        string coolingHome = "";
+        int coolingHomeRank = 99;
+        bool coolingHomeBlocked = false;
         int reclaimRank = 99;
         bool missingHome = false;
         for (int homeStep = 0; homeStep < Cells.Count(); homeStep++)
         {
             string homeCell = Cells[(homeStep + rotation) % Cells.Count()];
             if (!Homes.Contains(homeCell) || Held.Contains(homeCell)) { continue; }
-            missingHome = true;
-            if (Protected.Contains(homeCell)) { Blocked = true; continue; }
             int homeRank = 1;
             if (Hostile.Contains(homeCell)) { homeRank = 0; }
-            if (Cooldown.Contains(homeCell)) { homeRank += 2; }
+            if (Cooldown.Contains(homeCell))
+            {
+                // Only a landless faction may use cooling homes, after all eligible homes.
+                if (heldCount == 0)
+                {
+                    if (Protected.Contains(homeCell)) { coolingHomeBlocked = true; }
+                    else if (homeRank < coolingHomeRank)
+                    {
+                        coolingHome = homeCell;
+                        coolingHomeRank = homeRank;
+                    }
+                }
+                continue;
+            }
+            missingHome = true;
+            if (Protected.Contains(homeCell)) { Blocked = true; continue; }
             if (homeRank < reclaimRank) { reclaimRank = homeRank; reclaim = homeCell; }
+        }
+        if (reclaim == "" && heldCount == 0)
+        {
+            reclaim = coolingHome;
+            if (reclaim == "" && coolingHomeBlocked) { Blocked = true; }
         }
         if (reclaim != "" && heldCount < HCWorldLimits.TERRITORY)
         {
@@ -220,20 +250,31 @@ class HCTerritoryRegrowth
         bool adding = !missingHome && heldCount < target;
         string chosen = "";
         float chosenDistance = -1;
-        int chosenCooldown = 2;
         string lastReleased = s_Released.Get(faction.Id);
+        // Cache <=64 flattened anchors once. Catalog matching costs <=P^2;
+        // all source/anchor pairs together cost <=P^2 (4096) distance checks,
+        // with no cell-string lookup inside the distance loop.
+        array<vector> anchors = new array<vector>;
+        for (int anchorIndex = 0; anchorIndex < data.Places.Count(); anchorIndex++)
+        {
+            string anchorCell = CellOf[anchorIndex];
+            if (adding && !Held.Contains(anchorCell)) { continue; }
+            if (!adding && !Homes.Contains(anchorCell)) { continue; }
+            vector anchor = data.Places[anchorIndex].Position;
+            anchor[1] = 0;
+            anchors.Insert(anchor);
+        }
         for (int candidateStep = 0; candidateStep < Cells.Count(); candidateStep++)
         {
             string candidate = Cells[(candidateStep + rotation) % Cells.Count()];
             if (adding)
             {
-                if (Held.Contains(candidate) || candidate == lastReleased) { continue; }
+                if (Held.Contains(candidate) || candidate == lastReleased || Cooldown.Contains(candidate)) { continue; }
             }
             else
             {
                 if (!Held.Contains(candidate) || Homes.Contains(candidate)) { continue; }
             }
-            if (Protected.Contains(candidate)) { Blocked = true; continue; }
             float nearest = -1;
             // Aliases all contribute geometry; across every candidate <=P^2 checks.
             for (int sourceIndex = 0; sourceIndex < data.Places.Count(); sourceIndex++)
@@ -241,24 +282,18 @@ class HCTerritoryRegrowth
                 if (CellOf[sourceIndex] != candidate) { continue; }
                 vector source = data.Places[sourceIndex].Position;
                 source[1] = 0;
-                for (int anchorIndex = 0; anchorIndex < data.Places.Count(); anchorIndex++)
+                foreach (vector anchorPosition : anchors)
                 {
-                    string anchorCell = CellOf[anchorIndex];
-                    if (adding && !Held.Contains(anchorCell)) { continue; }
-                    if (!adding && !Homes.Contains(anchorCell)) { continue; }
-                    vector anchor = data.Places[anchorIndex].Position;
-                    anchor[1] = 0;
-                    float distance = vector.DistanceSq(source, anchor);
+                    float distance = vector.DistanceSq(source, anchorPosition);
                     if (nearest < 0 || distance < nearest) { nearest = distance; }
                 }
             }
             if (nearest < 0) { continue; }
-            int cooling = 0;
-            if (Cooldown.Contains(candidate)) { cooling = 1; }
+            if (Protected.Contains(candidate)) { Blocked = true; continue; }
             bool better = chosen == "";
-            if (adding && (cooling < chosenCooldown || (cooling == chosenCooldown && nearest < chosenDistance))) { better = true; }
+            if (adding && nearest < chosenDistance) { better = true; }
             if (!adding && nearest > chosenDistance) { better = true; }
-            if (better) { chosen = candidate; chosenDistance = nearest; chosenCooldown = cooling; }
+            if (better) { chosen = candidate; chosenDistance = nearest; }
         }
         if (chosen == "")
         {
@@ -355,6 +390,7 @@ class HCFactionConflict : HCModule
     override void OnStart(HCSettings settings)
     {
         if (s_Active) { HCLog(m_Current, "requested", "ALREADY_STARTED"); return; }
+        HCTerritoryRegrowth.HCReset();
         if (!IsEnabled(settings))
         {
             m_Operational.HCPublish("off", "operator_preference");
@@ -757,6 +793,7 @@ class HCFactionConflict : HCModule
 
     override void OnStop()
     {
+        HCTerritoryRegrowth.HCReset();
         // Read the fault before HCFlush: HCFlush returns false for an already-faulted job and faults
         // the job when its stage guard trips (HCWorkBudget.c:342, :374), so the reasons stay distinct.
         bool quotaFaultedBefore = m_QuotaJob && m_QuotaJob.HCFaulted;
@@ -1230,6 +1267,12 @@ class HCFactionConflict : HCModule
         return false;
     }
 
+    static int HCRegrowthCooldown()
+    {
+        if (!s_Instance || !s_Instance.m_ConflictConfig) { return 0; }
+        return s_Instance.m_ConflictConfig.CooldownSeconds;
+    }
+
     static string HCRegrowthProtection(HCTerritoryRegrowth pass)
     {
         if (!s_Instance) { return "frozen"; }
@@ -1270,7 +1313,10 @@ class HCFactionConflict : HCModule
             HCWorldFaction growing = data.Factions[s_GrowthNext];
             int growingIndex = s_GrowthNext;
             s_GrowthNext = s_GrowthNext + 1;
-            if (growing.LastRegrowth == 0 && s_Active) { Seed(data, growing, now); }
+            if (growing.LastRegrowth == 0)
+            {
+                if (s_Active) { Seed(data, growing, now); }
+            }
             else { world.HCRegrow(growing, growingIndex, now, s_Active); }
             s_WorkBudget.HCDeferred("FactionConflict", data.Factions.Count() - s_GrowthNext);
             return false;
@@ -1345,6 +1391,7 @@ modded class HCWorldModule
     // World owns dirty notification; all decisions and mutation stay in this continuation.
     void HCRegrow(HCWorldFaction faction, int factionIndex, int now, bool territoryActive)
     {
+        if (faction.LastRegrowth == 0) { return; }
         HCServer server = HCServer.Get();
         if (!m_Running || !server) { return; }
         HCSettings settings = server.GetSettings();
@@ -1371,7 +1418,7 @@ modded class HCWorldModule
         bool membershipChanged = false;
         if (territoryActive)
         {
-            pass.Build(m_Data, faction, now);
+            pass.Build(m_Data, faction, now, HCFactionConflict.HCRegrowthCooldown());
             reason = HCFactionConflict.HCRegrowthProtection(pass);
             if (reason == "")
             {
@@ -1410,7 +1457,7 @@ modded class HCWorldModule
         if (reason == "" || reason == "no_candidate") { faction.LastRegrowth = now; }
         HCTerritoryRegrowth.HCWait(faction.Id, reason);
         if (membershipChanged) { m_Dirty = true; }
-        if (membershipChanged || faction.Strength != strengthBefore)
+        if (territoryActive && (membershipChanged || faction.Strength != strengthBefore))
         {
             Print("[HC World] territory_regrow faction=" + faction.Id + " strength=" + faction.Strength.ToString() + " cells=" + faction.Territory.Count().ToString() + " reclaimed=" + pass.Reclaimed + " shifted=" + pass.Shifted + " released=" + pass.Released);
             HCModuleReadiness.HCUse("FactionConflict", "territory_regrowth");

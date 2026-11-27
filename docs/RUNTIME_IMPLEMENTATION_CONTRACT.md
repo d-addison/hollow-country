@@ -83,8 +83,9 @@ entities, loot, stock, camp population, party rows or refunds. Physical populati
 funding, custody and live-AI caps remain authoritative. Recovered strength brings
 existing parties back to full Size: Party Size is never reduced by deaths.
 
-Fresh worlds retain the bulk authored Seed. Thereafter LastRegrowth means last
-bootstrap or completed regrowth pass: one due pass per faction per interval, no
+Fresh worlds retain the bulk authored Seed. While FactionConflict is inactive, a
+zero-stamp faction is skipped entirely: no strength change or stamp until Seed runs.
+Thereafter LastRegrowth means last bootstrap or completed regrowth pass: one due pass per faction per interval, no
 catch-up debt. Future stamps rebase once to now. Positive factions retain strength
 1 under negative AdjustStrength; imported zero stays zero until regrowth gives 1.
 Strength recovers even with FactionConflict off/refused (world must be running),
@@ -94,17 +95,26 @@ during protected retries; it is not a persisted replay obligation.
 
 A continuation builds cell/alias, held, home, protected and cooldown maps once,
 scans Facts and proposal leases once, then computes and commits one faction with
-at most P squared (4096) distance checks. No candidate calls pending/lease/budget
-helpers, no decision cursors cross yields, and membership changes at most once.
+at most P squared catalog comparisons and P squared (4096) distance checks,
+using at most 64 flattened anchor positions cached once per faction. No candidate
+calls pending/lease/budget helpers, no decision cursors cross yields, and membership changes at most once.
 The shared home classifier preserves Seed's index rules. Deterministic catalog
 rotation uses reduced day + floor(now/interval) + faction index. Priority is one
-stale release, missing-home reclaim (cooldown-free before cooling, then hostile
-holder preferred), nearest authored add below target, or farthest non-home release
-at/above target. Geometry uses every alias; home anchors are never released.
+stale release, eligible missing-home reclaim (hostile holder preferred), nearest
+authored add below target, or farthest non-home release at/above target. Geometry uses every alias; home anchors are never released.
 Target is min(64, distinct catalog cells, homes + TerritoryExtraCells). A shift
 uses two passes. The volatile last released cell is excluded from the next add
 selection (a genuine no-candidate attempt consumes that exclusion);
-places remain append-only. No radius, emergency-home pass or population refund.
+places remain append-only. Reclaim and add exclude cooling cells for the configured
+HCConflictConfig.CooldownSeconds. One Facts scan matches faction_clash,
+camp_infected_pressure and any *_pushed_* kind at each catalog place's Id/Name,
+then maps aliases to cells. HCConflictPublish writes <winner>_pushed_<loser> at
+place.Id for observed fights; distant clashes also write faction_clash there.
+empty_camp_claim_falls writes camp_infected_pressure and holdout_alert at place.Id;
+the former establishes cooling (the outcome string is not a fact). Cooling missing
+homes do not block shifts/releases. Only a faction holding zero cells may reclaim
+one cooling home when no eligible non-cooling home is available, with every normal
+protection still enforced. No radius, extra emergency pass or population refund.
 
 Membership freezes while outcome revisions are not durable. Cell protection uses
 only the EXACT journal predicate TerritoryEpoch > 0 && !TerritoryApplied &&
@@ -114,13 +124,14 @@ Place references use the catalog's first Id-or-Name match; an unresolved referen
 skips the faction with journal_place_missing. Freeze/protected/missing-place waits
 do not stamp LastRegrowth or keep Tick open: the next 60-second world step retries.
 Genuine no-ops stamp without forcing dirty; normal saves include that stamp.
-Changed passes emit one territory_regrow line then one territory_regrowth HCUse;
-waits log only on per-faction reason transitions, rebases never count activity.
+Changed active-territory passes emit one territory_regrow line then one
+territory_regrowth HCUse; strength-only mode emits neither, because activity checks
+exclude counters for off/refused modules. Waits log only on per-faction reason transitions, rebases never count activity.
 Defaults: TerritoryRegrowthSeconds=1200 (600-1200), FactionRegrowthStrength=1
 (1-4), TerritoryExtraCells=4 (1-8). Invalid tuning falls back per key without
-refusing unrelated settings. A healthy aged world changes within about 20 minutes
-of the first world step; a fresh bootstrap about 21 minutes. Native evidence is
-pending; protected worlds cannot promise unconditional membership motion.
+refusing unrelated settings. An aged world is due at its first world step and changes
+within about one minute of it; a fresh world changes about 20 minutes after Seed
+(default cadence). Native evidence is pending; protected worlds cannot promise unconditional membership motion.
 
 Territory regrowth failure contract (implementation, runtime unverified):
 
@@ -133,9 +144,9 @@ Territory regrowth failure contract (implementation, runtime unverified):
 | Camp claim removal or distant data clash crashes after quota durability, before application | At-most-once quota path, not journal replay: the crash spends the quota with no effect. |
 | Pending outcome / alias / lease | No membership edit in protected cells; cell_protected; no stamp, retry next world step. |
 | Tick wait would stall LastTick / Escalation.Day | Only bounded continuation work yields false; faction waits finish normally, so the world step completes. |
-| FactionConflict off or refused | Same cadence, strength only from global settings; no territory edit. |
+| FactionConflict off or refused | Seeded factions recover strength only at the same cadence from global settings; no territory edit, territory_regrow line or HCUse. Fresh LastRegrowth=0 factions stay at created strength and unstamped until Seed runs. |
 | Queued fx_conflict selection | Its cell is protected; regrowth cannot cause fixture-selection-invalidated. |
-| Reclaim undoes a clash / shift ping-pong | Seven-day Facts cooldown ranks reclaim/add; last released cell excluded from next add. Cooldown remains authoritative for clash admission. |
+| Reclaim immediately undoes a clash / shift ping-pong | Cooling cells are ineligible for reclaim/add for CooldownSeconds after faction_clash, camp_infected_pressure or *_pushed_* facts; only a zero-cell faction may reclaim one protected-rule-compliant cooling home when no eligible non-cooling home is available. Cooling missing homes do not block other shifts/releases; last released cell excluded from next add. |
 | Unresolvable journal place | journal_place_missing; skip membership and stamp, strength can recover. |
 | Imported strength zero / protected homes | Regrow to 1 immediately on due pass; one eligible home in same pass or later; existing claims never cleared. |
 | Fold-back at strength floor | Returns true unchanged at 1; no false materializer failure. Zero remains zero on negative delta. |
@@ -146,7 +157,7 @@ Territory regrowth failure contract (implementation, runtime unverified):
 | Downtime / no players | No player prerequisite or debt loop; at most one due pass per faction. |
 | v1-test-15 upgrade | Schema/keys unchanged, bulk zero-stamp bootstrap preserved; native upgrade/restart evidence remains pending. |
 | All eligible cells protected | cell_protected, no stamp or invented activity; strength progresses at interval cadence. |
-| Empty catalog / no eligible geometry | no_candidate, genuine no-op stamp without forcing dirty; no emergency claim. |
+| Empty catalog / no eligible geometry or anchors | no_candidate, genuine no-op stamp without forcing dirty; only geometry-qualified protected candidates set Blocked; no emergency claim. |
 
 Atmosphere uses the admitted Chernarus world-data owner and HCServer.Start hook
 instead of a module slot. Its exact local build gate accepts `1.30.164289` and
