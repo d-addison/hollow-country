@@ -20,6 +20,17 @@ player is connected), and stops the client and then the server only through the 
 process by hand and then run `restore`. Run it with `agent-run` only if the memory cap needs it; the campaign itself
 is a few MB of Python.
 
+During `run`, SIGTERM follows the same graceful shutdown path as Ctrl-C: stop the client and server, preserve
+evidence in `last-run/`, then restore once every process is confirmed gone. A transient Windows interop failure
+retries the `CloseMainWindow` request up to three times, ten seconds apart, checking for an already exited
+process before each retry; close calls, delays and state queries are bounded to 1108 seconds per image,
+followed by the existing bounded shutdown confirmation loop. A process still running leaves the stage in place
+with the existing hand-stop/restore message. While waiting for the driver, 15 minutes without a new
+`[HC Driver] step=` line together with zero-player `[HC Perf] players_max=0` samples spanning that whole interval
+ends the driver wait early and logs `run: driver stalled minutes=<m> last_step=<id|none>; idling to the minimum duration`.
+It then follows the budget-timeout idle path, waiting until the later of the minimum duration and the fallback
+idle deadline; a normal final driver receipt retains its existing 120-second grace and minimum duration.
+
 ## The test addon
 
 `mods/HollowCountryTest` (PBO prefix `HollowCountryTest`, file `hollowcountrytest.pbo`) holds the scripted client
