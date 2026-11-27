@@ -131,7 +131,7 @@ class HCAdminCatalog
         HCAdd("fx_kit_refuse", "world", "Test setup: oversize kit", "Dev test addon only: run the real deploy finish for a non-shelter RaG kit; the normal claim gate refuses it.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_barricade", "world", "Test setup: barricaded door", "Dev test addon only: build a door barricade at the nearest building door with infected outside; the real breach code runs.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_melee", "world", "Test setup: melee strikes", "Dev test addon only: strike infected ahead of you with your melee weapon through the engine melee entry; the real melee code runs.", false, true, false, 0, 0, 0, "");
-        HCAdd("fx_shoot", "world", "Test setup: one shot", "Dev test addon only: one chambered round from a world weapon through the native fire call, aimed at the nearest AI or ahead of you; the real shot handlers run.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_shoot", "world", "Test setup: one shot", "Retired: world weapon fire is unavailable; use fx_shoot_held with a held weapon.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_site_patrol_kill", "world", "Test setup: patrol death", "Dev test addon only: kill one nearby police-chernogorsk patrol member through its real death handler; normal cleanup and counters run.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_site_clear", "world", "Test setup: site clear", "Dev test addon only: clear a nearby live patrol; 0 attributed requester damage (default), 1 health; normal cleanup and counters run.", false, true, true, 0, 1, 0, "mode");
         HCAdd("holdout", "ai", "Evaluate hold-out", "Run normal occupancy on the nearest hold-out within 100 m.", false, true, false, 0, 0, 0, "");

@@ -324,7 +324,9 @@ class HCFactionConflict : HCModule
         if (m_Outcomes.Rows.Count() >= HCTerritoryOutcomes.MAX_ROWS - 32) { return false; }
         string place;
         string opposed;
-        if (!world.HCFixtureJournalPlace(pos, m_ConflictConfig, place, opposed, reason)) { return false; }
+        bool forced;
+        string selectionCounts;
+        if (!world.HCFixtureJournalPlace(pos, m_ConflictConfig, place, opposed, forced, selectionCounts, reason)) { return false; }
         HCTerritoryOutcomeRow fixtureRow = new HCTerritoryOutcomeRow;
         string suffix = m_Outcomes.NextEncounter.ToString();
         fixtureRow.Id = "conflict:" + suffix;
@@ -372,9 +374,12 @@ class HCFactionConflict : HCModule
         m_RightActors.Clear();
         m_ActorCursor = 0;
         m_Declined = "RECEIPT_PENDING";
-        Print("[HC Plan] HC-37 fixture_journal_bound encounter=" + fixtureRow.Id + " place=" + fixtureRow.PlaceId + " left=raiders right=" + fixtureRow.RightFaction + " fixture=1");
+        string forcedSuffix = "";
+        if (forced) { forcedSuffix = " forced=1"; }
+        Print("[HC Plan] HC-37 fixture_journal_bound encounter=" + fixtureRow.Id + " place=" + fixtureRow.PlaceId + " left=raiders right=" + fixtureRow.RightFaction + " fixture=1" + forcedSuffix);
         HCLog(fixtureRow, "ready", "RECEIPT_PENDING");
         reason = "fixture-journal-queued";
+        if (forced) { reason += " forced=1" + selectionCounts; }
         return true;
     }
 
@@ -1168,14 +1173,37 @@ modded class HCWorldModule
         float best = 0;
         int factions = m_Data.Factions.Count();
         if (factions != HCWorldLimits.FACTIONS) { reason = "conflict-faction-catalog-invalid"; return false; }
+        int pending = 0;
+        int near = 0;
+        int leased = 0;
+        int active = 0;
+        int budget = 0;
+        int held = 0;
+        int notOpposed = 0;
+        int dailyCap = 0;
+        int dailyCount = 0;
+        int day = HCWorldClock.Day(m_Data, now);
+        array<ref HCWorldFact> fixtureFacts = m_Data.Facts;
+        foreach (HCWorldFact fixtureFact : fixtureFacts)
+        {
+            if (fixtureFact.At > now) { continue; }
+            if (fixtureFact.Kind != "faction_clash" && fixtureFact.Kind != "camp_infected_pressure") { continue; }
+            if (HCWorldClock.Day(m_Data, fixtureFact.At) == day) { dailyCount++; }
+        }
+        if (dailyCount >= config.MaxDailyOutcomes) { dailyCap = 1; }
         m_WorkBudget.HCReset(m_Data.Places.Count() * (factions * factions + 1));
         for (int i = 0; i < m_Data.Places.Count(); i++)
         {
             if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
             HCWorldPlace place = m_Data.Places[i];
-            if (HCFactionConflict.HCTerritoryPending(place.Id) || !HCConflictFar(place, config) || HCConflictLeased(place.Id)) { continue; }
-            if ((port && port.HCActiveAt(place.Id)) || !HCConflictBudget(config, place.Id, now)) { continue; }
-            if (HCFactionConflict.HCFixtureJournalHolds(place.Id)) { continue; }
+            if (HCFactionConflict.HCTerritoryPending(place.Id)) { pending++; continue; }
+            if (!HCConflictFar(place, config)) { near++; continue; }
+            if (HCConflictLeased(place.Id)) { leased++; continue; }
+            if (port && port.HCActiveAt(place.Id)) { active++; continue; }
+            // Budget includes place cooldown OR daily cap, never labelled cooldown.
+            if (dailyCap == 1 || !HCConflictBudget(config, place.Id, now)) { budget++; continue; }
+            if (HCFactionConflict.HCFixtureJournalHolds(place.Id)) { held++; continue; }
+            bool hasOpposed = false;
             string cell = HCFactionConflict.Cell(place.Position);
             for (int left = 0; left < factions - 1; left++)
             {
@@ -1183,12 +1211,15 @@ modded class HCWorldModule
                 {
                     if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
                     if (!HCConflictPolicy.HCOpposed(m_Data.Factions[left], m_Data.Factions[right], cell)) { continue; }
+                    hasOpposed = true;
                     float distance = vector.DistanceSq(pos, place.Position);
                     if (selected < 0 || distance < best) { best = distance; selected = i; selectedLeft = left; selectedRight = right; }
                 }
             }
+            if (!hasOpposed) { notOpposed++; }
         }
-        reason = "no-eligible-distant-opposed-cell";
+        reason = "no-eligible-distant-opposed-cell places=" + m_Data.Places.Count().ToString() + " pending=" + pending.ToString() + " near=" + near.ToString() + " leased=" + leased.ToString();
+        reason += " active=" + active.ToString() + " budget=" + budget.ToString() + " held=" + held.ToString() + " not_opposed=" + notOpposed.ToString() + " daily_cap=" + dailyCap.ToString();
         if (selected < 0) { return false; }
         if (apply)
         {
@@ -1202,10 +1233,12 @@ modded class HCWorldModule
     }
 
     // Separate bounded selection: no production cursors, fixture selection, quota or facts change.
-    bool HCFixtureJournalPlace(vector pos, HCConflictConfig config, out string placeId, out string opposedId, out string reason)
+    bool HCFixtureJournalPlace(vector pos, HCConflictConfig config, out string placeId, out string opposedId, out bool forced, out string selectionCounts, out string reason)
     {
         placeId = "";
         opposedId = "";
+        forced = false;
+        selectionCounts = "";
         reason = "conflict-owner-unavailable";
         if (!m_Running || !m_Data || !config || !config.Enabled || !HCRecoveryGate.HCReady("world")) { return false; }
         int now = HCWorldClock.UTC();
@@ -1216,13 +1249,24 @@ modded class HCWorldModule
         reason = "fixture-row-invalid";
         if (!raiders) { return false; }
         float bestDistance = 0;
+        float fallbackDistance = 0;
+        string fallbackPlace = "";
+        string fallbackFaction = "";
+        int journalPending = 0;
+        int journalNear = 0;
+        int journalLeased = 0;
+        int journalNotOpposed = 0;
         array<ref HCWorldPlace> journalPlaces = m_Data.Places;
         array<ref HCWorldFaction> journalFactions = m_Data.Factions;
         m_WorkBudget.HCReset(journalPlaces.Count() * (factionCount + 1));
         foreach (HCWorldPlace journalPlace : journalPlaces)
         {
             if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
-            if (HCFactionConflict.HCTerritoryPending(journalPlace.Id) || !HCConflictFar(journalPlace, config) || HCConflictLeased(journalPlace.Id)) { continue; }
+            if (HCFactionConflict.HCTerritoryPending(journalPlace.Id)) { journalPending++; continue; }
+            if (!HCConflictFar(journalPlace, config)) { journalNear++; continue; }
+            if (HCConflictLeased(journalPlace.Id)) { journalLeased++; continue; }
+            bool journalHasOpposed = false;
+            float journalDistance = vector.DistanceSq(pos, journalPlace.Position);
             // HCXFactionCombatAdapter.HCActiveAt requires HCLeaseAtPlace (adapter:69-80):
             // every live transient has a claimed proposal, already excluded above. No port calls.
             string journalCell = HCFactionConflict.Cell(journalPlace.Position);
@@ -1230,8 +1274,19 @@ modded class HCWorldModule
             {
                 HCWorldFaction opposedFaction = journalFactions[journalFactionIndex];
                 if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
+                // Journal-only fallback: no strength, claims, budget or world-age requirement.
+                // Strict > retains catalog order for equal distances and faction ties.
+                if (opposedFaction.Id != "raiders" && HCWorldFactionCatalog.Relation("raiders", opposedFaction.Id) == -1)
+                {
+                    if (fallbackPlace == "" || journalDistance > fallbackDistance)
+                    {
+                        fallbackPlace = journalPlace.Id;
+                        fallbackFaction = opposedFaction.Id;
+                        fallbackDistance = journalDistance;
+                    }
+                }
                 if (!HCConflictPolicy.HCOpposed(raiders, opposedFaction, journalCell)) { continue; }
-                float journalDistance = vector.DistanceSq(pos, journalPlace.Position);
+                journalHasOpposed = true;
                 if (placeId == "" || journalDistance < bestDistance)
                 {
                     bestDistance = journalDistance;
@@ -1239,8 +1294,16 @@ modded class HCWorldModule
                     opposedId = opposedFaction.Id;
                 }
             }
+            if (!journalHasOpposed) { journalNotOpposed++; }
         }
-        reason = "no-eligible-distant-opposed-cell";
+        selectionCounts = " places=" + journalPlaces.Count().ToString() + " pending=" + journalPending.ToString() + " near=" + journalNear.ToString() + " leased=" + journalLeased.ToString() + " not_opposed=" + journalNotOpposed.ToString();
+        if (placeId == "" && fallbackPlace != "")
+        {
+            placeId = fallbackPlace;
+            opposedId = fallbackFaction;
+            forced = true;
+        }
+        reason = "no-eligible-distant-opposed-cell" + selectionCounts;
         if (placeId == "") { return false; }
         reason = "fixture-journal-place-selected";
         return true;

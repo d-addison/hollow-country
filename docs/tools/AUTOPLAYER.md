@@ -982,3 +982,35 @@ One synthetic row per boot uses the normal death/finish/world save barriers, wit
 At 96 journal rows the headroom guard refuses; history is never pruned, so the
 disposable testbed eventually needs a wipe. Native compile, soak and restart
 checks remain pending.
+
+
+Journal selection first prefers an opposed cell, then uses the farthest
+pending/far/leased-qualified place (catalog-order ties) with a world-data faction
+other than raiders satisfying Relation(raiders, faction) == -1. This journal-only
+fallback needs no territory, strength or fresh world. The former no-opposed
+failure now queues forced BOTH_REMAIN; only exhausted qualified selection refuses.
+Crash after durable bind remains UNKNOWN_RESTART, never fixture promotion/apply;
+durable finish before stop applies normally next boot without fixture receipts.
+Approaching the place defers publication until FAR. fx_conflict continues to
+exclude an unapplied journal place. All runtime checks remain pending.
+
+Selection refusals keep their matching prefix and use these fixed formats:
+
+```text
+[HC Admin] cmd=fx_conflict_journal result=refused reason=no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=d fixture=1
+[HC Admin] cmd=fx_conflict result=refused reason=no-eligible-distant-opposed-cell places=N pending=a near=b leased=c active=d budget=e held=f not_opposed=g daily_cap=0|1 fixture=1
+[HC Admin] cmd=fx_conflict_journal result=ok reason=fixture-journal-queued forced=1 places=N pending=a near=b leased=c not_opposed=d fixture=1
+[HC Plan] HC-37 fixture_journal_bound encounter=conflict:<n> place=<id> left=raiders right=<f> fixture=1 forced=1
+```
+
+`daily_cap` is computed once before the fx_conflict place loop. Its `budget`
+count combines place cooldown and global daily-cap exclusions; it is not a
+cooldown-only count. Each place increments only its first failing filter, in
+pending / near / leased order, followed by active / budget / held / not_opposed
+for fx_conflict. On a journal selection refusal,
+`pending + near + leased + not_opposed == places`. `not_opposed` counts places,
+not faction pairs. Forced success includes the same journal selection counts;
+normal success remains `fixture-journal-queued` with no forced suffix. The bound
+line adds ` forced=1` only for fallback; completion formats stay unchanged.
+Kit fallback remains `fixture-journal-available`, with no state change or callback
+capacity spent. Other refusal tokens and their guards are unchanged.

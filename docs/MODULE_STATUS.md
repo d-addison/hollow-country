@@ -927,3 +927,56 @@ remain **implemented-unverified**; fixture evidence verifies journal persistence
 only. Registering the counter means soaks skipping this fixture can report INERT.
 The `<96` headroom guard eventually requires a disposable testbed wipe; receipts
 are never pruned. Run before `fx_conflict`, which may leave quota pending.
+
+
+Round 2b selection correction (implemented-unverified): soak 202 loaded a day-8
+world (30 places, 186 facts), rather than reseeding. Its remaining Bor and Polana
+overlaps were consumed by two normal outcomes; the daily cap also blocked
+fx_conflict. Fresh authored catalog arithmetic gives 10 raider/other cell pairs
+across 30 places; all 10 lie beyond 1500 m from 6500,2500. This is offline catalog
+evidence, not engine behavior.
+
+The journal keeps its nearest opposed preference, then falls back to the farthest
+pending/far/leased-qualified place from pos, retaining catalog order on ties.
+The partner must be present in world data, differ from raiders, and have
+Relation(raiders, partner) == -1; no strength, territory or world-age condition.
+HCBindFixture prospective validation, HCPromoteBind, HCResolve, HCConflictObserved,
+TerritoryApplied saves and load-time HCValid stay unchanged. They require no
+opposed holdings; HCValid requires hostility and consistent death/survivor slots.
+The forced BOTH_REMAIN path publishes no territory and changes no strength,
+quota or facts. This fallback exists only in HCFixtureJournalPlace.
+
+Selection refusals keep their matching prefix and use these fixed formats:
+
+```text
+[HC Admin] cmd=fx_conflict_journal result=refused reason=no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=d fixture=1
+[HC Admin] cmd=fx_conflict result=refused reason=no-eligible-distant-opposed-cell places=N pending=a near=b leased=c active=d budget=e held=f not_opposed=g daily_cap=0|1 fixture=1
+[HC Admin] cmd=fx_conflict_journal result=ok reason=fixture-journal-queued forced=1 places=N pending=a near=b leased=c not_opposed=d fixture=1
+[HC Plan] HC-37 fixture_journal_bound encounter=conflict:<n> place=<id> left=raiders right=<f> fixture=1 forced=1
+```
+
+`daily_cap` is computed once before the fx_conflict place loop. Its `budget`
+count combines place cooldown and global daily-cap exclusions; it is not a
+cooldown-only count. Each place increments only its first failing filter, in
+pending / near / leased order, followed by active / budget / held / not_opposed
+for fx_conflict. On a journal selection refusal,
+`pending + near + leased + not_opposed == places`. `not_opposed` counts places,
+not faction pairs. Forced success includes the same journal selection counts;
+normal success remains `fixture-journal-queued` with no forced suffix. The bound
+line adds ` forced=1` only for fallback; completion formats stay unchanged.
+Kit fallback remains `fixture-journal-available`, with no state change or callback
+capacity spent. Other refusal tokens and their guards are unchanged.
+
+The old no-opposed-cell failure row moves to the fallback success row below;
+only exhaustion of qualified places (or no valid hostile faction) retains the
+selection refusal. Engine experiments in every row remain pending.
+
+| Case | Expected |
+| --- | --- |
+| No opposed cell anywhere; a pending/far/leased-qualified place exists | fixture-journal-queued forced=1 with counts; raiders/hostile row, BOTH_REMAIN; territory/strength/quota/facts unchanged |
+| Every place pending/near/leased | no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=0; no row |
+| Forced row, crash after bind durable | UNKNOWN_RESTART; never promoted/pending/applied; next boot selection unaffected |
+| Forced row finished durable, not applied, then stop | Next boot applies via HCConflictObserved; no publish, fixture line or counter |
+| Forced place goes near before apply | TERRITORY_PUBLICATION_PENDING until FAR |
+| fx_conflict after forced journal | HCFixtureJournalHolds excludes journal place; selection refusal includes counts and daily_cap |
+| Kit apply=false with fallback | Available; no state change or callback capacity spent |
