@@ -82,6 +82,7 @@ row. The Class column has these values:
 | fixtures | Camps | camp_recognised, maintenance_step, pathgraph_refresh | driven | fixture fx_camp_setup |
 | fixtures | CookingCompat | cooking_config_rpc_refused, cooking_dish_cooked | driven | fixture fx_cooking |
 | fixtures | FactionConflict | encounters_observed, outcome_recorded | driven | fixture fx_conflict |
+| fixtures | FactionConflict | journal_committed | driven | fx_conflict_journal BEFORE fx_conflict; forced BOTH_REMAIN, journal persistence only; runtime evidence pending |
 | fixtures | FoodCompat | food_compat_guard, food_compat_refused | driven | fixture fx_food |
 | fixtures | Fortify | barricade_breached | driven | fixture fx_barricade; setting |
 | fixtures | Fortify | fortify_placed | driven | fixture fx_kit_place |
@@ -913,3 +914,12 @@ abandonment enables `HCXZoneGuards.c:425-439 StepOverrun`, which can spawn infec
 a server-crash run mid-phase (`soak_campaign.py`, the `wait_for` call monitoring both
 images); no second crash/shutdown path was added. These are offline changes, not native
 or multiplayer proof; the lead runs the compile gate after merge, then the experiment.
+
+`fx_conflict_journal` runs before `fx_conflict` because the latter may leave a quota
+slot pending across the driver's three-second fixture interval. Run it every soak:
+registration makes `FactionConflict/journal_committed` INERT if no finish commits.
+One synthetic row per boot uses the normal death/finish/world save barriers, with
+`fixture=1`; it proves no real AI binding, disengagement or body death behavior.
+At 96 journal rows the headroom guard refuses; history is never pruned, so the
+disposable testbed eventually needs a wipe. Native compile, soak and restart
+checks remain pending.

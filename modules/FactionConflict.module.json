@@ -11,7 +11,8 @@
     "EnableEncounters"
   ],
   "uses": [
-    "outcome_recorded"
+    "outcome_recorded",
+    "journal_committed"
   ],
   "uses_source": "register_uses",
   "requires_shared_saves": false,

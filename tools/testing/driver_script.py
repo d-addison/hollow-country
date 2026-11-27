@@ -57,7 +57,7 @@ SITE_CELL_METERS = 2000.0
 MAX_SITE_CANDIDATES = 64
 
 # Setup fixtures in the order the fixture block calls them (fxsetup brief plus the existing ones).
-FIXTURES = ("fx_car_side", "fx_car_zeds", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict",
+FIXTURES = ("fx_car_side", "fx_car_zeds", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict_journal", "fx_conflict",
             "fx_materialize", "fx_incident", "fx_tactic", "fx_trade", "fx_convoy_stuck",
             "fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade",
             "fx_melee", "fx_shoot", "fx_shoot_held", "fx_door_press", "fx_hearth",
@@ -380,7 +380,7 @@ def _phase_loot(b):
 
 
 # Seconds the player keeps standing after a fixture, so the real code it starts can run.
-FIXTURE_STAND = {"fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot": 8, "fx_kit_place": 8}
+FIXTURE_STAND = {"fx_conflict_journal": 60, "fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot": 8, "fx_kit_place": 8}
 
 
 def _phase_fixtures(b):

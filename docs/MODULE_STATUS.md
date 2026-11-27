@@ -821,7 +821,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Ecology | `animal_observed` |
 | Escalation | `state_advanced` |
 | Events | `police_supply_bound`, `cache_filled` (scene cache fill; registered at 0 in RegisterUses) |
-| FactionConflict | `outcome_recorded` |
+| FactionConflict | `outcome_recorded`, `journal_committed` |
 | Forage | `item_picked`, `item_spawned` |
 | FoodCompat | `food_compat_guard` (enabled only with the food pack; `food_compat_refused` is a fault counter registered on first refusal, no activity row) |
 | Grade | `grade_applied` |
@@ -907,3 +907,23 @@ Crash points (replace; every row ends with no duplicated loot and no permanent s
 | refill `gen-N` (explicit id) .. `ok-N` | gen-N (+ ok-N) | same barrel | resumed or completed; an unrecorded id is adopted, never deletable |
 
 Open: an empty barrel can still be picked up (`Barrel_ColorBase.c` CanPutIntoHands with zero items); the cooldown bounds that farming but a non-pickup HC subclass was not verified. The orphan repair (`.txt` without `.pos`) is unchanged. Other HC-owned stocked containers outside this scope are listed in the worker report, not changed.
+
+### HC-37 journal smoke fixture (owner 2026-11-26)
+
+`fx_conflict_journal` is implemented with native verification pending. It forces
+one synthetic death and BOTH_REMAIN per boot, labelled `fixture=1`, through staged
+FactionConflictOutcomes saves, promotion, finish, world barrier and the durable
+TerritoryApplied receipt. Persistence Version, names and row format are unchanged;
+fixture identity is volatile and restart recovery stays UNKNOWN_RESTART. No
+territory, strength, quota or fact mutation is attributed to this fixture.
+
+Required evidence is `[HC Use] module=FactionConflict feature=journal_committed
+count=1 fixture=1` and `[HC Plan] HC-37 fixture_journal_applied
+encounter=conflict:<n> requested=<r> durable=<d> fixture=1`, following the ordered
+[R3 script](R3_SMOKE_SCRIPT.md#hc-37-forced-journal-fixture). Evidence: **pending**;
+no native runtime was started in this worker. Opus diff review remains required
+before merge. HCOffer, HCSurveyed, HCOwns, HCDisengaged and real body death writes
+remain **implemented-unverified**; fixture evidence verifies journal persistence
+only. Registering the counter means soaks skipping this fixture can report INERT.
+The `<96` headroom guard eventually requires a disposable testbed wipe; receipts
+are never pruned. Run before `fx_conflict`, which may leave quota pending.

@@ -108,6 +108,7 @@ class HCAdminCatalog
         HCAdd("campvisit", "ai", "Request camp visit", "Request a physical visit to the nearest eligible camp; normal attendance and cooldown guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("campraid", "ai", "Request camp raid", "Request a raid on the nearest eligible camp; normal warning and cooldown guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_holdout_due", "ai", "Smoke: due funded holdout", "Lead-only R3: select an existing naturally due funded row; no aging or supplies.", false, true, false, 0, 0, 0, "");
+        HCAdd("fx_conflict_journal", "ai", "Smoke: conflict journal", "Lead-only R3: force one BOTH_REMAIN journal fixture per boot; no territory or quota change.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_conflict", "ai", "Smoke: distant conflict", "Lead-only R3: prioritize an existing eligible distant opposed cell; normal guards apply.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_materialize", "ai", "Smoke: offered proposal", "Lead-only R3: prioritize an existing unclaimed proposal; real provider outcome required.", false, true, false, 0, 0, 0, "");
         HCAdd("fx_incident", "world", "Test setup: AI incident", "Dev test addon only: select a nearby real incident through the XAI handler.", false, true, false, 0, 0, 0, "");

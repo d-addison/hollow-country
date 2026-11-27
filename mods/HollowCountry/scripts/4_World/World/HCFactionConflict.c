@@ -114,13 +114,21 @@ class HCFactionConflict : HCModule
     protected string m_Declined;
     protected string m_StatusReason;
     protected bool m_ProviderLogged;
+    // Volatile identity only: recovery must never resume a synthetic fixture.
+    protected string m_FixtureEncounter;
+    protected bool m_FixtureJournalRan;
+    protected int m_FixtureAppliedRevision;
     protected int m_ActorCursor;
     protected int m_CallbackFrame = -1;
     protected ref HCUnitBudget m_CallbackUnits = new HCUnitBudget;
 
     override string GetName() { return "FactionConflict"; }
     override int StartupPhase() { return HC_PHASE_FEATURE; }
-    override void RegisterUses() { HCModuleReadiness.HCRegisterUse("FactionConflict", "outcome_recorded"); }
+    override void RegisterUses()
+    {
+        HCModuleReadiness.HCRegisterUse("FactionConflict", "outcome_recorded");
+        HCModuleReadiness.HCRegisterUse("FactionConflict", "journal_committed");
+    }
     override HCOperationalStatus HCGetOperationalStatus()
     {
         string fault = "";
@@ -141,6 +149,9 @@ class HCFactionConflict : HCModule
         if (!GetGame() || !GetGame().IsServer()) { HCRefuse("SERVER_AUTHORITY_REQUIRED"); return; }
         Print(HCV2Admission.Line("FactionConflict", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
         m_Refusal = "";
+        m_FixtureEncounter = "";
+        m_FixtureJournalRan = false;
+        m_FixtureAppliedRevision = 0;
         m_OutcomeRequested = 0;
         m_OutcomeCheckpoint = 0;
         m_OutcomeDurable = 0;
@@ -237,6 +248,13 @@ class HCFactionConflict : HCModule
         HCWarnStalls();
         HCApplyQuotaOutcome();
         if (!HCOutcomesCommitted()) { return; }
+        if (m_FixtureAppliedRevision > 0 && m_OutcomeDurable >= m_FixtureAppliedRevision)
+        {
+            Print("[HC Plan] HC-37 fixture_journal_applied encounter=" + m_FixtureEncounter + " requested=" + m_FixtureAppliedRevision.ToString() + " durable=" + m_OutcomeDurable.ToString() + " fixture=1");
+            m_FixtureAppliedRevision = 0;
+            // Done: later finishes no longer wait behind the fixture row; m_FixtureJournalRan keeps it once per boot.
+            m_FixtureEncounter = "";
+        }
         HCPromoteBind();
         HCWorldModule world = HCWorldModule.Get();
         if (!world || !m_ConflictConfig) { return; }
@@ -247,13 +265,16 @@ class HCFactionConflict : HCModule
         {
             HCTerritoryOutcomeRow outcome = m_Outcomes.Rows[m_OutcomeCursor];
             m_OutcomeCursor++;
-            if (outcome.TerritoryEpoch > 0 && !outcome.TerritoryApplied && outcome.LeftSurvivors >= 0)
+            // Complete the fixture's durable finish receipt before its applied receipt.
+            bool fixtureFinishPending = outcome.Id == m_FixtureEncounter && m_FinishRevision > 0;
+            if (!fixtureFinishPending && outcome.TerritoryEpoch > 0 && !outcome.TerritoryApplied && outcome.LeftSurvivors >= 0)
             {
                 if (!world.HCConflictObserved(outcome, m_ConflictConfig)) { HCDecline("TERRITORY_PUBLICATION_PENDING"); }
                 else
                 {
                     outcome.TerritoryApplied = true;
-                    HCRequestSave();
+                    int appliedRevision = HCRequestSave();
+                    if (outcome.Id == m_FixtureEncounter) { m_FixtureAppliedRevision = appliedRevision; }
                     return;
                 }
             }
@@ -280,6 +301,83 @@ class HCFactionConflict : HCModule
         return world.HCFixtureConflict(pos, apply, s_Instance.m_ConflictConfig, s_CombatPort, reason);
     }
 
+    // Lead-only journal drive; probes validate detached rows without consuming callback work.
+    static bool HCFixtureConflictJournal(vector pos, bool apply, out string reason)
+    {
+        reason = "EnableSmokeFixtures-off";
+        if (!HCAdminFixtures.HCEnabled()) { return false; }
+        reason = "conflict-owner-unavailable";
+        HCWorldModule world = HCWorldModule.Get();
+        if (!s_Active || !s_Instance || !world) { return false; }
+        return s_Instance.HCBindFixture(world, pos, apply, reason);
+    }
+
+    protected bool HCBindFixture(HCWorldModule world, vector pos, bool apply, out string reason)
+    {
+        reason = "conflict-owner-unavailable";
+        if (!m_Healthy || m_Refusal != "" || !m_OutcomeJob || m_OutcomeJob.HCFaulted || !m_ConflictConfig || !m_Outcomes) { return false; }
+        reason = "conflict-journal-busy";
+        if (!HCOutcomesCommitted() || m_OutcomeJob.HCDirty || m_Current || m_PendingBind || m_BindRevision > 0 || m_FinishRevision > 0 || m_PendingQuota) { return false; }
+        reason = "fixture-journal-once";
+        if (m_FixtureJournalRan) { return false; }
+        reason = "journal-history-headroom";
+        if (m_Outcomes.Rows.Count() >= HCTerritoryOutcomes.MAX_ROWS - 32) { return false; }
+        string place;
+        string opposed;
+        if (!world.HCFixtureJournalPlace(pos, m_ConflictConfig, place, opposed, reason)) { return false; }
+        HCTerritoryOutcomeRow fixtureRow = new HCTerritoryOutcomeRow;
+        string suffix = m_Outcomes.NextEncounter.ToString();
+        fixtureRow.Id = "conflict:" + suffix;
+        fixtureRow.PlaceId = place;
+        fixtureRow.Survey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        fixtureRow.LeftLease = "fixture-left:" + suffix;
+        fixtureRow.RightLease = "fixture-right:" + suffix;
+        fixtureRow.LeftParty = fixtureRow.LeftLease;
+        fixtureRow.RightParty = fixtureRow.RightLease;
+        fixtureRow.LeftCargo = fixtureRow.LeftLease;
+        fixtureRow.RightCargo = fixtureRow.RightLease;
+        fixtureRow.Generation = 1;
+        fixtureRow.LeftFaction = "raiders";
+        fixtureRow.RightFaction = opposed;
+        fixtureRow.LeftDead.Insert(false);
+        fixtureRow.LeftDead.Insert(false);
+        fixtureRow.RightDead.Insert(false);
+        reason = "fixture-row-invalid";
+        if (fixtureRow.LeftFaction != "raiders" || HCWorldFactionCatalog.Relation(fixtureRow.LeftFaction, fixtureRow.RightFaction) != -1) { return false; }
+        if (!HCWorldLimits.Token(fixtureRow.Id) || !HCWorldLimits.Token(fixtureRow.PlaceId) || !HCWorldLimits.Token(fixtureRow.LeftFaction) || !HCWorldLimits.Token(fixtureRow.RightFaction)) { return false; }
+        if (!HCWorldLimits.Token(fixtureRow.LeftLease) || !HCWorldLimits.Token(fixtureRow.RightLease)) { return false; }
+        if (!HCWorldLimits.Token(fixtureRow.LeftParty) || !HCWorldLimits.Token(fixtureRow.RightParty)) { return false; }
+        if (!HCWorldLimits.Token(fixtureRow.LeftCargo) || !HCWorldLimits.Token(fixtureRow.RightCargo)) { return false; }
+        // Validate the entire prospective image BEFORE touching the owner's journal.
+        HCTerritoryOutcomeData prospective = new HCTerritoryOutcomeData;
+        array<ref HCTerritoryOutcomeRow> priorRows = m_Outcomes.Rows;
+        foreach (HCTerritoryOutcomeRow priorRow : priorRows) { prospective.Rows.Insert(priorRow); }
+        prospective.Rows.Insert(fixtureRow);
+        prospective.NextEncounter = m_Outcomes.NextEncounter + 1;
+        if (!HCTerritoryOutcomes.HCValid(prospective)) { return false; }
+        reason = "fixture-journal-available";
+        if (!apply) { return true; }
+        reason = "conflict-callback-budget";
+        if (!HCCallbackAllowed()) { return false; }
+        m_Outcomes.Rows.Insert(fixtureRow);
+        m_Outcomes.NextEncounter++;
+        m_FixtureEncounter = fixtureRow.Id;
+        m_FixtureJournalRan = true;
+        int fixtureRevision = HCRequestSave();
+        reason = "OUTCOME_STORE_UNCERTAIN";
+        if (fixtureRevision == 0) { return false; }
+        m_PendingBind = fixtureRow;
+        m_BindRevision = fixtureRevision;
+        m_LeftActors.Clear();
+        m_RightActors.Clear();
+        m_ActorCursor = 0;
+        m_Declined = "RECEIPT_PENDING";
+        Print("[HC Plan] HC-37 fixture_journal_bound encounter=" + fixtureRow.Id + " place=" + fixtureRow.PlaceId + " left=raiders right=" + fixtureRow.RightFaction + " fixture=1");
+        HCLog(fixtureRow, "ready", "RECEIPT_PENDING");
+        reason = "fixture-journal-queued";
+        return true;
+    }
+
     // Read only the validated <=128-row journal. Pending sites cannot produce
     // another fight or pressure outcome before their territory receipt publishes.
     static bool HCTerritoryPending(string place)
@@ -289,6 +387,19 @@ class HCFactionConflict : HCModule
         foreach (HCTerritoryOutcomeRow row : rows)
         {
             if (row.PlaceId == place && row.TerritoryEpoch > 0 && !row.TerritoryApplied && row.LeftSurvivors >= 0) { return true; }
+        }
+        return false;
+    }
+
+    // fx_conflict selection only: the journal fixture's place stays reserved until its row is applied, so the
+    // two fixtures never share one place (otherwise the normal step drops fx_conflict silently).
+    static bool HCFixtureJournalHolds(string place)
+    {
+        if (!s_Instance || !s_Instance.m_Outcomes || s_Instance.m_FixtureEncounter == "") { return false; }
+        array<ref HCTerritoryOutcomeRow> journalRows = s_Instance.m_Outcomes.Rows;
+        foreach (HCTerritoryOutcomeRow journalRow : journalRows)
+        {
+            if (journalRow.Id == s_Instance.m_FixtureEncounter && journalRow.PlaceId == place && !journalRow.TerritoryApplied) { return true; }
         }
         return false;
     }
@@ -489,6 +600,9 @@ class HCFactionConflict : HCModule
         m_OutcomeWarned = false;
         m_OutcomeStepTime = -1;
         s_Active = false;
+        m_FixtureEncounter = "";
+        m_FixtureJournalRan = false;
+        m_FixtureAppliedRevision = 0;
         m_Current = null;
         m_LeftActors.Clear();
         m_RightActors.Clear();
@@ -722,6 +836,8 @@ class HCFactionConflict : HCModule
         m_Work.HCReset(1);
         if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
         int total = m_LeftActors.Count() + m_RightActors.Count();
+        // HC-37: guard the actor cursor modulo below (original HFC:726), including actorless fixtures.
+        if (total < 1) { return; }
         HCReached.Mark("faction_conflict.actor_step");
         int slot = m_ActorCursor % total;
         m_ActorCursor = (slot + 1) % total;
@@ -794,6 +910,22 @@ class HCFactionConflict : HCModule
             if (m_OutcomeDurable < m_FinishRevision) { return HCDecline("OUTCOME_RECEIPT_PENDING"); }
             return HCCompleteObserved();
         }
+        // Fixture BEFORE production LeftDead indexing by m_LeftActors.Count() (original HFC:800-819).
+        // Only the volatile boot identity authorizes this synthetic death and BOTH_REMAIN.
+        if (m_Current.Id == m_FixtureEncounter)
+        {
+            if (!m_Current.LeftDead[1])
+            {
+                if (HCTerritoryOutcomes.HCDeath(m_Current, 0, 1) && HCRequestSave() > 0) { HCLog(m_Current, "ready", "none"); }
+                return false;
+            }
+            if (!HCOutcomesCommitted()) { return false; }
+            if (!HCTerritoryOutcomes.HCResolve(m_Current, 1, 1)) { return HCRefuse("CONTRADICTORY_ACTOR_STATE"); }
+            int fixtureFinishRevision = HCRequestSave();
+            if (fixtureFinishRevision == 0) { return false; }
+            m_FinishRevision = fixtureFinishRevision;
+            return HCDecline("OUTCOME_RECEIPT_PENDING");
+        }
         if (!s_CombatPort || !s_CombatPort.HCDisengaged(encounter)) { return HCDecline("DISENGAGEMENT_UNVERIFIED"); }
         // At most 2 * SIZE_CEILING bound handles. Check absence BEFORE mutating
         // any receipt; no partial count can be interpreted as a final outcome.
@@ -830,6 +962,8 @@ class HCFactionConflict : HCModule
         m_StatusReason = "observed_pair_outcome_committed";
         m_Operational.HCPublish("ready", "observed_pair_outcome_committed");
         HCLog(m_Current, "ready", "CARGO_TRANSFER_UNVERIFIED");
+        if (m_Current.Id == m_FixtureEncounter) { HCModuleReadiness.HCUseFixture("FactionConflict", "journal_committed"); }
+        else { HCModuleReadiness.HCUse("FactionConflict", "journal_committed"); }
         m_OutcomeCursor = 0;
         m_Current = null;
         m_LeftActors.Clear();
@@ -1041,6 +1175,7 @@ modded class HCWorldModule
             HCWorldPlace place = m_Data.Places[i];
             if (HCFactionConflict.HCTerritoryPending(place.Id) || !HCConflictFar(place, config) || HCConflictLeased(place.Id)) { continue; }
             if ((port && port.HCActiveAt(place.Id)) || !HCConflictBudget(config, place.Id, now)) { continue; }
+            if (HCFactionConflict.HCFixtureJournalHolds(place.Id)) { continue; }
             string cell = HCFactionConflict.Cell(place.Position);
             for (int left = 0; left < factions - 1; left++)
             {
@@ -1063,6 +1198,51 @@ modded class HCWorldModule
             m_FixtureConflict = m_Data.Places[selected].Id + "/" + m_Data.Factions[selectedLeft].Id + "/" + m_Data.Factions[selectedRight].Id;
         }
         reason = "distant-opposed-cell-queued-normal-conflict-step";
+        return true;
+    }
+
+    // Separate bounded selection: no production cursors, fixture selection, quota or facts change.
+    bool HCFixtureJournalPlace(vector pos, HCConflictConfig config, out string placeId, out string opposedId, out string reason)
+    {
+        placeId = "";
+        opposedId = "";
+        reason = "conflict-owner-unavailable";
+        if (!m_Running || !m_Data || !config || !config.Enabled || !HCRecoveryGate.HCReady("world")) { return false; }
+        int now = HCWorldClock.UTC();
+        if (now < m_Data.Meta.Epoch) { reason = "conflict-clock-unavailable"; return false; }
+        int factionCount = m_Data.Factions.Count();
+        if (factionCount != HCWorldLimits.FACTIONS) { reason = "conflict-faction-catalog-invalid"; return false; }
+        HCWorldFaction raiders = m_Data.Faction("raiders");
+        reason = "fixture-row-invalid";
+        if (!raiders) { return false; }
+        float bestDistance = 0;
+        array<ref HCWorldPlace> journalPlaces = m_Data.Places;
+        array<ref HCWorldFaction> journalFactions = m_Data.Factions;
+        m_WorkBudget.HCReset(journalPlaces.Count() * (factionCount + 1));
+        foreach (HCWorldPlace journalPlace : journalPlaces)
+        {
+            if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
+            if (HCFactionConflict.HCTerritoryPending(journalPlace.Id) || !HCConflictFar(journalPlace, config) || HCConflictLeased(journalPlace.Id)) { continue; }
+            // HCXFactionCombatAdapter.HCActiveAt requires HCLeaseAtPlace (adapter:69-80):
+            // every live transient has a claimed proposal, already excluded above. No port calls.
+            string journalCell = HCFactionConflict.Cell(journalPlace.Position);
+            for (int journalFactionIndex = 0; journalFactionIndex < HCWorldLimits.FACTIONS; journalFactionIndex++)
+            {
+                HCWorldFaction opposedFaction = journalFactions[journalFactionIndex];
+                if (!m_WorkBudget.HCContinue()) { reason = "conflict-selection-budget"; return false; }
+                if (!HCConflictPolicy.HCOpposed(raiders, opposedFaction, journalCell)) { continue; }
+                float journalDistance = vector.DistanceSq(pos, journalPlace.Position);
+                if (placeId == "" || journalDistance < bestDistance)
+                {
+                    bestDistance = journalDistance;
+                    placeId = journalPlace.Id;
+                    opposedId = opposedFaction.Id;
+                }
+            }
+        }
+        reason = "no-eligible-distant-opposed-cell";
+        if (placeId == "") { return false; }
+        reason = "fixture-journal-place-selected";
         return true;
     }
 

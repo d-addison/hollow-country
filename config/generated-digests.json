@@ -4481,7 +4481,7 @@
         "modules/Crafting.module.json": "83929123390fbd20e5def54d5f79ef84f1fa6e9907654dba110d2a43c875ee10",
         "modules/DeadDrops.module.json": "250a3c537cbc9a11fdd61f030a790d2d5f51d79b3be272fdd84c6f4a16bd6c3b",
         "modules/DebugSnapshot.module.json": "37326152b8eb799a6b794ae3f75f4bb7afeaa08137846f03e07a9f88ddeb8369",
-        "modules/FactionConflict.module.json": "373070a3f6b181b10f33cd54a74376c4210f2b3924c5e8ca840e11151a683130",
+        "modules/FactionConflict.module.json": "f120f2517b5df5a49cbc6ea764b1835865178aea1168aae0fab45351c46a3063",
         "modules/Grade.module.json": "d7035c3a9b5b7616a8834bfc88d9341cc30cd6d78b84108f6e368b62be1d39bf",
         "modules/SettlementDecay.module.json": "38206edd90855f117a42592462b35714447e88499b136e61d9688adb1554c6c6",
         "modules/VehicleFlip.module.json": "9bb2491602d10c7eae6ce24d5e46e7c1f143f841302fd4acb8d73396f5c10a52",

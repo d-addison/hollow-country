@@ -1,4 +1,4 @@
-// Lead-only selection seams. No tick, entities, outcomes or use credit here.
+// Lead-only smoke seams. Owners stage work; journal fixture receipts are synthetic.
 // Native scripts-1.30.164289: EnScript.c arrays Count/Find/Insert;
 // EnString.c IndexOf. All owner operations below are project interfaces.
 class HCAdminFixtureProvider : Managed
@@ -33,6 +33,7 @@ class HCAdminFixtures
             if (holdouts) { return holdouts.HCFixtureDue(pos, true, reason); }
             return false;
         }
+        if (command == "fx_conflict_journal") { return HCFactionConflict.HCFixtureConflictJournal(pos, true, reason); }
         if (command == "fx_conflict")
         {
             HCWorldModule world = HCWorldModule.Get();
@@ -60,7 +61,7 @@ class HCAdminFixtures
     static void HCFixtureKit(array<string> lines)
     {
         // Read-only eligibility probes. Position only ranks; zero never adds a row.
-        array<string> commands = {"fx_holdout_due", "fx_conflict", "fx_materialize"};
+        array<string> commands = {"fx_holdout_due", "fx_conflict_journal", "fx_conflict", "fx_materialize"};
         foreach (string command : commands)
         {
             bool available = false;
@@ -72,6 +73,7 @@ class HCAdminFixtures
                 HCWorldModule world = HCWorldModule.Get();
                 HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
                 if (command == "fx_holdout_due" && holdouts) { available = holdouts.HCFixtureDue("0 0 0", false, reason); }
+                if (command == "fx_conflict_journal") { available = HCFactionConflict.HCFixtureConflictJournal("0 0 0", false, reason); }
                 if (command == "fx_conflict" && world) { available = HCFactionConflict.HCFixtureConflict("0 0 0", false, reason); }
                 if (command == "fx_materialize" && materializer) { available = materializer.HCFixtureProposal("0 0 0", false, reason); }
             }
