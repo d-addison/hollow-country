@@ -518,6 +518,9 @@ class HCClientDriver
         float radians = bearing * Math.DEG2RAD;
         vector chest = player.GetPosition() + Vector(0, 1.2, 0);
         vector finish = chest + Vector(Math.Sin(radians), 0, Math.Cos(radians)) * 29.0;
+        // Follow the terrain: a flat ray at chest height hits any slope steeper than ~4% over
+        // 29 m and would read a hillside as a wall. Native 3_Game/Global/Game.c:1176 SurfaceY.
+        finish[1] = GetGame().SurfaceY(finish[0], finish[2]) + 1.2;
         vector contact;
         vector normal;
         int component;
