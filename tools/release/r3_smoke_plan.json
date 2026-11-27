@@ -682,7 +682,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c#HCGroupPins.Collect",
       "trigger": "Group snapshot includes a received lead pin or previously discovered placed shelter trail pin, not an arbitrary user marker.",
       "exercise": "client_action",
-      "steps": "1. Keep solo group and ChernarusMap. 2. At Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, approach completed shelter until discovery records. 3. Open M to collect snapshot. Alternatively receive a real group lead then open M. 4. Require pins_published.",
+      "steps": "1. Keep solo group and ChernarusMap. 2. At Drozhino Hay Refuge (2585.119873,202.433472,5360.409668), mission/hollow-country/travel/route-surveys.json existing_shelters (mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:179), approach completed shelter until discovery records. 3. Open M to collect snapshot. Alternatively receive a real group lead then open M. 4. Require pins_published.",
       "est_minutes": 2,
       "prerequisites": "EnableGroups/Travel/Leads; placed discovered shelter or valid group lead, free pin cap; hand-made marker alone does not exercise call site."
     },
