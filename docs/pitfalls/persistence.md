@@ -23,6 +23,10 @@ Skill: `hc-persistence`. Rule ids come from `tools/validate/enforce_lint.py` and
 Comments under `mods/` that cite a build or issue and say what failed. Open the file before changing the code they describe.
 
 
+### `mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c`
+
+- Fallback mode only (shared saves off or registration refused); HCPumpFallback holds the job across the step (build 151) and HCStep builds its own map as its own entry point.
+
 ### `mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c`
 
 - Stops native route intent. HCInfectedPolicy.ValidRouteMetadata requires an active route for an in-progress result (1), so stopping one records it as interrupted (5), as HCNativeInfectedPack.Release and restart recovery already do. Build 151 saved a retired reinforcement with result 1 and no route; Validate refused the snapshot.
