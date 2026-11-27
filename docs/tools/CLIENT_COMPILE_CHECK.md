@@ -65,8 +65,11 @@ compile-class lines. `reason=compile_errors` takes precedence over completion;
 otherwise the reason is `clean` or `completion_missing`. Runtime-only logs with
 completion produce PASS/exit 0 while showing a positive `runtime_errors` count;
 missing completion still produces FAIL/exit 1. Invalid/unavailable logs also fail
-closed. The release still requires zero client `SCRIPT (E)` and zero VMEs;
-`activity_check` / `rpt_summary` verification remains mandatory.
+closed. The release still requires zero client `SCRIPT (E)` and zero VMEs:
+`release_gate` refuses `runtime_errors` above `max_script_errors` (RPT plus every
+script log; its RPT audit alone would miss script-log-only errors), and the
+campaign report adds a `client_script_errors` audit row (`zero` when any were seen,
+exit 8). `activity_check` / `rpt_summary` verification remains mandatory.
 
 Exit status is 0 for PASS, 1 for failed evidence. This check adds no gameplay
 feature or `[HC Use]` counter. Existing smoke counters remain mandatory.
