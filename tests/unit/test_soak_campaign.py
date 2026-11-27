@@ -625,6 +625,72 @@ class CampaignTests(Tmp):
         self.assertFalse(host.running[camp.SERVER_IMAGE])
         self.assertEqual(self.snapshot(), self.original)
 
+    def test_client_script_e_compile_marker_refuses(self):
+        run, host = self.campaign()
+        launch = host.launch_client
+
+        def broken_client(root, arguments):
+            launch(root, arguments)
+            profile = self.stager.client_parent / camp.CLIENT_PROFILE
+            with (profile / 'DayZ_x64_1.RPT').open('a') as stream:
+                stream.write("SCRIPT (E): Can't compile Mission script module!\n")
+
+        host.launch_client = broken_client
+        with self.assertRaisesRegex(camp.Refused, 'client compile check failed: compile_errors'):
+            run.run()
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_client_runtime_errors_log_once_and_preserve_soak_evidence(self):
+        run, host = self.campaign()
+        launch = host.launch_client
+        logs = []
+        run.log = logs.append
+
+        def runtime_client(root, arguments):
+            launch(root, arguments)
+            profile = self.stager.client_parent / camp.CLIENT_PROFILE
+            (profile / 'script_1.log').write_text('SCRIPT (E): NULL pointer to instance\n')
+            with (profile / 'DayZ_x64_1.RPT').open('a') as stream:
+                stream.write('SCRIPT (E): runtime script error\n')
+
+        host.launch_client = runtime_client
+        from tools.release import client_compile_check as check
+        with mock.patch.object(check, '_counts', wraps=check._counts) as counts:
+            self.assertTrue(run.run())
+        # Repeated join/drive/idle polls do not parse the same evidence again.
+        self.assertEqual(counts.call_count, 5)
+        verdicts = [line for line in logs if line.startswith('client_compile_check:')]
+        self.assertEqual(len(verdicts), 1)
+        self.assertIn('PASS reason=clean', verdicts[0])
+        self.assertIn('errors=0 runtime_errors=2', verdicts[0])
+        _, client = camp.last_run_logs(self.state)
+        self.assertIn('SCRIPT (E): runtime script error', client.read_text())
+        self.assertIn('NULL pointer', (client.parent / 'script_1.log').read_text())
+        self.assertEqual(self.snapshot(), self.original)
+
+    def test_client_compile_failure_appended_after_runtime_still_refuses(self):
+        run, host = self.campaign()
+        launch = host.launch_client
+
+        def runtime_client(root, arguments):
+            launch(root, arguments)
+            profile = self.stager.client_parent / camp.CLIENT_PROFILE
+            (profile / 'script_1.log').write_text('SCRIPT (E): NULL pointer\n')
+
+        host.launch_client = runtime_client
+        sleep = run.sleep
+
+        def compile_later(seconds):
+            sleep(seconds)
+            profile = self.stager.client_parent / camp.CLIENT_PROFILE
+            with (profile / 'script_1.log').open('a') as stream:
+                stream.write('SCRIPT (E): Cannot compile Mission\n')
+
+        run.sleep = compile_later
+        with self.assertRaisesRegex(camp.Refused, 'client compile check failed: compile_errors'):
+            run.run()
+        self.assertEqual(self.snapshot(), self.original)
+
     def test_full_run_drives_idles_stops_gracefully_and_restores(self):
         run, host = self.campaign()
         self.assertTrue(run.run())
