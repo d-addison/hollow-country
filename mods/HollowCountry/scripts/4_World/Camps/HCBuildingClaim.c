@@ -431,7 +431,8 @@ class HCBuildingClaim
         if (!HCReady(now)) { return; }
         HCGroupService groups = HCGroupService.Get();
         if (!groups || !groups.HCClaimHealthy()) { return; }
-        HCHintRound(groups);
+        map<string, PlayerBase> hcPlayers = HCGroupService.HCBuildPlayers();
+        HCHintRound(groups, hcPlayers);
         // Preserve the fixed checkpoint image; online time still advances so
         // the existing capped absence credit accounts for the paused walk.
         if (m_Owner.HCCheckpointInFlight()) { return; }
@@ -470,8 +471,6 @@ class HCBuildingClaim
             m_ObserverIds.Clear();
             return;
         }
-        map<string, PlayerBase> hcPlayers;
-        if (m_ObserverCursor < m_ObserverIds.Count()) hcPlayers = HCGroupService.HCBuildPlayers();
         while (m_ObserverCursor < m_ObserverIds.Count())
         {
             if (!m_Work.HCContinue() || !m_Units.HCTake(1)) { return; }
@@ -505,18 +504,17 @@ class HCBuildingClaim
 
     // #239: tell each online player's own client whether it may claim and which
     // building its group holds. Same 5 s slice and 32-player cap as the visit walk.
-    protected void HCHintRound(HCGroupService groups)
+    protected void HCHintRound(HCGroupService groups, map<string, PlayerBase> hcPlayers)
     {
         array<Man> people = HCPerfPlayers.HCGet();
         if (!people || people.Count() > 32) { return; }
         HCBuildingClaimHint hints = HCBuildingClaimHint.Get();
         hints.HCPrune(people);
         hints.HCIndex(m_Data.Claims);
-        map<string, PlayerBase> hintPlayers = HCGroupService.HCPlayersFromRoster(people);
         foreach (Man person : people)
         {
             PlayerBase hintPlayer = PlayerBase.Cast(person);
-            hints.HCSend(hintPlayer, groups, m_OnlineSeconds, false, hintPlayers);
+            hints.HCSend(hintPlayer, groups, m_OnlineSeconds, false, hcPlayers);
         }
     }
 

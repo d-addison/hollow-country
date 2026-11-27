@@ -678,7 +678,6 @@ class HCCampModule : HCModule
         array<Man> roster = new array<Man>;
         GetGame().GetPlayers(roster);
         map<string, PlayerBase> hcPlayers;
-        if (roster.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
         if (m_Recognitions.Count() > 0 && HCDurable(m_Recognitions[0].Receipt))
         {
             ref HCCampRecognition notice = m_Recognitions[0];
@@ -707,6 +706,7 @@ class HCCampModule : HCModule
             int pendingNow = HCWorldClock.UTC();
             if (pendingNow < m_LastUtc || pendingNow < 1) { Fail(); return; }
             m_LastUtc = pendingNow;
+            if (!hcPlayers && roster.Count() <= HCGCCampGroupConfig.Get().CampPlayers) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
             HCResumeCamp(pendingNow, roster, hcPlayers);
             return;
         }
@@ -721,6 +721,7 @@ class HCCampModule : HCModule
         if (s_Fires.Count() > 0)
         {
             if (m_FireCursor >= s_Fires.Count()) { m_FireCursor = 0; }
+            if (!hcPlayers) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
             Candidate(s_Fires[m_FireCursor], now, roster, hcPlayers);
             m_FireCursor++;
         }

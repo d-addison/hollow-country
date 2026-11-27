@@ -131,11 +131,11 @@ modded class HCCampModule
 
     // One server candidate, <=MaxCamps rows and <=MAX_PLAYERS cached actors per
     // dispatch. Reuse named native action reach rather than inventing a radius.
-    void HCBasesCandidate(ItemBase stash, int now, inout array<Man> roster, inout map<string, PlayerBase> hcPlayers)
+    bool HCBasesWantsPlayers(ItemBase stash, int now)
     {
-        if (!stash || stash.IsPendingDeletion() || stash.IsRuined() || !HCCampScan.StorageItem(stash)) { return; }
+        if (!stash || stash.IsPendingDeletion() || stash.IsRuined() || !HCCampScan.StorageItem(stash)) { return false; }
         string stashRef = HCCampScan.RefOf(stash);
-        if (stashRef == "") { return; } // Native persistence has not assigned it yet.
+        if (stashRef == "") { return false; } // Native persistence has not assigned it yet.
         vector stashPosition = stash.GetPosition();
         array<ref HCCampRecord> stashCamps = m_Data.Camps;
         foreach (HCCampRecord knownStash : stashCamps)
@@ -147,18 +147,20 @@ modded class HCCampModule
                 // Moving a native item never moves the stored camp anchor.
                 // A moved/stolen stash cannot become an unreviewed respawn site.
                 if (vector.DistanceSq(knownStash.Position, stashPosition) <= UAMaxDistances.DEFAULT * UAMaxDistances.DEFAULT) { knownStash.LastLit = now; }
-                return;
+                return false;
             }
         }
-        if (stashCamps.Count() >= HCAILimits.Get().MaxCamps) { return; }
-        if (!roster)
-        {
-            roster = new array<Man>;
-            GetGame().GetPlayers(roster);
-        }
+        if (stashCamps.Count() >= HCAILimits.Get().MaxCamps) { return false; }
+        return true;
+    }
+
+    void HCBasesCandidate(ItemBase stash, int now, array<Man> roster, map<string, PlayerBase> hcPlayers)
+    {
+        string stashRef = HCCampScan.RefOf(stash);
+        vector stashPosition = stash.GetPosition();
+        array<ref HCCampRecord> stashCamps = m_Data.Camps;
         array<Man> stashPlayers = roster;
         if (!stashPlayers || stashPlayers.Count() > HCWorldMaterializer.MAX_PLAYERS) { return; }
-        if (!hcPlayers) { hcPlayers = HCGroupService.HCPlayersFromRoster(stashPlayers); }
         string selectedGroup;
         foreach (Man stashPerson : stashPlayers)
         {
@@ -211,6 +213,13 @@ modded class HCCampModule
             m_HCBasesCursor = m_HCBasesCursor % stashCount;
             ItemBase nextStash = HCBasesContainers.HCAt(m_HCBasesCursor);
             m_HCBasesCursor++;
+            if (!HCBasesWantsPlayers(nextStash, m_LastUtc)) { continue; }
+            if (!roster)
+            {
+                roster = new array<Man>;
+                GetGame().GetPlayers(roster);
+                if (roster.Count() <= HCWorldMaterializer.MAX_PLAYERS) { hcPlayers = HCGroupService.HCPlayersFromRoster(roster); }
+            }
             HCBasesCandidate(nextStash, m_LastUtc, roster, hcPlayers);
         }
     }

@@ -217,9 +217,9 @@ class HCGroupService : Managed
         map<string, PlayerBase> ownedPlayers = hcPlayers;
         if (!m_Healthy || !m_PendingState) { return HCSaveJob.STEP_FAILED; }
         int result = m_Store.SaveStep(m_PendingState);
+        if (!ownedPlayers && result != HCSaveJob.STEP_MORE) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
         if (result == HCSaveJob.STEP_FAILED)
         {
-            if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
             m_Healthy = false;
             Stop(ownedPlayers);
             return result;
@@ -911,7 +911,7 @@ class HCGroupService : Managed
 
     // Synchronous round context contains managed peers only, never engine handles.
     // Preserve the public SendSnapshot signature used by the visibility override.
-    // Save/restore below also isolates a nested round; nothing survives its return.
+    // Each round replaces stale context and clears it on normal return.
     protected ref map<string, HCGroupPeer> m_HCRoundPeers;
 
     protected map<string, HCGroupPeer> HCPeersById()
@@ -931,7 +931,6 @@ class HCGroupService : Managed
             m_PeerCursor = m_RoundCursor % m_Peers.Count();
             m_RoundCursor = (m_RoundCursor + 1) % m_Peers.Count();
         }
-        ref map<string, HCGroupPeer> previousPeers = m_HCRoundPeers;
         map<string, HCGroupPeer> roundPeers = HCPeersById();
         m_HCRoundPeers = roundPeers;
         int sent = 0;
@@ -942,7 +941,7 @@ class HCGroupService : Managed
             HCGroupRecord hcFoundGroup1 = HCGroupRules.FindGroup(m_State, peer.Id);
             if (kind == HCGroupSnapshotKind.FULL || hcFoundGroup1) SendSnapshot(peer, kind, 0, hcPlayers);
         }
-        m_HCRoundPeers = previousPeers;
+        m_HCRoundPeers = null;
     }
 
     // Enqueue only: no Clone/Commit on the discovery cadence. FlushBatch
