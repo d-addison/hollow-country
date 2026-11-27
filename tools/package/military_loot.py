@@ -11,6 +11,7 @@ import hashlib
 from functools import lru_cache
 import json
 import math
+import os
 import re
 from pathlib import Path
 import struct
@@ -646,7 +647,7 @@ def other_sources():
     }}, sort_keys=True))
 
 
-def regenerate(output=None):
+def regenerate(output=None, source=None):
     """Refresh only the committed native/travel types; optional packs stay install-time."""
     path = ROOT / 'mission/hollow-country/ce/types.xml'
     tree = ET.parse(path)
@@ -681,6 +682,18 @@ def regenerate(output=None):
             if old is not None and old.text != str(value):
                 old.text = str(value)
                 changed += 1
+    # This generator owns the committed authored rows. Shelf admission is a
+    # tag-only step, independent of the budget and route refresh above.
+    from tools.package import economy, loot_boost, loot_floor_policy
+    source = source or os.environ.get('HC_GENERATED_SOURCE')
+    if source is None:
+        raise ValueError('authored tag regeneration needs pristine mission: --source or HC_GENERATED_SOURCE')
+    source = Path(source)
+    vanilla = {}
+    for name in loot_boost.types_files(source, include_optional=True):
+        vanilla.update(economy._unique(economy.xml(economy.read_plain(source, name), 'types')))
+    tags_changed = economy.authored_shelf_tags(tree.getroot(), vanilla, loot_floor_policy.load_shelf_fit())
+    print('authored shelf tags refreshed=' + str(len(tags_changed)))
     check_retained([entries[node.get('name')] for node in tree.getroot() if node.get('name') in entries],
                    tree.getroot())
     from tools.package import xml_text
@@ -729,6 +742,7 @@ def main():
     parser.add_argument('--check', action='store_true', help='validate catalog retention and committed native rows')
     parser.add_argument('--plan', action='store_true', help='with --mission: compare installed and generated Military pools')
     parser.add_argument('--out', type=Path, help='regenerated types destination')
+    parser.add_argument('--source', type=Path, help='pristine mission for authored tags; or HC_GENERATED_SOURCE')
     args = parser.parse_args()
     if args.plan and not args.mission:
         parser.error('--plan requires --mission')
@@ -740,7 +754,7 @@ def main():
         point_share(args.mission, load_rules()['tisy_bounds'])
         other_sources()
     if args.regenerate:
-        regenerate(args.out)
+        regenerate(args.out, args.source)
     if args.check:
         entries = apply(list(catalog().values()))
         path = ROOT / 'mission/hollow-country/ce/types.xml'

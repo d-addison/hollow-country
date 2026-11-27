@@ -1592,3 +1592,37 @@ new flags; no stored data changes, so a never-wiped server upgrades in place. Ro
 bytes, flag included, through the normal `rollback`. `_verify_types` allows exactly this 0 to 1 change on exactly these
 rows and still refuses every other flag change. Offline only: whether the CE respawns less once stored guns count is
 unobserved until a server soak.
+
+### Shelf-fit admission (#372)
+
+The floor policy adds `shelves` only for classes proven to fit at least 30% of
+candidate shelf points. Other rows keep their vanilla tags, including untagged
+and floor routes; existing vanilla shelf rows and Motorbike wheels are untouched.
+The same admission rule covers HC-authored CE rows: vanilla shelf tags may stay;
+otherwise a refused row recovers its own vanilla tags, or no tags when no vanilla
+row exists. `military_loot.regenerate` owns this tag-only refresh through
+`economy.authored_shelf_tags`. Authored regeneration takes a pristine mission via
+`military_loot --regenerate --source` or the shared `HC_GENERATED_SOURCE` setting
+(the latter also supplies it during digest regeneration).
+The calibration includes all authored classes using
+their authored categories and usages, independently of their current tags.
+An enabled policy refuses installation if its companion `shelf-fit.json` is missing
+or invalid. The receipt lists and counts rows kept on their vanilla route.
+
+This is offline calibration from chains c179/c200 and the owner's 2026-11-26
+threshold decision, not an observed engine fit rule. The host-only generator
+`python3 -B -m tools.package.shelf_fit generate` reads pristine registered CE types,
+stock prototype points plus all committed `additions*.json` and `new-buildings.json`
+through the production overlay functions. It reuses `_scan`/`_matches` for
+category/tag/usage matching and counts prototype points without weighting by
+placed buildings. Config ancestry resolves models across vanilla and installed
+Workshop dependencies/optional packs. `odol56.read_header` locates LODs; the
+bounded `read_lod` prefix supplies the first visual LOD's bounding box. A point
+fits when its range covers the longest box dimension. Unknown bounds and absent
+candidate points refuse admission. Shares are conservatively truncated to three
+decimals; admission uses the unrounded ratio. No quantities are changed by this rule.
+
+The lead can rerun `agent-run --memory 6G -- python3 -B -m tools.package.shelf_fit check`
+on the dev host (optional `--source`, `--addons`, `--workshop` for pristine installed
+inputs). It recomputes and compares exact bytes; it is not a required preland step.
+Confirmation boot and in-game placement remain pending lead evidence.

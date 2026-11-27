@@ -94,6 +94,8 @@ EXCLUDED_CHECK_MODULES = {
     'site_composer': 'no committed composed layers exist yet: they are built only after the native survey import '
                      '(config/sites/survey/roads.json and cells.json); until then its check refuses by design and '
                      'site_rules validates the inputs',
+    'shelf_fit': 'host-only calibration over installed models (first visual LOD bounds); intentionally not a '
+                 'required preland step; shelf-fit.json is reproduced with shelf_fit check on a host with the game',
 }
 
 

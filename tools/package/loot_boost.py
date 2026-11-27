@@ -1798,6 +1798,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
     overlay = parse_overlay(points) if points is not None else None
     roster = _roster_names(root)
     policy, policy_sha = _floor_policy(floor_policy, root)
+    shelf_fit = loot_floor_policy.load_shelf_fit(root) if policy is not None else None
     outputs, counts, tag_rows, type_layers = [], {'types': {}}, [], []
     hoarder = dict.fromkeys(HOARDER_KINDS, 0)
     scaled_layers = []
@@ -1824,7 +1825,7 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
             after, fixed = repair_attachments(after, gaps)
             counts['attachments']['repaired'] += len(fixed)
         if policy is not None:
-            after, rows = loot_floor_policy.retag_types(after, policy, roster)
+            after, rows = loot_floor_policy.retag_types(after, policy, roster, shelf_fit)
             tag_rows.append(rows)
         outputs.append((name, before, after))
         # Keep every registered type layer in CE load order, irrespective of filename.
@@ -1847,6 +1848,10 @@ def plan(mission, multiplier=None, points=None, floor_policy=SHIPPED, _limit_she
         floor['receivers'] = receivers
         floor['retagged_types'] = sum(1 for rows in tag_rows for r in rows if sorted(r[2]) != sorted(r[3]))
         floor['policy_sha256'] = policy_sha
+        floor['shelf_fit_kept_vanilla_classes'] = sorted({
+            name for rows in tag_rows for name in loot_floor_policy.kept_vanilla(rows, policy, shelf_fit)})
+        floor['shelf_fit_kept_vanilla'] = sum(
+            len(loot_floor_policy.kept_vanilla([row], policy, shelf_fit)) for rows in tag_rows for row in rows)
     else:
         floor = {'enabled': False}
     counts['floor_policy'] = floor
