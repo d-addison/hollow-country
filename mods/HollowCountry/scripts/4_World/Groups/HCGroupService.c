@@ -151,8 +151,6 @@ class HCGroupPeer : Managed
     string Id;
     string Name;
     string Session;
-    int Canary = 0x48434750;
-    int Serial;
     int LastRequest;
     string LastPayload;
     ref HCGroupReply LastReply;
@@ -180,32 +178,6 @@ class HCDebugGroupPinRow
 class HCGroupService : Managed
 {
     protected static ref HCGroupService s_Instance;
-    // Integer-only AV probe: 64 lines per process, armed by authenticated Commit.
-    // Remove after the next confirming soak. State DTO stays unchanged: no native
-    // MakeData byte comparison is available in this confined worker run.
-    protected static int s_HCTraceBudget = 64;
-    protected static int s_HCPeerSerial;
-    protected static bool s_HCTraceSnapshots;
-    static void HCTrace(string line)
-    {
-        if (s_HCTraceBudget <= 0) return;
-        s_HCTraceBudget--;
-        Print("[HC Groups] trace " + line);
-    }
-    void HCProbe(int stage, HCGroupPeer peer)
-    {
-        if (s_HCTraceBudget <= 0) return;
-        int canaryOK;
-        int serial;
-        int slot = -1;
-        if (peer)
-        {
-            if (peer.Canary == 0x48434750) canaryOK = 1;
-            serial = peer.Serial;
-            slot = m_Peers.Find(peer);
-        }
-        HCTrace("stage=" + stage.ToString() + " peer_ok=" + canaryOK.ToString() + " serial=" + serial.ToString() + " slot=" + slot.ToString() + " count=" + m_Peers.Count().ToString());
-    }
     protected ref HCGroupSettings m_Config;
     protected ref HCGroupState m_State;
     protected ref HCGroupStore m_Store;
@@ -498,11 +470,9 @@ class HCGroupService : Managed
         if (!ownedPlayers) { ownedPlayers = HCGroupService.HCBuildPlayers(); }
         HCGroupPeer previous = Peer(uid);
         if (previous) { m_Peers.Remove(m_Peers.Find(previous)); }
-        if (m_Peers.Count() >= 90 || m_Serial >= 1000000000 || s_HCPeerSerial >= 1000000000) return;
+        if (m_Peers.Count() >= 90 || m_Serial >= 1000000000) return;
         HCGroupPeer peer = new HCGroupPeer;
         peer.Id = uid;
-        s_HCPeerSerial++;
-        peer.Serial = s_HCPeerSerial;
         peer.Name = identity.GetName();
         if (!HCGroupRules.TextValid(peer.Name, 64, false)) peer.Name = "Survivor";
         m_Serial++;
@@ -669,15 +639,12 @@ class HCGroupService : Managed
         { Reply(peer, request.RequestId, HCGroupCode.NOT_FOUND, true, hcPlayers); return; }
         if ((request.Op == HCGroupOp.MARKER_CREATE || request.Op == HCGroupOp.MARKER_UPDATE) && (request.Position[0] > GetGame().GetWorld().GetWorldSize() || request.Position[2] > GetGame().GetWorld().GetWorldSize()))
         { Reply(peer, request.RequestId, HCGroupCode.INVALID, true, hcPlayers); return; }
-        HCProbe(1, peer);
         int result = HCApplyMutation(request, uid, now, hcPlayers);
         if (result == HCGroupCode.STORAGE)
         { Reply(peer, request.RequestId, HCGroupCode.STORAGE, true, hcPlayers); Stop(hcPlayers); return; }
         Reply(peer, request.RequestId, result, true, hcPlayers);
-        if (s_HCTraceSnapshots) HCProbe(3, peer);
         if (result == HCGroupCode.OK) Broadcast(hcPlayers);
         if (result == HCGroupCode.CONFLICT) SendSnapshot(peer, HCGroupSnapshotKind.FULL, request.RequestId, hcPlayers);
-        s_HCTraceSnapshots = false;
     }
 
     // Shared transaction for map requests and the native nearby interaction.
@@ -737,7 +704,6 @@ class HCGroupService : Managed
         int result = HCApplyMutation(request, peer.Id, now, ownedPlayers);
         if (result == HCGroupCode.STORAGE) Stop(ownedPlayers);
         if (result == HCGroupCode.OK) Broadcast(ownedPlayers);
-        s_HCTraceSnapshots = false;
         return result;
     }
 
@@ -762,15 +728,7 @@ class HCGroupService : Managed
         if (!saved) { return HCGroupCode.STORAGE; }
         ref HCGroupState old = m_State;
         m_State = candidate;
-        if (s_HCTraceBudget > 0)
-        {
-            // State canary omitted under the brief's byte-proof fallback.
-            // Read only script ints while retaining old until this exact point.
-            HCProbe(2, mutationPeer);
-            HCTrace("stage=2 new_revision=" + m_State.Revision.ToString() + " old_revision=" + old.Revision.ToString());
-        }
         old = null;
-        if (s_HCTraceBudget > 0) s_HCTraceSnapshots = true;
         HCModuleReadiness.HCUse("Groups", "group_mutated");
         return HCGroupCode.OK;
     }
@@ -1140,7 +1098,6 @@ class HCGroupService : Managed
             array<string> hcRows10 = group.Members;
             foreach (string uid : hcRows10)
             {
-                if (s_HCTraceSnapshots) HCProbe(5, peer);
                 HCGroupPeer sourcePeer = ownedPeers.Get(uid);
                 HCGroupMember rosterMember = Member(uid, sourcePeer, peer, true, hcPlayers, hint);
                 rosterMember.Role = HCGroupRules.Role(group, uid);
@@ -1162,7 +1119,6 @@ class HCGroupService : Managed
             {
                 if (Live(candidate, hcPlayers) && candidate.Id != peer.Id)
                 {
-                    if (s_HCTraceSnapshots) HCProbe(5, peer);
                     HCGroupMember candidateMember = Member(candidate.Id, candidate, peer, false, hcPlayers, hint);
                     snapshot.Candidates.Insert(candidateMember);
                 }

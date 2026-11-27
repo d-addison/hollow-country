@@ -343,7 +343,6 @@ modded class HCGroupService
     }
     override void SendSnapshot(HCGroupPeer peer, int kind, int requestId, map<string, PlayerBase> hcPlayers, PlayerBase hint = null)
     {
-        if (s_HCTraceSnapshots) HCProbe(4, peer);
         if (!peer) return;
         // Gate at collection, independently of KnownPlaces modded-link order.
         bool previousActive = HCGroupVisibility.HCSnapshotActive();
