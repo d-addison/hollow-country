@@ -98,6 +98,7 @@ STOP_RETRY_SECONDS = 10
 LAUNCH_ATTEMPTS = 3
 LAUNCH_TIMEOUT_SECONDS = 60
 LAUNCH_SETTLE_SECONDS = 30
+LAUNCH_UNKNOWN_EXTRA_SECONDS = 180
 LAUNCH_POLL_SECONDS = 5
 # Consecutive unreadable polls of a live log (Windows may hold it briefly) before the run gives up.
 UNREADABLE_POLLS = 20
@@ -787,7 +788,7 @@ class WindowsHost:
 
     def launch(self, script, images, what):
         """Start once. A lost interop reply (soak 178 attempt 4: the server was up, the client launch got no answer)
-        may hide a start that happened, so a retry only follows a check that none of the images is running."""
+        may hide a start that happened, so a retry only follows confirmation that every image is gone."""
         for attempt in range(LAUNCH_ATTEMPTS):
             if attempt and self.started(images, what):
                 return
@@ -802,17 +803,34 @@ class WindowsHost:
             raise Refused('%s start failed: Windows interop gave no answer %d times' % (what, LAUNCH_ATTEMPTS))
 
     def started(self, images, what):
-        """True once any image runs; False only when every image reads gone for the whole settle window."""
+        """Check for 30 s, extending unknown-at-deadline by at most 180 s of polling time.
+
+        Any running image succeeds. All gone at the initial deadline permits a retry; in the extra
+        window, require 30 s of all-gone readings after the last unknown. State query time is additional.
+        """
         deadline = self.clock() + LAUNCH_SETTLE_SECONDS
+        extra_deadline = None
+        gone_since = None
         while True:
             states = [self.state(image) for image in images]
             if 'running' in states:
                 return True
-            if self.clock() >= deadline:
-                if all(state == 'gone' for state in states):
+            now = self.clock()
+            all_gone = all(state == 'gone' for state in states)
+            if extra_deadline is None and now >= deadline:
+                if all_gone:
                     return False
-                raise Refused('cannot tell whether the %s started (process state unknown); '
-                              'check it by hand, then run restore' % what)
+                extra_deadline = now + LAUNCH_UNKNOWN_EXTRA_SECONDS
+            if extra_deadline is not None:
+                if now >= extra_deadline:
+                    raise Refused('cannot tell whether the %s started (process state unknown); '
+                                  'check it by hand, then run restore' % what)
+                if not all_gone:
+                    gone_since = None
+                elif gone_since is None:
+                    gone_since = now
+                elif now - gone_since >= LAUNCH_SETTLE_SECONDS:
+                    return False
             self.sleep(LAUNCH_POLL_SECONDS)
 
 

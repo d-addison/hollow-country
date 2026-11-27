@@ -75,6 +75,13 @@ BattlEye launcher path. The `-mod` list is the server's exact list: own mods fro
 server), every other mod from the client's `!Workshop` folder matched by `meta.cpp` `publishedid`, then
 `@HollowCountryTest`. A missing Workshop copy refuses the run. BattlEye, signature checks and Steam are never bypassed.
 
+After a lost launch reply, the process check polls every five seconds for 30 seconds. Any running image
+confirms the launch; all images gone at that deadline permits the normal retry. If any image is still
+unknown, polling continues for up to 180 additional seconds without another launch. During that extra
+window, a retry requires all images to read gone for a full 30 seconds after the last unknown reading.
+If no image is running and that confirmation has not completed before the extra deadline, the run refuses
+with the hand-check/restore message. These polling windows exclude time spent querying process state.
+
 ## Phases (`soak_phases.json`)
 
 `join`, `group`, `walk_ai`, `walk_zone`, `walk_town`, `fixtures`, `actions`, `scene`, `forest`, then `idle` (at least

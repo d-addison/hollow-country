@@ -1111,9 +1111,9 @@ class CampaignTests(Tmp):
 
         host = camp.WindowsHost.__new__(camp.WindowsHost)
         host.winproc = Win()
-        now = [0.0]
-        host.clock = lambda: now[0]
-        host.sleep = lambda seconds: now.__setitem__(0, now[0] + seconds)
+        clock = Clock()
+        host.clock = clock.now
+        host.sleep = clock.sleep
         return host
 
     def test_a_lost_launch_reply_retries_only_after_the_client_reads_gone(self):
@@ -1169,6 +1169,43 @@ class CampaignTests(Tmp):
         with self.assertRaisesRegex(camp.Refused, 'cannot tell whether the client started'):
             host.launch_client('G:\\DayZ', ['0'])
         self.assertEqual(1, len(host.winproc.scripts))
+        self.assertEqual(camp.LAUNCH_SETTLE_SECONDS + camp.LAUNCH_UNKNOWN_EXTRA_SECONDS, host.clock())
+
+    def test_unknown_launch_states_then_running_do_not_launch_twice(self):
+        host = self.launch_host(['lost', 0], ['unknown'])
+        running_at = camp.LAUNCH_SETTLE_SECONDS + 2 * camp.LAUNCH_POLL_SECONDS
+        host.state = lambda image: ('running' if image == camp.CLIENT_IMAGE and host.clock() >= running_at
+                                    else 'unknown')
+        host.launch_client('G:\\DayZ', ['0'])
+        self.assertEqual(1, len(host.winproc.scripts))
+        self.assertEqual(running_at, host.clock())
+
+    def test_unknown_launch_states_then_settled_gone_allow_the_normal_retry(self):
+        for retry in (False, True):
+            with self.subTest(retry=retry):
+                host = self.launch_host(['lost', 0], ['unknown'])
+                # Even one unknown image prevents retry. A later unknown resets the gone window.
+                first_gone = camp.LAUNCH_SETTLE_SECONDS + camp.LAUNCH_POLL_SECONDS
+                last_unknown = first_gone + 2 * camp.LAUNCH_POLL_SECONDS
+                host.state = lambda image: ('unknown' if image == camp.LAUNCHER_IMAGE and
+                                            (host.clock() < first_gone or host.clock() == last_unknown)
+                                            else 'gone')
+                if retry:
+                    host.launch_client('G:\\DayZ', ['0'])
+                    self.assertEqual(2, len(host.winproc.scripts))
+                else:
+                    self.assertFalse(host.started((camp.LAUNCHER_IMAGE, camp.CLIENT_IMAGE), 'client'))
+                self.assertEqual(last_unknown + camp.LAUNCH_POLL_SECONDS + camp.LAUNCH_SETTLE_SECONDS,
+                                 host.clock())
+
+    def test_unknown_launch_states_cannot_extend_the_extra_deadline(self):
+        host = self.launch_host(['lost', 0], ['unknown'])
+        deadline = camp.LAUNCH_SETTLE_SECONDS + camp.LAUNCH_UNKNOWN_EXTRA_SECONDS
+        host.state = lambda image: 'gone' if host.clock() >= deadline - camp.LAUNCH_POLL_SECONDS else 'unknown'
+        with self.assertRaisesRegex(camp.Refused, 'cannot tell whether the client started'):
+            host.launch_client('G:\\DayZ', ['0'])
+        self.assertEqual(1, len(host.winproc.scripts))
+        self.assertEqual(deadline, host.clock())
 
     def test_every_reply_lost_and_nothing_running_refuses(self):
         host = self.launch_host(['lost'] * camp.LAUNCH_ATTEMPTS, ['gone'])
