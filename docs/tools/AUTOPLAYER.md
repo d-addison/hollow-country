@@ -437,7 +437,7 @@ Round 5 remains implemented-unverified until the lead's native checks.
    Exact line templates (letters are placeholders, all sample lists have five entries):
 
    ```text
-   [HC Driver] calib probe=fwd|right|diag|left variant=mirror serial=N req_speed=3.00 req_angle=A pos=<x,z;...> cur_speed=<s;...> cur_angle=<a;...> input_angle=<a|idle;...> dir=<x,z;...> sample_s=<t;...> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5 heading=<h;...> local_dir=<x,z;...> move_speed=<s;...> model_speed=<x,z;...> movement=<m/i;...>
+   [HC Driver] calib probe=fwd|right|diag|left variant=mirror serial=N req_speed=3.00 req_angle=A pos=<x,z;...> cur_speed=<s;...> cur_angle=<a;...> input_angle=<a|idle;...> dir=<x,z;...> sample_s=<t;...> start=<x,z> stop=<x,z> settled=<x,z> moved_m=D settle_m=S back_m=B attempt=N duration_s=4.00 settle_s=2.00 samples=5 heading=<h;...> local_dir=<x,z;...> move_speed=<s;...> model_speed=<x,z;...> movement=<m/i;...> clear_m=C camera=<c;...>
    [HC Driver] calib result=ok|refused variant=mirror run=N reason=REASON forward=<x,z> right=<x,z> threshold_m=0.30 right_moved_m=D forward_settle_m=S right_settle_m=S correction_threshold_m=0.20 back_m=B facing=Y yaw=Y,Y,Y cmd=ID,ID applied_frames=N,N angle_sign=S frame_offset=O right_offset=O apply=measured-camera-frame|measured-heading-frame|refused aim=disabled scale=S frame=heading|camera b0=B b90=B b45=B bm90=B resid45=R residm90=R controls=0|1
    [HC Driver] server-move applied_frames=N refused=none|REASON serial=N
    ```
@@ -449,9 +449,27 @@ Round 5 remains implemented-unverified until the lead's native checks.
    on a later probe retains `right-no-movement`. Readiness failures retain
    `movement-or-controls-not-ready` and `readiness-lost`. At least three of five command-angle
    samples per probe must match within 15 degrees, otherwise `command-angle-mismatch`.
+   Before each probe, take one chest-height (1.2 m) `RaycastRV` with `ObjIntersectGeom`,
+   ignoring the local player. Native `3_Game/Global/DayZPhysics.c:199` signature:
+   `RaycastRV(begPos,endPos,out contactPos,out contactDir,out contactComponent,results,with,ignore,sorted,ground_only,iType,radius,flags)`.
+   The ray reaches 29 m: a conservative 28 m probe envelope (4 s at 7 m/s), plus 1 m.
+   `clear_m=29.00` means no contact; a contact prints its distance in a `probe=blocked`
+   line with `samples=0`, `duration_s=0.00`, `settle_s=0.00` and empty lists.
+   It sends no movement request. Rotate the entire requested probe set by 45 degrees,
+   discard previous samples, and restart at fwd. All probes and restarts share **eight rays
+   per run**, one per update. Budget exhaustion refuses `calib-blocked bearings=<...> rays=8`.
+   This can exhaust after partial clear sets; eight blocked rays visit all eight bearings
+   when camera yaw is stable. Four runs per entity/session remain the cap.
+
+   Any sampled 0.5 s interval, or the final interval to Stop, with <0.30 m displacement
+   invalidates the whole run as `probe-stalled`. A camera change >5 degrees from the final
+   set's initial camera invalidates it as `probe-frame-changing`. Such samples never reach
+   the fit. These guards also cover a moving obstacle after the initial clearance ray;
+   a single ray cannot guarantee an obstacle-free swept character volume.
+
 5. Compute displacement bearings `b0`, `b90`, `b45`, `bm90` in degrees. Fit
    `B(a) = B(0) + AngleScale*a`, choosing the best wrap-aware +90 residual among **+1,-1,+2,-2**.
-   +2 and -2 are indistinguishable at +90; the +45 residual breaks that tie. Both held-out
+   +2 and -2 are indistinguishable at +90; the +45 residual breaks that tie. The training (+90) residual and both held-out
    residuals, `resid45` and `residm90`, must independently be within **15 degrees**, otherwise
    `angle-fit-mismatch` (replaces `command-angle-motion-mismatch`). Success is `frame-probe`.
    `scale=2` means +45 requests predict +90 world-bearing turns, while `scale=1` predicts +45;
@@ -461,15 +479,54 @@ Round 5 remains implemented-unverified until the lead's native checks.
 
    Choose `frame=heading` when controller heading has a >1-degree range across the probe readings
    or differs from camera yaw (0.001-degree numerical tolerance); otherwise `frame=camera`.
-   `frame_offset` is `Wrap180(B(0)-initial_selected_frame)`. Steering reads that same source
+   After a clearance rotation, fit the actual wrapped request differences, rather than
+   assuming the first request is zero. `frame_offset` is
+   `Wrap180(B(first)-initial_selected_frame-AngleScale*first_request)`. Steering reads that same source
    live and requests `Clamp(Wrap180(want-frame-frame_offset)/AngleScale,-180,180)`.
    With absolute scale 2, a full circle uses requests in +/-90. Calibration never overrides aim.
-6. States are readiness → four (drive → settle) pairs → result: **24 s nominal**, at most
-   **26 s** including clamped update overshoot, plus up to 60 s readiness and one update.
+6. States are readiness → (clearance → drive → settle) → result: **24 s nominal**
+   for four clear probes plus four clearance updates. Restarts share the eight-ray budget,
+   bounding completed drive/settle pairs to eight (48 s nominal), plus readiness (60 s)
+   and update overshoot.
    Startup failures retry after 15 s, at most three startup runs; pre-movement retries share
    the **four-run session cap**. Step timers start after calibration. Readiness loss stops
-   immediately and refuses; an interrupted probe has no completed-probe line. At most four
+   immediately and refuses; an interrupted probe has no completed-probe line. At most eight
    client probe lines and one result per run; no per-frame logs or new `[HC Use]` counters.
+   Issue #368 evidence assessment (soaks 191/192/201): request degrees are confirmed by
+   `input_angle=90` and `local_dir=<1,0>`; `cur_angle=1.57` is radians on this build despite
+   `human.c:459-460` listing degree angles. Native `human.c:256` declares the override but
+   gives no unit comment. `GetMovement` returns a local normalized direction (`human.c:22`);
+   `GetHeadingAngle` is camera heading in radians (`:27-28`), negated to clockwise yaw by
+   `5_Mission/GUI/CrossHairSelector.c:247` (also camera code `:478`, negative to yaw).
+   The conventional candidate is camera-relative clockwise degrees, scale +1. The observed
+   world movement does **not** establish it: run 1 has B0=-57.06, B90=126.32, B45=146.15,
+   Bm90=-77.79. The 183.38-degree forward/right separation chooses scale -2, but held-out
+   residuals are -66.79 and 159.27 degrees. No fixed candidate explains all four.
+   Identical forward displacement at another spawn argues against attributing all of this
+   to the fixture fence. Every logged body direction and heading is north/zero; there is no
+   observed body turn, but the reported direction alone cannot establish the animation's
+   world movement frame during a strafe. The forward path bends and later stops; the
+   diagonal's 0.1–0.15 m intervals are obstruction evidence, not an angle measurement.
+
+   The smallest missing frame observation is per-sample camera yaw: new `camera=<...>`
+   uses native `3_Game/Global/Game.c:732 GetCurrentCameraDirection`, converted by Atan2(x,z).
+   Compare it with interval displacement bearings, heading and body direction in the next
+   soak. If it changes while heading stays zero, the old constant-frame fit was unsupported;
+   if it stays zero too, the world mapping remains unresolved and needs further engine
+   evidence (potentially server mirror observations outside this brief's file scope).
+   We deliberately do not make the inconsistent historical samples accept. Calibration
+   remains implemented-unverified; a clear, consistent four-probe fit is still required.
+
+   The fixture <6500,2500> is a poor unrestricted start (owner-observed town fence), but
+   remains unchanged together with `SPAWN_XZ` and all derived targets. Clearance rejects
+   blocked requested bearings and stalled probes refuse; it does not promise this spawn
+   will calibrate until the world angle mapping is established. There is no verified
+   alternative spawn in this evidence. Existing characters are never repositioned.
+   Plain walk recovery now uses side-right (+45, speed 2), side-left (-45, speed 2),
+   then back-up (180, speed 1), each for 2 s after 8 s without 1 m progress. Ten metres
+   of fresh progress resets the ladder; exhaustion returns timeout. Route's door rung
+   and route behavior are unchanged.
+
 7. The test-only `HCDriverMoveWire.RPC_MOVE` allocation is **4854091** (global lint inventory).
    The reliable player-targeted request contains serial, speed, angle, lease seconds and an
    apply flag. `client` sends apply=false for a correlated zero-frame diagnostic summary.
