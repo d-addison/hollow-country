@@ -61,6 +61,7 @@ class HCClientDriver
     protected bool m_ProbeFrameChanged;
     protected float m_ProbeRotation;
     protected int m_ClearanceRays;
+    protected int m_ProbeRotations;
     protected string m_BlockedBearings;
     protected ref array<float> m_ProbeRequests = {0, 90, 45, -90};
     protected int m_ProbeIndex;
@@ -453,6 +454,7 @@ class HCClientDriver
         m_ProbeRequests[2] = 45;
         m_ProbeRequests[3] = -90;
         m_ProbeRotation = 0;
+        m_ProbeRotations = 0;
         m_ClearanceRays = 0;
         m_BlockedBearings = "";
         ResetProbe(player, 0);
@@ -505,28 +507,32 @@ class HCClientDriver
     // Chest-height geometry check, never a movement command. Native
     // 3_Game/Global/DayZPhysics.c:199: RaycastRV(beg,end,out pos,out normal,
     // out component,results,with,ignore,sorted,ground_only,type,radius,flags).
-    // 28 m bounds four seconds at 7 m/s; include one metre beyond the probe.
+    // A probe drives four seconds at speed 3; soak 202 measured 13.5-14 m of travel, so a 16 m
+    // ray covers the probe plus two metres. A longer ray marks a direction blocked by a wall the
+    // probe never reaches (soak 202: hits at 18-27 m refused calibration at a fenced spawn).
+    // Each blocked ray rotates the probe set 45 degrees; eight rotations cover the full circle and
+    // bound the run at 8 x 4 rays.
     protected void ClearProbe(PlayerBase player)
     {
         HCDriverMovement.Stop();
-        if (m_ClearanceRays >= 8)
+        if (m_ProbeRotations >= 8)
         {
-            FinishCalib(player, m_CalibRight, "calib-blocked bearings=<" + m_BlockedBearings + "> rays=8");
+            FinishCalib(player, m_CalibRight, "calib-blocked bearings=<" + m_BlockedBearings + "> rotations=8 rays=" + m_ClearanceRays.ToString());
             return;
         }
         float bearing = HCDriverWalker.Wrap180(HCDriverWalker.CameraYaw() + m_ProbeAngle);
         float radians = bearing * Math.DEG2RAD;
         vector chest = player.GetPosition() + Vector(0, 1.2, 0);
-        vector finish = chest + Vector(Math.Sin(radians), 0, Math.Cos(radians)) * 29.0;
-        // Follow the terrain: a flat ray at chest height hits any slope steeper than ~4% over
-        // 29 m and would read a hillside as a wall. Native 3_Game/Global/Game.c:1176 SurfaceY.
+        vector finish = chest + Vector(Math.Sin(radians), 0, Math.Cos(radians)) * 16.0;
+        // Follow the terrain: a flat ray at chest height hits any slope steeper than ~8% over
+        // 16 m and would read a hillside as a wall. Native 3_Game/Global/Game.c:1176 SurfaceY.
         finish[1] = GetGame().SurfaceY(finish[0], finish[2]) + 1.2;
         vector contact;
         vector normal;
         int component;
         m_ClearanceRays++;
         bool blocked = DayZPhysics.RaycastRV(chest, finish, contact, normal, component, null, null, player, false, false, ObjIntersectGeom);
-        m_ProbeClear = 29.0;
+        m_ProbeClear = 16.0;
         if (blocked)
         {
             m_ProbeClear = HCDriverWalker.FlatLength(contact - chest);
@@ -536,6 +542,7 @@ class HCClientDriver
             LogProbe(player, "blocked");
             // Restart the entire rotated probe set: discarded samples cannot enter the fit.
             m_ProbeRotation = HCDriverWalker.Wrap180(m_ProbeRotation + 45.0);
+            m_ProbeRotations++;
             m_ProbeIndex = 0;
             m_CalibForward = vector.Zero;
             m_CalibRight = vector.Zero;

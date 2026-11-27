@@ -452,14 +452,16 @@ Round 5 remains implemented-unverified until the lead's native checks.
    Before each probe, take one chest-height (1.2 m) `RaycastRV` with `ObjIntersectGeom`,
    ignoring the local player. Native `3_Game/Global/DayZPhysics.c:199` signature:
    `RaycastRV(begPos,endPos,out contactPos,out contactDir,out contactComponent,results,with,ignore,sorted,ground_only,iType,radius,flags)`.
-   The ray reaches 29 m: a conservative 28 m probe envelope (4 s at 7 m/s), plus 1 m.
-   `clear_m=29.00` means no contact; a contact prints its distance in a `probe=blocked`
+   The ray reaches 16 m: soak 202 measured 13.5-14 m of probe travel (4 s at speed 3), plus
+   2 m. The earlier 29 m ray (4 s at 7 m/s) marked bearings blocked by walls 18-27 m away that
+   the probe never reached and refused every run at a fenced spawn. A wall inside the travel
+   that the ray misses still shows as a stalled probe.
+   `clear_m=16.00` means no contact; a contact prints its distance in a `probe=blocked`
    line with `samples=0`, `duration_s=0.00`, `settle_s=0.00` and empty lists.
    It sends no movement request. Rotate the entire requested probe set by 45 degrees,
-   discard previous samples, and restart at fwd. All probes and restarts share **eight rays
-   per run**, one per update. Budget exhaustion refuses `calib-blocked bearings=<...> rays=8`.
-   This can exhaust after partial clear sets; eight blocked rays visit all eight bearings
-   when camera yaw is stable. Four runs per entity/session remain the cap.
+   discard previous samples, and restart at fwd. A run allows **eight rotations** (the full
+   circle), so at most 8 x 4 rays, one per update. Exhaustion refuses
+   `calib-blocked bearings=<...> rotations=8 rays=N`. Four runs per entity/session remain the cap.
 
    Any sampled 0.5 s interval, or the final interval to Stop, with <0.30 m displacement
    invalidates the whole run as `probe-stalled`. A camera change >5 degrees from the final
