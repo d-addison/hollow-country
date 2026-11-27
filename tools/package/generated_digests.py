@@ -158,7 +158,7 @@ def installed_snapshot(contract, values):
         except FileNotFoundError as exc:
             raise MissingInput('installed Expansion AI road source unavailable') from exc
     source = values.get('source')
-    if name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional', 'loot_slack'}:
+    if name in {'economy', 'firearms', 'snafu_optional', 'tactical_flava_optional', 'loot_slack', 'military_loot'}:
         from tools.package.economy import INPUTS
         for rel in INPUTS:
             path = require_file(source / rel if source else None, 'stock mission ' + rel)
@@ -305,7 +305,8 @@ def regenerate(contract, values, scratch):
         return {contract.outputs[0]: out.read_bytes(), contract.outputs[1]: out.with_suffix(".json").read_bytes()}
     if name == 'military_loot':
         out = scratch / 'types.xml'
-        module.regenerate(out)
+        # Authored shelf tags fall back to each class's vanilla tags (#372), so the stock mission is an input.
+        module.regenerate(out, require_dir(source, 'stock mission'))
         return {contract.outputs[0]: out.read_bytes()}
     if name == 'loot_slack':
         # The table is read back by the plan that rebuilds it: one staged pass from the committed table must
