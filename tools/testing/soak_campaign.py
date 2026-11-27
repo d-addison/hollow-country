@@ -1693,6 +1693,10 @@ def build_report(phases, server_rpt, client_rpt, selection=None):
     rows.append(('audit', 'client_compile', 'join',
                  'active' if compile_result['passed'] else 'zero',
                  client_compile_check.verdict_line(compile_result)))
+    # Runtime SCRIPT (E) no longer fails the compile row; keep the zero bar visible.
+    rows.append(('audit', 'client_script_errors', 'join',
+                 'zero' if compile_result.get('runtime_errors', 0) else 'active',
+                 'runtime_errors=%d' % compile_result.get('runtime_errors', 0)))
     tour = admin_tour_failure(server_rpt)
     rows.append(('audit', 'admin_tour', 'join', 'zero' if tour else 'active',
                  tour or 'admin_tour_absent'))

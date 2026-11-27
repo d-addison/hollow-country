@@ -690,6 +690,12 @@ class NativeSteps:
         return audit(self.client_rpt, client=True, targets=self.targets, entries=self.entries,
                      texture_roots=self.texture_roots)
 
+    def client_script_errors(self, result):
+        # The compile check no longer fails on runtime SCRIPT (E); the release bar
+        # still counts them across the client RPT and every script_*.log.
+        if result.get('runtime_errors', 0) > self.targets['max_script_errors']:
+            raise Refused('client script error limit exceeded')
+
     def client(self):
         emit(self.checklist())
         required = set()
@@ -708,6 +714,7 @@ class NativeSteps:
             emit(client_compile_check.verdict_line(result))
             if not result['passed']:
                 raise Refused('client compile check failed: ' + result['reason'])
+            self.client_script_errors(result)
             self.audit_client()
             # Delegate shared [HC Use] parsing to the activity checker. Release
             # mode owns the signal format and reports per-feature active counts.
@@ -722,6 +729,7 @@ class NativeSteps:
                 emit(client_compile_check.verdict_line(result))
                 if not result['passed']:
                     raise Refused('client compile check failed: ' + result['reason'])
+                self.client_script_errors(result)
                 return
             if time.monotonic() >= deadline:
                 raise Refused('client smoke timeout')
