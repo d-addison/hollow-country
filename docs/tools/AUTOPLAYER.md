@@ -74,8 +74,8 @@ row. The Class column has these values:
 | actions | VehicleFlip | impulse_applied, pulses_operations | driven | steps action:flip; fixture fx_car_side; gear |
 | actions | WreckSalvage | part_created, parts_created | driven | steps action:salvage; fixture fx_wreck; gear |
 | fixtures | AIIncidents | lease_step, response_started | driven | fixture fx_incident |
-| fixtures | AISelfDefence | hit_reaction | impossible: fire/melee | fixture fx_shoot |
-| fixtures | AITactics | fire_events | impossible: fire/melee | fixture fx_shoot |
+| fixtures | AISelfDefence | hit_reaction | impossible: fire/melee | fixture fx_shoot_held |
+| fixtures | AITactics | fire_events | impossible: fire/melee | fixture fx_shoot_held |
 | fixtures | AITactics | tactic_chosen | driven | fixture fx_tactic |
 | fixtures | AITrade | trade_completed | driven | fixture fx_trade |
 | fixtures | CampRespawn | respawn_reserved | driven | fixture fx_camp_setup; timer |
@@ -88,7 +88,7 @@ row. The Class column has these values:
 | fixtures | Fortify | fortify_placed | driven | fixture fx_kit_place |
 | fixtures | Fortify | fortify_refused | driven | fixture fx_kit_refuse |
 | fixtures | Holdouts | camp_committed, occupied_holdouts | driven | fixture fx_holdout_due |
-| fixtures | InfectedMemory | heat_recorded, memory_cells | impossible: fire/melee | fixture fx_shoot |
+| fixtures | InfectedMemory | heat_recorded, memory_cells | impossible: fire/melee | fixture fx_shoot_held |
 | fixtures | Materializer | materialized_operations | driven | fixture fx_materialize |
 | fixtures | Melee | hit_processed, parity_probe, wall_veto, zombie_hit_bonuses | impossible: fire/melee | fixture fx_melee |
 | fixtures | OptionalPacks | animal_seen | driven | fixture fx_animal |
@@ -169,7 +169,7 @@ row. The Class column has these values:
 |---|---|
 | Firing a gun | `DayZPlayerImplement.c:1161-1210` calls `GetWeaponManager().Fire(weapon)` only when `pInputs.IsAttackButtonDown()` / `IsAttackButton()` are true (`human.c:120/:122`, synced inputs). `WeaponManager.c:485 Fire` runs `ProcessWeaponEvent(WeaponEventTrigger)` locally. The server replays the synced input stream, so a client-only `Fire` only desyncs. `UAInput.SyncedOverride` is compiled only under `INPUT_OVERRIDE` (`UAInput.c:172-190`). The combat step therefore raises, aims and reloads for real, then logs `fire=unsupported:no-native-client-entry-for-fire-input`. |
 | Melee | Light and heavy attacks read the same synced inputs (`DayZPlayerMeleeFightLogic_LightHeavy.c:137/:151`, `human.c:75 IsMeleeWeaponAttack`). No override exists for them (`OverrideMeleeEvade` at `human.c:265` is evade only). |
-| Confirming a kill by the bot | Follows from the two rows above. Kills stay with the fixtures (`fx_melee`, `fx_shoot`, `fx_site_patrol_kill`). The combat step confirms only a target that something else killed (`IsAlive() == false` on a target it was tracking) and never claims to have killed it. |
+| Confirming a kill by the bot | Follows from the two rows above. Kills stay with the fixtures (`fx_melee`, `fx_shoot_held`, `fx_site_patrol_kill`). The combat step confirms only a target that something else killed (`IsAlive() == false` on a target it was tracking) and never claims to have killed it. |
 | TeamPing delivery (`ping_recipients`, `ping_delivered`) | One client has no recipient. The item stays friend_playtest. |
 | Cellars visual (`Cellars/visual_applied`) | The `cellar` step now attempts the walk and records bounded refusal evidence. The item stays owner_check until a reachable floor and the renderer-owned counter are proved natively; shared cellar admission is enabled but qualification remains unverified. Only the lighting look is subjective. |
 | Multiplayer anything | The acceptance bar is one server plus at most one client. Never claimed. |

@@ -60,7 +60,7 @@ MAX_SITE_CANDIDATES = 64
 FIXTURES = ("fx_car_side", "fx_car_zeds", "fx_camp_setup", "fx_wreck", "fx_holdout_due", "fx_conflict_journal", "fx_conflict",
             "fx_materialize", "fx_incident", "fx_tactic", "fx_trade", "fx_convoy_stuck",
             "fx_animal", "fx_food", "fx_cooking", "fx_kit_place", "fx_kit_refuse", "fx_barricade",
-            "fx_melee", "fx_shoot", "fx_shoot_held", "fx_door_press", "fx_hearth",
+            "fx_melee", "fx_shoot_held", "fx_door_press", "fx_hearth",
             "fx_site_patrol_kill", "fx_die")
 # Server commands the player's own admin RPC runs on the real module path (HCAdminModule.HCExtra and
 # the command list): they ask a module to do its normal bounded work now, they never spawn a counter.
@@ -380,7 +380,7 @@ def _phase_loot(b):
 
 
 # Seconds the player keeps standing after a fixture, so the real code it starts can run.
-FIXTURE_STAND = {"fx_conflict_journal": 60, "fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot": 8, "fx_kit_place": 8}
+FIXTURE_STAND = {"fx_conflict_journal": 60, "fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_kit_place": 8}
 
 
 def _phase_fixtures(b):

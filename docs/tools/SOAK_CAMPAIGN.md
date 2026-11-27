@@ -108,9 +108,9 @@ rows `fx_animal`, `fx_food`, `fx_cooking`, `fx_kit_place`, `fx_kit_refuse`, `fx_
 `HCAdminCatalog.c`) log `[HC Fixture] cmd=<c> fixture=1 result=ok` and then the real code path runs: `fx_kit_place` and
 `fx_kit_refuse` finish a real deploy action (Fortify placed and refused), `fx_barricade` presses an infected
 against the barricade (breached after 20 s), `fx_food` and `fx_cooking` create a `_DON` food and a `CookZ_` pot
-(FoodCompat guard, CookingCompat dish), `fx_animal` places an animal for the pack counter, `fx_shoot` fires a
-native `Weapon.Fire` round at the nearest HC AI (InfectedMemory heat, AITactics fire events, AISelfDefence
-hit reaction), and `fx_melee` calls `ProcessMeleeHitName` on a spawned infected (Melee hit, wall veto, parity
+(FoodCompat guard, CookingCompat dish), `fx_animal` places an animal for the pack counter, `fx_shoot_held` fires the
+requester's held weapon at the nearest HC AI (InfectedMemory heat, AITactics fire events, AISelfDefence hit
+reaction; `fx_shoot` is retired and refuses: a world-weapon `Weapon.Fire` crashed the server natively in soak 201), and `fx_melee` calls `ProcessMeleeHitName` on a spawned infected (Melee hit, wall veto, parity
 probe). No fixture bumps or credits a counter.
 
 `Cellars/visual_applied` is an owner check: the client counter needs the player more than 2 m below terrain inside
