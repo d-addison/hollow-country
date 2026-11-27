@@ -34,14 +34,17 @@ that coverage. The existing real client path uses `DayZ_BE.exe` with
    failed startup or absent completion evidence is a hard failure. Preserve the
    ordinary VME/texture and activity checks. A menu-only compile check does not
    satisfy the full smoke.
-5. After the client exits, run the checker below. No errors plus either
+5. After the client exits, run the checker below. No compile errors plus either
    `Module: Mission; loaded <positive count>x files` in the captured logs or
    `[HC Driver] step=<step id> kind=<kind>` establishes compile completion
    (the receipt is emitted by `5_Mission/HCClientDriverSteps.c:91`). A Game-layer
    connection trace alone does not establish Mission compilation. Missing,
    unreadable, oversized or incomplete evidence fails. Warnings alone do not
-   fail. The parser also fails on every `SCRIPT (E)` (any spacing), compile/module
-   load failures, and the build-185 duplicate declaration diagnostic. It scans
+   fail. Compile-class lines are `Can't compile` / `Cannot compile`, `Compile
+   error`, `Multiple declaration of function`, `Script validation failed`, and
+   failed/unable/cannot script or module loads. These remain compile-class even
+   inside `SCRIPT (E)` lines. Other `SCRIPT (E)` lines (any spacing) count as
+   `runtime_errors`; they do not fail this compile check. It scans
    at most 32 files, 64 MiB total and 16 KiB per line; exceeding a bound fails.
 
 ```sh
@@ -53,10 +56,18 @@ With explicit logs, repeat `--script-log` for every script log belonging to the
 launch. A clean verdict is:
 
 ```text
-client_compile_check: PASS reason=clean logs=<count> errors=0 complete=true
+client_compile_check: PASS reason=clean logs=<count> errors=0 runtime_errors=0 complete=true
 ```
 
 Only counts and reason codes are printed; log lines and paths are not echoed.
+`errors` (also exposed as `compile_errors` in the result dict) counts only
+compile-class lines. `reason=compile_errors` takes precedence over completion;
+otherwise the reason is `clean` or `completion_missing`. Runtime-only logs with
+completion produce PASS/exit 0 while showing a positive `runtime_errors` count;
+missing completion still produces FAIL/exit 1. Invalid/unavailable logs also fail
+closed. The release still requires zero client `SCRIPT (E)` and zero VMEs;
+`activity_check` / `rpt_summary` verification remains mandatory.
+
 Exit status is 0 for PASS, 1 for failed evidence. This check adds no gameplay
 feature or `[HC Use]` counter. Existing smoke counters remain mandatory.
 
@@ -83,7 +94,12 @@ candidate and require PASS plus the full smoke's existing `[HC Use]` evidence.
 ## Campaign and R3 plumbing
 
 The campaign checks for client compile errors while waiting for a join, using
-both RPT and sibling script logs; it follows the existing graceful cleanup path.
+both RPT and sibling script logs; compile-class errors follow the existing
+graceful cleanup path. The first runtime-class error logs one verdict without
+aborting the campaign so verification retains the rest of the soak evidence.
+Driver polls reuse unchanged file metadata and read appended bytes from the last
+complete line, rechecking unfinished lines. Truncation, replacement or same-size
+edits restart that file; the cache retains only the current bounded set of logs.
 Its final report always adds an `audit / client_compile / join` result. FAIL
 counts as broken and makes `report`/`run` return 8 even when activity counters
 would otherwise pass. Missing/incomplete logs cannot become an active result.
@@ -92,6 +108,7 @@ R3 checks the same evidence on each client smoke poll and again before accepting
 positive activity counters. A failure raises `client compile check failed:
 <reason>`, fails the `client` step and yields `release_gate=FAIL`. The existing
 shared host lock and cleanup remain in force. Both integrations discover sibling
-script logs, so fresh profile isolation is required; old script errors fail
-conservatively. Neither the checker nor offline tests prove multiplayer behavior
+script logs, so fresh profile isolation is required; old compile diagnostics fail
+conservatively and old runtime errors remain in the reported counts. Neither
+the checker nor offline tests prove multiplayer behavior
 or replace the lead's exact-commit R3 native experiment.

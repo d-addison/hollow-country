@@ -29,9 +29,10 @@ class ClientCompileTests(unittest.TestCase):
     def test_compile_errors_in_either_log_override_completion(self):
         for diagnostic in ("Can't compile \"Game\" script module!",
                            "Multiple declaration of function 'Connect'",
-                           'SCRIPT (E): unknown function', 'Cannot compile Mission',
+                           "SCRIPT (E): Can't compile World script module!", 'Cannot compile Mission',
                            'Failed to load World script', 'Compile error',
-                           'Unable to load script module'):
+                           'Unable to load script module', 'Script validation failed',
+                           'Script module load failed'):
             for path in (self.rpt, self.script):
                 with self.subTest(diagnostic=diagnostic, log=path.name):
                     self.rpt.write_text('[HC Driver] step=s01 kind=wait result=ok detail=ok\n')
@@ -41,6 +42,91 @@ class ClientCompileTests(unittest.TestCase):
                     result = check.scan(self.rpt)
                     self.assertFalse(result['passed'])
                     self.assertEqual(result['reason'], 'compile_errors')
+                    self.assertEqual(result['compile_errors'], 1)
+                    self.assertEqual(result['errors'], 1)
+                    self.assertEqual(result['runtime_errors'], 0)
+
+    def test_runtime_only_is_reported_and_cli_passes_with_completion(self):
+        self.script.write_text('SCRIPT    (E): NULL pointer to instance\n'
+                               'SCRIPT (E): unknown function\n')
+        result = check.scan(self.rpt)
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['reason'], 'clean')
+        self.assertEqual(result['compile_errors'], 0)
+        self.assertEqual(result['runtime_errors'], 2)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(check.main(['--rpt', str(self.rpt)]), 0)
+        self.assertIn('errors=0 runtime_errors=2 complete=true', out.getvalue())
+        self.rpt.write_text('boot\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(check.main(['--rpt', str(self.rpt)]), 1)
+        self.assertEqual(check.scan(self.rpt)['reason'], 'completion_missing')
+
+    def test_verdict_accepts_existing_compile_only_results(self):
+        # Existing release-gate callers/tests may supply the original result schema.
+        result = dict(passed=True, reason='clean', logs=1, errors=0, complete=True)
+        self.assertIn('errors=0 runtime_errors=0 complete=true', check.verdict_line(result))
+
+    def test_compile_marker_precedence_over_runtime_and_completion(self):
+        self.script.write_text('SCRIPT (E): NULL pointer\n'
+                               'SCRIPT (E): Cannot compile Mission\n')
+        result = check.scan(self.rpt)
+        self.assertEqual((result['compile_errors'], result['runtime_errors']), (1, 1))
+        self.assertEqual(result['reason'], 'compile_errors')
+        self.assertFalse(result['passed'])
+
+    def test_poll_cache_reads_only_appends_and_rechecks_partial_lines(self):
+        scanner = check.Scanner()
+        self.script.write_text('SCRIPT (E): NULL pointer\nSCRIPT (E): Can')
+        self.assertEqual(scanner.scan(self.rpt)['runtime_errors'], 2)
+        with patch.object(Path, 'open', side_effect=AssertionError('unchanged file reread')):
+            self.assertEqual(scanner.scan(self.rpt)['runtime_errors'], 2)
+        with self.script.open('a') as stream:
+            stream.write("'t compile World\n")
+        with patch.object(check, '_counts', wraps=check._counts) as counts:
+            result = scanner.scan(self.rpt)
+        self.assertEqual(counts.call_count, 1)
+        self.assertEqual(result, check.scan(self.rpt))
+        self.assertEqual((result['compile_errors'], result['runtime_errors']), (1, 1))
+
+    def test_poll_cache_resets_edited_truncated_and_replaced_logs_and_discovers_new(self):
+        scanner = check.Scanner()
+        self.script.write_text('SCRIPT (E): NULL pointer\n')
+        self.assertEqual(scanner.scan(self.rpt)['runtime_errors'], 1)
+        # Same-size edit must not reuse a stale count, even with a coarse mtime.
+        self.script.write_text('x' * (self.script.stat().st_size - 1) + '\n')
+        import os
+        stamp = self.script.stat().st_mtime_ns
+        os.utime(self.script, ns=(stamp, stamp + 1_000_000_000))
+        self.assertEqual(scanner.scan(self.rpt)['runtime_errors'], 0)
+        self.script.write_text('boot\n')
+        self.assertEqual(scanner.scan(self.rpt), check.scan(self.rpt))
+        replacement = self.root / 'replacement'
+        replacement.write_text('SCRIPT (E): Cannot compile Mission\n')
+        replacement.replace(self.script)
+        self.assertEqual(scanner.scan(self.rpt)['compile_errors'], 1)
+        self.script.unlink()
+        new = self.root / 'script_2.log'
+        new.write_text('SCRIPT (E): NULL pointer\n')
+        self.assertEqual(scanner.scan(self.rpt)['runtime_errors'], 1)
+        self.assertNotIn(self.script, scanner.files)
+
+    def test_poll_cache_keeps_byte_line_and_file_bounds(self):
+        scanner = check.Scanner()
+        self.assertTrue(scanner.scan(self.rpt)['passed'])
+        with patch.object(check, 'MAX_BYTES', self.rpt.stat().st_size - 1):
+            self.assertFalse(scanner.scan(self.rpt)['passed'])
+        self.script.write_text('x' * check.MAX_LINE)
+        scanner.scan(self.rpt)
+        with self.script.open('a') as stream:
+            stream.write('x')
+        self.assertEqual(scanner.scan(self.rpt)['reason'], 'logs_oversized')
+        self.script.unlink()
+        for i in range(32):
+            (self.root / f'script_{i}.log').touch()
+        self.assertEqual(scanner.scan(self.rpt)['reason'], 'too_many_logs')
+        self.assertEqual(scanner.files, {})
 
     def test_missing_unreadable_and_bounded_logs_fail_closed(self):
         self.assertFalse(check.scan(None)['passed'])

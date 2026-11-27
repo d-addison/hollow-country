@@ -1310,10 +1310,15 @@ class Campaign:
                 lines, follow['offset'] = tail_lines(path, follow['offset'])
                 from tools.release import client_compile_check
                 # Script logs can contain the error even when the RPT only shows a modal dialog.
-                compile_result = client_compile_check.scan(path)
-                if compile_result['errors']:
+                if 'compile_scanner' not in follow:
+                    follow['compile_scanner'] = client_compile_check.Scanner()
+                compile_result = follow['compile_scanner'].scan(path)
+                if compile_result['compile_errors']:
                     self.log(client_compile_check.verdict_line(compile_result))
                     raise Refused('client compile check failed: compile_errors')
+                if compile_result['runtime_errors'] and not follow.get('runtime_logged'):
+                    self.log(client_compile_check.verdict_line(compile_result))
+                    follow['runtime_logged'] = True  # Verification still requires zero SCRIPT (E)/VMEs.
                 for line in lines:
                     trace = CONNECT_TRACE.search(line)
                     if trace:
@@ -1688,6 +1693,10 @@ def build_report(phases, server_rpt, client_rpt, selection=None):
     rows.append(('audit', 'client_compile', 'join',
                  'active' if compile_result['passed'] else 'zero',
                  client_compile_check.verdict_line(compile_result)))
+    # Runtime SCRIPT (E) no longer fails the compile row; keep the zero bar visible.
+    rows.append(('audit', 'client_script_errors', 'join',
+                 'zero' if compile_result.get('runtime_errors', 0) else 'active',
+                 'runtime_errors=%d' % compile_result.get('runtime_errors', 0)))
     tour = admin_tour_failure(server_rpt)
     rows.append(('audit', 'admin_tour', 'join', 'zero' if tour else 'active',
                  tour or 'admin_tour_absent'))
