@@ -59,6 +59,66 @@ def negative_evidence():
     }
 
 
+class HCMissionStagingTests(unittest.TestCase):
+    def test_shared_target_refused_before_writes_and_disposable_bytes_pinned(self):
+        from tools.setup import wine_compile_probe as wine
+        # safe() excludes source checkouts, so fake only location policy for this
+        # private scratch fixture; keep the explicit destination guard real.
+        scratch = ROOT / '.banso'
+        scratch.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as temp, \
+                mock.patch.object(wine, 'safe', side_effect=lambda p: Path(p).absolute()):
+            root = Path(temp)
+            server_root = root / 'server'
+            shared = server_root / 'mpmissions/dayzOffline.chernarusplus'
+            shared.mkdir(parents=True)
+            (shared / 'init.c').write_bytes(b'original init')
+            before = wine.snapshot_mission(shared)
+            experiment = root / 'experiment'
+            experiment.mkdir()
+            files = {'one.json': b'{"raw":true}\n', 'nested/two.xml': b'<raw/>'}
+            with self.assertRaisesRegex(ValueError, 'hc_mission_shared_target'):
+                wine.stage_hc_mission(shared, experiment, server_root, files)
+            self.assertEqual(before, wine.snapshot_mission(shared))
+            mission = experiment / 'mod-stack.chernarusplus'
+            import shutil
+            shutil.copytree(shared, mission)
+            wine.stage_hc_mission(mission, experiment, server_root, files)
+            for name, data in files.items():
+                self.assertEqual((mission / 'hollow-country' / name).read_bytes(), data)
+            self.assertEqual((mission / 'init.c').read_bytes(), b'original init')
+            receipt = wine.hc_mission_receipt(files)
+            self.assertEqual(receipt, wine.hc_mission_receipt(dict(reversed(list(files.items())))))
+            self.assertEqual(receipt['hc_mission_files'], 2)
+            self.assertEqual(receipt['hc_mission_bytes'], sum(map(len, files.values())))
+            expected = wine.snapshot_mission(mission)
+            wine.verify_final_inputs(mission, expected, [])
+            (mission / 'hollow-country/one.json').write_bytes(b'changed')
+            with self.assertRaisesRegex(ValueError, 'complete staged mission inventory drift'):
+                wine.verify_final_inputs(mission, expected, [])
+            self.assertEqual(before, wine.snapshot_mission(shared))
+
+
+    def test_combined_entry_and_byte_budgets_refuse_before_hc_writes(self):
+        from tools.setup import wine_compile_probe as wine
+        scratch = ROOT / '.banso'
+        scratch.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as temp, \
+                mock.patch.object(wine, 'safe', side_effect=lambda p: Path(p).absolute()):
+            root = Path(temp)
+            experiment = root / 'experiment'
+            mission = experiment / 'mod-stack.chernarusplus'
+            mission.mkdir(parents=True)
+            (mission / 'init.c').write_bytes(b'init')
+            for budget, cap, message in [('MAX_ENTRIES', 2, 'mission entry budget exceeded'),
+                                          ('MAX_TOTAL_BYTES', 5, 'mission byte budget exceeded')]:
+                with mock.patch.object(wine.staging, budget, cap):
+                    with self.assertRaisesRegex(ValueError, message):
+                        wine.stage_hc_mission(mission, experiment, root / 'server', {'a.json': b'{}'})
+                self.assertFalse((mission / 'hollow-country').exists())
+
+
+
 class DiscoveryTests(unittest.TestCase):
     def test_subcases_are_discovered_from_source_and_each_is_printed_there(self):
         self.assertTrue(SUBCASES)
