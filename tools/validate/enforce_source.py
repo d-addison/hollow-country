@@ -179,15 +179,19 @@ class Method:
     body_end: int        # offset of matching '}'
     owner: object = None
 
-    def parameters(self):
-        """[(type, name, is_out)] for a parameter list; defaults are dropped."""
+    def parameters(self, *, with_direction=False):
+        """[(type, name, is_out)]; defaults dropped, out/inout both count as is_out.
+
+        With with_direction, the third item is 'in', 'out' or 'inout' instead.
+        """
         result = []
         for part in split_parameters(self.params):
             part = part.split('=')[0].strip()
             words = re.findall(r'[A-Za-z_]\w*(?:\s*<[^()]*>)?', part)
             if len(words) < 2:
                 continue
-            result.append((words[-2], words[-1], 'out' in words[:-1] or 'inout' in words[:-1]))
+            direction = next((word for word in words[:-1] if word in {'out', 'inout'}), 'in')
+            result.append((words[-2], words[-1], direction if with_direction else direction != 'in'))
         return result
 
 

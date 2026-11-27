@@ -22,11 +22,48 @@ class WeakParameterNewRule(unittest.TestCase):
         self.assertEqual("native compile: Variable 'r' is not strong ref; own the new object "
                          'in a strong local (HCFuelSiphon.c:106-115 idiom)', found[0].message)
 
-    def test_out_and_inout_parameters(self):
-        for modifier in ('out', 'inout'):
-            with self.subTest(modifier=modifier):
-                self.assertEqual([], self.findings(
-                    f'class Probe {{ void Run({modifier} array<Man> r) {{ r = new array<Man>; }} }}'))
+    def test_inout_parameter_new(self):
+        found = self.findings('class Probe { void Run(inout array<Man> r) { r = new array<Man>; } }')
+        self.assertEqual(1, len(found))
+        self.assertEqual("new assigned to inout parameter 'r' replaces the caller's object; "
+                         'own the new object in a strong local and assign through an out parameter '
+                         'or a return value', found[0].message)
+
+    def test_out_parameter_new(self):
+        self.assertEqual([], self.findings(
+            'class Probe { void Run(out array<Man> r) { r = new array<Man>; } }'))
+
+    def test_inout_parameter_assigned_from_local(self):
+        self.assertEqual([], self.findings('''
+            class Probe {
+                void Run(inout array<Man> r) {
+                    ref array<Man> strong = new array<Man>;
+                    r = strong;
+                }
+            }
+        '''))
+
+    def test_inout_parameter_member_fields(self):
+        self.assertEqual([], self.findings('''
+            class Probe {
+                ref array<Man> r;
+                void Run(inout array<Man> r, Probe other) {
+                    this /* member */ . r = new array<Man>;
+                    other.
+                        r = new array<Man>;
+                }
+            }
+        '''))
+
+    def test_parameter_directions_preserve_default_boolean_api(self):
+        source = lint.es.Source(W + 'Params.c', '''class Probe {
+            void Run(array<Man> weak = null, out array<Man> output = null,
+                     inout map<string, ref array<Man>> both = null) {}
+        }''')
+        method = source.methods[0]
+        self.assertEqual([False, True, True], [p[2] for p in method.parameters()])
+        self.assertEqual(['in', 'out', 'inout'],
+                         [p[2] for p in method.parameters(with_direction=True)])
 
     def test_strong_local_idiom_and_member_fields(self):
         self.assertEqual([], self.findings('''
