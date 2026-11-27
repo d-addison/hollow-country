@@ -469,7 +469,7 @@ installed mission overlays.
 | SettlementDecay, InfectedMemory, HordeMigration, LootRefresh | `EnableWorld` | being built / runtime acceptance pending |
 | Leads, Radio, Morse, Notes, BodyStories | `EnableLeads` | being built / runtime acceptance pending |
 | Camps (tiers, visitors, mailbox, theft eligibility, probes) | `EnableCamps` | being built / runtime acceptance pending |
-| Materializer, FactionConflict | `EnableEncounters` | being built / runtime acceptance pending |
+| Materializer, FactionConflict | `EnableEncounters` | Abstract strength recovery and one-cell territory reclaim/shift implemented; conflict off/refused retains strength-only recovery while World runs. Fresh bulk bootstrap retained: inactive zero-stamp factions keep created strength until Seed runs. Reclaim/add exclude cooling cells for configured CooldownSeconds (faction_clash, camp_infected_pressure, *_pushed_*); only landless factions may reclaim a cooling home if no eligible non-cooling home exists, with normal protection. Cooling homes do not block other shifts/releases. Anchors cached once; geometry-qualified protection only. OnStart/OnStop reset volatile release/wait/strength timestamps. Strength-only mode emits neither territory_regrow nor HCUse: activity checks exclude off/refused module counters. Replay/alias/lease/fixture protection and bounded continuations. Native compile, recovery/restart, v1-test-15 upgrade and natural activity evidence pending; implemented-unverified |
 | Holdouts, Pickers, DeadDrops | `EnableEncounters` | being built / runtime acceptance pending |
 | Scenes and scene chains | `EnableEncounters` | being built / runtime acceptance pending |
 | Optional Expansion living-world addon (Factions, Stance, AskForNews, Checkpoints) | Adapter always enabled when loaded; `EnableEncounters` filters encounter adjuncts; optional provider dependencies | implemented / runtime acceptance pending |
@@ -821,7 +821,7 @@ to the offline installer receipt. Nothing here enables production gameplay.
 | Ecology | `animal_observed` |
 | Escalation | `state_advanced` |
 | Events | `police_supply_bound`, `cache_filled` (scene cache fill; registered at 0 in RegisterUses) |
-| FactionConflict | `outcome_recorded`, `journal_committed` |
+| FactionConflict | `outcome_recorded`, `journal_committed`, `territory_regrowth` |
 | Forage | `item_picked`, `item_spawned` |
 | FoodCompat | `food_compat_guard` (enabled only with the food pack; `food_compat_refused` is a fault counter registered on first refusal, no activity row) |
 | Grade | `grade_applied` |

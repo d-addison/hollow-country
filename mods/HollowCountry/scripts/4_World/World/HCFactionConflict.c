@@ -69,6 +69,261 @@ class HCConflictOutcomeSaveJob : HCSaveJob
     }
 }
 
+// One pass owns its maps and commits before yielding. Validated limits: <=64
+// places/held cells, <=128 journal rows, one lease scan and one Facts scan;
+// candidate geometry does at most P*P <=4096 horizontal distance checks.
+// Native EnScript.c:866/906/917 map Get/Remove/Contains; EnString.c:286 Contains, :396 Split.
+class HCTerritoryRegrowth
+{
+    ref array<string> Cells = new array<string>;
+    ref array<string> CellOf = new array<string>;
+    ref map<string, string> PlaceCells = new map<string, string>;
+    ref map<string, bool> Catalog = new map<string, bool>;
+    ref map<string, bool> Homes = new map<string, bool>;
+    ref map<string, bool> Held = new map<string, bool>;
+    ref map<string, bool> Protected = new map<string, bool>;
+    ref map<string, bool> Cooldown = new map<string, bool>;
+    ref map<string, bool> Hostile = new map<string, bool>;
+    protected static ref map<string, string> s_Released = new map<string, string>;
+    protected static ref map<string, string> s_Wait = new map<string, string>;
+    protected static ref map<string, int> s_StrengthAt = new map<string, int>;
+    string Reclaimed = "none";
+    string Shifted = "none";
+    string Released = "none";
+    bool Blocked;
+
+    static void HCReset()
+    {
+        s_Released.Clear();
+        s_Wait.Clear();
+        s_StrengthAt.Clear();
+    }
+
+    static bool Home(string faction, int index)
+    {
+        if (faction == "locals") { return index % 4 == 0; }
+        if (faction == "volunteers") { return index % 4 == 1; }
+        if (faction == "scavengers") { return index % 4 == 2; }
+        if (faction == "travellers") { return index % 4 == 3; }
+        return faction == "raiders" && index % 3 == 1;
+    }
+
+    static void HCWait(string faction, string reason)
+    {
+        if (s_Wait.Get(faction) == reason) { return; }
+        s_Wait.Set(faction, reason);
+        if (reason != "") { Print("[HC World] territory_regrow_wait faction=" + faction + " reason=" + reason); }
+    }
+
+    static bool StrengthDue(string faction, int now, int interval)
+    {
+        int previous = s_StrengthAt.Get(faction);
+        if (previous > now) { s_StrengthAt.Set(faction, now); return false; }
+        if (previous > 0 && now - previous < interval) { return false; }
+        s_StrengthAt.Set(faction, now);
+        return true;
+    }
+
+    void Build(HCWorldData data, HCWorldFaction faction, int now, int cooldownSeconds)
+    {
+        for (int placeIndex = 0; placeIndex < data.Places.Count(); placeIndex++)
+        {
+            HCWorldPlace place = data.Places[placeIndex];
+            string cell = HCFactionConflict.Cell(place.Position);
+            CellOf.Insert(cell);
+            if (!Catalog.Contains(cell)) { Cells.Insert(cell); Catalog.Set(cell, true); }
+            // First Id-or-Name match, exactly as HCWorldData.Place, including aliases.
+            if (!PlaceCells.Contains(place.Id)) { PlaceCells.Set(place.Id, cell); }
+            if (!PlaceCells.Contains(place.Name)) { PlaceCells.Set(place.Name, cell); }
+            if (Home(faction.Id, placeIndex)) { Homes.Set(cell, true); }
+        }
+        array<string> territory = faction.Territory;
+        foreach (string heldCell : territory) { Held.Set(heldCell, true); }
+        map<string, bool> cooldownPlaces = new map<string, bool>;
+        array<ref HCWorldFact> facts = data.Facts;
+        foreach (HCWorldFact fact : facts)
+        {
+            if (fact.At > now) { continue; }
+            // empty_camp_claim_falls writes camp_infected_pressure (plus holdout_alert).
+            bool conflictFact = fact.Kind == "faction_clash" || fact.Kind == "camp_infected_pressure" || fact.Kind.Contains("_pushed_");
+            if (!conflictFact) { continue; }
+            if (now - fact.At < cooldownSeconds) { cooldownPlaces.Set(fact.PlaceId, true); }
+        }
+        for (int cooldownIndex = 0; cooldownIndex < data.Places.Count(); cooldownIndex++)
+        {
+            HCWorldPlace cooldownPlace = data.Places[cooldownIndex];
+            if (cooldownPlaces.Contains(cooldownPlace.Id) || cooldownPlaces.Contains(cooldownPlace.Name)) { Cooldown.Set(CellOf[cooldownIndex], true); }
+        }
+        map<string, bool> hostileFactions = new map<string, bool>;
+        array<string> hostileIds = faction.Hostile;
+        foreach (string hostileId : hostileIds) { hostileFactions.Set(hostileId, true); }
+        array<ref HCWorldFaction> factions = data.Factions;
+        foreach (HCWorldFaction other : factions)
+        {
+            if (other.Id == faction.Id || !hostileFactions.Contains(other.Id)) { continue; }
+            bool reciprocal = false;
+            // HCWorldLimits.FACTIONS is five; explicit bound also covers imported lists.
+            for (int relationIndex = 0; relationIndex < 5 && relationIndex < other.Hostile.Count(); relationIndex++)
+            {
+                if (other.Hostile[relationIndex] == faction.Id) { reciprocal = true; }
+            }
+            if (!reciprocal) { continue; }
+            array<string> otherTerritory = other.Territory;
+            foreach (string hostileCell : otherTerritory) { Hostile.Set(hostileCell, true); }
+        }
+    }
+
+    bool ProtectPlace(string place)
+    {
+        if (!PlaceCells.Contains(place)) { return false; }
+        Protected.Set(PlaceCells.Get(place), true);
+        return true;
+    }
+
+    // Reduced terms avoid overflow, and catalog order breaks rotated ties.
+    static int Rotation(int day, int now, int interval, int factionIndex, int count)
+    {
+        if (count < 1) { return 0; }
+        int period = now / interval;
+        return (day % count + period % count + factionIndex % count) % count;
+    }
+
+    bool Choose(HCWorldData data, HCWorldFaction faction, int rotation, int staleRotation, int extra)
+    {
+        if (Cells.Count() > HCWorldLimits.PLACES) { return false; }
+        int heldCount = faction.Territory.Count();
+        for (int staleStep = 0; staleStep < heldCount; staleStep++)
+        {
+            int staleIndex = (staleStep + staleRotation) % heldCount;
+            string staleCell = faction.Territory[staleIndex];
+            if (Catalog.Contains(staleCell)) { continue; }
+            if (Protected.Contains(staleCell)) { Blocked = true; continue; }
+            faction.Territory.RemoveOrdered(staleIndex);
+            Released = staleCell;
+            s_Released.Set(faction.Id, staleCell);
+            return true;
+        }
+        int target = Math.Min(HCWorldLimits.TERRITORY, Math.Min(Cells.Count(), Homes.Count() + extra));
+        string reclaim = "";
+        string coolingHome = "";
+        int coolingHomeRank = 99;
+        bool coolingHomeBlocked = false;
+        int reclaimRank = 99;
+        bool missingHome = false;
+        for (int homeStep = 0; homeStep < Cells.Count(); homeStep++)
+        {
+            string homeCell = Cells[(homeStep + rotation) % Cells.Count()];
+            if (!Homes.Contains(homeCell) || Held.Contains(homeCell)) { continue; }
+            int homeRank = 1;
+            if (Hostile.Contains(homeCell)) { homeRank = 0; }
+            if (Cooldown.Contains(homeCell))
+            {
+                // Only a landless faction may use cooling homes, after all eligible homes.
+                // Prefer a cooling home no hostile holds: retaking the cell just lost
+                // as an overlap would undo that outcome.
+                if (heldCount == 0)
+                {
+                    int coolingRank = 0;
+                    if (Hostile.Contains(homeCell)) { coolingRank = 1; }
+                    if (Protected.Contains(homeCell)) { coolingHomeBlocked = true; }
+                    else if (coolingRank < coolingHomeRank)
+                    {
+                        coolingHome = homeCell;
+                        coolingHomeRank = coolingRank;
+                    }
+                }
+                continue;
+            }
+            missingHome = true;
+            if (Protected.Contains(homeCell)) { Blocked = true; continue; }
+            if (homeRank < reclaimRank) { reclaimRank = homeRank; reclaim = homeCell; }
+        }
+        // A non-cooling home that is only protected this minute wins over a cooling one: wait.
+        if (reclaim == "" && heldCount == 0 && !Blocked)
+        {
+            reclaim = coolingHome;
+            if (reclaim == "" && coolingHomeBlocked) { Blocked = true; }
+        }
+        if (reclaim != "" && heldCount < HCWorldLimits.TERRITORY)
+        {
+            faction.Territory.Insert(reclaim);
+            Reclaimed = reclaim;
+            return true;
+        }
+        // No capacity exception: full holdings use the same release branch.
+        if (missingHome && heldCount < HCWorldLimits.TERRITORY) { return false; }
+        bool adding = !missingHome && heldCount < target;
+        string chosen = "";
+        float chosenDistance = -1;
+        string lastReleased = s_Released.Get(faction.Id);
+        // Cache <=64 flattened anchors once. Catalog matching costs <=P^2;
+        // all source/anchor pairs together cost <=P^2 (4096) distance checks,
+        // with no cell-string lookup inside the distance loop.
+        array<vector> anchors = new array<vector>;
+        for (int anchorIndex = 0; anchorIndex < data.Places.Count(); anchorIndex++)
+        {
+            string anchorCell = CellOf[anchorIndex];
+            if (adding && !Held.Contains(anchorCell)) { continue; }
+            if (!adding && !Homes.Contains(anchorCell)) { continue; }
+            vector anchor = data.Places[anchorIndex].Position;
+            anchor[1] = 0;
+            anchors.Insert(anchor);
+        }
+        for (int candidateStep = 0; candidateStep < Cells.Count(); candidateStep++)
+        {
+            string candidate = Cells[(candidateStep + rotation) % Cells.Count()];
+            if (adding)
+            {
+                if (Held.Contains(candidate) || candidate == lastReleased || Cooldown.Contains(candidate)) { continue; }
+            }
+            else
+            {
+                // A cooling cell may be a fresh conflict gain: releasing it would undo the outcome.
+                if (!Held.Contains(candidate) || Homes.Contains(candidate) || Cooldown.Contains(candidate)) { continue; }
+            }
+            float nearest = -1;
+            // Aliases all contribute geometry; across every candidate <=P^2 checks.
+            for (int sourceIndex = 0; sourceIndex < data.Places.Count(); sourceIndex++)
+            {
+                if (CellOf[sourceIndex] != candidate) { continue; }
+                vector source = data.Places[sourceIndex].Position;
+                source[1] = 0;
+                foreach (vector anchorPosition : anchors)
+                {
+                    float distance = vector.DistanceSq(source, anchorPosition);
+                    if (nearest < 0 || distance < nearest) { nearest = distance; }
+                }
+            }
+            if (nearest < 0) { continue; }
+            if (Protected.Contains(candidate)) { Blocked = true; continue; }
+            bool better = chosen == "";
+            if (adding && nearest < chosenDistance) { better = true; }
+            if (!adding && nearest > chosenDistance) { better = true; }
+            if (better) { chosen = candidate; chosenDistance = nearest; }
+        }
+        if (chosen == "")
+        {
+            // Consume one unprotected add attempt even when exclusion leaves no
+            // candidate: a catalog-sized target must not strand its sole free cell.
+            if (adding && !Blocked) { s_Released.Remove(faction.Id); }
+            return false;
+        }
+        if (adding)
+        {
+            faction.Territory.Insert(chosen);
+            Shifted = chosen;
+            s_Released.Remove(faction.Id);
+        }
+        else
+        {
+            faction.Territory.RemoveOrdered(faction.Territory.Find(chosen));
+            Released = chosen;
+            s_Released.Set(faction.Id, chosen);
+        }
+        return true;
+    }
+}
+
 class HCFactionConflict : HCModule
 {
     protected static HCFactionConflict s_Instance;
@@ -128,6 +383,7 @@ class HCFactionConflict : HCModule
     {
         HCModuleReadiness.HCRegisterUse("FactionConflict", "outcome_recorded");
         HCModuleReadiness.HCRegisterUse("FactionConflict", "journal_committed");
+        HCModuleReadiness.HCRegisterUse("FactionConflict", "territory_regrowth");
     }
     override HCOperationalStatus HCGetOperationalStatus()
     {
@@ -140,6 +396,7 @@ class HCFactionConflict : HCModule
     override void OnStart(HCSettings settings)
     {
         if (s_Active) { HCLog(m_Current, "requested", "ALREADY_STARTED"); return; }
+        HCTerritoryRegrowth.HCReset();
         if (!IsEnabled(settings))
         {
             m_Operational.HCPublish("off", "operator_preference");
@@ -542,6 +799,7 @@ class HCFactionConflict : HCModule
 
     override void OnStop()
     {
+        HCTerritoryRegrowth.HCReset();
         // Read the fault before HCFlush: HCFlush returns false for an already-faulted job and faults
         // the job when its stage guard trips (HCWorkBudget.c:342, :374), so the reasons stay distinct.
         bool quotaFaultedBefore = m_QuotaJob && m_QuotaJob.HCFaulted;
@@ -983,8 +1241,7 @@ class HCFactionConflict : HCModule
         return x.ToString() + ":" + z.ToString();
     }
 
-    // Authored off-screen starting claims, not sightings of NPCs. No claim
-    // is recreated once a faction has lost it or reached zero strength.
+    // Preserve the bulk authored bootstrap for fresh worlds.
     static void Seed(HCWorldData data, HCWorldFaction faction, int now)
     {
         if (faction.LastRegrowth != 0) { return; }
@@ -993,12 +1250,7 @@ class HCFactionConflict : HCModule
         map<string, bool> seeded = new map<string, bool>;
         for (int placeIndex = 0; placeIndex < data.Places.Count(); placeIndex++)
         {
-            bool claim = false;
-            if (faction.Id == "locals" && placeIndex % 4 == 0) { claim = true; }
-            if (faction.Id == "volunteers" && placeIndex % 4 == 1) { claim = true; }
-            if (faction.Id == "scavengers" && placeIndex % 4 == 2) { claim = true; }
-            if (faction.Id == "travellers" && placeIndex % 4 == 3) { claim = true; }
-            if (faction.Id == "raiders" && placeIndex % 3 == 1) { claim = true; }
+            bool claim = HCTerritoryRegrowth.Home(faction.Id, placeIndex);
             string cell = Cell(data.Places[placeIndex].Position);
             if (claim && !seeded.Contains(cell) && faction.Territory.Count() < HCWorldLimits.TERRITORY)
             {
@@ -1021,9 +1273,36 @@ class HCFactionConflict : HCModule
         return false;
     }
 
+    static int HCRegrowthCooldown()
+    {
+        if (!s_Instance || !s_Instance.m_ConflictConfig) { return 0; }
+        return s_Instance.m_ConflictConfig.CooldownSeconds;
+    }
+
+    static string HCRegrowthProtection(HCTerritoryRegrowth pass)
+    {
+        if (!s_Instance) { return "frozen"; }
+        if (!s_Instance.HCOutcomesCommitted()) { return "frozen"; }
+        if (s_Instance.m_Outcomes)
+        {
+            array<ref HCTerritoryOutcomeRow> journal = s_Instance.m_Outcomes.Rows;
+            foreach (HCTerritoryOutcomeRow journalRow : journal)
+            {
+                if (journalRow.TerritoryEpoch > 0 && !journalRow.TerritoryApplied && journalRow.LeftSurvivors >= 0)
+                {
+                    if (!pass.ProtectPlace(journalRow.PlaceId)) { return "journal_place_missing"; }
+                }
+            }
+        }
+        if (s_Instance.m_Current && !pass.ProtectPlace(s_Instance.m_Current.PlaceId)) { return "journal_place_missing"; }
+        if (s_Instance.m_PendingBind && !pass.ProtectPlace(s_Instance.m_PendingBind.PlaceId)) { return "journal_place_missing"; }
+        if (s_Instance.m_PendingQuota) { pass.Protected.Set(s_Instance.m_PendingQuota.Cell, true); }
+        return "";
+    }
+
     static bool Tick(HCWorldModule world, HCWorldData data, int now)
     {
-        if (!s_Active || !world || !data || now < data.Meta.Epoch) { return true; }
+        if (!world || !data || now < data.Meta.Epoch) { return true; }
         if (s_WorkNow != now)
         {
             s_WorkNow = now;
@@ -1032,13 +1311,19 @@ class HCFactionConflict : HCModule
         s_WorkBudget.HCReset(1);
         s_UnitBudget.HCReset(1);
         if (!s_UnitBudget.HCTake(1) || !s_WorkBudget.HCContinue()) { s_WorkBudget.HCDeferred("FactionConflict", 1); return false; }
-        // Initial authored claims only; no unfunded population regrowth.
-        // Seed touches <=64 validated place anchors once per faction, never entities.
+        // Abstract strength/territory recover without entities, loot or refunds.
+        // One complete faction per continuation; <=64 places, <=128 journal rows,
+        // one Facts/lease scan and <=P^2 (4096) distance checks, no yielded plan.
         if (s_GrowthNext < data.Factions.Count())
         {
             HCWorldFaction growing = data.Factions[s_GrowthNext];
+            int growingIndex = s_GrowthNext;
             s_GrowthNext = s_GrowthNext + 1;
-            Seed(data, growing, now);
+            if (growing.LastRegrowth == 0)
+            {
+                if (s_Active) { Seed(data, growing, now); }
+            }
+            else { world.HCRegrow(growing, growingIndex, now, s_Active); }
             s_WorkBudget.HCDeferred("FactionConflict", data.Factions.Count() - s_GrowthNext);
             return false;
         }
@@ -1108,6 +1393,82 @@ modded class HCWorldModule
     protected int m_ConflictRight = 1;
     protected int m_ConflictFrame = -1;
     protected string m_FixtureConflict;
+
+    // World owns dirty notification; all decisions and mutation stay in this continuation.
+    void HCRegrow(HCWorldFaction faction, int factionIndex, int now, bool territoryActive)
+    {
+        if (faction.LastRegrowth == 0) { return; }
+        HCServer server = HCServer.Get();
+        if (!m_Running || !server) { return; }
+        HCSettings settings = server.GetSettings();
+        if (!settings) { return; }
+        int interval = settings.TerritoryRegrowthSeconds;
+        if (faction.LastRegrowth > now)
+        {
+            faction.LastRegrowth = now;
+            m_Dirty = true;
+            Print("[HC World] territory_regrow_clock faction=" + faction.Id + " action=rebase");
+            return;
+        }
+        if (faction.LastRegrowth > 0 && now - faction.LastRegrowth < interval) { return; }
+        int strengthBefore = faction.Strength;
+        // Retries do not repeatedly grant strength while LastRegrowth must remain unstamped.
+        if (HCTerritoryRegrowth.StrengthDue(faction.Id, now, interval))
+        {
+            int delta = settings.FactionRegrowthStrength;
+            if (faction.Strength == 0) { delta = 1; }
+            AdjustStrength(faction.Id, delta);
+        }
+        HCTerritoryRegrowth pass = new HCTerritoryRegrowth;
+        string reason = "";
+        bool membershipChanged = false;
+        if (territoryActive)
+        {
+            pass.Build(m_Data, faction, now, HCFactionConflict.HCRegrowthCooldown());
+            reason = HCFactionConflict.HCRegrowthProtection(pass);
+            if (reason == "")
+            {
+                // One allocation-producing debug scan per faction, never per candidate.
+                HCWorldMaterializer materializer = HCWorldMaterializer.HCDebugGet();
+                if (materializer)
+                {
+                    int leaseCount = materializer.HCDebugProposalCount();
+                    for (int leaseIndex = 0; leaseIndex < leaseCount; leaseIndex++)
+                    {
+                        HCDebugProposalRow lease = materializer.HCDebugProposal(leaseIndex);
+                        if (lease && !pass.ProtectPlace(lease.PlaceId)) { reason = "journal_place_missing"; }
+                    }
+                }
+                if (m_FixtureConflict != "")
+                {
+                    array<string> fixtureParts = new array<string>;
+                    m_FixtureConflict.Split("/", fixtureParts);
+                    if (fixtureParts.Count() > 0 && !pass.ProtectPlace(fixtureParts[0])) { reason = "journal_place_missing"; }
+                }
+            }
+            if (reason == "")
+            {
+                int growthDay = HCWorldClock.Day(m_Data, now);
+                int rotation = HCTerritoryRegrowth.Rotation(growthDay, now, interval, factionIndex, pass.Cells.Count());
+                int staleRotation = HCTerritoryRegrowth.Rotation(growthDay, now, interval, factionIndex, faction.Territory.Count());
+                membershipChanged = pass.Choose(m_Data, faction, rotation, staleRotation, settings.TerritoryExtraCells);
+                if (!membershipChanged)
+                {
+                    if (pass.Blocked) { reason = "cell_protected"; }
+                    else { reason = "no_candidate"; }
+                }
+            }
+        }
+        // Protected/frozen passes retry next world step, never hold Tick open.
+        if (reason == "" || reason == "no_candidate") { faction.LastRegrowth = now; }
+        HCTerritoryRegrowth.HCWait(faction.Id, reason);
+        if (membershipChanged) { m_Dirty = true; }
+        if (territoryActive && (membershipChanged || faction.Strength != strengthBefore))
+        {
+            Print("[HC World] territory_regrow faction=" + faction.Id + " strength=" + faction.Strength.ToString() + " cells=" + faction.Territory.Count().ToString() + " reclaimed=" + pass.Reclaimed + " shifted=" + pass.Shifted + " released=" + pass.Released);
+            HCModuleReadiness.HCUse("FactionConflict", "territory_regrowth");
+        }
+    }
 
     // False on unknown, invalid or over-cap roster: uncertainty stays near.
     bool HCConflictFar(HCWorldPlace place, HCConflictConfig config)

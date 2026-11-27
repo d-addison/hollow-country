@@ -260,6 +260,9 @@ class HCOperatorSettingsRegistry
         HCAdd("AILimits.CautionGraceSeconds", "int", 3, 1, 30, "HCAILimits");
         HCAdd("MaxFamiliarityRows", "int", 0, 0, 128, "HCSettings");
         HCAdd("SearchDensityScale", "float", 0, 0.5, 2, "HCSettings");
+        HCAdd("TerritoryRegrowthSeconds", "int", 1200, 600, 1200, "HCSettings");
+        HCAdd("FactionRegrowthStrength", "int", 1, 1, 4, "HCSettings");
+        HCAdd("TerritoryExtraCells", "int", 4, 1, 8, "HCSettings");
         HCAdd("W38Situations.Version", "int", 1, 1, 1, "HCW38SituationPolicy");
         HCAdd("W38Situations.ScanRows", "int", 8, 1, 32, "HCW38SituationPolicy");
         HCAdd("W38Situations.MaxConcurrent", "int", 1, 1, 1, "HCW38SituationPolicy");
@@ -567,6 +570,9 @@ class HCSettings
     int MaxBoundSearchSites = 256;
     // 0 is the legacy/missing-key identity scale; yield and distances are unchanged.
     float SearchDensityScale = 0;
+    int TerritoryRegrowthSeconds = 1200;
+    int FactionRegrowthStrength = 1;
+    int TerritoryExtraCells = 4;
     int InfectedBindRadius = 30;
     int MaxBindQueriesPerTick = 2;
     bool FortifyUnclaimedBuild = true;
@@ -619,6 +625,9 @@ class HCSettings
         if (!HCJsonFields.Has(content, "GunPileEnabled")) { settings.GunPileEnabled = defaults.GunPileEnabled; }
         if (!HCJsonFields.Has(content, "GunPileChance")) { settings.GunPileChance = defaults.GunPileChance; }
         if (!HCJsonFields.Has(content, "GunPilePerTick")) { settings.GunPilePerTick = defaults.GunPilePerTick; }
+        if (!HCJsonFields.Has(content, "TerritoryRegrowthSeconds")) { settings.TerritoryRegrowthSeconds = defaults.TerritoryRegrowthSeconds; }
+        if (!HCJsonFields.Has(content, "FactionRegrowthStrength")) { settings.FactionRegrowthStrength = defaults.FactionRegrowthStrength; }
+        if (!HCJsonFields.Has(content, "TerritoryExtraCells")) { settings.TerritoryExtraCells = defaults.TerritoryExtraCells; }
         if (!HCJsonFields.Has(content, "AILimits")) { settings.AILimits = defaults.AILimits; }
         if (!HCJsonFields.Has(content, "MaxFurnishedProps")) { settings.MaxFurnishedProps = defaults.MaxFurnishedProps; }
     }
@@ -634,6 +643,21 @@ class HCSettings
         {
             Print("[HC Settings] invalid SearchDensityScale value=" + SearchDensityScale.ToString() + "; default=0 effective=1 runtime=PENDING");
             SearchDensityScale = HCOperatorSettingsRegistry.HCDefault("SearchDensityScale");
+        }
+        if (!HCOperatorSettingsRegistry.HCValid("TerritoryRegrowthSeconds", TerritoryRegrowthSeconds))
+        {
+            Print("[HC Settings] invalid TerritoryRegrowthSeconds value=" + TerritoryRegrowthSeconds.ToString() + "; default=1200 runtime=PENDING");
+            TerritoryRegrowthSeconds = HCOperatorSettingsRegistry.HCDefault("TerritoryRegrowthSeconds");
+        }
+        if (!HCOperatorSettingsRegistry.HCValid("FactionRegrowthStrength", FactionRegrowthStrength))
+        {
+            Print("[HC Settings] invalid FactionRegrowthStrength value=" + FactionRegrowthStrength.ToString() + "; default=1 runtime=PENDING");
+            FactionRegrowthStrength = HCOperatorSettingsRegistry.HCDefault("FactionRegrowthStrength");
+        }
+        if (!HCOperatorSettingsRegistry.HCValid("TerritoryExtraCells", TerritoryExtraCells))
+        {
+            Print("[HC Settings] invalid TerritoryExtraCells value=" + TerritoryExtraCells.ToString() + "; default=4 runtime=PENDING");
+            TerritoryExtraCells = HCOperatorSettingsRegistry.HCDefault("TerritoryExtraCells");
         }
         error = "";
         if (!HCOperatorSettingsRegistry.HCValid("SchemaVersion", SchemaVersion)) error = "Unsupported settings schema";
@@ -687,6 +711,9 @@ class HCSettings
     {
         HCSettings defaults = new HCSettings();
         int changed = 0;
+        if (HCLogNonDefault("TerritoryRegrowthSeconds", TerritoryRegrowthSeconds.ToString(), defaults.TerritoryRegrowthSeconds.ToString())) { changed++; }
+        if (HCLogNonDefault("FactionRegrowthStrength", FactionRegrowthStrength.ToString(), defaults.FactionRegrowthStrength.ToString())) { changed++; }
+        if (HCLogNonDefault("TerritoryExtraCells", TerritoryExtraCells.ToString(), defaults.TerritoryExtraCells.ToString())) { changed++; }
         if (HCLogNonDefault("SchemaVersion", SchemaVersion.ToString(), defaults.SchemaVersion.ToString())) { changed++; }
         if (HCLogNonDefault("EnableInteriors", EnableInteriors.ToString(), defaults.EnableInteriors.ToString())) { changed++; }
         if (HCLogNonDefault("EnableSearch", EnableSearch.ToString(), defaults.EnableSearch.ToString())) { changed++; }

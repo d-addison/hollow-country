@@ -328,6 +328,24 @@
     },
     {
       "module": "FactionConflict",
+      "feature": "territory-regrowth",
+      "signal": {
+        "tag": "[HC World]",
+        "regex": "territory_regrow faction=\\S+ strength=(?P<strength>\\d+) cells=\\d+ reclaimed=\\S+ shifted=\\S+ released=\\S+",
+        "fields": [
+          "strength"
+        ]
+      },
+      "comparison": "present",
+      "floor": 1,
+      "window_minutes": 30,
+      "needs_player": false,
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c",
+      "scope": "runtime",
+      "note": "Natural bounded recovery/shift; an aged world changes within about 1 minute of the first world step, a fresh world about 20 minutes after Seed. Protected worlds must not fabricate activity."
+    },
+    {
+      "module": "FactionConflict",
       "feature": "encounters-observed",
       "signal": {
         "tag": "[HC Plan]",
