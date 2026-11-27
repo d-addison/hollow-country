@@ -30,8 +30,8 @@ COMPILE_FAILURE = re.compile(
     r"Can't compile|Cannot compile|Failed to load .*script|script.*module.*(?:failed|failure)|"
     r'(?:failed|unable|cannot) to load.*(?:script|module)', re.I)
 # JsonFileLoader reports unreadable data as SCRIPT (E) "JSON ERROR" at runtime. The
-# gate runs the vanilla mission without HC mission data, so after every module
-# (Mission included) loaded these are missing-data reports, not compile failures.
+# gate omits install-time generated mission outputs. Retain the existing runtime
+# JSON exemption after every module (Mission included) loaded.
 RUNTIME_JSON_ERROR = re.compile(r'SCRIPT\s*\(E\):\s*JSON ERROR\b', re.I)
 MODULE_LOADED = re.compile(r'\bModule:\s*([A-Za-z0-9_]+);\s*loaded\s+\d+x?\s+files', re.I)
 
@@ -353,8 +353,11 @@ def validate_staged_pbos(staged, guard_name=None, compat_names=()):
     print('compile_gate: staged_pbos=' + str(len(actual)) + ' names=' + ','.join(sorted(actual)))
 
 
-def stage_release_pbos(tree, package, inputs, addons, scratch):
+def stage_release_pbos(tree, package, inputs, addons, scratch, hc_mission_tree=None):
     """Stage release layout once, then give the probe these exact package files."""
+    inputs = dict(inputs)
+    if hc_mission_tree is not None:
+        inputs['hc_mission_files'] = probe.hc_mission_inputs(hc_mission_tree)
     base = scratch / '@HollowCountry/addons'
     base.mkdir(parents=True)
     shutil.copyfile(package, base / 'hollowcountry.pbo')
@@ -417,6 +420,8 @@ def main():
     parser.add_argument('--addons', type=Path, default=ship_inputs.ADDONS,
                         help='installed DayZ/DayZServer Addons folder (read only; same as release)')
     parser.add_argument('--prepare-only', action='store_true', help='package inputs only; NEVER establishes compiler acceptance')
+    parser.add_argument('--vanilla-mission', action='store_true',
+                        help='omit shipped HC mission files for comparison runs')
     parser.add_argument('--test-addon', action='store_true',
                         help='also compile the dev-only HollowCountryTest addon in the isolated probe')
     parser.add_argument('--allow-client', action='store_true', help='explicitly permit compilation while the owner client runs')
@@ -458,7 +463,15 @@ def main():
                         temporary.unlink(missing_ok=True)
             print('compile_gate: pbo_sha256=' + digest + ' package_cache=' + ('hit' if reused else 'miss'))
             staging = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='ship-inputs-', dir=cache)))
-            inputs = stage_release_pbos(tree, package, inputs, args.addons.expanduser().absolute(), staging)
+            inputs = stage_release_pbos(tree, package, inputs, args.addons.expanduser().absolute(), staging,
+                                        hc_mission_tree=None if args.vanilla_mission else tree)
+            receipt = probe.hc_mission_receipt(inputs.get('hc_mission_files', {}))
+            if args.vanilla_mission:
+                print('compile_gate: hc_mission_files=0 mode=vanilla')
+            else:
+                print('compile_gate: hc_mission_files=' + str(receipt['hc_mission_files'])
+                      + ' hc_mission_sha256=' + receipt['hc_mission_sha256'])
+                print('compile_gate: hc_mission_bytes=' + str(receipt['hc_mission_bytes']))
             if args.test_addon:
                 from tools.testing import test_addon
                 test_blob, test_file_count = test_addon.pack(tree)
@@ -518,7 +531,8 @@ def main():
             print('compile_gate: logs=' + private(experiment))
             return 0 if passed else 1
     except (OSError, ValueError, subprocess.SubprocessError, tarfile.TarError) as error:
-        print('compile_gate: FAIL ' + private(error), file=sys.stderr)
+        print('compile_gate: ' + ('' if str(error).startswith('refused ') else 'FAIL ')
+              + private(error), file=sys.stderr)
         return 1
     finally:
         print('compile_gate: wall_seconds=%.3f' % (time.monotonic() - started))
