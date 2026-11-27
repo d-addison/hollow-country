@@ -630,7 +630,10 @@ class HCDriverActions
         ItemBase held = player.GetItemInHands();
         if (held)
         {
-            if (!player.PredictiveSwapEntities(held, item) && ScriptInputUserData.CanStoreInputUserData())
+            // Man.c:452 SwapEntitiesImpl raises Error() when the swap is not allowed; check first
+            // (Inventory.c:630) so a blocked swap stows the held item instead (soak 202: 12 VMEs).
+            if (GameInventory.CanSwapEntitiesEx(held, item) && player.PredictiveSwapEntities(held, item)) { return; }
+            if (ScriptInputUserData.CanStoreInputUserData())
             {
                 player.PredictiveTakeEntityToInventory(FindInventoryLocationType.ANY, held);
             }
