@@ -489,7 +489,7 @@ The synchronous bind logs precede the admin reply (unlike the proposed brief
 order). The use count is cumulative and may exceed 1 if real encounters completed
 first; `fixture=1` is the first fixture count. `requested` is the captured applied
 revision, `durable` the journal revision at the commit gate (`durable >= requested`).
-Only `kit` prints `fx_conflict_journal available=1 reason=fixture-journal-queued
+Only `kit` prints `fx_conflict_journal available=1 reason=fixture-journal-available
 fixture=1` in its reply (unavailable probes report their reason instead).
 Refused command reply format: `[HC Admin] cmd=fx_conflict_journal result=refused
 reason=<token> fixture=1`.
@@ -538,7 +538,7 @@ Failure handling below is source evidence; engine experiments remain pending.
 | HCRequestSave=0 or mid-image job fault | OUTCOME_STORE_UNCERTAIN; never promoted, no counter; WorldSaves owner not faulted | HFC:365, HFC:451, HFC:676, HFC:803 |
 | Real offer while fixture current | ENCOUNTER_OR_HISTORY_CAP; no second OBSERVING row (assuming earlier production offer guards pass) | HFC:747 |
 | Player within 1500 m before apply | TERRITORY_PUBLICATION_PENDING until FAR; territory unchanged | HFC:270, HFC:1397, HFC:1403 |
-| Stop during bind/finish | OBSERVING becomes UNKNOWN_STOP and saves; otherwise durable finish retained; failure names reason | HFC:547, HFC:562 |
+| Stop during bind/finish | OBSERVING becomes UNKNOWN_STOP and saves (a stop between the death step and the resolve leaves one synthetic death in that UNKNOWN_STOP row; nothing consumes it); otherwise durable finish retained; failure names reason | HFC:547, HFC:562 |
 | Crash after durable bind while OBSERVING | HCRecover UNKNOWN_RESTART; volatile fixture identity lost, no fixture promotion/finish | HFC:152, HFC:195; HTO:99 |
 | Stop after durable finish before completion | Next boot applies durable BOTH_REMAIN normally, no fixture line/counter | HFC:547, HFC:588, HFC:268, HFC:949 |
 | Zero bound actors on tick | Guarded return before modulo and HCReached.Mark | HFC:825 |
@@ -560,3 +560,9 @@ The supplied Opus design review was applied; no Opus diff review has been run in
 this worker. The confined-run instruction supersedes local commit: edits only,
 commit message supplied through `.banso-writer/commit-message`, no Git writes or
 push. Native runtime checks are reserved for the lead.
+
+Lead review fold-in (Opus code review of the fixture): fx_conflict skips the journal fixture's place until that row
+is applied (HCFactionConflict.HCFixtureJournalHolds), and the driver stands 60 s after fx_conflict_journal, so the
+two fixtures never share a place. The fixture id clears once fixture_journal_applied prints. Accepted deviation
+from I1: the territory loop's `fixtureFinishPending` predicate (HFC:267-268) touches the production path for the
+fixture id only.

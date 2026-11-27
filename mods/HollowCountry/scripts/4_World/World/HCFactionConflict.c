@@ -252,6 +252,8 @@ class HCFactionConflict : HCModule
         {
             Print("[HC Plan] HC-37 fixture_journal_applied encounter=" + m_FixtureEncounter + " requested=" + m_FixtureAppliedRevision.ToString() + " durable=" + m_OutcomeDurable.ToString() + " fixture=1");
             m_FixtureAppliedRevision = 0;
+            // Done: later finishes no longer wait behind the fixture row; m_FixtureJournalRan keeps it once per boot.
+            m_FixtureEncounter = "";
         }
         HCPromoteBind();
         HCWorldModule world = HCWorldModule.Get();
@@ -353,7 +355,7 @@ class HCFactionConflict : HCModule
         prospective.Rows.Insert(fixtureRow);
         prospective.NextEncounter = m_Outcomes.NextEncounter + 1;
         if (!HCTerritoryOutcomes.HCValid(prospective)) { return false; }
-        reason = "fixture-journal-queued";
+        reason = "fixture-journal-available";
         if (!apply) { return true; }
         reason = "conflict-callback-budget";
         if (!HCCallbackAllowed()) { return false; }
@@ -385,6 +387,19 @@ class HCFactionConflict : HCModule
         foreach (HCTerritoryOutcomeRow row : rows)
         {
             if (row.PlaceId == place && row.TerritoryEpoch > 0 && !row.TerritoryApplied && row.LeftSurvivors >= 0) { return true; }
+        }
+        return false;
+    }
+
+    // fx_conflict selection only: the journal fixture's place stays reserved until its row is applied, so the
+    // two fixtures never share one place (otherwise the normal step drops fx_conflict silently).
+    static bool HCFixtureJournalHolds(string place)
+    {
+        if (!s_Instance || !s_Instance.m_Outcomes || s_Instance.m_FixtureEncounter == "") { return false; }
+        array<ref HCTerritoryOutcomeRow> journalRows = s_Instance.m_Outcomes.Rows;
+        foreach (HCTerritoryOutcomeRow journalRow : journalRows)
+        {
+            if (journalRow.Id == s_Instance.m_FixtureEncounter && journalRow.PlaceId == place && !journalRow.TerritoryApplied) { return true; }
         }
         return false;
     }
@@ -1160,6 +1175,7 @@ modded class HCWorldModule
             HCWorldPlace place = m_Data.Places[i];
             if (HCFactionConflict.HCTerritoryPending(place.Id) || !HCConflictFar(place, config) || HCConflictLeased(place.Id)) { continue; }
             if ((port && port.HCActiveAt(place.Id)) || !HCConflictBudget(config, place.Id, now)) { continue; }
+            if (HCFactionConflict.HCFixtureJournalHolds(place.Id)) { continue; }
             string cell = HCFactionConflict.Cell(place.Position);
             for (int left = 0; left < factions - 1; left++)
             {

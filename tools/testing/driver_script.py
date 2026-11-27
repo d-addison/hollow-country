@@ -380,7 +380,7 @@ def _phase_loot(b):
 
 
 # Seconds the player keeps standing after a fixture, so the real code it starts can run.
-FIXTURE_STAND = {"fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot": 8, "fx_kit_place": 8}
+FIXTURE_STAND = {"fx_conflict_journal": 60, "fx_barricade": 60, "fx_melee": 15, "fx_cooking": 20, "fx_shoot": 8, "fx_kit_place": 8}
 
 
 def _phase_fixtures(b):
