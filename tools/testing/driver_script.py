@@ -49,6 +49,8 @@ TOWN = "site:scav-chernogorsk"
 SCENE = "scene:scene-kamenka"
 # Forest phase: an existing authored barn of travel/route-surveys.json set in woodland (forage
 # habitats and the forest wind loop need a wooded surface under the player).
+# The barn point only: the catalog shelter there refuses terrain (MODULE_STATUS), and the forest
+# steps never use it. Keep this endpoint; ai_clear derives its candidate from it.
 FOREST = "shelter:Bor South Rest"
 # Radius entry (enter kind). The server counts an entry only after it sampled the player outside and
 # then inside the same radius (HCReleaseRadius.c); the driver walks in, out and in again until the

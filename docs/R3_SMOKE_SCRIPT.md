@@ -189,7 +189,7 @@ engine (`mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnSt
   instantiation, so player proximity is not required; a different animal or
   config existence is insufficient.
 
-## Stop 3 — Bor woodland and South Rest, 25–40/45 minutes
+## Stop 3 — Bor woodland and Drozhino Hay Refuge, 25–40/45 minutes
 
 Drive/walk north toward **Bor South Rest (3100.955811, 249.415558, 4238.387207)**,
 `mission/hollow-country/travel/route-surveys.json` existing shelter entry.
@@ -209,10 +209,17 @@ forest terrain. Keep any pitched tent/hearth away from the herd hazard area.
    require actual leased bodies: **InfectedLOD/herd_materialized**. Keep threats
    away from camp before the respawn exercise. Use ordinary movement/combat;
    no invisible relocation or deletion to make the area safe.
-3. [ ] Walk into the completed shelter discovery radius and open M with map/solo
+3. [ ] Travel normally to **Drozhino Hay Refuge (2585.119873, 202.433472, 5360.409668)**,
+   `mission/hollow-country/travel/route-surveys.json` existing_shelters,
+   `mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:179`
+   (placed variant=0 in soak 206 and chain 207). Bor South Rest refuses terrain
+   and cannot satisfy discovery. Walk into Drozhino's completed shelter discovery
+   radius and open M with map/solo
    group, or use an actually received group lead: **MapPins/pins_published**.
    User-created markers do not hit this call site; unplaced shelter cannot qualify.
-4. [ ] At safe nearby open camp ground, combine stick + rag, place `Fireplace`,
+4. [ ] Return normally to the safe Bor open camp ground used by the camp/respawn
+   smoke-plan rows; these build their own tent, crate and hearth and do not need
+   the catalog shelter. There, combine stick + rag, place `Fireplace`,
    add fuel, ignite and stay nearby as a real group member until durable
    recognition: **Camps/camp_recognised**. Existing private camp history may
    prevent a second camp for the same group. Use its real hearth instead; do

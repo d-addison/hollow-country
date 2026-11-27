@@ -463,7 +463,7 @@ installed mission overlays.
 | Grade, Lighting, WeatherDays | `EnableGrade` (weather also respects `EnableAtmosphere`) | implemented / runtime acceptance pending |
 | OptionalPacks (AmbientAnimals), Polish (Hints, EnvSound) | `EnableAmbientLife` | being built / runtime acceptance pending |
 | SignsOfLife | `EnableSignsOfLife` | being built / runtime acceptance pending |
-| Shelters, WreckSalvage | `EnableTravel` | being built / runtime acceptance pending |
+| Shelters, WreckSalvage | `EnableTravel` | being built / runtime acceptance pending. Bor South Rest remains unchanged and terrain-refused on every layout: ring 1 best rise 0.47 m; ring 2 best rise 0.34 m; limit 0.25 m. Relocation `Land_Barn_Wood2` candidates rejected: 3792/3625 conflicts with AI/story site `gapcov-i102` at 126 m; 1409/4047 overlaps regional shelter `gapcov-pavlovo-roof` at 0 m and military site `s025` at 45 m. Owner decision pending: remove Bor or choose a different barn class; not accepted. The R3 placed-shelter discovery step uses Drozhino Hay Refuge (variant=0 in soak 206 and chain 207); the driver forest phase keeps the Bor barn point as a woodland waypoint only. |
 | MapPins | `EnableTravel` or `EnableLeads`, with each pin kind filtered | being built / runtime acceptance pending |
 | World, Escalation | `EnableWorld` | being built / runtime acceptance pending |
 | SettlementDecay, InfectedMemory, HordeMigration, LootRefresh | `EnableWorld` | being built / runtime acceptance pending |

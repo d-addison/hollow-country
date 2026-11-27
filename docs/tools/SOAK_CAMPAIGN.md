@@ -109,7 +109,8 @@ Every row needs at least one `code:` token and one trigger token (`boot`, `timer
 `marker`). Classes are `required` (default-on activity expectation) and `diagnostic` (optional counters).
 
 New phases: `scene` walks to the Kamenka scene chain site, asks for its scene (`admin scene`), takes paper, reads the
-lead notes and writes one; `forest` walks to the existing Bor South Rest shelter, forces the forage tick
+lead notes and writes one; `forest` walks to the Bor South Rest barn point (a woodland waypoint from `travel/route-surveys.json`; the
+catalog shelter there refuses terrain, and the phase never uses it), forces the forage tick
 (`admin forage`), picks forage and stands under the trees for the wind loop. The `scene:<chain id>` waypoint source
 reads the first stop of `events/scene-chains.json` (the other sources are `ai/sites.json`, `ai/zones.json` and
 `travel/route-surveys.json`); the driver still walks there on foot.
