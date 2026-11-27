@@ -169,6 +169,7 @@ modded class PlayerBase
     protected bool m_HCMoveApply;
     protected int m_HCMoveFrames;
     protected int m_HCMoveLogs;
+    protected int m_HCMoveFrameLogs;
     protected string m_HCMoveRefused = "none";
     protected ref array<int> m_HCMoveReceived = new array<int>;
 
@@ -192,9 +193,42 @@ modded class PlayerBase
         m_HCMoveLogs++;
     }
 
+    // Native Object.c:301-305 yaw is degrees; :314 direction; :287 position.
+    // human.c:460 current movement angle is logged raw (units need runtime evidence).
+    // EnMath.c:413 Round; EnConvert.c:30,59,115 fixed two-decimal formatting.
+    protected string HCMoveNumber(float value)
+    {
+        int cents = Math.Round(Math.AbsFloat(value) * 100.0);
+        int whole = cents / 100;
+        int fraction = cents - whole * 100;
+        string sign = "";
+        if (value < 0 && cents > 0) { sign = "-"; }
+        return sign + whole.ToString() + "." + fraction.ToStringLen(2);
+    }
+
+    protected void HCMoveFrameLog(string phase)
+    {
+        // Separate lifetime cap, shared by start and close; no identity data.
+        if (m_HCMoveFrameLogs >= 64) { return; }
+        vector orientation = GetOrientation();
+        vector direction = GetDirection();
+        vector position = GetPosition();
+        HumanCommandMove move = GetCommand_Move();
+        string commandAngle = "n/a";
+        if (move) { commandAngle = HCMoveNumber(move.GetCurrentMovementAngle()); }
+        string line = "[HC Driver] server-frame serial=" + m_HCMoveSerial.ToString() + " phase=" + phase;
+        line += " yaw=" + HCMoveNumber(orientation[0]) + " dir=<" + HCMoveNumber(direction[0]) + "," + HCMoveNumber(direction[2]) + ">";
+        line += " pos=<" + HCMoveNumber(position[0]) + "," + HCMoveNumber(position[2]) + ">";
+        line += " req_angle=" + HCMoveNumber(m_HCMoveAngle) + " req_speed=" + HCMoveNumber(m_HCMoveSpeed);
+        line += " cmd_angle=" + commandAngle + " frames=" + m_HCMoveFrames.ToString();
+        Print("" + line);
+        m_HCMoveFrameLogs++;
+    }
+
     protected void HCMoveClose(string reason)
     {
         if (m_HCMoveSerial <= m_HCMoveClosed) { return; }
+        HCMoveFrameLog("close");
         if (m_HCMoveApply) { HCDriverMovement.Clear(this); }
         if (m_HCMoveRefused == "none" && reason != "none") { m_HCMoveRefused = reason; }
         // One summary per serial, hard cap per player lifetime; no identity data.
@@ -256,6 +290,8 @@ modded class PlayerBase
             HCMoveClose(previous);
             m_HCMoveSerial = serial;
             m_HCMoveFrames = 0;
+            m_HCMoveSpeed = 0;
+            m_HCMoveAngle = 0;
             m_HCMoveRefused = "none";
         }
         string reason = "none";
@@ -320,6 +356,7 @@ modded class PlayerBase
                 input.OverrideMovementSpeed(HumanInputControllerOverrideType.ONE_FRAME, m_HCMoveSpeed);
                 input.OverrideMovementAngle(HumanInputControllerOverrideType.ONE_FRAME, m_HCMoveAngle);
                 if (m_HCMoveFrames < 1000000) { m_HCMoveFrames++; }
+                if (m_HCMoveFrames == 1) { HCMoveFrameLog("start"); }
             }
         }
 #else

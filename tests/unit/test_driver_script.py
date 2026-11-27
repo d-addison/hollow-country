@@ -2,10 +2,13 @@
 import copy
 import io
 import json
+import math
+import re
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from tools.testing import driver_script as ds
 
@@ -34,10 +37,68 @@ class DriverScriptTests(unittest.TestCase):
         self.assertEqual([notes[s["id"]] for s in walks],
                          [ds.AI_SITE, ds.TOWN, ds.AI_SITE, ds.ZONE, ds.SCENE, ds.FOREST])
         first = walks[0]
-        import math
-        distance = math.dist(ds.SPAWN_XZ, first["to"])
-        self.assertLess(distance, 100)
+        self.assertLess(math.dist(ds.SPAWN_XZ, first["to"]), 100)
+        distance = max(math.dist(origin, first["to"])
+                       for origin in (*ds.INITIAL_SPAWN_CANDIDATES_XZ, ds.SPAWN_XZ))
         self.assertEqual(first["timeout_s"], ds._timeout_for(distance + 150, first["gait"]))
+
+    def test_initial_spawn_candidates_match_server_source(self):
+        source = (ds.ROOT / "mods/HollowCountryTest/scripts/5_Mission/HCDriverInitialSpawn.c").read_text(
+            encoding="utf-8")
+        block = re.search(r"ref array<vector> candidates = \{(.*?)\};", source, re.S)
+        self.assertIsNotNone(block)
+        points = [tuple(map(float, point.split())) for point in re.findall(r'"([^"\n]+)"', block[1])]
+        self.assertEqual(ds.INITIAL_SPAWN_CANDIDATES_XZ, tuple((x, z) for x, _, z in points))
+        fallback = re.search(r"return Vector\((\d+), GetGame\(\).SurfaceY\(\d+, \d+\), (\d+)\);", source)
+        self.assertIsNotNone(fallback)
+        self.assertEqual(ds.SPAWN_XZ, tuple(map(float, fallback.groups())))
+
+    def test_first_walk_budgets_all_spawn_points_and_keeps_uncertainty_margin(self):
+        for phases, margin in ((["walk_ai"], 0), (["join", "walk_ai"], 150),
+                               (["walk_town"], 0), (["ai_clear"], 0)):
+            with self.subTest(phases=phases):
+                first = next(s for s in ds.build_route(phases)["steps"] if s["kind"] == "walk")
+                distance = max(math.dist(origin, first["to"])
+                               for origin in (*ds.INITIAL_SPAWN_CANDIDATES_XZ, ds.SPAWN_XZ))
+                self.assertEqual(first["timeout_s"], ds._timeout_for(distance + margin, "jog"))
+
+    def test_initial_route_budgets_approach_and_route_legs(self):
+        points = ds.resolve_route(ds.TOWN)
+        distance = max(math.dist(origin, points[0])
+                       for origin in (*ds.INITIAL_SPAWN_CANDIDATES_XZ, ds.SPAWN_XZ))
+        distance += sum(math.dist(a, b) for a, b in zip(points, points[1:]))
+        for uncertain in (False, True):
+            b = ds._Builder()
+            if uncertain:
+                b.add("menu", name="map", seconds=4)
+            b.route(ds.TOWN)
+            self.assertEqual(b.steps[-1]["timeout_s"], min(
+                3600, ds._timeout_for(distance + (150 if uncertain else 0), "jog") + 30 * len(points)))
+            b.walk(ds.ZONE)
+            self.assertEqual(b.steps[-1]["timeout_s"], ds._timeout_for(
+                math.dist(points[-1], ds.resolve_waypoint(ds.ZONE)), "jog"))
+
+    def test_initial_budget_includes_fallback_and_retains_timeout_cap(self):
+        # The fallback is farthest for this target; the shortlist alone underbudgets it.
+        with patch.object(ds, "resolve_waypoint", return_value=(4000.0, 2500.0)):
+            b = ds._Builder()
+            b.walk(ds.AI_SITE)
+            self.assertEqual(b.steps[-1]["timeout_s"], ds._timeout_for(2500, "jog"))
+        with patch.object(ds, "resolve_waypoint", return_value=(15000.0, 15000.0)), \
+                patch.object(ds, "resolve_route", return_value=[(15000.0, 15000.0), (15010.0, 15010.0)]):
+            for kind in ("walk", "route"):
+                b = ds._Builder()
+                getattr(b, kind)(ds.AI_SITE)
+                self.assertEqual(b.steps[-1]["timeout_s"], 3600)
+
+    def test_returning_to_fallback_does_not_restart_initial_budget(self):
+        b = ds._Builder()
+        b.walk(ds.AI_SITE)
+        with patch.object(ds, "resolve_waypoint", return_value=ds.SPAWN_XZ):
+            b.walk(ds.AI_SITE)
+        b.walk(ds.TOWN)
+        self.assertEqual(b.steps[-1]["timeout_s"], ds._timeout_for(
+            math.dist(ds.SPAWN_XZ, ds.resolve_waypoint(ds.TOWN)), "jog"))
 
     def test_ai_clear_plan_uses_existing_steps_both_modes_and_one_respawn(self):
         script, notes = ds.build_plan(["fixtures", "ai_clear"])

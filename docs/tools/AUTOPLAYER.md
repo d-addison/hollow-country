@@ -500,11 +500,49 @@ Round 5 remains implemented-unverified until the lead's native checks.
    retries share the four-run per-entity cap. Step timers start after calibration.
    No native experiment was run for this change. A native-correct movement-frame contract
    cannot be established from these scripts or the obstructed historical probes alone.
-   If the bounded retries still cannot obtain four clear consistent probes, the smallest
-   proposed fixture change is to move **only initial character creation** from <6500,2500>
-   to the nearest surveyed open patch with at least 16 m clearance on these four bearings.
-   A coordinate must be selected from an actual geometry survey; none is verified here.
-   The spawn, `SPAWN_XZ`, derived targets and existing characters are unchanged.
+   The fixture now searches a fixed west/northwest field shortlist **only at initial
+   character creation**, under the existing `autoplayer-initial-spawn` profile marker.
+   The server accepts the first dry candidate with at most 2 m total height range across
+   its center and four terrain samples at +/-4 m, and clear 16 m geometry rays on world
+   bearings 0/90/180/270. Rays run from chest height (1.2 m) to terrain height +1.2 m at
+   each endpoint, matching the client probe check. Native APIs:
+   `3_Game/Global/Game.c:1176,1196-1197` (`SurfaceY`, `SurfaceIsSea`, `SurfaceIsPond`),
+   `3_Game/Global/DayZPhysics.c:199` (`RaycastRV`, geometry type, ignore argument).
+   No player exists at this point, so the ray's ignore argument is null; there is no
+   player entity to intersect. Work is bounded to 12 candidates x four rays, once per
+   creation, with early refusal on water, slope or contact. Four clear cardinal rays
+   are a clearance screen, not a guarantee about diagonal paths or reachable loot.
+
+   Candidate indices are **one-based**, in this fixed order (all within 1.48 km of the
+   old <6500,2500> point). These are field-search coordinates, not a completed native
+   geometry survey; the server checks them at runtime:
+
+   | Candidates | Coordinates <x,z>, in order | Area rationale |
+   | --- | --- | --- |
+   | 1–4 | <5500,2800>, <5400,2800>, <5300,2800>, <5200,2800> | Western field belt first: stay west of the northwest urban fringe, with a shorter approach back to town. |
+   | 5–8 | <5500,3000>, <5400,3000>, <5300,3000>, <5200,3000> | Next inland band: alternatives if the nearer fringe has walls, fences or unsuitable slopes. |
+   | 9–12 | <5500,3200>, <5400,3200>, <5300,3200>, <5200,3200> | Farther northwest band: spread the search beyond the nearer obstructions while keeping the town approach local. |
+
+   Success: `[HC Driver] spawn fixture=1 initial=1 at=<x,z> candidate=<i> checked=<n>`.
+   Exhaustion: `[HC Driver] spawn fixture=1 initial=1 at=<6500,2500> candidate=fallback
+   reason=<first failure> checked=12`, where the reason is `water`, `slope` or `blocked`
+   from candidate 1. Exhaustion retains the old point without asserting clearance.
+   This substitutes only the position passed to `super.OnClientNewEvent`, before
+   `CreateCharacter` (`5_Mission/mission/missionServer.c:549,573,589`); persistence login
+   and existing characters do not use this hook. No position or orientation write is made.
+   Fixed yaw at creation was not added: neither `OnClientNewEvent` nor `CreateCharacter`
+   takes yaw (`missionServer.c:499,549`); vanilla calls `CreatePlayer` with radius 0 and
+   spec `"NONE"` (`missionServer.c:502`, `3_Game/Global/Game.c:332`), which also has no
+   orientation argument. `Object.c:311` sets orientation on an existing entity and is
+   outside this fixture's scope.
+
+   The planner budgets initial travel from the farthest of all 12 `HCDriverInitialSpawn.c` candidates and the fallback, retaining the uncertainty margin and 3600 s cap; `SPAWN_XZ` remains the fallback and offline target-selection origin. Actual travel and obstacle avoidance remain unverified. The `walk_town`
+   route, site search, combat, climb and cellar steps need town surroundings but explicitly
+   walk/route there. Standalone combat/loot phases call `near(TOWN)` first; vehicle has
+   its own local car fixture. Generic actions `search`, `close_door`, `open_door`, `salvage`
+   and `flip` depend on nearby suitable objects and may refuse if run at an open spawn.
+   Loot within 40 m, climb/cellar within 100 m, and combat within 60 m also still need their
+   respective local targets after arrival. Broader action targeting would require a separate change.
 
 7. The test-only `HCDriverMoveWire.RPC_MOVE` allocation is **4854091** (global lint inventory).
    The reliable player-targeted request contains serial, speed, angle, lease seconds and an
@@ -517,6 +555,35 @@ Round 5 remains implemented-unverified until the lead's native checks.
    client/server clocks. Refreshes must arrive before the prior deadline. Closed/stale serials
    cannot reactivate movement. Delivery age before the first receipt is not measured by this
    protocol and remains a native timing limitation to inspect.
+
+   The server additionally logs its own frame on the first **applied** frame of each
+   serial (after issuing the overrides, `frames=1`) and in `HCMoveClose` (before clearing
+   overrides). Both phases share a separate **64-line per-player lifetime cap**; the
+   existing 128-line `server-move` cap is unchanged. A serial that never applies has no
+   start line, but can have a close line with `frames=0`; request fields are the last
+   accepted request, or zero if no request was accepted. Cap exhaustion can truncate pairs.
+
+   ```text
+   [HC Driver] server-frame serial=<S> phase=start yaw=<deg> dir=<x,z> pos=<x,z> req_angle=<deg> req_speed=<s> cmd_angle=<v> frames=1
+   [HC Driver] server-frame serial=<S> phase=close yaw=<deg> dir=<x,z> pos=<x,z> req_angle=<deg> req_speed=<s> cmd_angle=<v> frames=<n>
+   ```
+
+   Numbers except serial/frames have two decimals (positions rounded to 0.01 m).
+   `yaw` is the server entity's `GetOrientation()[0]` in degrees; `dir` is
+   `GetDirection()` x/z; `pos` is `GetPosition()` x/z
+   (`3_Game/Entities/Object.c:301-305,314,287`). `cmd_angle` is the raw
+   `HumanCommandMove.GetCurrentMovementAngle()` (`3_Game/human.c:458-460`), or `n/a`
+   if the move command no longer exists at close. The native comment describes
+   -180..180 but the client has observed radians; retain the raw value as evidence.
+   This is a command readout at the callback, not proof that the just-issued override
+   has already affected animation. The client `calib probe=... serial=<S>` already logs
+   the same serial (`HCClientDriver.LogProbe`), allowing a join with both server phases.
+   No identity data is logged. Compare equivalent wrapped yaw values: if the server yaw
+   is about -54 degrees while the client's body/camera/dir yaw reads 0, the frame split
+   is confirmed. If server yaw also reads 0, the offset comes from somewhere else.
+   A yaw offset alone still cannot explain the historical antiparallel right probe;
+   compare start/close direction and command angles before attributing a cause.
+   No native runtime experiment has yet tested this diagnostic or the spawn shortlist.
 
    | Server input/state | Refusal reason |
    | --- | --- |
