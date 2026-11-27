@@ -47,10 +47,8 @@ TOWN = "site:scav-chernogorsk"
 # foot like every other waypoint. This `scene:` source is the one addition to the site/zone/shelter
 # sources; it reads repo data only.
 SCENE = "scene:scene-kamenka"
-# Forest phase: an existing authored barn of travel/route-surveys.json set in woodland (forage
-# habitats and the forest wind loop need a wooded surface under the player).
-# The barn point only: the catalog shelter there refuses terrain (MODULE_STATUS), and the forest
-# steps never use it. Keep this endpoint; ai_clear derives its candidate from it.
+# Forest phase: retain the retired Bor barn point as a woodland waypoint.
+# This compatibility alias preserves existing soak phase selectors and step logic.
 FOREST = "shelter:Bor South Rest"
 # Radius entry (enter kind). The server counts an entry only after it sampled the player outside and
 # then inside the same radius (HCReleaseRadius.c); the driver walks in, out and in again until the
@@ -217,6 +215,9 @@ def resolve_waypoint(source):
                 return _xz(zone.get("center"), source)
         raise ScriptError("no ai zone %s" % ident)
     if kind == "shelter":
+        # Retired shelter alias: woodland/forage endpoint only, never discovery.
+        if ident == "Bor South Rest":
+            return (3100.955811, 4238.387207)
         surveys = _load("travel/route-surveys.json")
         rows = list(surveys.get("existing_shelters", [])) + list(surveys.get("regional_candidates", []))
         for row in rows:

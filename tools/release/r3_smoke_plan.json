@@ -116,7 +116,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c#HCCampRespawnModule.HCChoose",
       "trigger": "Fresh-character request has eligible allegiance, hearth, live shelter/storage and safe spawn; cooldown reservation is saved.",
       "exercise": "client_action",
-      "steps": "1. At Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, form solo group and recognise ground hearth. 2. Pitch SmallTent and place WoodenCrate within 12 m; let normal scan reach eligible tier. 3. Ensure no live threats within 100 m. 4. After all carried-item checks, die normally and choose native Respawn. 5. Require respawn_reserved and a new character; no movement of a living avatar.",
+      "steps": "1. At the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, form solo group and recognise ground hearth. 2. Pitch SmallTent and place WoodenCrate within 12 m; let normal scan reach eligible tier. 3. Ensure no live threats within 100 m. 4. After all carried-item checks, die normally and choose native Respawn. 5. Require respawn_reserved and a new character; no movement of a living avatar.",
       "est_minutes": 5,
       "prerequisites": "EnableCampRespawn/Camps/Groups; tier eligibility; 1800 s cooldown unused; tent/storage/hearth remain; fresh-character mission integration. Construction is preparation, not included in estimate."
     },
@@ -126,7 +126,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Camps/HCCampModule.c#HCCampModule.OnTick",
       "trigger": "Burning unparented fire binds a nearby actual group; durable recognition notice is drained.",
       "exercise": "client_action",
-      "steps": "1. At Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, M -> Create group if none. 2. Combine ShortWoodenStick and Rag into Fireplace, place on clear ground. 3. Add Firewood and light with Matches. 4. Stand near it until recognition saves and camp_recognised prints.",
+      "steps": "1. At the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, M -> Create group if none. 2. Combine ShortWoodenStick and Rag into Fireplace, place on clear ground. 3. Add Firewood and light with Matches. 4. Stand near it until recognition saves and camp_recognised prints.",
       "est_minutes": 3,
       "prerequisites": "EnableCamps/Groups; one camp per group; camp capacity available; native fire/recognition save healthy."
     },
@@ -355,7 +355,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCReleaseNode",
       "trigger": "Tracked spawned node is released after real pickup/movement; HCRecordForage called and refill delay saved.",
       "exercise": "client_action",
-      "steps": "1. At woodland edge on the road from Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] toward Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, find HC-spawned mushroom/berry from prior step. 2. Pick up that exact node item with native Take. 3. Wait one maintenance scan; do not drop/re-pick to count again.",
+      "steps": "1. At woodland edge on the road from Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] toward the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, find HC-spawned mushroom/berry from prior step. 2. Pick up that exact node item with native Take. 3. Wait one maintenance scan; do not drop/re-pick to count again.",
       "est_minutes": 1,
       "prerequisites": "Same live HC node as item_spawned; inventory room; progression eligible."
     },
@@ -365,7 +365,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCResumeSpawn",
       "trigger": "Reserved finite node passes season, forest, clearance and observer veto; CreateObjectEx succeeds.",
       "exercise": "admin_action",
-      "steps": "1. At woodland edge on route to Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, stand on forest surface. 2. Pause -> Economy -> forage -> Run. 3. Close menu, move at least 30 m away from candidate slot while staying in its 200 m cell. 4. Wait up to three 10 s slot cycles; inspect list for node and search ground.",
+      "steps": "1. At woodland edge on route to the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, stand on forest surface. 2. Pause -> Economy -> forage -> Run. 3. Close menu, move at least 30 m away from candidate slot while staying in its 200 m cell. 4. Wait up to three 10 s slot cycles; inspect list for node and search ground.",
       "est_minutes": 2,
       "prerequisites": "EnableAdminMap; authenticated HollowCountry.Admin permission or private HC allowlist; matching server/client build; default-on settings retained; game month June-November; forest surface and available finite nodes. Command only primes normal path."
     },
@@ -498,7 +498,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLOD.c#HCInfectedLODModule.HCLODMaterializeStep",
       "trigger": "LOD creates actual leased infected body through HCLODMaterialize at observer-safe candidate.",
       "exercise": "not_deterministic",
-      "steps": "1. Approach Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters seed bor-farm by road. 2. Remain in activation range looking away from hidden candidates. 3. Wait for normal LOD slices and require herd_materialized; manual infected spawns are not this path.",
+      "steps": "1. Approach the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, seed bor-farm by road. 2. Remain in activation range looking away from hidden candidates. 3. Wait for normal LOD slices and require herd_materialized; manual infected spawns are not this path.",
       "est_minutes": 5,
       "prerequisites": "EnableInfected, LOD and virtual herds; valid chernarusplus seeds, body budget and observer-clear candidate.",
       "deterministic_exercise_proposal": "Use source seed at (3100.955811,4238.387207); approach naturally behind terrain while candidate is hidden. Family A proposes bounded seed evaluation selection only, preserving observation, population, surface and lease checks."
@@ -919,7 +919,7 @@
       "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCEnvSound.c#HCEnvSound.Update",
       "trigger": "Outdoor forest effect survives to next sample with IsSoundPlaying true.",
       "exercise": "client_action",
-      "steps": "1. Walk from Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] toward Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters onto cp_conifer_ or cp_broadleaf_ forest surface. 2. Leave vehicle and close menus, remain outdoors. 3. Wait startup/layer timer plus at least one five-second sample; require audible wind and sound_played.",
+      "steps": "1. Walk from Chernogorsk police loop (6564.47,14.31,2551.96), mission/hollow-country/ai/sites.json Sites[id=police-chernogorsk] toward the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint onto cp_conifer_ or cp_broadleaf_ forest surface. 2. Leave vehicle and close menus, remain outdoors. 3. Wait startup/layer timer plus at least one five-second sample; require audible wind and sound_played.",
       "est_minutes": 3,
       "prerequisites": "Ambient presentation enabled; installed SpookyArea_WhistlingWind_SoundSet; real effect playback, not handle creation."
     },
@@ -929,7 +929,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Progression/HCProgression.c#HCProgressionModule.HCAwardForage",
       "trigger": "HCRecordForage accepts and saves a genuine eligible forage familiarity award.",
       "exercise": "client_action",
-      "steps": "1. On woodland leg to Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, take the tracked HC-spawned node item. 2. Require familiarity_gained; loose unrelated mushroom does not establish this.",
+      "steps": "1. On woodland leg to the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, take the tracked HC-spawned node item. 2. Require familiarity_gained; loose unrelated mushroom does not establish this.",
       "est_minutes": 1,
       "prerequisites": "EnableProgression; actual player node release, familiarity cap/award guards and healthy progression store."
     },
@@ -1009,7 +1009,7 @@
       "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile",
       "trigger": "Reconcile admits a real server-synchronized burning FireplaceIndoor source for light; native fire owns actual rendering. SelectHouses also requires hour >=18 or <7.",
       "exercise": "client_action",
-      "steps": "1. At the Bor village hearth stop near Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when hour >=18 or <7 and within configured house radius. 3. Wait client scan and require light_observed; ground Fireplace camp does not substitute.",
+      "steps": "1. At the Bor village hearth stop near the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when hour >=18 or <7 and within configured house radius. 3. Wait client scan and require light_observed; ground Fireplace camp does not substitute.",
       "est_minutes": 2,
       "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c#HCSignsOfLife.DuskOrNight..Before and HCSignsOfLife.SelectHouses; house-bound fire required, not loose ground fireplace."
     },
@@ -1019,7 +1019,7 @@
       "source": "mods/HollowCountry/scripts/5_Mission/Atmosphere/HCSignsOfLifeClient.c#HCSignsOfLifeClient.Reconcile",
       "trigger": "Reconcile admits a real server-synchronized burning FireplaceIndoor source for smoke; native fire owns actual rendering. SelectHouses also requires native base environmental temperature < configured ColdC (default 10 C).",
       "exercise": "client_action",
-      "steps": "1. At the Bor village hearth stop near Bor South Rest (3100.955811,249.415558,4238.387207), mission/hollow-country/travel/route-surveys.json existing_shelters, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when native base environmental temperature < configured ColdC (default 10 C) and within configured house radius. 3. Wait client scan and require smoke_observed; ground Fireplace camp does not substitute.",
+      "steps": "1. At the Bor village hearth stop near the Bor woodland point (3100.955811,249.415558,4238.387207), retained driver forest waypoint, place fuel/kindling in an native indoor FireplaceIndoor in a residential Land_House_ with nonzero fireplace_point1 and fireplace_smoke1 selections and ignite normally. 2. Walk outside to observe chimney/firelight when native base environmental temperature < configured ColdC (default 10 C) and within configured house radius. 3. Wait client scan and require smoke_observed; ground Fireplace camp does not substitute.",
       "est_minutes": 2,
       "prerequisites": "EnableSignsOfLife and hearth synchronization; native burning indoor fireplace, appropriate daylight/night policy and source range. HCSignsOfLife.c#HCSignsOfLife.DuskOrNight..Before and HCSignsOfLife.SelectHouses; house-bound fire required, not loose ground fireplace."
     },

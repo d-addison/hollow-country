@@ -191,11 +191,11 @@ engine (`mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnSt
 
 ## Stop 3 — Bor woodland and Drozhino Hay Refuge, 25–40/45 minutes
 
-Drive/walk north toward **Bor South Rest (3100.955811, 249.415558, 4238.387207)**,
-`mission/hollow-country/travel/route-surveys.json` existing shelter entry.
+Drive/walk north toward **the Bor woodland point (3100.955811, 249.415558, 4238.387207)**,
+the retained driver forest waypoint (retired shelter alias).
 This also supplies the `bor-farm` LOD seed X/Z in
 `mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLODStore.c#HCInfectedLODConfig.HCSeedDefaults`.
-Stop on actual woodland surface en route; the shelter itself is not guaranteed
+Stop on actual woodland surface en route; the waypoint itself is not guaranteed
 forest terrain. Keep any pitched tent/hearth away from the herd hazard area.
 
 1. [ ] On `cp_conifer_`/`cp_broadleaf_` surface leave vehicle, run Economy ->
@@ -212,8 +212,10 @@ forest terrain. Keep any pitched tent/hearth away from the herd hazard area.
 3. [ ] Travel normally to **Drozhino Hay Refuge (2585.119873, 202.433472, 5360.409668)**,
    `mission/hollow-country/travel/route-surveys.json` existing_shelters,
    `mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:179`
-   (placed variant=0 in soak 206 and chain 207). Bor South Rest refuses terrain
-   and cannot satisfy discovery. Walk into Drozhino's completed shelter discovery
+   (placed variant=0 in soak 206 and chain 207). Bor South Rest is retired; its replacement, Zabolotye Track Barn
+   (1634.676147, 311.890808, 9857.233398; alternate
+   1495.934204, 247.642349, 10660.052734), awaits runtime placement and cannot
+   supply discovery evidence until it actually places. Walk into Drozhino's completed shelter discovery
    radius and open M with map/solo
    group, or use an actually received group lead: **MapPins/pins_published**.
    User-created markers do not hit this call site; unplaced shelter cannot qualify.

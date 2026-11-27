@@ -21,6 +21,7 @@ class HCShelterEntry
     string Name;
     vector Position;
     string History;
+    ref array<vector> AlternatePositions = new array<vector>;
     bool Placed = false;
     // Borrowed server scene handle, cleared when the scene is removed.
     Object PlacementAnchor;
@@ -177,8 +178,10 @@ class HCShelterCatalog
         if (s_Entries.Count() != 0) return;
         // Zelenogorsk to Drozhino: farm tracks below the western woods.
         Add("Drozhino Hay Refuge", "2585.119873 202.433472 5360.409668", "A family waited out the rain here. Their empty packing box and a chair remain beside the cold cooking grate.");
-        // Bor to Komarovo: the inland farm approach above the coast.
-        Add("Bor South Rest", "3100.955811 249.415558 4238.387207", "A coastal traveller slept under this roof after abandoning the road. The grate outside was their last dry stopping place.");
+        // Zabolotye to Myshkino: the farm track along the western woods.
+        Add("Zabolotye Track Barn", "1634.676147 311.890808 9857.233398", "A walker waited out the rain under this roof. A chair beside the cold grate marks where they dried their coat before continuing north.");
+        // Surveyed stock barn, 815 m north; startup terrain refusals only.
+        s_Entries[s_Entries.Count() - 1].AlternatePositions.Insert("1495.934204 247.642349 10660.052734");
         // Zelenogorsk to Sosnovka: northbound farm and woodland edge.
         Add("Sosnovka Track Barn", "3560.896484 337.081543 7004.783203", "A hunter used the barn as a rain hide. Someone later dragged a chair outside and left an empty provisions box.");
         // Pogorevka to Pulkovo: open farmland between wooded ridges.

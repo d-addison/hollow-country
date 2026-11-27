@@ -1001,6 +1001,26 @@ class HCShelterModule : HCModule
             if (entry.Scene.Enabled) { m_RegionalRemaining++; }
             return;
         }
+        // Startup only: each surveyed barn gets the existing bounded layout/ring
+        // work once. Any non-terrain placement refusal ends alternate admission.
+        vector primary = entry.Position;
+        bool terrainOnly = true;
+        if (HCTryLegacyShelter(entry, primary, 0, terrainOnly)) { return; }
+        int alternateIndex = 0;
+        while (terrainOnly && m_RefusalReason == "terrain" && alternateIndex < entry.AlternatePositions.Count() && alternateIndex < 3)
+        {
+            vector alternatePosition = entry.AlternatePositions[alternateIndex];
+            alternateIndex++;
+            Print("[HollowCountry] V2 shelter alternate name=" + entry.Name + " index=" + alternateIndex.ToString() + " reason=" + m_RefusalReason);
+            if (HCTryLegacyShelter(entry, alternatePosition, alternateIndex, terrainOnly)) { return; }
+        }
+        Print("[HollowCountry] V2 shelter exhausted name=" + entry.Name + " alternates=" + alternateIndex.ToString() + " reason=" + m_RefusalReason);
+        RefuseShelter(entry, m_RefusalReason);
+    }
+
+    protected bool HCTryLegacyShelter(HCShelterEntry entry, vector position, int alternateIndex, out bool terrainOnly)
+    {
+        terrainOnly = true;
         entry.Placed = false;
         entry.PlacementAnchor = null;
         m_RefusalReason = "";
@@ -1015,23 +1035,25 @@ class HCShelterModule : HCModule
         m_RingWider = false;
         m_RingRise = 0;
         m_SoftVegetation = 0;
-        m_RefusalPoint = entry.Position;
+        m_RefusalPoint = position;
         HCInteriorFurnishRow binding = new HCInteriorFurnishRow;
         binding.BuildingClass = HCShelterCatalog.BUILDING_CLASS;
-        binding.Position = Coordinates(entry.Position);
+        binding.Position = Coordinates(position);
         Object house = HCInteriorTemplatePlacement.Resolve(binding);
         if (!house)
         {
-            RefuseShelter(entry, "building_unresolved_or_tilted");
-            return;
+            m_RefusalReason = "building_unresolved_or_tilted";
+            terrainOnly = false;
+            return false;
         }
         vector houseClip[2];
         house.ClippingInfo(houseClip);
         // Refuse changed/unknown geometry instead of trusting a class name.
         if (!HCInteriorRules.SaneVector(houseClip[0], 20) || !HCInteriorRules.SaneVector(houseClip[1], 20) || vector.DistanceSq(houseClip[0], "-8.48698 -5.7232 -15.659") > 0.04 || vector.DistanceSq(houseClip[1], "8.48698 5.7232 15.659") > 0.04)
         {
-            RefuseShelter(entry, "building_bounds");
-            return;
+            m_RefusalReason = "building_bounds";
+            terrainOnly = false;
+            return false;
         }
         HCInteriorTemplate layout = YardLayout();
         array<Object> batch = new array<Object>;
@@ -1040,6 +1062,7 @@ class HCShelterModule : HCModule
         {
             complete = HCPlaceBatch(house, layout, batch);
             if (complete) { break; }
+            if (m_RefusalReason != "terrain") { terrainOnly = false; }
             Print("[HollowCountry] V2 shelter layout refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
             if (m_LayoutVariant == 7) { break; }
             m_LayoutVariant = m_LayoutVariant + 1;
@@ -1061,6 +1084,7 @@ class HCShelterModule : HCModule
                 attempts = attempts + 1;
                 complete = HCPlaceBatch(house, layout, batch);
                 if (complete) { break; }
+                if (m_RefusalReason != "terrain") { terrainOnly = false; }
                 Print("[HollowCountry] V2 shelter ring candidate refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
             }
             // Preserve the first screen's evidence before reusing its bounded
@@ -1079,18 +1103,18 @@ class HCShelterModule : HCModule
                     widerAttempts = widerAttempts + 1;
                     complete = HCPlaceBatch(house, layout, batch);
                     if (complete) { break; }
+                    if (m_RefusalReason != "terrain") { terrainOnly = false; }
                     Print("[HollowCountry] V2 shelter ring2 candidate refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
                 }
                 widerDetails = " ring2_candidates=" + HC_RING_CANDIDATES.ToString() + " ring2_admissible=" + widerAdmissible.ToString() + " ring2_attempts=" + widerAttempts.ToString() + " ring2_cap=" + HC_RING_ATTEMPTS.ToString() + HCRingScreenDetails("ring2_");
             }
             if (!complete)
             {
-                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString() + ringDetails + widerDetails);
+                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " alternates=" + alternateIndex.ToString() + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString() + ringDetails + widerDetails);
                 if (attempts == 0 && widerAttempts == 0) { m_RefusalReason = variantReason; }
                 m_RingCandidate = -1;
                 m_RingWider = false;
-                RefuseShelter(entry, m_RefusalReason);
-                return;
+                return false;
             }
         }
         HCPathgraphRefresh region = HCInteriorPathgraph.Bounds(batch);
@@ -1101,6 +1125,7 @@ class HCShelterModule : HCModule
             m_Objects.Insert(completedProp);
         }
         m_Placed = m_Placed + 1;
+        entry.Position = position;
         entry.Placed = true;
         HCModuleReadiness.HCUse("Shelters", "shelter_placed");
         entry.PlacementAnchor = fireSpot;
@@ -1113,12 +1138,13 @@ class HCShelterModule : HCModule
                 admissible = widerAdmissible;
                 attempts = widerAttempts;
             }
-            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + ringVariant + " candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
+            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " alternate=" + alternateIndex.ToString() + " variant=" + ringVariant + " candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
             m_RingCandidate = -1;
             m_RingWider = false;
-            return;
+            return true;
         }
-        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
+        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " alternate=" + alternateIndex.ToString() + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
+        return true;
     }
 
     // Dedicated consumer preserves progress after Interiors spends its slice.

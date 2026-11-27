@@ -52,12 +52,12 @@
       "stock_grants": 0
     },
     {
-      "name": "Bor South Rest",
+      "name": "Zabolotye Track Barn",
       "building_class": "Land_Barn_Wood2",
       "position": [
-        3100.955811,
-        249.415558,
-        4238.387207
+        1634.676147,
+        311.890808,
+        9857.233398
       ],
       "disposition": "existing-authored-barn",
       "runtime_acceptance": "pending",
