@@ -531,6 +531,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
     override protected void HCLocalityFault()
     {
         if (m_LocalityRefused) { return; }
+        this.HCClearRouteUpgrade();
         m_LocalityRefused = true;
         if (m_LocalitySave) { HCSaveScheduler.HCUnregister(m_LocalitySave); }
         m_LocalitySave = null;
@@ -568,6 +569,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
         this.HCRecordRouteState(retired);
         if (retired.Patrol) { retired.Patrol.m_HCFinished = true; HCXExpansionBridge.HCSitePatrolStop(retired.Patrol); HCXExpansionBridge.HCSitePatrolDelete(retired.Patrol); }
         retired.Patrol = null;
+        this.HCApplyRouteUpgrade(retired);
         HCAIBudget.Release("site:" + retired.Site.Id);
         m_States.RemoveOrdered(victim);
     }
@@ -727,6 +729,7 @@ class HCXAISitePatrols : HCXAISiteSurvey
             {
                 if (state.Patrol) { state.Patrol.m_HCFinished = true; HCXExpansionBridge.HCSitePatrolStop(state.Patrol); HCXExpansionBridge.HCSitePatrolDelete(state.Patrol); }
                 state.Patrol = null;
+                this.HCApplyRouteUpgrade(state);
                 HCAIBudget.Release("site:" + state.Site.Id);
                 m_States.RemoveOrdered(m_LocalityCursor);
                 continue;

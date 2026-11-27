@@ -456,6 +456,20 @@ class HCXAISiteRules
     // route digest; geometry failure must not masquerade as changed validity.
     // A row that qualified under the legacy primary filter term still matches:
     // the current filter only adds polygons. Refused legacy rows requalify.
+    // Only the algorithm/manifest generation may differ. Bind first: the row's
+    // own key cannot establish identity for the current authored site.
+    static bool HCStaleServable(HCXAIRouteRow row, string key, string validity, string legacyTerm)
+    {
+        if (!row || validity == "" || row.Key != key) { return false; }
+        array<string> saved = new array<string>();
+        array<string> current = new array<string>();
+        row.ValidityKey.Split("|", saved);
+        validity.Split("|", current);
+        if (saved.Count() != 6 || current.Count() != 7 || saved[0] != "chain-v6") { return false; }
+        if (saved[1] != current[1] || saved[2] != current[2] || saved[3] != current[3]) { return false; }
+        if (saved[4] != current[4] && saved[4] != legacyTerm) { return false; }
+        return saved[5] == current[5];
+    }
     static string HCRouteMismatch(HCXAIRouteRow row, string key, string validity, string legacyTerm = "")
     {
         if (!row || validity == "") { return "policy"; }
