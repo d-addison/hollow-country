@@ -125,15 +125,22 @@ class HCDriverWalker
         input.OverrideAimChangeX(HumanInputControllerOverrideType.DISABLED, 0);
     }
 
+    // Native 3_Game/Entities/Object.c:314 GetDirection is the model's world direction.
+    static float BodyYaw(PlayerBase player)
+    {
+        vector body = player.GetDirection();
+        return Math.Atan2(body[0], body[2]) * Math.RAD2DEG;
+    }
+
     static float CameraYaw()
     {
         vector facing = GetGame().GetCurrentCameraDirection();
         return Math.Atan2(facing[0], facing[2]) * Math.RAD2DEG;
     }
 
-    // Native 3_Game/human.c:28 GetHeadingAngle is radians and counter-clockwise: vanilla negates it
-    // (5_Mission/GUI/CrossHairSelector.c:247, DayZPlayerCamera3rdPerson.c:478), so the frame is
-    // clockwise like Atan2(x, z) bearings. Global/Game.c:732 camera direction.
+    // Calibration selects body yaw plus its measured travel offset. The legacy heading
+    // option reads human.c:28 radians; vanilla negates it (CrossHairSelector.c:247).
+    // Body direction is Object.c:314; render-camera yaw is diagnostic only.
     static float MovementFrame(PlayerBase player)
     {
 #ifndef SERVER
@@ -141,7 +148,7 @@ class HCDriverWalker
         {
             return player.GetInputController().GetHeadingAngle() * -Math.RAD2DEG;
         }
-        return CameraYaw();
+        return BodyYaw(player);
 #else
         return 0;
 #endif

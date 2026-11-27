@@ -195,6 +195,18 @@ class HCDriverExtra
         return result;
     }
 
+#ifndef SERVER
+    // Native UIManager.c:4,160 and InGameMenu.c:346-365: vanilla death-screen path.
+    static bool RequestRespawn()
+    {
+        InGameMenu menu = InGameMenu.Cast(GetGame().GetUIManager().FindMenu(MENU_INGAME));
+        if (!menu) { menu = InGameMenu.Cast(GetGame().GetUIManager().EnterScriptedMenu(MENU_INGAME, null)); }
+        if (!menu) { return false; }
+        menu.HCDriverRespawn();
+        return true;
+    }
+#endif
+
     static void Stop(PlayerBase player)
     {
         if (s_Instance) { s_Instance.ExtraEnd(player, HCDriverResult.REFUSED, "shutdown"); }
@@ -387,20 +399,16 @@ class HCDriverExtra
         if (m_StepAge >= step.timeout_s) { return ExtraEnd(player, HCDriverResult.TIMEOUT, "respawn-timeout"); }
         if (m_Stage == 0)
         {
+            if (!player) { return HCDriverResult.RUNNING; }
             if (player.IsAlive()) { return ExtraEnd(player, HCDriverResult.REFUSED, "respawn-needs-death"); }
-            // Native UIManager/mission entry is the same menu used by the death screen:
-            // 3_Game/tools/UIManager.c:4 EnterScriptedMenu, :160 FindMenu; InGameMenu.c:339-365 above.
-            InGameMenu menu = InGameMenu.Cast(GetGame().GetUIManager().FindMenu(MENU_INGAME));
-            if (!menu) { menu = InGameMenu.Cast(GetGame().GetUIManager().EnterScriptedMenu(MENU_INGAME, null)); }
-            if (!menu) { return ExtraEnd(player, HCDriverResult.REFUSED, "respawn-menu-unavailable"); }
+            if (!RequestRespawn()) { return ExtraEnd(player, HCDriverResult.REFUSED, "respawn-menu-unavailable"); }
             m_Stage = 1;
-            menu.HCDriverRespawn();
             return HCDriverResult.RUNNING;
         }
         // HCCampRespawnMission.CreateCharacter selects the eligible camp automatically;
         // vanilla offers random/custom character, not a camp selection menu.
         Mission mission = GetGame().GetMission();
-        bool ready = player.IsAlive() && !player.IsUnconscious() && player.GetCommand_Move() && player.GetInputController() && mission && !mission.IsControlDisabled();
+        bool ready = player && player.IsPlayerLoaded() && player.IsAlive() && !player.IsUnconscious() && player.GetCommand_Move() && player.GetInputController() && mission && !mission.IsControlDisabled();
         if (ready) { m_ExtraHold += dt; }
         else { m_ExtraHold = 0; }
         if (m_ExtraHold >= 2) { return ExtraEnd(player, HCDriverResult.OK, "respawn-movement-ready"); }
@@ -417,38 +425,6 @@ modded class HCClientDriver
         HCDriverExtra.Prepare();
 #endif
         super.Init();
-    }
-
-    // Respawning temporarily removes the local player. The base runner waits for
-    // a loaded player before dispatch, so keep this step's timeout alive in that gap.
-    override void Tick(float timeslice)
-    {
-        if (m_Live && !m_Finished && m_CalibDone && m_StepOpen && m_Script && m_Index < m_Script.steps.Count())
-        {
-            HCDriverStep step = m_Script.steps[m_Index];
-            if (step && step.kind == "respawn")
-            {
-                PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
-                if (!player || !player.IsPlayerLoaded())
-                {
-                    m_StepAge += Math.Clamp(timeslice, 0.001, 0.25);
-                    HCDriverMovement.Stop();
-                    if (m_StepAge >= step.timeout_s)
-                    {
-                        HCDriverExtra.Stop(player);
-                        EndStep(step, HCDriverResult.TIMEOUT, "reason=respawn-player-unavailable", player);
-                    }
-                    return;
-                }
-                if (m_StepAge >= step.timeout_s)
-                {
-                    HCDriverExtra.Stop(player);
-                    EndStep(step, HCDriverResult.TIMEOUT, "reason=respawn-timeout", player);
-                    return;
-                }
-            }
-        }
-        super.Tick(timeslice);
     }
 
     override void Shutdown()
