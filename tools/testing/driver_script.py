@@ -27,6 +27,12 @@ PHASES = ("join", "group", "walk_ai", "walk_town", "combat", "loot", "fixtures",
 # A phase that needs a place walks there first unless the route already stands within this of it, so
 # every phase also runs alone (a targeted soak drives join, the phase and idle).
 SPAWN_XZ = (6500.0, 2500.0)
+# Source of truth: mods/HollowCountryTest/scripts/5_Mission/HCDriverInitialSpawn.c.
+INITIAL_SPAWN_CANDIDATES_XZ = (
+    (5500.0, 2800.0), (5400.0, 2800.0), (5300.0, 2800.0), (5200.0, 2800.0),
+    (5500.0, 3000.0), (5400.0, 3000.0), (5300.0, 3000.0), (5200.0, 3000.0),
+    (5500.0, 3200.0), (5400.0, 3200.0), (5300.0, 3200.0), (5200.0, 3200.0),
+)
 NEAR_M = 400.0
 DEFAULT_PHASES = list(PHASES)
 MAX_STEPS = 400
@@ -251,6 +257,7 @@ class _Builder:
         self.steps = []
         self.notes = {}
         self.position = SPAWN_XZ
+        self.at_initial_spawn = True
         self.done = set()
         self.uncertain = False
         self.last_walk_target = SPAWN_XZ
@@ -259,6 +266,8 @@ class _Builder:
         step = {"id": "s%02d" % (len(self.steps) + 1), "kind": kind}
         step.update(fields)
         self.steps.append(step)
+        if kind in ("walk", "route", "hold_ring"):
+            self.at_initial_spawn = False
         if kind == "group":
             self.done.add("group")
         if kind in ("menu", "enter", "combat", "loot", "vehicle", "climb", "cellar", "respawn", "raise", "search_site", "take_lead") or (kind == "admin" and fields.get("cmd", "").startswith("fx_")):
@@ -271,7 +280,10 @@ class _Builder:
 
     def distance_to(self, point):
         origin = self.last_walk_target if self.uncertain else self.position
-        return math.dist(origin, point) + (150.0 if self.uncertain else 0.0)
+        # Keep the fallback origin for offline target selection; only the initial travel
+        # budget must cover every possible result of the server's spawn search.
+        origins = (*INITIAL_SPAWN_CANDIDATES_XZ, SPAWN_XZ) if self.at_initial_spawn else (origin,)
+        return max(math.dist(start, point) for start in origins) + (150.0 if self.uncertain else 0.0)
 
     def walk(self, source, gait="jog", arrive=5):
         x, z = resolve_waypoint(source)

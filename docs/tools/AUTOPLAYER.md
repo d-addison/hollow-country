@@ -536,24 +536,13 @@ Round 5 remains implemented-unverified until the lead's native checks.
    orientation argument. `Object.c:311` sets orientation on an existing entity and is
    outside this fixture's scope.
 
-   `rg SPAWN_XZ mods/HollowCountryTest` has no matches. The constant actually lives in
-   `tools/testing/driver_script.py:29` and seeds planner position/last-walk-target and
-   the first `near()` decision; it does not generate targets by coordinate offsets.
-   Authored police/scavenger town targets remain sensible local destinations, but the
-   first-walk timeout still estimates distance from the old point. The first police walk
-   has a 179 s timeout versus 1.09–1.51 km from the shortlist (390–539 s at the planner's
-   assumed 2.8 m/s jog); standalone `walk_town` gets 335 s versus 1.31–1.71 km
-   (468–610 s). These initial timeouts can expire before arrival. Updating the planner's
-   initial-distance budget is needed follow-up in `tools/testing/driver_script.py`,
-   outside this change's owned files. Actual travel and obstacle avoidance remain
-   unverified. The `walk_town`
+   The planner budgets initial travel from the farthest of all 12 `HCDriverInitialSpawn.c` candidates and the fallback, retaining the uncertainty margin and 3600 s cap; `SPAWN_XZ` remains the fallback and offline target-selection origin. Actual travel and obstacle avoidance remain unverified. The `walk_town`
    route, site search, combat, climb and cellar steps need town surroundings but explicitly
    walk/route there. Standalone combat/loot phases call `near(TOWN)` first; vehicle has
    its own local car fixture. Generic actions `search`, `close_door`, `open_door`, `salvage`
    and `flip` depend on nearby suitable objects and may refuse if run at an open spawn.
    Loot within 40 m, climb/cellar within 100 m, and combat within 60 m also still need their
-   respective local targets after arrival. No step logic or planner constant was changed;
-   broader action targeting would require a separate change.
+   respective local targets after arrival. Broader action targeting would require a separate change.
 
 7. The test-only `HCDriverMoveWire.RPC_MOVE` allocation is **4854091** (global lint inventory).
    The reliable player-targeted request contains serial, speed, angle, lease seconds and an
