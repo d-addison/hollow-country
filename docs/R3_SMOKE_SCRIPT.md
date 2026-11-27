@@ -463,8 +463,12 @@ exercise above. Private lead-only profile, `EnableSmokeFixtures=true`, world
 recovered, healthy FactionConflict outcome owner and idle journal required. Run
 BEFORE `fx_conflict` (its quota slot may still be pending three seconds later).
 Kit probes never spend callback capacity or change journal/cursors/once state.
-Nearest FAR opposed unleased place without live transient is selected in one
-bounded pass, with raiders explicitly on the left. There is no conflict budget
+Nearest FAR opposed unleased place without live transient is preferred in one
+bounded pass, with raiders explicitly on the left. If no opposed cell qualifies,
+the journal alone falls back to the FARTHEST pending/far/leased-qualified place
+from the command position (catalog order breaks ties), paired with the first
+world-data faction other than raiders with Relation(raiders, faction) == -1.
+Fallback requires neither strength nor territory and does not depend on world age. There is no conflict budget
 call, fact, quota, strength or territory change. One row per boot; at 96 rows
 headroom refuses and the disposable testbed eventually needs a wipe, not pruning.
 Always run this fixture in soaks: otherwise the registered journal_committed
@@ -493,6 +497,28 @@ Only `kit` prints `fx_conflict_journal available=1 reason=fixture-journal-availa
 fixture=1` in its reply (unavailable probes report their reason instead).
 Refused command reply format: `[HC Admin] cmd=fx_conflict_journal result=refused
 reason=<token> fixture=1`.
+
+Selection refusals keep their matching prefix and use these fixed formats:
+
+```text
+[HC Admin] cmd=fx_conflict_journal result=refused reason=no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=d fixture=1
+[HC Admin] cmd=fx_conflict result=refused reason=no-eligible-distant-opposed-cell places=N pending=a near=b leased=c active=d budget=e held=f not_opposed=g daily_cap=0|1 fixture=1
+[HC Admin] cmd=fx_conflict_journal result=ok reason=fixture-journal-queued forced=1 places=N pending=a near=b leased=c not_opposed=d fixture=1
+[HC Plan] HC-37 fixture_journal_bound encounter=conflict:<n> place=<id> left=raiders right=<f> fixture=1 forced=1
+```
+
+`daily_cap` is computed once before the fx_conflict place loop. Its `budget`
+count combines place cooldown and global daily-cap exclusions: with
+`daily_cap=0` it is exactly the number of places on cooldown; with `daily_cap=1`
+it counts every place that reached that filter. Each place increments only its first failing filter, in
+pending / near / leased order, followed by active / budget / held / not_opposed
+for fx_conflict. On a journal selection refusal,
+`pending + near + leased + not_opposed == places`. `not_opposed` counts places,
+not faction pairs. Forced success includes the same journal selection counts;
+normal success remains `fixture-journal-queued` with no forced suffix. The bound
+line adds ` forced=1` only for fallback; completion formats stay unchanged.
+Kit fallback remains `fixture-journal-available`, with no state change or callback
+capacity spent. Other refusal tokens and their guards are unchanged.
 
 With EnableSharedSaves on, the scheduler prints the following only at a new peak,
 after a completed image; it is not an unconditional per-image assertion:
@@ -528,13 +554,19 @@ Failure handling below is source evidence; engine experiments remain pending.
 | EnableSmokeFixtures off | EnableSmokeFixtures-off; no row | HFC:305; HCAdminFixtures.c:27 |
 | Module refused/unhealthy, config/job null | conflict-owner-unavailable; no row | HFC:308, HFC:316 |
 | Outcome job faulted before health poll | conflict-owner-unavailable; no row | HFC:316 |
-| Dirty journal/current encounter/bind/finish/quota pending | conflict-journal-busy; no row | HFC:318 |
-| Second run this boot | fixture-journal-once; no row | HFC:320 |
-| Rows >= MAX_ROWS - 32 (96) | journal-history-headroom; no row | HFC:322 |
-| No FAR opposed unleased place without live transient | no-eligible-distant-opposed-cell; no row | HFC:1209, HFC:1227 |
-| Invalid fixture pre-check | fixture-row-invalid; no insertion or module refusal | HFC:343, HFC:355; HTO:122 |
-| Kit apply=false | No callback capacity spent; no journal/cursor/once change | HFC:357; HCAdminFixtures.c:76 |
-| Callback exhausted | conflict-callback-budget; no row | HFC:359 |
+| Dirty journal/current encounter/bind/finish/quota pending | conflict-journal-busy; no row | HFC:319-320 |
+| Second run this boot | fixture-journal-once; no row | HFC:321-322 |
+| Rows >= MAX_ROWS - 32 (96) | journal-history-headroom; no row | HFC:323-324 |
+| No opposed cell anywhere; a pending/far/leased-qualified place exists | fixture-journal-queued forced=1 with counts; raiders/hostile row, BOTH_REMAIN; territory/strength/quota/facts unchanged | HFC:1235, HFC:1278, HFC:1299 |
+| Every place pending/near/leased | no-eligible-distant-opposed-cell places=N pending=a near=b leased=c not_opposed=0; no row | HFC:1265, HFC:1297 |
+| Forced row, crash after bind durable | UNKNOWN_RESTART; never promoted/pending/applied; next boot selection unaffected | HFC:152, HFC:195; HTO:99 |
+| Forced row finished durable, not applied, then stop | Next boot applies via HCConflictObserved; no publish, fixture line or counter | HFC:269, HFC:1466 |
+| Forced place goes near before apply | TERRITORY_PUBLICATION_PENDING until FAR | HFC:272, HFC:1476 |
+| fx_conflict after forced journal | HCFixtureJournalHolds excludes journal place; selection refusal includes counts and daily_cap | HFC:401, HFC:1205, HFC:1221 |
+| Kit apply=false with fallback | Available; no state change or callback capacity spent | HFC:361, HFC:1299 |
+| Invalid fixture pre-check | fixture-row-invalid; no insertion or module refusal | HFC:347-359; HTO:122 |
+| Kit apply=false | No callback capacity spent; no journal/cursor/once change | HFC:360-361; HCAdminFixtures.c:76 |
+| Callback exhausted | conflict-callback-budget; no row | HFC:362-363 |
 | HCRequestSave=0 or mid-image job fault | OUTCOME_STORE_UNCERTAIN; never promoted, no counter; WorldSaves owner not faulted | HFC:365, HFC:451, HFC:676, HFC:803 |
 | Real offer while fixture current | ENCOUNTER_OR_HISTORY_CAP; no second OBSERVING row (assuming earlier production offer guards pass) | HFC:747 |
 | Player within 1500 m before apply | TERRITORY_PUBLICATION_PENDING until FAR; territory unchanged | HFC:270, HFC:1397, HFC:1403 |
