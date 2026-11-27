@@ -105,7 +105,7 @@ authored add below target, or farthest non-home release at/above target. Geometr
 Target is min(64, distinct catalog cells, homes + TerritoryExtraCells). A shift
 uses two passes. The volatile last released cell is excluded from the next add
 selection (a genuine no-candidate attempt consumes that exclusion);
-places remain append-only. Reclaim and add exclude cooling cells for the configured
+places remain append-only. Reclaim, add and release all exclude cooling cells for the configured
 HCConflictConfig.CooldownSeconds. One Facts scan matches faction_clash,
 camp_infected_pressure and any *_pushed_* kind at each catalog place's Id/Name,
 then maps aliases to cells. HCConflictPublish writes <winner>_pushed_<loser> at
@@ -113,8 +113,9 @@ place.Id for observed fights; distant clashes also write faction_clash there.
 empty_camp_claim_falls writes camp_infected_pressure and holdout_alert at place.Id;
 the former establishes cooling (the outcome string is not a fact). Cooling missing
 homes do not block shifts/releases. Only a faction holding zero cells may reclaim
-one cooling home when no eligible non-cooling home is available, with every normal
-protection still enforced. No radius, extra emergency pass or population refund.
+one cooling home when no eligible non-cooling home is available and no non-cooling
+home is merely protected this minute; it prefers a cooling home no hostile holds, with
+every normal protection still enforced. No radius, extra emergency pass or population refund.
 
 Membership freezes while outcome revisions are not durable. Cell protection uses
 only the EXACT journal predicate TerritoryEpoch > 0 && !TerritoryApplied &&

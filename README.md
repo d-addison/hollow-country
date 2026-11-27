@@ -375,8 +375,8 @@ Trade recipe `RecipeId="bandage-for-food"` exchanges `LeftClass="BandageDressing
 
 Fresh worlds keep bulk authored starting claims. Each due real-time pass then recovers
 strength and changes at most one claim: stale release, missing home reclaim, nearest
-authored add below target, or farthest non-home release at target. Reclaims/adds
-exclude cells cooling for the configured `CooldownSeconds` after
+authored add below target, or farthest non-home release at target. Reclaims, adds
+and releases exclude cells cooling for the configured `CooldownSeconds` after
 clash, pushed or infected-pressure facts; a landless faction may reclaim one cooling
 home only when no eligible non-cooling home is available. Cooling homes do not block
 other shifts/releases; the last released cell is excluded from the next

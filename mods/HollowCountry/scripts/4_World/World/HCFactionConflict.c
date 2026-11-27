@@ -219,13 +219,17 @@ class HCTerritoryRegrowth
             if (Cooldown.Contains(homeCell))
             {
                 // Only a landless faction may use cooling homes, after all eligible homes.
+                // Prefer a cooling home no hostile holds: retaking the cell just lost
+                // as an overlap would undo that outcome.
                 if (heldCount == 0)
                 {
+                    int coolingRank = 0;
+                    if (Hostile.Contains(homeCell)) { coolingRank = 1; }
                     if (Protected.Contains(homeCell)) { coolingHomeBlocked = true; }
-                    else if (homeRank < coolingHomeRank)
+                    else if (coolingRank < coolingHomeRank)
                     {
                         coolingHome = homeCell;
-                        coolingHomeRank = homeRank;
+                        coolingHomeRank = coolingRank;
                     }
                 }
                 continue;
@@ -234,7 +238,8 @@ class HCTerritoryRegrowth
             if (Protected.Contains(homeCell)) { Blocked = true; continue; }
             if (homeRank < reclaimRank) { reclaimRank = homeRank; reclaim = homeCell; }
         }
-        if (reclaim == "" && heldCount == 0)
+        // A non-cooling home that is only protected this minute wins over a cooling one: wait.
+        if (reclaim == "" && heldCount == 0 && !Blocked)
         {
             reclaim = coolingHome;
             if (reclaim == "" && coolingHomeBlocked) { Blocked = true; }
@@ -273,7 +278,8 @@ class HCTerritoryRegrowth
             }
             else
             {
-                if (!Held.Contains(candidate) || Homes.Contains(candidate)) { continue; }
+                // A cooling cell may be a fresh conflict gain: releasing it would undo the outcome.
+                if (!Held.Contains(candidate) || Homes.Contains(candidate) || Cooldown.Contains(candidate)) { continue; }
             }
             float nearest = -1;
             // Aliases all contribute geometry; across every candidate <=P^2 checks.
