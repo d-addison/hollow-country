@@ -9,8 +9,7 @@
 // fx_cooking (CookingCompat/cooking_dish_cooked), fx_kit_place and fx_kit_refuse
 // (Fortify/fortify_placed and fortify_refused), fx_barricade (Fortify/barricade_breached),
 // fx_melee (Melee/hit_processed, wall_veto, parity_probe, zombie-hit-bonuses), fx_shoot
-// (InfectedMemory/heat_recorded via Weapon_Base.EEFired, AITactics/fire-events via a weapon hit
-// on a tracked AI; one native Weapon.Fire discharge exactly as HCXWarningShot does),
+// (retired: refuses; a world-weapon Weapon.Fire crashed the server natively in soak 201),
 // fx_shoot_held (held requester weapon, nearest AI <=60 m), fx_door_press (closed door pressure),
 // fx_die (requester death, then normal CampRespawn), fx_car_zeds (occupied-car pressure),
 // fx_site_clear (bounded full clear, 0 attributed/default, 1 health),
@@ -55,7 +54,6 @@ class HCTestReachFixtures : HCAdminFixtureProvider
     protected Object m_Fire;
     protected Object m_Kit;
     protected Object m_Barricade;
-    protected Object m_Gun;
     protected ref array<Object> m_Zombies = new array<Object>;
 
     static void HCRegisterOnce()
@@ -754,50 +752,15 @@ class HCTestReachFixtures : HCAdminFixtureProvider
         return true;
     }
 
-    // One chambered round from a world weapon, discharged by the native Weapon.Fire call (the
-    // call HCXWarningShot already makes), aimed at the nearest AI chest or, with none near, a
-    // spot 25 m ahead of the admin. Nothing is credited here: Weapon_Base.EEFired and the AI
-    // hit handlers count on their own.
+    // Retired: native Weapon.Fire on an unowned world weapon (CreateObjectEx on the ground, no
+    // hands owner) crashed the server with an access violation at 0x230 in soak 201 (2026-11-26,
+    // stack HCShoot -> HCFixture -> HCAdminFixtures). The shot counters come from fx_shoot_held,
+    // which fires the requester's held weapon. This command now refuses and creates nothing.
     protected bool HCShoot(vector pos, out string reason, out string created)
     {
-        HCDelete(m_Gun);
-        m_Gun = null;
-        created = "Mp133Shotgun";
-        reason = "weapon-class-missing";
-        if (!GetGame().ConfigIsExisting("CfgWeapons " + created)) { return false; }
-        PlayerBase player = HCActor(pos);
-        reason = "no-actor-within-4m";
-        if (!player) { return false; }
-        vector forward = player.GetDirection();
-        forward[1] = 0;
-        forward.Normalize();
-        vector origin = player.GetPosition() + forward * 2.0 + Vector(0, 1.5, 0);
-        Weapon_Base gun = Weapon_Base.Cast(GetGame().CreateObjectEx(created, origin, ECE_PLACE_ON_SURFACE));
-        reason = "weapon-create-failed";
-        if (!gun) { return false; }
-        m_Gun = gun;
-        // Fixed Mp133Shotgun chain: AmmunitionPiles.c Ammo_12gaPellets; native effects
-        // identify Bullet_12GaugePellets. Never query the weapon compatibility natives.
-        string ammo = HCConfigHelper.GetText("CfgMagazines Ammo_12gaPellets ammo", "");
-        reason = "no-chamberable-ammo";
-        if (ammo != "Bullet_12GaugePellets" || !GetGame().ConfigIsExisting("CfgAmmo Bullet_12GaugePellets")) { return false; }
-        reason = "chamber-push-refused";
-        if (!gun.PushCartridgeToChamber(0, 0, ammo)) { return false; }
-        vector target = pos + forward * 25.0;
-        target[1] = GetGame().SurfaceY(target[0], target[2]) + 1.2;
-        string aimed = "ground-ahead";
-        Object ai = HCNearestAI(pos);
-        if (ai)
-        {
-            target = ai.GetPosition() + Vector(0, 1.2, 0);
-            aimed = "nearest-ai";
-        }
-        vector direction = vector.Direction(origin, target).Normalized();
-        reason = "native-fire-refused";
-        if (!gun.CanFire(0) || gun.IsChamberEmpty(0)) { return false; }
-        if (!gun.Fire(0, origin, direction, direction * 400.0)) { return false; }
-        reason = "native-fire-ok;aimed=" + aimed;
-        return true;
+        created = "";
+        reason = "world-weapon-fire-retired-use-fx_shoot_held";
+        return false;
     }
 }
 
