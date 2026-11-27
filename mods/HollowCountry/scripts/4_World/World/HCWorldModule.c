@@ -292,7 +292,7 @@ class HCWorldModule : HCModule
         faction.Alert -= decay;
         if (faction.Alert < 0) { faction.Alert = 0; }
         faction.LastAlertDecay += decay * 3600;
-        // Conflict and materializer outcomes adjust finite strength through AdjustStrength.
+        // Outcomes and bounded real-time regrowth use AdjustStrength; positive factions retain a remnant.
     }
 
     protected void StepHoldout(HCWorldHoldout holdout, int now)
@@ -720,12 +720,14 @@ class HCWorldModule : HCModule
         }
         if (delta < 0)
         {
-            if (delta <= -strength) { strength = 0; }
-            else { strength = strength + delta; }
+            if (strength >= 1)
+            {
+                if (delta <= 1 - strength) { strength = 1; }
+                else { strength = strength + delta; }
+            }
         }
         if (strength == targetFaction.Strength) { return true; }
         targetFaction.Strength = strength;
-        if (strength == 0) { targetFaction.Territory.Clear(); }
         m_Dirty = true;
         Print("[HollowCountry] V2 world strength faction=" + faction + " strength=" + strength.ToString());
         return true;

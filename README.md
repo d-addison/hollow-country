@@ -96,7 +96,7 @@ Both story schedulers now use free window capacity; all 74 shelter scenes remain
 | **AI self-defence and gestures** | Survivors react to raised weapons, surrender and perceived greetings. A greeting needs fresh mutual sight and a greeting-specific acknowledgement. Neutral hits and kills feed bounded faction betrayal memory. Attack, rescue-shot, near-miss and grudge-expiry responses await [play checks](https://github.com/d-addison/hollow-country/issues/139). | `EnableEncounters=true`; `ai/sites.json`: `MaxSignalWorkPerSecond=8`, `MaxBetrayalRows=128`, `BetrayalRetentionSeconds=172800`; `ai_trade_emote_ack.disable` opts out of trade acknowledgement. | *In-game test pending* |
 | **Scavengers and pickers** | One ledger party seeds per surveyed scavenger site. Groups of 2–6 walk need-driven runs, search up to three houses through the same finite reservations as players and carry up to three real house items home to their camp crate. The owning picker can prepare a due house refresh. Combat and remembered danger can abort a run; full crates leave goods on the carrier, lootable from its body. Journaled custody prevents replay after restart. Surveyed endpoint crates retain finite stock and player-clear refill checks. An invalid cache section is refused by name (`[HC Pickers] caches refused reason=...`) and the module reports degraded. | `EnableEncounters=true`; `pve_patrols.disable`, `scavenge_runs.disable`; `RunMaxMembers=6`, `RunMaxCarriedHouseGoods=3`; source defaults `MaxConcurrentTrips=1`, `PartyCooldownSeconds=900`; `ai/picker-routes.json` controls routes, stock and cache limits below. | *In-game test pending* |
 | **AI trade and caravans** | Friendly funded camps barter real carried surplus. Existing groups walk bounded installed-road routes, greet in mutual sight, exchange items and return. Confirmed cargo loss debits both camp allocations once; uncertain restart receipts are quarantined. | `EnableEncounters=true`; `ai_caravans.disable`, `ai_trade_emote_ack.disable`; `ai/trade-recipes.json` and `ai/caravans.json` tune pairing, stock and journeys below. | *In-game test pending* |
-| **Faction conflict** | Opposed live parties fight under native combat observation. Distant conflicts update territory within a durable daily quota without inventing actor deaths or loot. Territory outcomes persist; existing infected can pressure camps. | `EnableEncounters=true`, `EnableWorld=true`; profile `faction-conflict.json`: `Enabled=true`, `FarMeters=1500`, `CooldownSeconds=604800`, `MaxDailyOutcomes=2`; further limits below. | *In-game test pending* |
+| **Faction conflict** | Opposed live parties fight under native combat observation. Distant conflicts update territory within a durable daily quota without inventing actor deaths or loot. Territory outcomes persist; existing infected can pressure camps. Abstract strength regrows and claims reclaim/shift on bounded real-time passes; positive factions retain strength 1. | `EnableEncounters=true`, `EnableWorld=true`; profile `faction-conflict.json`: `Enabled=true`, `FarMeters=1500`, `CooldownSeconds=604800`, `MaxDailyOutcomes=2`; further limits below. | *In-game test pending* |
 | **Holdouts** | Killable, lootable survivor groups occupy places with real caches. Configurable site respawn defaults to 900 seconds, depleted-group replacement to 600 seconds and camp raid lockout to 1800 seconds; corpses and caches are not refilled. | `EnableEncounters=true`; `AILimits.HoldoutMin=3`, `AILimits.HoldoutMax=6`, `AILimits.MaxHoldouts=48`. | *In-game test pending* |
 | **Camps and neighbours** | Fire, shelter and storage support recognition, three tiers, visitor eligibility and mailboxes. Warned probes can pressure mature camps from day 14. Visitor parties walk in through native doors to look over a mature camp (tier 3, day 14 or later, at most every three real days) and leave without taking anything. Claim-only bases with physical stored cargo become encounter targets after 14 held days, with independent durable cooldowns and attendance checks. | `EnableCamps=true`; `camp_probes.disable`; `camp_visitors.disable`; `AILimits.CampMin=2`, `AILimits.CampMax=6`, `AILimits.MaxCamps=32`, `AILimits.MaxCampItems=64`. | *In-game test pending* |
 | **Camp respawn and claims** | Eligible groups use camp respawn. One building claim per group restricts construction and setting native door locks to group members; native unlocking, lockpick wear and raids retain their rules. Member visits renew the claim. | `EnableCampRespawn=true`, `EnableCamps=true`, `EnableGroups=true`; `building_claims.disable`; `building-claims-config.json`: `ExpiryDays=30`, `VisitRadiusMeters=25`, `ActionReachMeters=2`. | *In-game test pending* |
@@ -273,7 +273,10 @@ All switches in this table default to `true`. The only other `Enable*` key, `Ena
 | `AILimits.MaxOccupiedPlaces` | `15` | Occupied-place record cap. |
 | `AILimits.MaxParties` | `24` | Party record cap. |
 | `AILimits.MaxMaterialized` | `15` | Materialised world record cap. |
-| `AILimits.FactionStrengthMax` | `24` | Faction strength ceiling. |
+| `AILimits.FactionStrengthMax` | `24` | Faction strength ceiling; positive factions retain 1 after losses and recover over time. |
+| `TerritoryRegrowthSeconds` | `1200` | Real-time regrowth cadence, 600-1200 seconds; no missed-pass burst. |
+| `FactionRegrowthStrength` | `1` | Strength per pass, 1-4, capped at FactionStrengthMax; imported zero first recovers to 1. |
+| `TerritoryExtraCells` | `4` | Extra claims beyond authored homes, 1-8; total target capped by 64 and distinct catalog cells. |
 | `AILimits.MaxActiveSites` | `15` | Active provider-site cap. |
 | `AILimits.MaxActiveAI` | `72` | Active provider-actor cap. |
 | `AILimits.MaxEncounters` | `15` | Encounter record cap. |
@@ -369,6 +372,20 @@ Picker `CacheLoot` contains `TunaCan` ×2, `Rag` ×2, `WaterBottle` ×1 and `Mag
 Trade recipe `RecipeId="bandage-for-food"` exchanges `LeftClass="BandageDressing"` for `RightClass="TunaCan"`. Caravan identity fields retain `CorridorId="hc36-first-corridor"`, `FromCamp="funded-source"`, `ToCamp="friendly-destination"` and `SurveySha256=""`; the live provider uses bounded installed-road search, not that empty survey receipt as proof.
 
 `HollowCountry/faction-conflict.json` under the server profile contains `Version=1`, `Enabled=true`, `FarMeters=1500`, `CooldownSeconds=604800`, `MaxDailyOutcomes=2`, `MaxPlayers=64`, `PressureMeters=120` and `ResolveEqualStrength=true`. Set `Enabled=false` to stop conflict production. Far outcomes affect territory only; nearby resolutions require observed combat or new casualties.
+
+Fresh worlds keep bulk authored starting claims. Each due real-time pass then recovers
+strength and changes at most one claim: stale release, missing home reclaim, nearest
+authored add below target, or farthest non-home release at target. Reclaims/adds rank
+seven-day cooldown-free cells first; the last released cell is excluded from the next
+add. Journal, fixture and lease protection covers aliases and never stalls the world
+step. Protected cells retry next minute without stamping the pass; strength still
+recovers at interval cadence. FactionConflict off/refused runs strength only while
+World runs. Existing parties can return to full Size as strength recovers; deaths do
+not reduce their stored Size. No entities, loot, stock, party rows or refunds are
+created. A healthy aged world should change within about 20 minutes of the first
+world step (fresh bootstrap about 21); runtime/upgrade verification is pending.
+`[HC World] territory_regrow` reports real changes, counted by
+`[HC Use] module=FactionConflict feature=territory_regrowth`; waits/rebases count none.
 
 `HollowCountry/building-claims-config.json` contains `Version=1`, `ExpiryDays=30`, `VisitRadiusMeters=25` and native `ActionReachMeters=2`. Claim expiry counts running-server absence; member presence renews it. `building_claims.disable` disables claims; `base_containers.disable` disables native storage recognition; `camp_probes.disable` disables probes. These use the existing camps/groups owners and caps.
 

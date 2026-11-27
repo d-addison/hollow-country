@@ -79,6 +79,9 @@
   },
   "MaxFamiliarityRows": 0,
   "SearchDensityScale": 0,
+  "TerritoryRegrowthSeconds": 1200,
+  "FactionRegrowthStrength": 1,
+  "TerritoryExtraCells": 4,
   "PerceptionRing": {
     "ViewRangeMeters": 1000,
     "HearingRangeMeters": 1000,

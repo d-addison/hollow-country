@@ -104,6 +104,7 @@ row. The Class column has these values:
 | idle | CellarSampler | cellars_measured, class_measured | driven | marker+timer |
 | idle | Cellars | cellars_measured | driven | marker+timer |
 | idle | DebugSnapshot | snapshot_points, snapshot_saved | driven | timer |
+| idle | FactionConflict | territory_regrowth | driven | timer:30m |
 | idle | Interiors | props_placed | driven | timer |
 | idle | Pickers | trip_started, trip_step | driven | steps walk:site:scav-chernogorsk; timer |
 | idle | Shelters | regional_props_placed | driven | timer |

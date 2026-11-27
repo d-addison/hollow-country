@@ -165,6 +165,7 @@
   "SitePatrols": "walk_ai"
  },
  "features": {
+  "FactionConflict/territory_regrowth": "idle",
   "InfectedVariety/actor_woken": "walk_town",
   "AISelfDefence/threats_applied": "walk_ai",
   "Infected/actor_bound": "join",
@@ -667,6 +668,13 @@
    "phase": "fixtures",
    "how": [
     "fixture:fx_conflict_journal",
+    "code:HCFactionConflict.c"
+   ]
+  },
+  "FactionConflict/territory_regrowth": {
+   "phase": "idle",
+   "how": [
+    "timer:30m",
     "code:HCFactionConflict.c"
    ]
   },
