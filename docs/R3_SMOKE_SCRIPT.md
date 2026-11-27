@@ -391,6 +391,7 @@ logs; every checkbox below is deliberately unchecked.
 - [ ] `ClientUI/map_open` — `client_action`; `mods/HollowCountry/scripts/5_Mission/Operations/HCUseLifecycle.c#MapMenu.OnShow`.
 - [ ] `Crafting/recipe_completed` — `client_action`; `mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c#HCCraftingGate.RecordCraft`.
 - [ ] `DeadDrops/cache_bound` — `not_deterministic`; `mods/HollowCountry/scripts/4_World/World/HCDeadDrops.c#HCDeadDrops.OnTick`.
+- [ ] `FactionConflict/journal_committed` — `admin_action`, **implemented-unverified**, `fx_conflict_journal`; durable death/finish and TerritoryApplied journal receipts only.
 - [ ] `FactionConflict/outcome_recorded` — `admin_action`, **implemented-unverified**, `fx_conflict`; `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCApplyQuotaOutcome`.
 - [ ] `Forage/item_picked` — `client_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCReleaseNode`.
 - [ ] `Forage/item_spawned` — `admin_action`; `mods/HollowCountry/scripts/4_World/Forage/HCForage.c#HCForageModule.HCResumeSpawn`.
@@ -453,3 +454,109 @@ Registration is not activity; every newly enumerated exercise remains unverified
 TeamPing/ping_delivered is an OWNER-CHECK (owner decision 2026-11-23).
 Melee/wall_veto increments before the blocking-mode return in HCMeleeWall.c:78, and
 its campaign reach remains fixtures / fx_melee.
+
+### HC-37 forced journal fixture
+
+Owner 2026-11-26 authorizes `fx_conflict_journal`: a forced BOTH_REMAIN fixture
+labelled `fixture=1`, separate from `fx_conflict`'s no-forced-outcomes selection
+exercise above. Private lead-only profile, `EnableSmokeFixtures=true`, world
+recovered, healthy FactionConflict outcome owner and idle journal required. Run
+BEFORE `fx_conflict` (its quota slot may still be pending three seconds later).
+Kit probes never spend callback capacity or change journal/cursors/once state.
+Nearest FAR opposed unleased place without live transient is selected in one
+bounded pass, with raiders explicitly on the left. There is no conflict budget
+call, fact, quota, strength or territory change. One row per boot; at 96 rows
+headroom refuses and the disposable testbed eventually needs a wipe, not pruning.
+Always run this fixture in soaks: otherwise the registered journal_committed
+feature may be INERT. This exercise verifies journal persistence only, not real
+AI HCOffer, HCSurveyed, HCOwns, HCDisengaged or body death writes.
+
+Expected RPT order (unrelated shared-save/status lines may interleave):
+
+```text
+[HC Plan] HC-37 fixture_journal_bound encounter=conflict:<n> place=<id> left=raiders right=<f> fixture=1
+[HC Plan] HC-37 encounter=conflict:<n> observed=0 outcome=OBSERVING state=ready refusal=RECEIPT_PENDING runtime=PENDING
+[HC Admin] cmd=fx_conflict_journal result=ok reason=fixture-journal-queued fixture=1
+[HC Plan] HC-37 encounter=conflict:<n> observed=0 outcome=OBSERVING state=ready refusal=CARGO_TRANSFER_UNVERIFIED runtime=PENDING
+[HC Plan] HC-37 encounter=conflict:<n> observed=1 outcome=OBSERVING state=ready refusal=none runtime=PENDING
+[HC Plan] HC-37 encounter=conflict:<n> observed=3 outcome=BOTH_REMAIN state=ready refusal=OUTCOME_RECEIPT_PENDING runtime=PENDING
+[HC Plan] HC-37 encounter=conflict:<n> observed=3 outcome=BOTH_REMAIN state=ready refusal=CARGO_TRANSFER_UNVERIFIED runtime=PENDING
+[HC Use] module=FactionConflict feature=journal_committed count=1 fixture=1
+[HC Plan] HC-37 fixture_journal_applied encounter=conflict:<n> requested=<r> durable=<d> fixture=1
+```
+
+The synchronous bind logs precede the admin reply (unlike the proposed brief
+order). The use count is cumulative and may exceed 1 if real encounters completed
+first; `fixture=1` is the first fixture count. `requested` is the captured applied
+revision, `durable` the journal revision at the commit gate (`durable >= requested`).
+Only `kit` prints `fx_conflict_journal available=1 reason=fixture-journal-queued
+fixture=1` in its reply (unavailable probes report their reason instead).
+Refused command reply format: `[HC Admin] cmd=fx_conflict_journal result=refused
+reason=<token> fixture=1`.
+
+With EnableSharedSaves on, the scheduler prints the following only at a new peak,
+after a completed image; it is not an unconditional per-image assertion:
+
+```text
+[HC Save] job=FactionConflictOutcomes stages=<s> max_stage_ticks=<m> total_ticks=<t> scheduler_ticks=<j> max_stages_per_tick=<p> stage_limit=<l> slowest_stage=<i> op=<op> runtime=PENDING
+[HC Use] module=WorldSaves feature=stage_written count=<c>
+```
+
+The WorldSaves use receipt is the fallback shared-save activity evidence (it is
+aggregate and cumulative; retain the fixture's durable applied line as the
+journal-specific proof). Benign interleavings include
+`refusal=TERRITORY_PUBLICATION_PENDING`, `awaiting_surveyed_opposed_pair` and
+`provider_absent_base_only`. Stay farther than 1500 m from the selected place;
+if a player approaches before publication the barrier waits until FAR again.
+
+Must be absent: `outcome_receipt_waiting`, `outcome_receipts_not_durable_at_stop`,
+`OUTCOME_STORE_UNCERTAIN`, `[HC Save] job=FactionConflictOutcomes state=failed`,
+`perf_rule=R2 owner=FactionConflict`; next boot no
+`RESTART_OUTCOME_STORE_UNCERTAIN`. Crash after durable bind must recover as
+UNKNOWN_RESTART without fixture promotion/completion; stop while observing must
+save UNKNOWN_STOP or name not-durable failure. Stop after durable finish before
+completion must apply normally on restart with no fixture counter/applied line.
+Native compile to Mission, soak, fault/crash/restart and one-client checks remain
+pending; source/preland evidence alone accepts none of these experiments.
+
+Failure handling below is source evidence; engine experiments remain pending.
+`HFC` means `mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c`;
+`HTO` means `mods/HollowCountry/scripts/4_World/World/HCTerritoryOutcomes.c`.
+
+| Case | Expected | Handled by |
+| --- | --- | --- |
+| EnableSmokeFixtures off | EnableSmokeFixtures-off; no row | HFC:305; HCAdminFixtures.c:27 |
+| Module refused/unhealthy, config/job null | conflict-owner-unavailable; no row | HFC:308, HFC:316 |
+| Outcome job faulted before health poll | conflict-owner-unavailable; no row | HFC:316 |
+| Dirty journal/current encounter/bind/finish/quota pending | conflict-journal-busy; no row | HFC:318 |
+| Second run this boot | fixture-journal-once; no row | HFC:320 |
+| Rows >= MAX_ROWS - 32 (96) | journal-history-headroom; no row | HFC:322 |
+| No FAR opposed unleased place without live transient | no-eligible-distant-opposed-cell; no row | HFC:1209, HFC:1227 |
+| Invalid fixture pre-check | fixture-row-invalid; no insertion or module refusal | HFC:343, HFC:355; HTO:122 |
+| Kit apply=false | No callback capacity spent; no journal/cursor/once change | HFC:357; HCAdminFixtures.c:76 |
+| Callback exhausted | conflict-callback-budget; no row | HFC:359 |
+| HCRequestSave=0 or mid-image job fault | OUTCOME_STORE_UNCERTAIN; never promoted, no counter; WorldSaves owner not faulted | HFC:365, HFC:451, HFC:676, HFC:803 |
+| Real offer while fixture current | ENCOUNTER_OR_HISTORY_CAP; no second OBSERVING row (assuming earlier production offer guards pass) | HFC:747 |
+| Player within 1500 m before apply | TERRITORY_PUBLICATION_PENDING until FAR; territory unchanged | HFC:270, HFC:1397, HFC:1403 |
+| Stop during bind/finish | OBSERVING becomes UNKNOWN_STOP and saves; otherwise durable finish retained; failure names reason | HFC:547, HFC:562 |
+| Crash after durable bind while OBSERVING | HCRecover UNKNOWN_RESTART; volatile fixture identity lost, no fixture promotion/finish | HFC:152, HFC:195; HTO:99 |
+| Stop after durable finish before completion | Next boot applies durable BOTH_REMAIN normally, no fixture line/counter | HFC:547, HFC:588, HFC:268, HFC:949 |
+| Zero bound actors on tick | Guarded return before modulo and HCReached.Mark | HFC:825 |
+
+I1 production edits are confined to RegisterUses, OnStart, OnStop, OnTick,
+HCFinishObserved, HCCompleteObserved and HCServiceWorld's territory/commit loop.
+The extra territory-loop predicate defers only the fixture until its finish
+completion, preserving counter-before-applied receipt order. I2 BOTH_REMAIN
+reaches the existing world barrier without a publish call. I3 format and Version
+are unchanged and the boot flag permits one inserted row. I4 no fixture state is
+persisted; recovery is unchanged. I5 selection is one work-budgeted place/faction
+pass; prospective validation copies at most 95 existing row references.
+
+Review notes/deviations: selection makes no port calls. The existing claimed-lease
+exclusion also excludes every live transient: HCXFactionCombatAdapter.HCActiveAt
+requires HCLeaseAtPlace, which requires the proposal to be claimed
+(HCXFactionCombatAdapter.c:69 and :140).
+The supplied Opus design review was applied; no Opus diff review has been run in
+this worker. The confined-run instruction supersedes local commit: edits only,
+commit message supplied through `.banso-writer/commit-message`, no Git writes or
+push. Native runtime checks are reserved for the lead.

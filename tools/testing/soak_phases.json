@@ -663,6 +663,13 @@
     "code:HCFactionConflict.c"
    ]
   },
+  "FactionConflict/journal_committed": {
+   "phase": "fixtures",
+   "how": [
+    "fixture:fx_conflict_journal",
+    "code:HCFactionConflict.c"
+   ]
+  },
   "FactionConflict/outcome_recorded": {
    "phase": "fixtures",
    "how": [

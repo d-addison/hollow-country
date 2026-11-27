@@ -305,6 +305,18 @@
     },
     {
       "module": "FactionConflict",
+      "feature": "journal_committed",
+      "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCFactionConflict.HCCompleteObserved",
+      "trigger": "Durable finish receipt; fx_conflict_journal forces one synthetic death and BOTH_REMAIN through the production staged journal, then the unchanged world barrier and TerritoryApplied save.",
+      "exercise": "admin_action",
+      "steps": "Lead-only private test profile: EnableSmokeFixtures=true, EnableEncounters=true, EnableWorld=true. Run fx_conflict_journal BEFORE fx_conflict (the latter can leave quota pending). Require the exact ordered receipts in docs/R3_SMOKE_SCRIPT.md: bound, OBSERVING/RECEIPT_PENDING, promotion, observed=1 death, observed=3 BOTH_REMAIN finish, journal_committed fixture=1, then durable fixture_journal_applied. The synchronous bound and RECEIPT_PENDING lines precede the admin ok reply. Repeat boot for UNKNOWN_RESTART/crash and stop checks. Kit is a read-only probe. No native evidence is recorded yet.",
+      "est_minutes": 30,
+      "prerequisites": "Healthy outcome job, clean journal, no current/bind/finish/quota pending, world recovered, FAR opposed unleased cell without live transient, journal rows <96, one run per boot. Persistent history is never pruned: eventually wipe the disposable testbed. Run the fixture every soak or journal_committed can be INERT.",
+      "deterministic_exercise_proposal": "Owner 2026-11-26: forced BOTH_REMAIN fixture labelled fixture=1, journal persistence only. The fx_conflict no-forced-outcomes restriction does not apply. No territory, strength, quota or facts change. Real AI HCOffer, HCSurveyed, HCOwns, HCDisengaged and real body death writes remain implemented-unverified.",
+      "implementation_status": "implemented-unverified"
+    },
+    {
+      "module": "FactionConflict",
       "feature": "outcome_recorded",
       "source": "mods/HollowCountry/scripts/4_World/World/HCFactionConflict.c#HCWorldModule.HCApplyQuotaOutcome",
       "trigger": "Far, unleased opposed factions pass budget and reserve/publish a data clash fact; no physical fight counts here.",
