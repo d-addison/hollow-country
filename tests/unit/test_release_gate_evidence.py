@@ -141,7 +141,8 @@ class EvidenceTests(unittest.TestCase):
         (release / 'r3_smoke_plan.json').write_text('{"entries": []}')
         with self.assertRaisesRegex(ValueError, 'New/feature'):
             activity.check_smoke_plan(self.root)
-        self.assertEqual(activity.check_smoke_plan(), 131)
+        plan = Path(activity.__file__).resolve().parents[2] / 'tools/release/r3_smoke_plan.json'
+        self.assertEqual(activity.check_smoke_plan(), len(json.loads(plan.read_text())['entries']))
 
     def test_engine_noise_keeps_hc_separate(self):
         rules = census.category_rules()
