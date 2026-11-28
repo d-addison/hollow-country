@@ -112,6 +112,22 @@
     "owner": "HCSettings"
   },
   {
+    "key": "ShelterVariety",
+    "type": "bool",
+    "default": true,
+    "min": 0,
+    "max": 1,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "ShelterSeedSalt",
+    "type": "int",
+    "default": 0,
+    "min": 0,
+    "max": 1000003,
+    "owner": "HCSettings"
+  },
+  {
     "key": "EnableWorld",
     "type": "bool",
     "default": true,

@@ -195,6 +195,8 @@ class HCOperatorSettingsRegistry
         HCAdd("EnableAmbientLife", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableSignsOfLife", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableTravel", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("ShelterVariety", "bool", 1, 0, 1, "HCSettings");
+        HCAdd("ShelterSeedSalt", "int", 0, 0, 1000003, "HCSettings");
         HCAdd("EnableWorld", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableLeads", "bool", 1, 0, 1, "HCSettings");
         HCAdd("EnableCamps", "bool", 1, 0, 1, "HCSettings");
@@ -534,6 +536,8 @@ class HCSettings
     bool EnableAmbientLife = true;
     bool EnableSignsOfLife = true;
     bool EnableTravel = true;
+    bool ShelterVariety = true;
+    int ShelterSeedSalt = 0;
     bool EnableWorld = true;
     bool EnableLeads = true;
     bool EnableCamps = true;
@@ -600,6 +604,8 @@ class HCSettings
         if (!HCJsonFields.Has(content, "ClientPresentationMask")) { settings.ClientPresentationMask = defaults.ClientPresentationMask; }
         if (!HCJsonFields.Has(content, "EnableAmbientLife")) { settings.EnableAmbientLife = defaults.EnableAmbientLife; }
         if (!HCJsonFields.Has(content, "EnableSignsOfLife")) { settings.EnableSignsOfLife = defaults.EnableSignsOfLife; }
+        if (!HCJsonFields.Has(content, "ShelterVariety")) { settings.ShelterVariety = defaults.ShelterVariety; }
+        if (!HCJsonFields.Has(content, "ShelterSeedSalt")) { settings.ShelterSeedSalt = defaults.ShelterSeedSalt; }
         if (!HCJsonFields.Has(content, "EnableTravel")) { settings.EnableTravel = defaults.EnableTravel; }
         if (!HCJsonFields.Has(content, "EnableWorld")) { settings.EnableWorld = defaults.EnableWorld; }
         if (!HCJsonFields.Has(content, "EnableLeads")) { settings.EnableLeads = defaults.EnableLeads; }
@@ -663,6 +669,7 @@ class HCSettings
         if (!HCOperatorSettingsRegistry.HCValid("SchemaVersion", SchemaVersion)) error = "Unsupported settings schema";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxFamiliarityRows", MaxFamiliarityRows)) error = "Familiarity row budget outside 0..128";
         else if (!HCOperatorSettingsRegistry.HCValid("ClientPresentationMask", ClientPresentationMask)) error = "ClientPresentationMask outside 0..15";
+        else if (!HCOperatorSettingsRegistry.HCValid("ShelterSeedSalt", ShelterSeedSalt)) error = "ShelterSeedSalt outside 0..1000003";
         else if (!HCOperatorSettingsRegistry.HCValid("TickIntervalMs", TickIntervalMs)) error = "Tick interval outside 500..10000 ms";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxTickWorkItems", MaxTickWorkItems)) error = "Work budget outside 1..256";
         else if (!HCOperatorSettingsRegistry.HCValid("MaxActiveHordes", MaxActiveHordes)) error = "Horde budget outside 1..12";
@@ -727,6 +734,8 @@ class HCSettings
         if (HCLogNonDefault("ClientPresentationMask", ClientPresentationMask.ToString(), defaults.ClientPresentationMask.ToString())) { changed++; }
         if (HCLogNonDefault("EnableAmbientLife", EnableAmbientLife.ToString(), defaults.EnableAmbientLife.ToString())) { changed++; }
         if (HCLogNonDefault("EnableSignsOfLife", EnableSignsOfLife.ToString(), defaults.EnableSignsOfLife.ToString())) { changed++; }
+        if (HCLogNonDefault("ShelterVariety", ShelterVariety.ToString(), defaults.ShelterVariety.ToString())) { changed++; }
+        if (HCLogNonDefault("ShelterSeedSalt", ShelterSeedSalt.ToString(), defaults.ShelterSeedSalt.ToString())) { changed++; }
         if (HCLogNonDefault("EnableTravel", EnableTravel.ToString(), defaults.EnableTravel.ToString())) { changed++; }
         if (HCLogNonDefault("EnableWorld", EnableWorld.ToString(), defaults.EnableWorld.ToString())) { changed++; }
         if (HCLogNonDefault("EnableLeads", EnableLeads.ToString(), defaults.EnableLeads.ToString())) { changed++; }

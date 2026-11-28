@@ -2,7 +2,7 @@
 
 The client driver reads `$profile:HollowCountry/acceptance/client_driver.json` and runs the steps
 strictly in order. This module is the only writer of that file: it picks waypoints from repo data
-(ai/sites.json, ai/zones.json, travel/route-surveys.json), builds the default campaign route and
+(ai/sites.json, ai/zones.json; live shelter points come from the server RPT), builds the default campaign route and
 rejects any step the driver does not implement (unknown kind, unknown field, a teleport command).
 
   python3 -B -m tools.testing.driver_script plan --route default [--phases join,group,...]
@@ -48,7 +48,7 @@ TOWN = "site:scav-chernogorsk"
 # sources; it reads repo data only.
 SCENE = "scene:scene-kamenka"
 # Forest phase: retain the retired Bor barn point as a woodland waypoint.
-# This compatibility alias preserves existing soak phase selectors and step logic.
+# Retain the phase-map compatibility alias; it denotes woodland, never a live shelter.
 FOREST = "shelter:Bor South Rest"
 # Radius entry (enter kind). The server counts an entry only after it sampled the player outside and
 # then inside the same radius (HCReleaseRadius.c); the driver walks in, out and in again until the
@@ -194,9 +194,28 @@ def _xz(point, label):
     return round(x, 2), round(z, 2)
 
 
-def resolve_waypoint(source):
+def shelter_points_from_rpt(rpt):
+    """Read actual completed placements. Never predict the native string hash."""
+    points = {}
+    number = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+    point_pattern = re.compile(r"\bpoint=(" + number + r") (" + number + r") (" + number + r")(?:\s|$)")
+    with Path(rpt).open(encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            regional = re.search(r"\[HC Shelters\] regional_placed=(\S+)", line)
+            legacy = re.search(r"\[HollowCountry\] V2 shelter placed name=(.*?) alternate=", line)
+            match = point_pattern.search(line)
+            if match and (regional or legacy):
+                ident = (regional or legacy).group(1)
+                point = [float(v) for v in match.groups()]
+                if not all(math.isfinite(v) for v in point):
+                    raise ScriptError("nonfinite placed shelter point")
+                points[ident] = _xz(point, "placed shelter")
+    return points
+
+
+def resolve_waypoint(source, server_rpt=None):
     """`site:<id>` first waypoint of an ai/sites.json site, `zone:<id>` centre of an ai/zones.json
-    zone, `shelter:<id or name>` position of a travel/route-surveys.json shelter, `scene:<chain id>`
+    zone, `shelter:<id or name>` completed position from server_rpt, `scene:<chain id>`
     first-stage source of an events/scene-chains.json chain. Returns (x, z)."""
     if not isinstance(source, str) or ":" not in source:
         raise ScriptError("waypoint source must be kind:id, got %r" % (source,))
@@ -214,16 +233,19 @@ def resolve_waypoint(source):
             if zone.get("id") == ident:
                 return _xz(zone.get("center"), source)
         raise ScriptError("no ai zone %s" % ident)
+    # Retired alias retained by the soak phase map: fixed woodland, not discovery.
+    if kind in ("woodland", "shelter") and ident == "Bor South Rest":
+        return (3100.955811, 4238.387207)
     if kind == "shelter":
-        # Retired shelter alias: woodland/forage endpoint only, never discovery.
-        if ident == "Bor South Rest":
-            return (3100.955811, 4238.387207)
-        surveys = _load("travel/route-surveys.json")
-        rows = list(surveys.get("existing_shelters", [])) + list(surveys.get("regional_candidates", []))
-        for row in rows:
-            if ident in (row.get("id"), row.get("name")):
-                return _xz(row.get("position"), source)
-        raise ScriptError("no shelter %s" % ident)
+        if server_rpt is None:
+            raise ScriptError("shelter waypoint requires the current boot server RPT")
+        points = shelter_points_from_rpt(server_rpt)
+        if ident in points:
+            return points[ident]
+        for scene in _load("travel/auditshelter_scenes.json").get("Scenes", []) + _load("travel/auditshelter_scenes.json").get("AdditionalScenes", []):
+            if ident == scene['Name'] and scene['Id'] in points:
+                return points[scene['Id']]
+        raise ScriptError("no completed shelter placement in RPT for %s" % ident)
     if kind == "scene":
         for chain in _load("events/scene-chains.json").get("Chains", []):
             if chain.get("Id") == ident:
@@ -256,7 +278,8 @@ def _timeout_for(distance, gait):
 
 
 class _Builder:
-    def __init__(self):
+    def __init__(self, server_rpt=None):
+        self.server_rpt = server_rpt
         self.steps = []
         self.notes = {}
         self.position = SPAWN_XZ
@@ -289,7 +312,7 @@ class _Builder:
         return max(math.dist(start, point) for start in origins) + (150.0 if self.uncertain else 0.0)
 
     def walk(self, source, gait="jog", arrive=5):
-        x, z = resolve_waypoint(source)
+        x, z = resolve_waypoint(source, self.server_rpt)
         distance = self.distance_to((x, z))
         self.position = self.last_walk_target = (x, z)
         self.uncertain = False
@@ -312,7 +335,7 @@ class _Builder:
 
     def near(self, source, gait="jog"):
         """Walk to source unless the route already stands within NEAR_M of it."""
-        x, z = resolve_waypoint(source)
+        x, z = resolve_waypoint(source, self.server_rpt)
         if self.position == SPAWN_XZ or math.hypot(x - self.position[0], z - self.position[1]) > NEAR_M:
             self.walk(source, gait=gait)
 
@@ -573,11 +596,11 @@ _PHASE_BUILDERS = {
 }
 
 
-def build_plan(phases, *, phase_ranges=None):
+def build_plan(phases, *, phase_ranges=None, server_rpt=None):
     """(script dict, {step id: waypoint source}) for the named phases, in the order given."""
     if not isinstance(phases, (list, tuple)) or not phases:
         raise ScriptError("phases must be a non-empty list")
-    builder = _Builder()
+    builder = _Builder(server_rpt)
     builder.requested = set(phases)
     for phase in phases:
         if phase not in _PHASE_BUILDERS:
@@ -894,6 +917,7 @@ def main(argv=None):
         child = sub.add_parser(name)
         if name == "write":
             child.add_argument("path", type=Path)
+        child.add_argument("--server-rpt", type=Path, help="current boot RPT for shelter waypoints")
         child.add_argument("--route", default="default", choices=("default", "r3"),
                            help="r3: the no-human R3 client smoke (ignores --phases)")
         child.add_argument("--phases", type=_phases_arg, default=DEFAULT_PHASES,
@@ -909,7 +933,7 @@ def main(argv=None):
         if args.route == "r3":
             script, notes = build_r3()
         else:
-            script, notes = build_plan(args.phases)
+            script, notes = build_plan(args.phases, server_rpt=args.server_rpt)
         if args.command == "plan":
             print("run_id=%s steps=%d" % (script["run_id"], len(script["steps"])))
             for step in script["steps"]:

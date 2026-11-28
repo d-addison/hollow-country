@@ -13,10 +13,67 @@
 // Route descriptions are authored design context, not surveyed trail evidence.
 // Installed native snapshot 1.30.164289: 1_Core/proto/EnString.c:199 Length,
 // 1_Core/proto/EnScript.c:380/407 Count/Insert; no world mutation in this catalog.
+// Engine-native hash; no offline prediction, random source or clock read.
+class HCShelterVariety
+{
+    static const int HC_VARIETY_TRIES = 3;
+
+    static int Start(int epoch, int salt, string shelterId, int poolCount)
+    {
+        if (epoch <= 0 || poolCount <= 1) { return 0; }
+        string key = epoch.ToString() + ":" + salt.ToString() + ":" + shelterId;
+        int modulus = poolCount;
+        // Reduce before negating, so int.MIN cannot overflow on abs.
+        int result = key.Hash() % modulus;
+        if (result < 0) result = -result;
+        return result;
+    }
+
+    // Called only after whole-file scene validation. Invalid individual rows
+    // cannot poison the valid file; the authored position is always the fallback.
+    static void LoadPool(HCShelterEntry entry, array<ref array<float>> rows)
+    {
+        entry.VarietyPool.Clear();
+        entry.VarietyPool.Insert(entry.Position);
+        string ident = entry.Name;
+        if (entry.Scene) { ident = entry.Scene.Id; }
+        if (rows)
+        {
+            for (int rowIndex = 0; rowIndex < rows.Count() && rowIndex < 6; rowIndex++)
+            {
+                array<float> row = rows[rowIndex];
+                bool valid = row && row.Count() == 3;
+                if (valid)
+                {
+                    for (int axis = 0; axis < 3; axis++)
+                    {
+                        if (!HCObserverTransitionGate.Finite(row[axis])) { valid = false; }
+                    }
+                }
+                if (valid)
+                {
+                    if (row[0] < 0 || row[0] > 15360 || row[2] < 0 || row[2] > 15360) { valid = false; }
+                    if (row[1] < -100 || row[1] > 2000) { valid = false; }
+                }
+                if (!valid) { Print("[HC Shelters] variety_pool_invalid=" + ident); continue; }
+                vector point = HCInteriorTemplates.AsVector(row);
+                if (point != entry.Position && entry.VarietyPool.Count() < 6) { entry.VarietyPool.Insert(point); }
+            }
+            if (rows.Count() > 6) { Print("[HC Shelters] variety_pool_invalid=" + ident); }
+        }
+        if (entry.VarietyPool.Count() == 0) { entry.VarietyPool.Insert(entry.Position); }
+    }
+}
+
 class HCShelterEntry
 {
     ref HCShelterRegionalScene Scene;
     bool Attempted;
+    ref array<vector> VarietyPool = new array<vector>;
+    int VarietyStart;
+    int VarietyPick;
+    int VarietyTried;
+    bool VarietyReported;
     int PlacementVariant;
     string Name;
     vector Position;
@@ -252,6 +309,12 @@ class HCShelterCatalog
         Print("[HC Shelters] regional_scenes base=" + baseCount.ToString() + " additional=" + additionalCount.ToString() + " runtime=PENDING");
         s_Regional = loaded;
         s_RegionalFault = "";
+        foreach (HCShelterEntry legacyEntry : s_Entries)
+        {
+            array<ref array<float>> legacyRows;
+            if (loaded.LegacyBarnPools) { legacyRows = loaded.LegacyBarnPools.Get(legacyEntry.Name); }
+            HCShelterVariety.LoadPool(legacyEntry, legacyRows);
+        }
         if (!loaded.Enabled) { return; }
         array<ref HCShelterRegionalScene> scenes = loaded.Scenes;
         foreach (HCShelterRegionalScene scene : scenes)
@@ -262,6 +325,7 @@ class HCShelterCatalog
             regional.Position = HCInteriorTemplates.AsVector(scene.Position);
             regional.History = scene.History;
             regional.Scene = scene;
+            HCShelterVariety.LoadPool(regional, scene.Candidates);
             s_Entries.Insert(regional);
         }
     }
@@ -348,6 +412,7 @@ class HCShelterRegionalScene
     ref array<float> YardMin;
     ref array<float> YardMax;
     ref array<ref array<float>> Slots;
+    ref array<ref array<float>> Candidates;
 }
 class HCShelterRegionalConfig
 {
@@ -358,4 +423,5 @@ class HCShelterRegionalConfig
     float BoundsToleranceSquared;
     ref array<ref HCShelterRegionalScene> Scenes;
     ref array<ref HCShelterRegionalScene> AdditionalScenes;
+    ref map<string, ref array<ref array<float>>> LegacyBarnPools;
 }

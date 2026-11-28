@@ -24,6 +24,8 @@ SHELTERS = 'mission/hollow-country/travel/auditshelter_scenes.json'
 SITES = 'mission/hollow-country/ai/sites.json'
 LOCALITIES = 'mission/hollow-country/ai/localities.json'
 CATALOG = 'mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c'
+POOL_MAX = 6
+BARN_POOL_RADIUS_M = 1200
 
 
 def read_json(path):
@@ -173,6 +175,7 @@ def derive(mission, repo=ROOT, censuses=()):
                           DistanceToLabelM=row['distance'], StockRowIndex=row['index'],
                           MembershipBasis='nearest_label_proxy_not_boundary_or_access', RuntimeAcceptance='PENDING'))
     proposals = []
+    scene_options = {}
     existing_poses = {tuple(row['Position']) for row in scenes}
     for locality in sorted(localities, key=lambda row: row['Id']):
         # An island label cannot establish land connectivity for a nearby roof.
@@ -194,6 +197,48 @@ def derive(mission, repo=ROOT, censuses=()):
                                     within_named_content_proxy=chosen['distance'] <= proxy,
                                     stock_sha256=group_hash, distance_to_label_m=chosen['distance'])
         proposals.append(proposal)
+        scene_options[proposal['Id']] = sorted(
+            (row for row in options if row['row']['name'] == proposal['BuildingClass']),
+            key=lambda row: (row['distance'], row['index']))
+    # Reserve every authored site before allocating extras, including the three
+    # intentional legacy/scene candidate-zero pairs. No extra can steal a primary.
+    exemptions = {
+        frozenset(('Pulkovo Ridge Rest', 'gapcov-pulkovo-roof')),
+        frozenset(('Dolina Upper Refuge', 'gapcov-shakhovka-roof')),
+        frozenset(('Polana South Wayhouse', 'gapcov-polana-roof')),
+    }
+    used = {tuple(row['Position']) for row in scenes + proposals + barns}
+    legacy_pools = {}
+    allocations = []
+    for barn in barns:
+        pool = [barn['Position']]
+        legacy_pools[barn['Name']] = pool
+        options = sorted((row for row in stock
+                          if row['row']['name'] == 'Land_Barn_Wood2'
+                          and distance(row['point'], barn['Position']) <= BARN_POOL_RADIUS_M),
+                         key=lambda row: (distance(row['point'], barn['Position']), row['index']))
+        allocations.append((barn['LocalityId'], barn['Name'], pool, options))
+    for proposal in proposals:
+        proposal['Candidates'] = [proposal['Position']]
+        allocations.append((proposal['LocalityId'], proposal['Id'],
+                            proposal['Candidates'], scene_options[proposal['Id']]))
+    for _, _, pool, options in sorted(allocations, key=lambda item: (item[0], item[1])):
+        for option in options:
+            point = option['point']
+            if tuple(point) in used:
+                continue
+            if len(pool) >= POOL_MAX:
+                break
+            pool.append(point)
+            used.add(tuple(point))
+    owners = {tuple(row['Position']): [('base:' + row['Id'], 0)] for row in scenes}
+    for _, ident, pool, _ in allocations:
+        for index, point in enumerate(pool):
+            previous = owners.setdefault(tuple(point), [])
+            for other, other_index in previous:
+                if index != 0 or other_index != 0 or frozenset((ident, other)) not in exemptions:
+                    raise ValueError('pool overlap')
+            previous.append((ident, index))
     proposal_links = {row['LocalityId']: row['Id'] for row in proposals}
     rows = []
     for locality in sorted(localities, key=lambda row: row['Id']):
@@ -243,10 +288,11 @@ def derive(mission, repo=ROOT, censuses=()):
     # HCJsonFields.Every(Enabled, depth=3) scans every object at that
     # depth. Wrap non-scene row metadata so it cannot invalidate live scenes.
     scenes_doc['LegacyBarnMembership'] = dict(Rows=barns)
+    scenes_doc['LegacyBarnPools'] = legacy_pools
     scenes_doc['AdditionalScenes'] = proposals
     scenes_doc['GapcovIntegration'] = dict(
         RuntimeAcceptance='PENDING',
-        State='authored_additional_scenes_waiting_shared_catalog_registration',
+        State='integrated_seeded_candidate_pools_runtime_pending',
         ExistingGlobalOptOut='Enabled=false applies to both Scenes and AdditionalScenes after integration',
         OperatorOptOut='Enabled=false for regional scenes; each scene Enabled=false for individual opt-out; EnableTravel=false for all shelters',
         Policy='Scenes stays compatible with the five-row catalog. AdditionalScenes reuses those measured class envelopes, three empty exterior props, zero stock grants and full roof/access keepouts. Site collision, terrain, rain and all-player visibility remain runtime vetoes.',
@@ -268,6 +314,8 @@ def main(argv=None):
         encoded = {path: json.dumps(data, indent=2, allow_nan=False) + '\n' for path, data in outputs.items()}
         if len(encoded[ECOLOGY].encode('utf-8')) > outputs[ECOLOGY]['ManifestMaxBytes']:
             raise ValueError('ecology manifest byte budget exceeded')
+        if len(encoded[SHELTERS].encode('utf-8')) >= int(0.85 * 1048576):
+            raise ValueError('shelter manifest exceeds 85% byte budget')
         if args.write:
             for path, content in encoded.items():
                 (ROOT / path).write_text(content, encoding='utf-8')

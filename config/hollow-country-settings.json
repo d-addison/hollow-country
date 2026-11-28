@@ -13,6 +13,8 @@
   "EnableAmbientLife": true,
   "EnableSignsOfLife": true,
   "EnableTravel": true,
+  "ShelterVariety": true,
+  "ShelterSeedSalt": 0,
   "EnableWorld": true,
   "EnableLeads": true,
   "EnableCamps": true,

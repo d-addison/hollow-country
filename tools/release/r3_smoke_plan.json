@@ -682,7 +682,7 @@
       "source": "mods/HollowCountry/scripts/4_World/Groups/HCGroupPins.c#HCGroupPins.Collect",
       "trigger": "Group snapshot includes a received lead pin or previously discovered placed shelter trail pin, not an arbitrary user marker.",
       "exercise": "client_action",
-      "steps": "1. Keep solo group and ChernarusMap. 2. At Drozhino Hay Refuge (2585.119873,202.433472,5360.409668), mission/hollow-country/travel/route-surveys.json existing_shelters (mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:179), approach completed shelter until discovery records. 3. Open M to collect snapshot. Alternatively receive a real group lead then open M. 4. Require pins_published.",
+      "steps": "1. Keep solo group and ChernarusMap. 2. Read point= from this boot server RPT [HollowCountry] V2 shelter placed name=Drozhino Hay Refuge alternate=... pick=... point=<x> <y> <z>. Approach that completed shelter until discovery records. Never substitute authored coordinates or predict the native hash. 3. Open M to collect snapshot. Alternatively receive a real group lead then open M. 4. Require pins_published.",
       "est_minutes": 2,
       "prerequisites": "EnableGroups/Travel/Leads; placed discovered shelter or valid group lead, free pin cap; hand-made marker alone does not exercise call site."
     },
@@ -1366,6 +1366,16 @@
       "steps": "1. Near an owned live neutral AI (for example the Chernogorsk police loop), stay in view at about 50 m. 2. Raise a weapon: the AI faces you and shouts (status text), keeps its own weapon up and does not fire. 3. Lower the weapon within 3 s (AILimits.CautionGraceSeconds): no shots, stance de-escalates. 4. Repeat after 45 s and keep the weapon raised past 3 s: the AI turns hostile about 3 s after the raise, as before. Require [HC Use] caution_warn count>=1 and one first-warn line with grace_s=3 and fire=none.",
       "est_minutes": 5,
       "prerequisites": "EnableEncounters; provider ownership/faction and emote observation readiness; one server plus at most one client."
+    },
+    {
+      "module": "Shelters",
+      "feature": "variety_pick",
+      "source": "mods/HollowCountry/scripts/4_World/Travel/HCShelterModule.c",
+      "trigger": "A completed or finally refused shelter selection has pick!=0 or pool count>1.",
+      "exercise": "server_soak",
+      "steps": "Keep ShelterVariety=true. Read [HC Shelters] variety id=... pick=<k>/<n> tried=<t> seed=<epoch> salt=0 and require Shelters/variety_pick count>0. Compare all final picks with a second boot of the same profile; they must match. Boot with ShelterSeedSalt=1 and require changed picks among multi-site pools. Read completed point= lines for discovery. A fresh world.json reshuffles; a DayZ storage-only wipe does not. Native evidence pending.",
+      "est_minutes": 5,
+      "prerequisites": "Owner module admitted and ready; normal feature conditions must hold."
     }
   ]
 }
