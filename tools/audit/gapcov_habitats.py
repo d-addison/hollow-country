@@ -50,8 +50,17 @@ def derive(mission, repo=ROOT, censuses=()):
     localities = hc43['Localities']
     ids = [row['Id'] for row in localities]
     expected = [row['Id'] for row in read_json(repo / LOCALITIES)['Localities']]
-    if len(ids) != len(set(ids)) or set(ids) != set(expected):
+    if len(ids) != len(set(ids)):
         raise ValueError('locality identity join is incomplete')
+    missing = sorted(set(ids) - set(expected))
+    if missing:
+        raise ValueError('locality identity join is incomplete: missing=' + missing[0])
+    # gapcov_regions adds component rows without named-locality anchors. They
+    # belong to the regional queue, not this nearest-named-locality partition.
+    unexpected = sorted(key for key in set(expected) - set(ids)
+                        if not key.startswith('gapcov-'))
+    if unexpected:
+        raise ValueError('locality identity join is incomplete: unexpected=' + unexpected[0])
     anchors = {row['Id']: row['Anchor'] for row in localities}
     for anchor in anchors.values():
         position(' '.join(str(value) for value in anchor))
@@ -65,6 +74,12 @@ def derive(mission, repo=ROOT, censuses=()):
     files = sorted({row.get('path') for row in environment.findall('./territories/file')
                     if row.get('path') and 'zombie' not in row.get('path')
                     and Path(row.get('path')).stem in active})
+    # The outputs describe stock data; an installed HC mission merges our own
+    # territories and economy, which would shift every derived membership.
+    installed = [path for path in files if not path.startswith('env/')]
+    if installed or (mission / 'hollow-country').exists():
+        raise ValueError('mission is not stock: installed_hc_mission='
+                         + (installed[0] if installed else 'hollow-country'))
     wildlife = audit(mission, 'chernarusplus', [('animal', path) for path in files])
     sources = [{'path': 'cfgenvironment.xml', 'sha256': environment_hash}]
     sources += wildlife['sources']

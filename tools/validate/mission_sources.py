@@ -20,7 +20,9 @@ summary line each (the producers emit a 10-20 KB JSON line):
                     1 fail, 2 unreadable inputs. Native placement requires a live check.
 """
 import argparse
+import json
 from pathlib import Path
+import re
 import struct
 import xml.etree.ElementTree as ET
 
@@ -28,12 +30,33 @@ from tools.package import pbo
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mission/hollow-country'
+SHELTER_CATALOG = ROOT / 'mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c'
+CANDIDATE = re.compile(r'^\s*HCCandidate\("([^"]*)", "([^"]*)", "([^"]*)", "([^"]*)"', re.M)
 
 
 def findings(source=SOURCE, reviewed=pbo.MISSION_FILES):
     files = {p.relative_to(source).as_posix() for p in source.rglob('*') if p.is_file()}
     return ([('unreviewed', rel) for rel in sorted(files - reviewed)]
             + [('missing', rel) for rel in sorted(reviewed - files)])
+
+
+def shelter_catalog_findings(source=SOURCE, catalog=SHELTER_CATALOG):
+    """Mirror HCShelterCatalog.HCRegionalValid checks 2, 6 and 7 offline: the
+    regional JSON rows must match the source HCCandidate calls in order, or the
+    runtime refuses every regional scene."""
+    scenes = json.loads((source / 'travel/auditshelter_scenes.json').read_text(encoding='utf-8'))
+    rows = scenes['Scenes'] + scenes.get('AdditionalScenes', [])
+    calls = CANDIDATE.findall(catalog.read_text(encoding='utf-8'))
+    if len(rows) != len(calls):
+        return [('shelter_catalog_count', f'json={len(rows)} catalog={len(calls)}')]
+    result = []
+    for row, (ident, name, cls, pose) in zip(rows, calls):
+        point = [float(value) for value in pose.split()]
+        if (row['Id'], row['Name'], row['BuildingClass']) != (ident, name, cls):
+            result.append(('shelter_catalog_identity', row['Id'] + '!=' + ident))
+        elif sum((a - b) ** 2 for a, b in zip(row['Position'], point)) > 1e-4:
+            result.append(('shelter_catalog_position', row['Id']))
+    return result
 
 
 def events_main(source=SOURCE):
@@ -86,7 +109,7 @@ def main(argv=None):
         return events_main()
     if args.ce_slots is not None:
         return ce_slots_main(args.ce_slots)
-    rows = findings()
+    rows = findings() + shelter_catalog_findings()
     for code, rel in rows:
         print(f'mission_sources: {code} {rel}')
     print('mission_sources: ' + ('FAIL %d finding(s); update pbo.MISSION_FILES or the tree' % len(rows)
