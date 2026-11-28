@@ -1276,8 +1276,12 @@ def reserved_component(name):
     return name.casefold().startswith('storage_') or name.casefold() == BACKUP_DIR.casefold()
 
 
+def mission_persistence(name):
+    return reserved_component(name) or name.casefold() in ('profiles', 'saves')
+
+
 def ignore_persistence(_directory, names):
-    return [name for name in names if reserved_component(name)]
+    return [name for name in names if mission_persistence(name)]
 
 
 def tree_inventory(root):
@@ -1289,7 +1293,7 @@ def tree_inventory(root):
         if path.is_dir():
             rows[rel] = 'dir'
             for child in sorted(path.iterdir()):
-                if not reserved_component(child.name):
+                if not mission_persistence(child.name):
                     visit(child, child.name if not rel else rel + '/' + child.name)
         elif path.is_file():
             rows[rel] = sha256_file(path)
@@ -1423,8 +1427,9 @@ def journal_row(ctx, rel):
 def tree_writer(ctx, mission):
     """Fingerprint helper results before returning, including partial/refused writes.
 
-    A hard process exit before this snapshot leaves unknown bytes: recovery must
-    refuse those bytes, never infer ownership from a backup alone.
+    A hard process exit before this snapshot leaves unknown bytes: recovery needs
+    the explicit repair/stash path. An ordinary refusal restores the transaction's
+    entire mission snapshot, even if a helper escaped fingerprinting.
     """
     rel = mission.relative_to(ctx.server).as_posix()
     track_target(ctx, rel, tree=True)
@@ -1457,10 +1462,12 @@ def hard_exit_rows(data):
 
 
 def rollback_changes(ctx, root, data, force=False):
-    """Only undo known installer bytes. Validate every row before mutating anything.
+    """Restore refused mission transactions; check other targets against known writes.
 
-    With force (--repair), a tree whose writer was cut off by a hard exit ("writing" marker) is restored as a whole
-    from this run's verified backup: its live bytes were never recorded, so they cannot be matched one by one.
+    Validate every backup before mutating anything. Completed-run rollback retains
+    per-file drift checks. With force (--repair), a tree whose writer was cut off
+    by a hard exit ("writing" marker) is restored as a whole from the verified
+    backup: its live bytes were never recorded, so cannot be matched individually.
     """
     changes, conflicts = [], []
     for rel, before_names in data['temporaries'].items():
@@ -1499,7 +1506,12 @@ def rollback_changes(ctx, root, data, force=False):
                     continue
                 changes.append(('remove', actual, None))
                 current = {}
-        whole = force and row['kind'] == 'tree' and bool(row.get('writing'))
+        # Refusal/recovery owns the stopped mission transaction, including writes a
+        # helper failed to fingerprint. Completed-run rollback still checks drift.
+        whole = row['kind'] == 'tree' and (
+            (force and bool(row.get('writing'))) or
+            (data.get('state') != 'complete' and data.get('intent') != 'rollback'
+             and not row.get('writing')))
         written = row.get('written', {})
         row_changes = []
         for name in before.keys() | current.keys():
@@ -1632,6 +1644,31 @@ def stash_cut_off_trees(ctx, root, data):
     return final
 
 
+def verify_restored_trees(ctx, root, data):
+    """Compare directories and SHA-256 bytes before declaring rollback complete."""
+    differences = []
+    for row in data['entries']:
+        if row['kind'] != 'tree':
+            continue
+        rel = row['path']
+        before = tree_inventory(root / rel)
+        if inventory_digest(before) != row.get('sha256'):
+            raise ValueError('backup missing or changed: ' + rel)
+        try:
+            current = tree_inventory(ctx.server / rel)
+        except (OSError, ValueError):
+            # An unreadable or linked tree cannot establish byte equality.
+            differences.append(rel + ' (comparison unreadable)')
+            continue
+        differences.extend(rel + ('/' + name if name else '')
+                           for name in before.keys() | current.keys()
+                           if before.get(name) != current.get(name))
+    if differences:
+        raise Refused('restore_mismatch', 'restore_mismatch: restored mission differs: ' +
+                      '; '.join(sorted(differences)) + '; backup kept at ' +
+                      root.relative_to(ctx.server).as_posix())
+
+
 def rollback_run(ctx, root, data, force=False):
     ws.write_json_atomic(journal_path(root), dict(data, state='rolling-back'))
     data['state'] = 'rolling-back'
@@ -1641,7 +1678,8 @@ def rollback_run(ctx, root, data, force=False):
             stash_cut_off_trees(ctx, root, data)
         for change in changes:
             restore_change(ctx, change)  # Stop at the first failed undo; keep all backups.
-    except (OSError, ValueError, ws.SyncError):
+        verify_restored_trees(ctx, root, data)
+    except (Refused, OSError, ValueError, ws.SyncError):
         data['state'] = 'rollback_pending'
         ws.write_json_atomic(journal_path(root), data)
         raise
@@ -3629,7 +3667,7 @@ def main(argv=None, out=None, input_fn=None):
         if ctx.journal is not None and ctx.journal['state'] in ('active', 'rolling-back'):
             try:
                 rollback_run(ctx, ctx.backup_root, ctx.journal)
-            except (OSError, ValueError, ws.SyncError) as undo_error:
+            except (Refused, OSError, ValueError, ws.SyncError) as undo_error:
                 print('rollback stopped: %s\n%s' %
                       (shown(undo_error), describe_pending(ctx, ctx.backup_root, ctx.journal)), file=sys.stderr)
             else:
