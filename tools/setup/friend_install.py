@@ -2387,6 +2387,41 @@ def do_variety(ctx, mission, variety=True):
     return 'done'
 
 
+def _rollback_map_for_overlay(ctx, mission):
+    # the map overlay patched the same cfggameplay.json; the mission rollback refuses while it is in place
+    code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
+    if code != 0:
+        raise Refused('overlay', 'the map overlay must be rolled back before the mission overlay is replaced, and '
+                      'its rollback was refused: %s' % err.strip())
+
+
+def map_overlay_above_weapons(mission):
+    """True when the map overlay went in after a weapon pack and changed the mapgrouppos.xml it pinned.
+
+    Live v1-test-15 stack (11-22): snafu/tactical-flava receipts pin mapgrouppos.xml 8f069ce7, the map
+    overlay receipt says before=8f069ce7 after=b58c96e6, and the file is b58c96e6. Rolling the weapon packs
+    back first then refuses 'stock drift; inspect before rollback' (v1-test-16 upgrade, 11-27); the map overlay
+    has to come off first. In the normal order (map overlay, then weapons) the packs pin the overlay's
+    'after' bytes and this stays False. Reads three small receipts and one file, nothing is written.
+    """
+    m = Path(mission)
+    try:
+        pos = json.loads((m / map_overlay.MANAGED / 'receipt.json').read_text(encoding='utf-8'))['mapgrouppos']
+        current = hashlib.sha256((m / 'mapgrouppos.xml').read_bytes()).hexdigest()
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    if current != pos.get('after') or pos.get('before') == pos.get('after'):
+        return False
+    for folder in (tactical_flava_optional.MANAGED, snafu_optional.MANAGED):
+        try:
+            pinned = json.loads((m / folder / 'receipt.json').read_text(encoding='utf-8'))['sources']
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if pinned.get('mapgrouppos.xml') == pos.get('before'):
+            return True
+    return False
+
+
 def do_overlay(ctx, a, mission, installed, want):
     with tree_writer(ctx, mission):
         return _do_overlay_with_variety(ctx, a, mission, installed, want)
@@ -2400,16 +2435,16 @@ def _do_overlay_with_variety(ctx, a, mission, installed, want):
         ctx.replaced_done[step] = label
     # Encounters snapshot CE geometry above the map and weapon layers.
     hc_events.rollback(mission)
+    # A map overlay stacked on top of the weapon packs comes off first (see map_overlay_above_weapons).
+    map_first = installed and os.path.lexists(mission / map_overlay.MANAGED) and map_overlay_above_weapons(mission)
+    if map_first:
+        _rollback_map_for_overlay(ctx, mission)
     # Weapon layers are installed after the base overlay and must be removed first.
     tactical_flava_optional.rollback_weapon_packs(mission)
     # Infected variety is the last events.xml layer: undo it before habitat rollback.
     infected_variety.rollback(mission)
-    if installed and os.path.lexists(mission / map_overlay.MANAGED):
-        # the map overlay patched the same cfggameplay.json; the mission rollback refuses while it is in place
-        code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
-        if code != 0:
-            raise Refused('overlay', 'the map overlay must be rolled back before the mission overlay is replaced, and '
-                          'its rollback was refused: %s' % err.strip())
+    if not map_first and installed and os.path.lexists(mission / map_overlay.MANAGED):
+        _rollback_map_for_overlay(ctx, mission)
     state = ctx_globals(ctx, mission)
     if state['state'] == 'blocked':
         raise Refused('globals_drift', '\n'.join([state['problem']] + globals_recovery(mission)))
