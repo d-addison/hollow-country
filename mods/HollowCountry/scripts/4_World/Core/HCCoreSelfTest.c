@@ -70,7 +70,7 @@ modded class HCSaveScheduler
 // $profile:HollowCountry/selftest/ are ever touched: every helper refuses any other prefix, there is
 // no directory enumeration and no recursive delete. Work is bounded per core tick: at most 32 units
 // and 2 ms (HCWorkBudget), each unit at most ~16 native calls (a unit is one recovery or save step,
-// one scratch write set, one check or one cleanup of the eight fixed names); 600 ticks in total.
+// one scratch write set, one check or one cleanup of the eight fixed names); HC_MAX_TICKS in total.
 // Limits (stated, not hidden): a script cannot make a native call fail, so CopyFile/DeleteFile
 // failures and a locked file are covered by review and a lead-only DayZDiag check, and a power cut
 // (unflushed OS cache) is not simulated; there is no fsync to call. Source holds ASCII only, so
@@ -131,6 +131,11 @@ class HCStagedStoreSelfTest
     protected static const int HC_G_ABANDON_BIG_RF = 6;
     protected static const int HC_G_ABANDON_BIG_PW = 7;
     protected static const int HC_G_DONE = 8;
+    // Whole-run guard in core ticks. The 2 ms slice binds before the 32-unit cap on a real
+    // disk: the v1-test-16 boot reached cases=144 of ~268 at ticks=601 (native_ms=1626, ~2.7 ms
+    // per tick) and ended cause=tick_cap with no case failure. ~4.2 ticks per case puts the
+    // full run near 1200 ticks; 2400 keeps 2x headroom. Per-tick cost is unchanged.
+    protected static const int HC_MAX_TICKS = 2400;
     // Stages of one case.
     protected static const int HC_S_SETUP = 0;
     protected static const int HC_S_PRESAVE = 1;
@@ -523,7 +528,7 @@ class HCStagedStoreSelfTest
     // One unit of work: at most one recovery/save step, one write set, one check or one cleanup.
     protected void HCUnit()
     {
-        if (m_Ticks > 600)
+        if (m_Ticks > HC_MAX_TICKS)
         {
             // Tick cap: stop, remove the scratch files, report once.
             m_Failed++;
@@ -783,7 +788,7 @@ class HCStagedStoreSelfTest
     // Added work <=81*96=7776 HCUnit calls: each new case uses <=34 save steps,
     // <=62 recovery steps (table) or <=37 (abandon), plus <=7 driver units.
     // Table cases do not save. The fixed binary preflight is 17 native calls in HCBegin.
-    // Per-tick cap stays 32 units / 2 ms and the whole-run guard stays 600 ticks.
+    // Per-tick cap stays 32 units / 2 ms; the whole-run guard is HC_MAX_TICKS (2400) ticks.
     // One bounded slice per core tick: at most 32 units and 2 ms.
     void HCRunSlice()
     {
