@@ -1678,7 +1678,11 @@ def rollback_run(ctx, root, data, force=False):
             stash_cut_off_trees(ctx, root, data)
         for change in changes:
             restore_change(ctx, change)  # Stop at the first failed undo; keep all backups.
-        verify_restored_trees(ctx, root, data)
+        if data.get('intent') != 'rollback':
+            # Refused/interrupted transactions restore whole trees, so the tree must equal its backup.
+            # A --rollback of a completed run keeps per-file drift checks: once the server has booted,
+            # dependency mods (Expansion, CookZ) own extra folders in the mission that the run never wrote.
+            verify_restored_trees(ctx, root, data)
     except (Refused, OSError, ValueError, ws.SyncError):
         data['state'] = 'rollback_pending'
         ws.write_json_atomic(journal_path(root), data)
