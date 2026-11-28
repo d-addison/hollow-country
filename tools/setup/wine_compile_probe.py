@@ -6,6 +6,7 @@ Every invocation creates fresh profiles/storage/mod staging and preserves logs.
 """
 import argparse
 import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -59,12 +60,25 @@ def stop_group(process, grace=5):
     return forced
 
 
+LOG_DISCOVERY_ENTRIES = 512
+
+
+def log_discovery_budget(root):
+    """Discovery walks the whole experiment, so a staged HC mission copy (bounded and
+    pinned by snapshot_mission) extends the budget by the same explicit HC cap."""
+    children = itertools.islice(root.iterdir(), 64) if root.is_dir() else ()
+    if any((child / 'hollow-country').is_dir() for child in children):
+        return LOG_DISCOVERY_ENTRIES + HC_MISSION_MAX_ENTRIES
+    return LOG_DISCOVERY_ENTRIES
+
+
 def collect_logs(root):
     texts, hashes, skipped = [], {}, {}
     remaining = MAX_LOG_TOTAL
     count = 0
+    discovery = log_discovery_budget(root)
     for index, path in enumerate(root.rglob('*')):
-        if index >= 512:
+        if index >= discovery:
             skipped['*'] = 'discovery budget exceeded'
             break
         if path.suffix.lower() not in {'.log', '.rpt', '.adm'}:
