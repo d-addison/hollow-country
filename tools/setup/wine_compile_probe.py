@@ -335,11 +335,11 @@ def stage_hc_mission(mission, experiment, server_root, files):
     snapshot_mission(mission)
 
 
-# Dependency mods (Expansion) create their own settings/storage trees inside the
+# Dependency mods (Expansion, CookZ) create their own settings/storage trees inside the
 # mission they run. Only new entries under these roots are tolerated, and only
 # for a disposable mission copy; every staged entry must still match exactly.
 PATROL_SETTINGS = 'expansion/settings/AIPatrolSettings.json'
-DEPENDENCY_OUTPUT = re.compile(r'(expansion|storage_[0-9]+)/')
+DEPENDENCY_OUTPUT = re.compile(r'(expansion|CookZ|storage_[0-9]+)/')
 
 
 def verify_final_inputs(mission, expected_mission, launch_inputs, dependency_outputs=False):
