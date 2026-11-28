@@ -2,7 +2,7 @@
 // Official CE source: https://raw.githubusercontent.com/BohemiaInteractive/DayZ-Central-Economy/7bfc95cb9f6fb676311cef76be80050314b2cc16/dayzOffline.chernarusplus/cfgeventspawns.xml
 // Stock CE sha256: 7474b95f7a9349eb98ee19b9a44ba8e41c8dfe767104ea9d571654aba4aaad6c
 // Inputs digest: 5963cbf4359c8b56c5ba4c34673afc688764be2adf59881e264263bddb479b40
-// Data sha256: 52588638fa26db290b93ee20641bedf5de132195bca1e1dad61f6334e3b3d7e5
+// Data sha256: a7762fbc02248301b18cf583b4137028f7659c8675b78312b5f96f7039a7595a
 // Lazy bounded array reader. No file opens until Step; at most 1024 bytes
 // scanned/read per visit, one object decoded by the caller. Native inspected:
 // EnSystem.c:417/425/443; EnString.c:113/448; JsonFileLoader.c:69.
@@ -101,7 +101,7 @@ class HCAdminJsonRows
 class HCAdminWorldCatalog
 {
     static const int VERSION = 93732031;
-    static const int COUNT = 3162;
+    static const int COUNT = 3233;
     static const string PATH = "$mission:hollow-country/admin/world-catalog.json";
     protected ref HCAdminJsonRows m_Stream = new HCAdminJsonRows(PATH, 4194304);
     protected bool m_Checked;

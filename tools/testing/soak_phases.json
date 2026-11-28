@@ -2154,6 +2154,14 @@
    ],
    "status": "pending-driver",
    "note": "Automated cellar-entry driver is being briefed. Town walking alone does not prove entry or visual_applied. This remains an automated INERT failure until the driver reaches a real cellar; never an owner check."
+  },
+  "Shelters/variety_pick": {
+   "phase": "walk_town",
+   "how": [
+    "step:walk:site:scav-chernogorsk",
+    "timer:20m",
+    "code:HCShelterModule.c"
+   ]
   }
  }
 }

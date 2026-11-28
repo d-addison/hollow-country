@@ -97,7 +97,13 @@ def generate(output=None):
         add('localities', row['Position'], row['Name'], 'Authored locality')
     shelters = load('mission/hollow-country/travel/auditshelter_scenes.json')
     for row in shelters['Scenes'] + shelters['AdditionalScenes']:
-        add('shelter-sites', row['Position'], row['Name'], 'Authored shelter; native access/rain verification pending')
+        for index, point in enumerate(row.get('Candidates') or [row['Position']]):
+            add('shelter-sites', point, row['Name'],
+                f'Possible shelter site {index}; native access/rain verification pending; not live occupancy')
+    for name, pool in shelters.get('LegacyBarnPools', {}).items():
+        for index, point in enumerate(pool):
+            add('shelter-sites', point, name,
+                f'Possible shelter site {index}; legacy barn; not live occupancy')
     for name in inputs:
         if not name.startswith('config/map-overlays/layers/'):
             continue

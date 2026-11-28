@@ -225,7 +225,12 @@ class DriverScriptTests(unittest.TestCase):
         surveys = json.loads((ds.MISSION / "travel" / "route-surveys.json").read_text(encoding="utf-8"))
         shelter = surveys["existing_shelters"][0]
         ident = shelter.get("id") or shelter.get("name")
-        self.assertEqual(len(ds.resolve_waypoint("shelter:" + str(ident))), 2)
+        with self.assertRaises(ds.ScriptError):
+            ds.resolve_waypoint("shelter:" + str(ident))
+        with tempfile.TemporaryDirectory() as directory:
+            rpt = Path(directory) / "server.RPT"
+            rpt.write_text("[HollowCountry] V2 shelter placed name=Drozhino Hay Refuge alternate=0 pick=1 point=100 20 300\n")
+            self.assertEqual(ds.resolve_waypoint("shelter:" + str(ident), rpt), (100.0, 300.0))
 
     def test_scene_waypoint_resolves_to_scene_chain_data(self):
         x, z = ds.resolve_waypoint(ds.SCENE)

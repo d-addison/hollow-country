@@ -1036,8 +1036,18 @@ class HCShelterModule : HCModule
 
     protected bool HCVarietyAdvance(HCShelterEntry entry)
     {
-        // Unavailable/disabled seed always retains today's authored building.
-        if (!m_VarietyEnabled || m_VarietyEpoch <= 0) { return false; }
+        // Unavailable/disabled seed keeps today's behaviour: the authored building,
+        // and for a legacy barn its surveyed terrain alternates in authored order.
+        if (!m_VarietyEnabled || m_VarietyEpoch <= 0)
+        {
+            if (entry.Scene || entry.VarietyTried >= HCShelterVariety.HC_VARIETY_TRIES) { return false; }
+            if (entry.VarietyTried > entry.AlternatePositions.Count()) { return false; }
+            entry.Position = entry.AlternatePositions[entry.VarietyTried - 1];
+            entry.VarietyTried++;
+            entry.PlacementVariant = 0;
+            entry.Attempted = false;
+            return true;
+        }
         if (entry.VarietyTried >= HCShelterVariety.HC_VARIETY_TRIES || entry.VarietyTried >= entry.VarietyPool.Count()) { return false; }
         entry.VarietyPick = (entry.VarietyStart + entry.VarietyTried) % entry.VarietyPool.Count();
         entry.VarietyTried++;
@@ -1058,7 +1068,7 @@ class HCShelterModule : HCModule
         line += "/" + entry.VarietyPool.Count().ToString() + " tried=" + entry.VarietyTried.ToString() + " seed=" + seed;
         line += " salt=" + m_VarietySalt.ToString();
         Print("" + line);
-        if (entry.VarietyPick != 0 || entry.VarietyPool.Count() > 1) { HCModuleReadiness.HCUse("Shelters", "variety_pick"); }
+        if (m_VarietyEnabled && m_VarietyEpoch > 0 && entry.VarietyPool.Count() > 1) { HCModuleReadiness.HCUse("Shelters", "variety_pick"); }
     }
 
     protected void HCRegionalBuildingRefused(HCShelterEntry entry, string reason)
