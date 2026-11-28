@@ -56,6 +56,15 @@ def shelter_catalog_findings(source=SOURCE, catalog=SHELTER_CATALOG):
             result.append(('shelter_catalog_identity', row['Id'] + '!=' + ident))
         elif sum((a - b) ** 2 for a, b in zip(row['Position'], point)) > 1e-4:
             result.append(('shelter_catalog_position', row['Id']))
+    for row in rows:
+        pool = row.get('Candidates', [])
+        if pool and pool[0] != row['Position']:
+            result.append(('shelter_catalog_candidate_zero', row['Id']))
+        if len(pool) > 6:
+            result.append(('shelter_catalog_pool_cap', row['Id']))
+    for name, pool in scenes.get('LegacyBarnPools', {}).items():
+        if len(pool) > 6:
+            result.append(('shelter_catalog_pool_cap', name))
     return result
 
 

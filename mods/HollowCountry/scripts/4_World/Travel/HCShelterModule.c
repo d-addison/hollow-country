@@ -89,6 +89,10 @@ class HCShelterModule : HCModule
     protected string m_StatusLogLine;
     protected float m_StatusLogAt;
     protected bool m_Started;
+    protected bool m_VarietyEnabled;
+    protected int m_VarietySalt;
+    protected int m_VarietyEpoch;
+    protected bool m_PlacementStarted;
     protected bool m_CandidateSurveyReported;
     protected int m_RegionalCursor;
     protected int m_RegionalFailed;
@@ -311,7 +315,22 @@ class HCShelterModule : HCModule
         m_StatusLogLine = "";
         m_StatusLogAt = 0;
         m_Started = true;
+        m_PlacementStarted = false;
+        m_VarietyEpoch = 0;
         Print(HCV2Admission.Line("Shelters", true, "EXP-T5", HCV2Gates.Qualified("EXP-T5")));
+        HCModuleReadiness.HCRegisterUse("Shelters", "variety_pick");
+        m_VarietyEnabled = settings.ShelterVariety;
+        m_VarietySalt = settings.ShelterSeedSalt;
+    }
+
+    override void OnAllModulesStarted()
+    {
+        if (!m_Started || m_PlacementStarted) { return; }
+        m_PlacementStarted = true;
+        // HCServer calls this after every OnStart and before readiness capture.
+        // Read the persisted epoch once; an unavailable world stays candidate zero.
+        HCWorldModule world = HCWorldModule.Get();
+        if (world) { m_VarietyEpoch = world.Epoch(); }
         string worldName = GetGame().GetWorldName();
         worldName.ToLower();
         if (worldName == "chernarusplus")
@@ -987,11 +1006,83 @@ class HCShelterModule : HCModule
         Print("[HC Shelters] candidates=" + candidateIndex.ToString() + " enabled=" + enabledCandidates.ToString() + " admission=authored_exterior_scene source=travel/auditshelter_scenes.json runtime=PENDING");
     }
 
+    protected string HCVarietyPointText(vector point)
+    {
+        return point[0].ToString() + " " + point[1].ToString() + " " + point[2].ToString();
+    }
+
+    protected string HCVarietyId(HCShelterEntry entry)
+    {
+        if (entry.Scene) { return entry.Scene.Id; }
+        return entry.Name;
+    }
+
+    protected void HCVarietyPoint(HCShelterEntry entry)
+    {
+        entry.Position = entry.VarietyPool[entry.VarietyPick];
+        if (entry.Scene) { entry.Scene.Position = Coordinates(entry.Position); }
+    }
+
+    protected void HCVarietyBegin(HCShelterEntry entry)
+    {
+        if (entry.VarietyPool.Count() == 0) { entry.VarietyPool.Insert(entry.Position); }
+        entry.VarietyStart = 0;
+        if (m_VarietyEnabled) { entry.VarietyStart = HCShelterVariety.Start(m_VarietyEpoch, m_VarietySalt, HCVarietyId(entry), entry.VarietyPool.Count()); }
+        entry.VarietyPick = entry.VarietyStart;
+        entry.VarietyTried = 1;
+        entry.VarietyReported = false;
+        HCVarietyPoint(entry);
+    }
+
+    protected bool HCVarietyAdvance(HCShelterEntry entry)
+    {
+        // Unavailable/disabled seed keeps today's behaviour: the authored building,
+        // and for a legacy barn its surveyed terrain alternates in authored order.
+        if (!m_VarietyEnabled || m_VarietyEpoch <= 0)
+        {
+            if (entry.Scene || entry.VarietyTried >= HCShelterVariety.HC_VARIETY_TRIES) { return false; }
+            if (entry.VarietyTried > entry.AlternatePositions.Count()) { return false; }
+            entry.Position = entry.AlternatePositions[entry.VarietyTried - 1];
+            entry.VarietyTried++;
+            entry.PlacementVariant = 0;
+            entry.Attempted = false;
+            return true;
+        }
+        if (entry.VarietyTried >= HCShelterVariety.HC_VARIETY_TRIES || entry.VarietyTried >= entry.VarietyPool.Count()) { return false; }
+        entry.VarietyPick = (entry.VarietyStart + entry.VarietyTried) % entry.VarietyPool.Count();
+        entry.VarietyTried++;
+        entry.PlacementVariant = 0;
+        entry.Attempted = false;
+        HCVarietyPoint(entry);
+        return true;
+    }
+
+    protected void HCVarietyReport(HCShelterEntry entry)
+    {
+        if (entry.VarietyReported) { return; }
+        entry.VarietyReported = true;
+        string seed = m_VarietyEpoch.ToString();
+        if (!m_VarietyEnabled) { seed = "disabled"; }
+        else if (m_VarietyEpoch <= 0) { seed = "unavailable"; }
+        string line = "[HC Shelters] variety id=" + HCVarietyId(entry) + " pick=" + entry.VarietyPick.ToString();
+        line += "/" + entry.VarietyPool.Count().ToString() + " tried=" + entry.VarietyTried.ToString() + " seed=" + seed;
+        line += " salt=" + m_VarietySalt.ToString();
+        Print("" + line);
+        if (m_VarietyEnabled && m_VarietyEpoch > 0 && entry.VarietyPool.Count() > 1) { HCModuleReadiness.HCUse("Shelters", "variety_pick"); }
+    }
+
+    protected void HCRegionalBuildingRefused(HCShelterEntry entry, string reason)
+    {
+        if (HCVarietyAdvance(entry)) { m_RegionalCursor--; return; }
+        HCRegionalRefuse(entry, reason);
+    }
+
     protected void PlaceShelter(int index)
     {
         if (index == 0) { HCReportCandidateSurveys(); }
         HCShelterEntry entry = HCShelterCatalog.Get(index);
         if (!entry) { return; }
+        HCVarietyBegin(entry);
         if (entry.Scene)
         {
             entry.Attempted = false;
@@ -1003,17 +1094,20 @@ class HCShelterModule : HCModule
         }
         // Startup only: each surveyed barn gets the existing bounded layout/ring
         // work once. Any non-terrain placement refusal ends alternate admission.
-        vector primary = entry.Position;
         bool terrainOnly = true;
-        if (HCTryLegacyShelter(entry, primary, 0, terrainOnly)) { return; }
         int alternateIndex = 0;
-        while (terrainOnly && m_RefusalReason == "terrain" && alternateIndex < entry.AlternatePositions.Count() && alternateIndex < 3)
+        while (alternateIndex < HCShelterVariety.HC_VARIETY_TRIES)
         {
-            vector alternatePosition = entry.AlternatePositions[alternateIndex];
+            if (HCTryLegacyShelter(entry, entry.Position, alternateIndex, terrainOnly))
+            {
+                HCVarietyReport(entry);
+                return;
+            }
+            if (!terrainOnly || m_RefusalReason != "terrain" || !HCVarietyAdvance(entry)) { break; }
             alternateIndex++;
             Print("[HollowCountry] V2 shelter alternate name=" + entry.Name + " index=" + alternateIndex.ToString() + " reason=" + m_RefusalReason);
-            if (HCTryLegacyShelter(entry, alternatePosition, alternateIndex, terrainOnly)) { return; }
         }
+        HCVarietyReport(entry);
         Print("[HollowCountry] V2 shelter exhausted name=" + entry.Name + " alternates=" + alternateIndex.ToString() + " reason=" + m_RefusalReason);
         RefuseShelter(entry, m_RefusalReason);
     }
@@ -1138,12 +1232,12 @@ class HCShelterModule : HCModule
                 admissible = widerAdmissible;
                 attempts = widerAttempts;
             }
-            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " alternate=" + alternateIndex.ToString() + " variant=" + ringVariant + " candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
+            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " alternate=" + alternateIndex.ToString() + " variant=" + ringVariant + " candidate=" + m_RingCandidate.ToString() + " rise=" + HCFormatRise(m_RingRise) + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " pick=" + entry.VarietyPick.ToString() + " point=" + HCVarietyPointText(entry.Position));
             m_RingCandidate = -1;
             m_RingWider = false;
             return true;
         }
-        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " alternate=" + alternateIndex.ToString() + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
+        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " alternate=" + alternateIndex.ToString() + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " pick=" + entry.VarietyPick.ToString() + " point=" + HCVarietyPointText(entry.Position));
         return true;
     }
 
@@ -1255,6 +1349,7 @@ class HCShelterModule : HCModule
 
     protected void HCRegionalRefuse(HCShelterEntry entry, string reason)
     {
+        HCVarietyReport(entry);
         m_RegionalFailed++;
         if (m_RegionalFailedSites != "") { m_RegionalFailedSites += ","; }
         m_RegionalFailedSites += entry.Scene.Id;
@@ -1314,6 +1409,12 @@ class HCShelterModule : HCModule
             m_RegionalCursor--;
             return;
         }
+        bool terminalBuilding = m_RefusalReason == "building_unresolved_or_tilted" || m_RefusalReason == "building_bounds";
+        if (terminalBuilding || entry.PlacementVariant + 1 >= HC_REGIONAL_LAYOUTS)
+        {
+            HCRegionalBuildingRefused(entry, m_RefusalReason);
+            return;
+        }
         HCRegionalRefuse(entry, m_RefusalReason);
     }
 
@@ -1360,7 +1461,7 @@ class HCShelterModule : HCModule
                 // Initial resolve failures were terminal site refusals,
                 // never candidate-refusal counters or layout retries.
                 HCClearRegionalJob();
-                HCRegionalRefuse(entry, "building_unresolved_or_tilted");
+                HCRegionalBuildingRefused(entry, "building_unresolved_or_tilted");
             }
             return;
         }
@@ -1381,7 +1482,7 @@ class HCShelterModule : HCModule
             if (vector.DistanceSq(regionalClip[0], HCInteriorTemplates.AsVector(scene.ClipMin)) > tolerance || vector.DistanceSq(regionalClip[1], HCInteriorTemplates.AsVector(scene.ClipMax)) > tolerance)
             {
                 HCClearRegionalJob();
-                HCRegionalRefuse(entry, "building_bounds");
+                HCRegionalBuildingRefused(entry, "building_bounds");
                 return;
             }
             HCInteriorTemplate layout = new HCInteriorTemplate;
@@ -1441,8 +1542,9 @@ class HCShelterModule : HCModule
         foreach (Object regionalProp : m_RegionalBatch) { m_Objects.Insert(regionalProp); }
         entry.PlacementAnchor = m_RegionalBatch.Get(0);
         entry.Placed = true;
+        HCVarietyReport(entry);
         int placedSide = entry.PlacementVariant / HC_REGIONAL_LAYOUTS_PER_SIDE;
-        Print("[HC Shelters] regional_placed=" + entry.Scene.Id + " variant=" + entry.PlacementVariant.ToString() + " side=" + placedSide.ToString() + " runtime=PENDING");
+        Print("[HC Shelters] regional_placed=" + entry.Scene.Id + " variant=" + entry.PlacementVariant.ToString() + " side=" + placedSide.ToString() + " pick=" + entry.VarietyPick.ToString() + " point=" + HCVarietyPointText(entry.Position) + " runtime=PENDING");
         HCModuleReadiness.HCUse("Shelters", "shelter_placed");
         m_Placed = m_Placed + 1;
         m_RegionalPlaced++;

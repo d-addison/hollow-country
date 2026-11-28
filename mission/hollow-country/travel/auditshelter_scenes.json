@@ -582,7 +582,14 @@
         "distance_to_label_m": 669.949
       },
       "LocalityId": "balota",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          4544.932617,
+          59.827011,
+          3130.591064
+        ]
+      ]
     },
     {
       "Id": "gapcov-belaya-polyana-roof",
@@ -667,7 +674,14 @@
         "distance_to_label_m": 147.958
       },
       "LocalityId": "belaya-polyana",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          14188.152344,
+          131.525253,
+          14838.943359
+        ]
+      ]
     },
     {
       "Id": "gapcov-berezhki-roof",
@@ -752,7 +766,14 @@
         "distance_to_label_m": 468.949
       },
       "LocalityId": "berezhki",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          14917.326172,
+          159.152939,
+          14257.607422
+        ]
+      ]
     },
     {
       "Id": "gapcov-berezino-roof",
@@ -837,7 +858,19 @@
         "distance_to_label_m": 74.771
       },
       "LocalityId": "berezino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          12339.121094,
+          10.95068,
+          9653.517578
+        ],
+        [
+          12360.422852,
+          10.900807,
+          9651.760742
+        ]
+      ]
     },
     {
       "Id": "gapcov-bogatyrka-roof",
@@ -922,7 +955,14 @@
         "distance_to_label_m": 365.03
       },
       "LocalityId": "bogatyrka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          1808.760254,
+          293.057983,
+          9146.089844
+        ]
+      ]
     },
     {
       "Id": "gapcov-bor-roof",
@@ -1007,7 +1047,19 @@
         "distance_to_label_m": 272.986
       },
       "LocalityId": "bor",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          3100.955811,
+          249.415558,
+          4238.387207
+        ],
+        [
+          3792.012207,
+          174.255203,
+          3625.548584
+        ]
+      ]
     },
     {
       "Id": "gapcov-chernaya-polyana-roof",
@@ -1092,7 +1144,14 @@
         "distance_to_label_m": 132.655
       },
       "LocalityId": "chernaya-polyana",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          12141.347656,
+          96.841225,
+          13641.462891
+        ]
+      ]
     },
     {
       "Id": "gapcov-chernogorsk-roof",
@@ -1177,7 +1236,14 @@
         "distance_to_label_m": 388.746
       },
       "LocalityId": "chernogorsk",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          6342.815918,
+          10.309018,
+          2502.824951
+        ]
+      ]
     },
     {
       "Id": "gapcov-devils-castle-roof",
@@ -1262,7 +1328,34 @@
         "distance_to_label_m": 568.725
       },
       "LocalityId": "devils-castle",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          6889.009277,
+          340.438019,
+          10862.524414
+        ],
+        [
+          7499.952148,
+          301.424255,
+          11747.956055
+        ],
+        [
+          6204.864258,
+          263.642365,
+          11372.917969
+        ],
+        [
+          7652.505859,
+          265.890594,
+          11186.436523
+        ],
+        [
+          7101.602539,
+          188.68544,
+          12359.950195
+        ]
+      ]
     },
     {
       "Id": "gapcov-dobroye-roof",
@@ -1347,7 +1440,14 @@
         "distance_to_label_m": 439.79
       },
       "LocalityId": "dobroye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          13314.882813,
+          38.745819,
+          14760.651367
+        ]
+      ]
     },
     {
       "Id": "gapcov-dubovo-roof",
@@ -1432,7 +1532,14 @@
         "distance_to_label_m": 530.891
       },
       "LocalityId": "dubovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          6653.661621,
+          17.15004,
+          3096.433838
+        ]
+      ]
     },
     {
       "Id": "gapcov-dubrovka-roof",
@@ -1517,7 +1624,19 @@
         "distance_to_label_m": 715.89
       },
       "LocalityId": "dubrovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          10873.338867,
+          86.26506,
+          10268.777344
+        ],
+        [
+          11167.957031,
+          72.913673,
+          9848.026367
+        ]
+      ]
     },
     {
       "Id": "gapcov-galkino-roof",
@@ -1602,7 +1721,24 @@
         "distance_to_label_m": 860.418
       },
       "LocalityId": "galkino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          1292.366821,
+          240.988266,
+          7988.322266
+        ],
+        [
+          576.443481,
+          282.735107,
+          8142.400391
+        ],
+        [
+          178.246811,
+          316.45285,
+          7858.568359
+        ]
+      ]
     },
     {
       "Id": "gapcov-gorka-roof",
@@ -1687,7 +1823,24 @@
         "distance_to_label_m": 304.761
       },
       "LocalityId": "gorka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          9656.139648,
+          294.76709,
+          9187.803711
+        ],
+        [
+          8701.796875,
+          356.757416,
+          8780.103516
+        ],
+        [
+          9177.220703,
+          244.211365,
+          7769.814453
+        ]
+      ]
     },
     {
       "Id": "gapcov-guglovo-roof",
@@ -1772,7 +1925,14 @@
         "distance_to_label_m": 576.295
       },
       "LocalityId": "guglovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          8855.47168,
+          344.730774,
+          6983.57666
+        ]
+      ]
     },
     {
       "Id": "gapcov-gvozdno-roof",
@@ -1857,7 +2017,24 @@
         "distance_to_label_m": 191.414
       },
       "LocalityId": "gvozdno",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          8633.587891,
+          180.257217,
+          12096.203125
+        ],
+        [
+          9303.293945,
+          208.879776,
+          12043.542969
+        ],
+        [
+          8414.384766,
+          323.891754,
+          10533.499023
+        ]
+      ]
     },
     {
       "Id": "gapcov-kabanino-roof",
@@ -1942,7 +2119,14 @@
         "distance_to_label_m": 33.115
       },
       "LocalityId": "kabanino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5347.12793,
+          336.546448,
+          8650.952148
+        ]
+      ]
     },
     {
       "Id": "gapcov-kalinovka-roof",
@@ -2027,7 +2211,14 @@
         "distance_to_label_m": 380.953
       },
       "LocalityId": "kalinovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          7731.844727,
+          172.662537,
+          13149.407227
+        ]
+      ]
     },
     {
       "Id": "gapcov-kamenka-roof",
@@ -2112,7 +2303,19 @@
         "distance_to_label_m": 653.489
       },
       "LocalityId": "kamenka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          1354.851318,
+          8.170421,
+          2457.874268
+        ],
+        [
+          647.734741,
+          71.956863,
+          2313.102295
+        ]
+      ]
     },
     {
       "Id": "gapcov-kamyshovo-roof",
@@ -2197,7 +2400,14 @@
         "distance_to_label_m": 646.367
       },
       "LocalityId": "kamyshovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          11816.854492,
+          60.724621,
+          4013.427734
+        ]
+      ]
     },
     {
       "Id": "gapcov-karmanovka-roof",
@@ -2282,7 +2492,19 @@
         "distance_to_label_m": 227.325
       },
       "LocalityId": "karmanovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          12624.743164,
+          110.643318,
+          14528.345703
+        ],
+        [
+          12178.167969,
+          155.05072,
+          14802.244141
+        ]
+      ]
     },
     {
       "Id": "gapcov-khelm-roof",
@@ -2367,7 +2589,14 @@
         "distance_to_label_m": 192.039
       },
       "LocalityId": "khelm",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          12241.135742,
+          95.680054,
+          10614.205078
+        ]
+      ]
     },
     {
       "Id": "gapcov-komarovo-roof",
@@ -2452,7 +2681,14 @@
         "distance_to_label_m": 865.818
       },
       "LocalityId": "komarovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2813.140625,
+          105.813576,
+          2482.883545
+        ]
+      ]
     },
     {
       "Id": "gapcov-kozlovka-roof",
@@ -2537,7 +2773,19 @@
         "distance_to_label_m": 343.039
       },
       "LocalityId": "kozlovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          4444.75293,
+          317.184357,
+          5074.055664
+        ],
+        [
+          4839.220215,
+          217.070816,
+          3845.375244
+        ]
+      ]
     },
     {
       "Id": "gapcov-krasnostav-roof",
@@ -2622,7 +2870,14 @@
         "distance_to_label_m": 172.143
       },
       "LocalityId": "krasnostav",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          11212.105469,
+          196.35141,
+          12197.904297
+        ]
+      ]
     },
     {
       "Id": "gapcov-krasnoye-roof",
@@ -2707,7 +2962,19 @@
         "distance_to_label_m": 368.651
       },
       "LocalityId": "krasnoye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          6220.273438,
+          465.571747,
+          15337.134766
+        ],
+        [
+          6860.800781,
+          455.92276,
+          15051.707031
+        ]
+      ]
     },
     {
       "Id": "gapcov-kumyrna-roof",
@@ -2792,7 +3059,14 @@
         "distance_to_label_m": 690.033
       },
       "LocalityId": "kumyrna",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          7635.495605,
+          286.682617,
+          6637.404785
+        ]
+      ]
     },
     {
       "Id": "gapcov-lopatino-roof",
@@ -2877,7 +3151,19 @@
         "distance_to_label_m": 831.238
       },
       "LocalityId": "lopatino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2563.891602,
+          261.918457,
+          9221.756836
+        ],
+        [
+          3614.824219,
+          356.199799,
+          10572.566406
+        ]
+      ]
     },
     {
       "Id": "gapcov-mogilevka-roof",
@@ -2962,7 +3248,19 @@
         "distance_to_label_m": 617.902
       },
       "LocalityId": "mogilevka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          8171.711426,
+          184.208511,
+          5446.868652
+        ],
+        [
+          6997.211426,
+          217.29245,
+          4549.72168
+        ]
+      ]
     },
     {
       "Id": "gapcov-msta-roof",
@@ -3047,7 +3345,29 @@
         "distance_to_label_m": 552.564
       },
       "LocalityId": "msta",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          11756.543945,
+          200.672852,
+          5805.47998
+        ],
+        [
+          12130.344727,
+          115.003983,
+          5451.766602
+        ],
+        [
+          11576.009766,
+          155.983688,
+          4676.306152
+        ],
+        [
+          12073.054688,
+          107.366982,
+          5111.580566
+        ]
+      ]
     },
     {
       "Id": "gapcov-myshkino-roof",
@@ -3132,7 +3452,34 @@
         "distance_to_label_m": 583.713
       },
       "LocalityId": "myshkino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2543.650391,
+          366.802979,
+          7593.288574
+        ],
+        [
+          1797.992188,
+          300.321289,
+          8055.350586
+        ],
+        [
+          1371.482178,
+          189.578674,
+          6786.643066
+        ],
+        [
+          962.608154,
+          167.781982,
+          6855.61377
+        ],
+        [
+          807.202942,
+          189.717621,
+          7155.574707
+        ]
+      ]
     },
     {
       "Id": "gapcov-nadezhdino-roof",
@@ -3217,7 +3564,19 @@
         "distance_to_label_m": 646.766
       },
       "LocalityId": "nadezhdino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5263.218262,
+          295.056061,
+          4857.912109
+        ],
+        [
+          6187.670898,
+          190.756973,
+          4090.856934
+        ]
+      ]
     },
     {
       "Id": "gapcov-nagornoye-roof",
@@ -3302,7 +3661,19 @@
         "distance_to_label_m": 250.734
       },
       "LocalityId": "nagornoye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          9164.732422,
+          294.66864,
+          14844.21582
+        ],
+        [
+          9444.223633,
+          214.187042,
+          14404.538086
+        ]
+      ]
     },
     {
       "Id": "gapcov-nizhnee-roof",
@@ -3387,7 +3758,14 @@
         "distance_to_label_m": 110.185
       },
       "LocalityId": "nizhnee",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          12942.088867,
+          13.62428,
+          8130.702637
+        ]
+      ]
     },
     {
       "Id": "gapcov-novaya-petrovka-roof",
@@ -3472,7 +3850,24 @@
         "distance_to_label_m": 234.11
       },
       "LocalityId": "novaya-petrovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          3689.553467,
+          190.512543,
+          13081.108398
+        ],
+        [
+          3590.370605,
+          220.796295,
+          12574.566406
+        ],
+        [
+          4226.243164,
+          180.045975,
+          13041.981445
+        ]
+      ]
     },
     {
       "Id": "gapcov-novoselki-roof",
@@ -3557,7 +3952,24 @@
         "distance_to_label_m": 447.89
       },
       "LocalityId": "novoselki",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          6078.25,
+          20.931112,
+          2827.880371
+        ],
+        [
+          6212.963867,
+          20.911112,
+          2778.373291
+        ],
+        [
+          6206.871582,
+          20.911112,
+          2776.78418
+        ]
+      ]
     },
     {
       "Id": "gapcov-novy-sobor-roof",
@@ -3642,7 +4054,19 @@
         "distance_to_label_m": 1100.158
       },
       "LocalityId": "novy-sobor",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          8118.444824,
+          407.60434,
+          8237.876953
+        ],
+        [
+          7088.233398,
+          363.956787,
+          9160.897461
+        ]
+      ]
     },
     {
       "Id": "gapcov-nw-airfield-roof",
@@ -3727,7 +4151,14 @@
         "distance_to_label_m": 974.275
       },
       "LocalityId": "nw-airfield",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5026.818359,
+          267.413544,
+          11275.800781
+        ]
+      ]
     },
     {
       "Id": "gapcov-olsha-roof",
@@ -3812,7 +4243,14 @@
         "distance_to_label_m": 416.906
       },
       "LocalityId": "olsha",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          13791.62207,
+          43.747513,
+          12868.035156
+        ]
+      ]
     },
     {
       "Id": "gapcov-orlovets-roof",
@@ -3897,7 +4335,24 @@
         "distance_to_label_m": 497.921
       },
       "LocalityId": "orlovets",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          11733.568359,
+          168.370041,
+          7100.322754
+        ],
+        [
+          12378.510742,
+          105.373116,
+          7740.572266
+        ],
+        [
+          12619.987305,
+          146.894104,
+          6673.75293
+        ]
+      ]
     },
     {
       "Id": "gapcov-pavlovo-roof",
@@ -3982,7 +4437,14 @@
         "distance_to_label_m": 344.703
       },
       "LocalityId": "pavlovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          1409.074463,
+          141.003555,
+          4047.021729
+        ]
+      ]
     },
     {
       "Id": "gapcov-polana-roof",
@@ -4067,7 +4529,14 @@
         "distance_to_label_m": 238.233
       },
       "LocalityId": "polana",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          10677.808594,
+          214.414337,
+          7923.848633
+        ]
+      ]
     },
     {
       "Id": "gapcov-polesovo-roof",
@@ -4152,7 +4621,19 @@
         "distance_to_label_m": 649.244
       },
       "LocalityId": "polesovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5298.107422,
+          213.97818,
+          13590.946289
+        ],
+        [
+          5682.574707,
+          317.194092,
+          14211.762695
+        ]
+      ]
     },
     {
       "Id": "gapcov-pulkovo-roof",
@@ -4237,7 +4718,14 @@
         "distance_to_label_m": 292.436
       },
       "LocalityId": "pulkovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5271.449219,
+          308.912933,
+          5515.677246
+        ]
+      ]
     },
     {
       "Id": "gapcov-pusta-roof",
@@ -4322,7 +4810,14 @@
         "distance_to_label_m": 80.07
       },
       "LocalityId": "pusta",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          9200.192383,
+          231.352341,
+          3976.314941
+        ]
+      ]
     },
     {
       "Id": "gapcov-pustoshka-roof",
@@ -4407,7 +4902,14 @@
         "distance_to_label_m": 121.441
       },
       "LocalityId": "pustoshka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          3215.144287,
+          313.942108,
+          7776.054199
+        ]
+      ]
     },
     {
       "Id": "gapcov-rogovo-roof",
@@ -4492,7 +4994,14 @@
         "distance_to_label_m": 487.853
       },
       "LocalityId": "rogovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5097.820801,
+          289.098145,
+          6386.413574
+        ]
+      ]
     },
     {
       "Id": "gapcov-severograd-roof",
@@ -4577,7 +5086,39 @@
         "distance_to_label_m": 74.903
       },
       "LocalityId": "severograd",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          8068.223145,
+          121.205116,
+          12586.291992
+        ],
+        [
+          8177.69043,
+          113.329208,
+          12723.867188
+        ],
+        [
+          8197.722656,
+          113.139313,
+          12755.658203
+        ],
+        [
+          7948.604492,
+          119.523666,
+          12541.569336
+        ],
+        [
+          7913.784668,
+          118.021225,
+          12664.373047
+        ],
+        [
+          8559.861328,
+          105.811478,
+          12806.742188
+        ]
+      ]
     },
     {
       "Id": "gapcov-shakhovka-roof",
@@ -4662,7 +5203,14 @@
         "distance_to_label_m": 52.853
       },
       "LocalityId": "shakhovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          9710.349609,
+          216.305511,
+          6487.099121
+        ]
+      ]
     },
     {
       "Id": "gapcov-skvsch-biathlon-arena-roof",
@@ -4747,7 +5295,14 @@
         "distance_to_label_m": 725.344
       },
       "LocalityId": "skvsch-biathlon-arena",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          80.261421,
+          411.262756,
+          10449.132813
+        ]
+      ]
     },
     {
       "Id": "gapcov-sosnovka-roof",
@@ -4832,7 +5387,19 @@
         "distance_to_label_m": 532.519
       },
       "LocalityId": "sosnovka",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          3063.543945,
+          364.262665,
+          6581.65625
+        ],
+        [
+          2057.715088,
+          314.685272,
+          6277.850586
+        ]
+      ]
     },
     {
       "Id": "gapcov-staroye-roof",
@@ -4917,7 +5484,14 @@
         "distance_to_label_m": 796.055
       },
       "LocalityId": "staroye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          10643.481445,
+          247.555817,
+          6059.513672
+        ]
+      ]
     },
     {
       "Id": "gapcov-stary-yar-roof",
@@ -5002,7 +5576,14 @@
         "distance_to_label_m": 236.476
       },
       "LocalityId": "stary-yar",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          4850.998047,
+          476.733582,
+          15220.709961
+        ]
+      ]
     },
     {
       "Id": "gapcov-svergino-roof",
@@ -5087,7 +5668,14 @@
         "distance_to_label_m": 215.602
       },
       "LocalityId": "svergino",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          9667.137695,
+          77.460258,
+          13778.698242
+        ]
+      ]
     },
     {
       "Id": "gapcov-svetloyarsk-roof",
@@ -5172,7 +5760,39 @@
         "distance_to_label_m": 10.15
       },
       "LocalityId": "svetloyarsk",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          13980.379883,
+          18.696783,
+          13250.694336
+        ],
+        [
+          14026.243164,
+          13.566043,
+          13209.436523
+        ],
+        [
+          13845.6875,
+          21.480227,
+          13260.645508
+        ],
+        [
+          14010.625977,
+          13.722536,
+          13131.095703
+        ],
+        [
+          13872.443359,
+          20.184551,
+          13347.820313
+        ],
+        [
+          14118.722656,
+          5.045302,
+          13086.402344
+        ]
+      ]
     },
     {
       "Id": "gapcov-svyatoy-roman-ski-resort-roof",
@@ -5257,7 +5877,24 @@
         "distance_to_label_m": 206.648
       },
       "LocalityId": "svyatoy-roman-ski-resort",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          196.072708,
+          541.651978,
+          11741.008789
+        ],
+        [
+          320.468872,
+          380.40979,
+          12537.249023
+        ],
+        [
+          456.343933,
+          474.057526,
+          13249.162109
+        ]
+      ]
     },
     {
       "Id": "gapcov-tisy-roof",
@@ -5342,7 +5979,14 @@
         "distance_to_label_m": 654.238
       },
       "LocalityId": "tisy",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          3905.636963,
+          418.40564,
+          15270.59082
+        ]
+      ]
     },
     {
       "Id": "gapcov-tisy-military-roof",
@@ -5427,7 +6071,29 @@
         "distance_to_label_m": 657.269
       },
       "LocalityId": "tisy-military",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2171.249023,
+          407.516541,
+          13767.192383
+        ],
+        [
+          1386.138306,
+          433.832336,
+          15012.574219
+        ],
+        [
+          2394.442139,
+          437.122192,
+          14753.768555
+        ],
+        [
+          139.81723,
+          474.681458,
+          14356.988281
+        ]
+      ]
     },
     {
       "Id": "gapcov-topolniki-roof",
@@ -5512,7 +6178,14 @@
         "distance_to_label_m": 254.706
       },
       "LocalityId": "topolniki",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2766.59082,
+          230.615921,
+          12138.327148
+        ]
+      ]
     },
     {
       "Id": "gapcov-tulga-roof",
@@ -5597,7 +6270,14 @@
         "distance_to_label_m": 827.744
       },
       "LocalityId": "tulga",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          13331.621094,
+          7.484608,
+          5062.072754
+        ]
+      ]
     },
     {
       "Id": "gapcov-turovo-roof",
@@ -5682,7 +6362,19 @@
         "distance_to_label_m": 100.482
       },
       "LocalityId": "turovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          13746.259766,
+          30.365343,
+          14129.463867
+        ],
+        [
+          13496.151367,
+          14.011881,
+          13903.751953
+        ]
+      ]
     },
     {
       "Id": "gapcov-vavilovo-roof",
@@ -5767,7 +6459,14 @@
         "distance_to_label_m": 206.343
       },
       "LocalityId": "vavilovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2256.535645,
+          272.844635,
+          10899.652344
+        ]
+      ]
     },
     {
       "Id": "gapcov-vybor-roof",
@@ -5852,7 +6551,19 @@
         "distance_to_label_m": 178.018
       },
       "LocalityId": "vybor",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          3849.562256,
+          311.902374,
+          8854.833984
+        ],
+        [
+          3872.641846,
+          311.991669,
+          8829.84082
+        ]
+      ]
     },
     {
       "Id": "gapcov-vybor-military-roof",
@@ -5937,7 +6648,14 @@
         "distance_to_label_m": 78.238
       },
       "LocalityId": "vybor-military",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          4431.20166,
+          315.407806,
+          8233.883789
+        ]
+      ]
     },
     {
       "Id": "gapcov-vyshnoye-roof",
@@ -6022,7 +6740,19 @@
         "distance_to_label_m": 560.453
       },
       "LocalityId": "vyshnoye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          6155.063965,
+          231.612427,
+          5688.321777
+        ],
+        [
+          6682.39209,
+          353.517487,
+          6772.428223
+        ]
+      ]
     },
     {
       "Id": "gapcov-vysotovo-roof",
@@ -6107,7 +6837,29 @@
         "distance_to_label_m": 139.098
       },
       "LocalityId": "vysotovo",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5716.401367,
+          58.884052,
+          2425.210205
+        ],
+        [
+          5478.521973,
+          64.55674,
+          2612.654541
+        ],
+        [
+          5468.76416,
+          64.355682,
+          2596.286865
+        ],
+        [
+          6001.35791,
+          59.438438,
+          2512.864014
+        ]
+      ]
     },
     {
       "Id": "gapcov-zabolotye-roof",
@@ -6192,7 +6944,14 @@
         "distance_to_label_m": 210.515
       },
       "LocalityId": "zabolotye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          1029.501343,
+          341.571014,
+          9965.56543
+        ]
+      ]
     },
     {
       "Id": "gapcov-zaprudnoye-roof",
@@ -6277,7 +7036,14 @@
         "distance_to_label_m": 185.245
       },
       "LocalityId": "zaprudnoye",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          5387.128418,
+          161.014206,
+          12627.210938
+        ]
+      ]
     },
     {
       "Id": "gapcov-zelenogorsk-roof",
@@ -6362,7 +7128,34 @@
         "distance_to_label_m": 109.194
       },
       "LocalityId": "zelenogorsk",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          2687.125732,
+          205.440842,
+          5265.591309
+        ],
+        [
+          2837.758301,
+          205.57312,
+          5262.322754
+        ],
+        [
+          2710.062988,
+          205.374359,
+          5299.535156
+        ],
+        [
+          2732.008301,
+          207.838364,
+          5417.405762
+        ],
+        [
+          2707.290527,
+          207.567093,
+          5434.762695
+        ]
+      ]
     },
     {
       "Id": "gapcov-zvir-roof",
@@ -6447,12 +7240,19 @@
         "distance_to_label_m": 92.412
       },
       "LocalityId": "zvir",
-      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access"
+      "MembershipBasis": "nearest_label_proxy_not_boundary_or_access",
+      "Candidates": [
+        [
+          555.201538,
+          152.866577,
+          5393.116211
+        ]
+      ]
     }
   ],
   "GapcovIntegration": {
     "RuntimeAcceptance": "PENDING",
-    "State": "authored_additional_scenes_waiting_shared_catalog_registration",
+    "State": "integrated_seeded_candidate_pools_runtime_pending",
     "ExistingGlobalOptOut": "Enabled=false applies to both Scenes and AdditionalScenes after integration",
     "OperatorOptOut": "Enabled=false for regional scenes; each scene Enabled=false for individual opt-out; EnableTravel=false for all shelters",
     "Policy": "Scenes stays compatible with the five-row catalog. AdditionalScenes reuses those measured class envelopes, three empty exterior props, zero stock grants and full roof/access keepouts. Site collision, terrain, rain and all-player visibility remain runtime vetoes.",
@@ -6528,6 +7328,65 @@
       "HCCandidate(\"gapcov-zaprudnoye-roof\", \"zaprudnoye exterior rest\", \"Land_BusStop_City\", \"5387.128418 161.014206 12627.210938\", \"zaprudnoye\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-zelenogorsk-roof\", \"zelenogorsk exterior rest\", \"Land_BusStop_City\", \"2687.125732 205.440842 5265.591309\", \"zelenogorsk\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");",
       "HCCandidate(\"gapcov-zvir-roof\", \"zvir exterior rest\", \"Land_Barn_Wood2\", \"555.201538 152.866577 5393.116211\", \"zvir\", \"map-wide\", \"exterior-rest\", \"runtime_access_clearance_pending\");"
+    ]
+  },
+  "LegacyBarnPools": {
+    "Drozhino Hay Refuge": [
+      [
+        2585.119873,
+        202.433472,
+        5360.409668
+      ]
+    ],
+    "Zabolotye Track Barn": [
+      [
+        1634.676147,
+        311.890808,
+        9857.233398
+      ],
+      [
+        1575.123535,
+        263.072845,
+        10414.365234
+      ],
+      [
+        1495.934204,
+        247.642349,
+        10660.052734
+      ]
+    ],
+    "Sosnovka Track Barn": [
+      [
+        3560.896484,
+        337.081543,
+        7004.783203
+      ]
+    ],
+    "Pulkovo Ridge Rest": [
+      [
+        5271.449219,
+        308.912933,
+        5515.677246
+      ]
+    ],
+    "Dolina Upper Refuge": [
+      [
+        9710.349609,
+        216.305511,
+        6487.099121
+      ]
+    ],
+    "Polana South Wayhouse": [
+      [
+        10677.808594,
+        214.414337,
+        7923.848633
+      ],
+      [
+        10252.961914,
+        242.870209,
+        8913.335938
+      ]
     ]
   }
 }

@@ -4,7 +4,7 @@ This is an exercise plan, not runtime evidence or a release pass. Owner decision
 2026-11-21: **no waivers**. Every registered default-on `[HC Use]` counter must
 be ACTIVE after the 30-minute soak plus one-client smoke on the exact release
 commit, except explicitly listed OWNER-CHECK counters (owner decision 2026-11-23).
-The [JSON plan](../tools/release/r3_smoke_plan.json) now enumerates all 130 source
+The [JSON plan](../tools/release/r3_smoke_plan.json) now enumerates all 134 source
 registrations; the earlier plan contained 76 entries, not the previously documented 75.
 Coverage is checked against the candidate source tree by `activity_check --check-plan`.
 One server plus at most one client is the
@@ -209,16 +209,18 @@ forest terrain. Keep any pitched tent/hearth away from the herd hazard area.
    require actual leased bodies: **InfectedLOD/herd_materialized**. Keep threats
    away from camp before the respawn exercise. Use ordinary movement/combat;
    no invisible relocation or deletion to make the area safe.
-3. [ ] Travel normally to **Drozhino Hay Refuge (2585.119873, 202.433472, 5360.409668)**,
-   `mission/hollow-country/travel/route-surveys.json` existing_shelters,
-   `mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:179`
-   (placed variant=0 in soak 206 and chain 207). Bor South Rest is retired; its replacement, Zabolotye Track Barn
-   (1634.676147, 311.890808, 9857.233398; alternate
-   1495.934204, 247.642349, 10660.052734), awaits runtime placement and cannot
-   supply discovery evidence until it actually places. Walk into Drozhino's completed shelter discovery
-   radius and open M with map/solo
-   group, or use an actually received group lead: **MapPins/pins_published**.
-   User-created markers do not hit this call site; unplaced shelter cannot qualify.
+3. [ ] Read this boot's server RPT completed line:
+   `[HollowCountry] V2 shelter placed name=Drozhino Hay Refuge alternate=... pick=... point=<x> <y> <z>`.
+   Travel normally to that `point=` and enter the completed shelter discovery
+   radius. `tools.testing.driver_script.resolve_waypoint("shelter:Drozhino Hay Refuge", server_rpt)`
+   reads the placed point; authored coordinates and offline hash predictions are
+   not evidence. Open M with map/solo group, or use an actually received group
+   lead: **MapPins/pins_published**. An unplaced shelter cannot qualify.
+   Preserve every `[HC Shelters] variety id=... pick=<k>/<n> tried=<t> seed=<epoch> salt=0`
+   line; require **Shelters/variety_pick** count>0. Compare picks after restarting
+   the same profile, then separately boot with `ShelterSeedSalt=1` and require
+   different picks across multi-site pools. Keep both RPTs. This experiment is
+   planned, unverified; never emulate `string.Hash()` offline.
 4. [ ] Return normally to the safe Bor open camp ground used by the camp/respawn
    smoke-plan rows; these build their own tent, crate and hearth and do not need
    the catalog shelter. There, combine stick + rag, place `Fireplace`,

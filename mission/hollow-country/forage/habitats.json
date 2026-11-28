@@ -550,7 +550,7 @@
       },
       {
         "path": "mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c",
-        "sha256": "53164ee729b67079b55c82683b1c9dec88bcd3b47f6620837f4cb9e4aacd930f"
+        "sha256": "45152570db1ae54482bb9747622a01f1a4f219b4750afc6dfc66eaebe50b8dc0"
       }
     ],
     "Policy": "Native population and flora lifecycle unchanged. Circle membership tests label points only; nearest-label CE hosts, barns and clusters are spatial proxies. No locality boundaries, terrain access, food availability or occupancy inferred.",
