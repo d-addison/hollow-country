@@ -180,17 +180,21 @@ HC_MISSION_MAX_ENTRIES = 1024
 HC_MISSION_MAX_BYTES = 32 * 1024 * 1024
 
 
+def mission_budget(with_hc):
+    """A disposable copy that holds the HC data gets the stock budget plus the
+    explicit HC caps; every other mission keeps the stock budget alone."""
+    if with_hc:
+        return (staging.MAX_ENTRIES + HC_MISSION_MAX_ENTRIES,
+                staging.MAX_TOTAL_BYTES + HC_MISSION_MAX_BYTES)
+    return staging.MAX_ENTRIES, staging.MAX_TOTAL_BYTES
+
+
 def snapshot_mission(root):
     """Bound and pin all static mission files/directories, including manifests."""
     root = safe(root)
     if not root.is_dir():
         raise ValueError('mission directory required')
-    # A disposable copy that received the HC data gets the stock budget plus the
-    # explicit HC caps; every other mission keeps the stock budget alone.
-    max_entries, max_total = staging.MAX_ENTRIES, staging.MAX_TOTAL_BYTES
-    if (root / 'hollow-country').is_dir():
-        max_entries += HC_MISSION_MAX_ENTRIES
-        max_total += HC_MISSION_MAX_BYTES
+    max_entries, max_total = mission_budget((root / 'hollow-country').is_dir())
     result, pending = {}, [(root, 0)]
     entries = total = 0
     while pending:
@@ -297,15 +301,17 @@ def stage_hc_mission(mission, experiment, server_root, files):
         raise ValueError('hc_mission_target_exists')
     for name in files:
         pbo.safe_name(name)
-    # Combined stock + HC inventory must fit the unchanged mission budgets.
+    # Combined stock + HC inventory must fit the budget snapshot_mission applies
+    # to the staged copy, so staging never writes what the snapshot refuses.
+    max_entries, max_total = mission_budget(True)
     directories = {'hollow-country/'}
     for name in files:
         directories.update('hollow-country/' + p.as_posix() + '/'
                            for p in Path(name).parents if p != Path('.'))
-    if len(existing) + len(files) + len(directories) > staging.MAX_ENTRIES:
+    if len(existing) + len(files) + len(directories) > max_entries:
         raise ValueError('mission entry budget exceeded')
     total = sum(p.stat().st_size for p in mission.rglob('*') if p.is_file())
-    if total + sum(map(len, files.values())) > staging.MAX_TOTAL_BYTES or any(
+    if total + sum(map(len, files.values())) > max_total or any(
             len(data) > staging.MAX_FILE_BYTES for data in files.values()):
         raise ValueError('mission byte budget exceeded')
     for name, data in files.items():
