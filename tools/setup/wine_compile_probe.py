@@ -6,6 +6,7 @@ Every invocation creates fresh profiles/storage/mod staging and preserves logs.
 """
 import argparse
 import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -59,12 +60,25 @@ def stop_group(process, grace=5):
     return forced
 
 
+LOG_DISCOVERY_ENTRIES = 512
+
+
+def log_discovery_budget(root):
+    """Discovery walks the whole experiment, so a staged HC mission copy (bounded and
+    pinned by snapshot_mission) extends the budget by the same explicit HC cap."""
+    children = itertools.islice(root.iterdir(), 64) if root.is_dir() else ()
+    if any((child / 'hollow-country').is_dir() for child in children):
+        return LOG_DISCOVERY_ENTRIES + HC_MISSION_MAX_ENTRIES
+    return LOG_DISCOVERY_ENTRIES
+
+
 def collect_logs(root):
     texts, hashes, skipped = [], {}, {}
     remaining = MAX_LOG_TOTAL
     count = 0
+    discovery = log_discovery_budget(root)
     for index, path in enumerate(root.rglob('*')):
-        if index >= 512:
+        if index >= discovery:
             skipped['*'] = 'discovery budget exceeded'
             break
         if path.suffix.lower() not in {'.log', '.rpt', '.adm'}:
@@ -180,17 +194,21 @@ HC_MISSION_MAX_ENTRIES = 1024
 HC_MISSION_MAX_BYTES = 32 * 1024 * 1024
 
 
+def mission_budget(with_hc):
+    """A disposable copy that holds the HC data gets the stock budget plus the
+    explicit HC caps; every other mission keeps the stock budget alone."""
+    if with_hc:
+        return (staging.MAX_ENTRIES + HC_MISSION_MAX_ENTRIES,
+                staging.MAX_TOTAL_BYTES + HC_MISSION_MAX_BYTES)
+    return staging.MAX_ENTRIES, staging.MAX_TOTAL_BYTES
+
+
 def snapshot_mission(root):
     """Bound and pin all static mission files/directories, including manifests."""
     root = safe(root)
     if not root.is_dir():
         raise ValueError('mission directory required')
-    # A disposable copy that received the HC data gets the stock budget plus the
-    # explicit HC caps; every other mission keeps the stock budget alone.
-    max_entries, max_total = staging.MAX_ENTRIES, staging.MAX_TOTAL_BYTES
-    if (root / 'hollow-country').is_dir():
-        max_entries += HC_MISSION_MAX_ENTRIES
-        max_total += HC_MISSION_MAX_BYTES
+    max_entries, max_total = mission_budget((root / 'hollow-country').is_dir())
     result, pending = {}, [(root, 0)]
     entries = total = 0
     while pending:
@@ -297,15 +315,17 @@ def stage_hc_mission(mission, experiment, server_root, files):
         raise ValueError('hc_mission_target_exists')
     for name in files:
         pbo.safe_name(name)
-    # Combined stock + HC inventory must fit the unchanged mission budgets.
+    # Combined stock + HC inventory must fit the budget snapshot_mission applies
+    # to the staged copy, so staging never writes what the snapshot refuses.
+    max_entries, max_total = mission_budget(True)
     directories = {'hollow-country/'}
     for name in files:
         directories.update('hollow-country/' + p.as_posix() + '/'
                            for p in Path(name).parents if p != Path('.'))
-    if len(existing) + len(files) + len(directories) > staging.MAX_ENTRIES:
+    if len(existing) + len(files) + len(directories) > max_entries:
         raise ValueError('mission entry budget exceeded')
     total = sum(p.stat().st_size for p in mission.rglob('*') if p.is_file())
-    if total + sum(map(len, files.values())) > staging.MAX_TOTAL_BYTES or any(
+    if total + sum(map(len, files.values())) > max_total or any(
             len(data) > staging.MAX_FILE_BYTES for data in files.values()):
         raise ValueError('mission byte budget exceeded')
     for name, data in files.items():
@@ -315,11 +335,11 @@ def stage_hc_mission(mission, experiment, server_root, files):
     snapshot_mission(mission)
 
 
-# Dependency mods (Expansion) create their own settings/storage trees inside the
+# Dependency mods (Expansion, CookZ) create their own settings/storage trees inside the
 # mission they run. Only new entries under these roots are tolerated, and only
 # for a disposable mission copy; every staged entry must still match exactly.
 PATROL_SETTINGS = 'expansion/settings/AIPatrolSettings.json'
-DEPENDENCY_OUTPUT = re.compile(r'(expansion|storage_[0-9]+)/')
+DEPENDENCY_OUTPUT = re.compile(r'(expansion|CookZ|storage_[0-9]+)/')
 
 
 def verify_final_inputs(mission, expected_mission, launch_inputs, dependency_outputs=False):

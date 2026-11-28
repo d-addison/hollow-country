@@ -110,9 +110,13 @@ class HCMissionStagingTests(unittest.TestCase):
             mission = experiment / 'mod-stack.chernarusplus'
             mission.mkdir(parents=True)
             (mission / 'init.c').write_bytes(b'init')
+            # Staging uses the HC-extended budget; zero the HC caps so the stock cap
+            # alone is the limit and the refusal still lands before any write.
             for budget, cap, message in [('MAX_ENTRIES', 2, 'mission entry budget exceeded'),
                                           ('MAX_TOTAL_BYTES', 5, 'mission byte budget exceeded')]:
-                with mock.patch.object(wine.staging, budget, cap):
+                with mock.patch.object(wine.staging, budget, cap), \
+                        mock.patch.object(wine, 'HC_MISSION_MAX_ENTRIES', 0), \
+                        mock.patch.object(wine, 'HC_MISSION_MAX_BYTES', 0):
                     with self.assertRaisesRegex(ValueError, message):
                         wine.stage_hc_mission(mission, experiment, root / 'server', {'a.json': b'{}'})
                 self.assertFalse((mission / 'hollow-country').exists())
