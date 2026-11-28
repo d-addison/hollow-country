@@ -174,11 +174,23 @@ def input_sha256(path, limit):
     return digest.hexdigest()
 
 
+# Explicit caps for the staged HC data, of the same kind as the stock snapshot
+# budgets (which stay unchanged). The shipped set is ~541 entries / ~11.7 MB.
+HC_MISSION_MAX_ENTRIES = 1024
+HC_MISSION_MAX_BYTES = 32 * 1024 * 1024
+
+
 def snapshot_mission(root):
     """Bound and pin all static mission files/directories, including manifests."""
     root = safe(root)
     if not root.is_dir():
         raise ValueError('mission directory required')
+    # A disposable copy that received the HC data gets the stock budget plus the
+    # explicit HC caps; every other mission keeps the stock budget alone.
+    max_entries, max_total = staging.MAX_ENTRIES, staging.MAX_TOTAL_BYTES
+    if (root / 'hollow-country').is_dir():
+        max_entries += HC_MISSION_MAX_ENTRIES
+        max_total += HC_MISSION_MAX_BYTES
     result, pending = {}, [(root, 0)]
     entries = total = 0
     while pending:
@@ -186,7 +198,7 @@ def snapshot_mission(root):
         with os.scandir(directory) as scan:
             for entry in scan:
                 entries += 1
-                if entries > staging.MAX_ENTRIES:
+                if entries > max_entries:
                     raise ValueError('mission entry budget exceeded')
                 path = safe(entry.path)
                 info = path.lstat()
@@ -198,12 +210,109 @@ def snapshot_mission(root):
                     pending.append((path, depth + 1))
                 elif stat.S_ISREG(info.st_mode):
                     total += info.st_size
-                    if info.st_size > staging.MAX_FILE_BYTES or total > staging.MAX_TOTAL_BYTES:
+                    if info.st_size > staging.MAX_FILE_BYTES or total > max_total:
                         raise ValueError('mission byte budget exceeded')
                     result[relative] = input_sha256(path, info.st_size)
                 else:
                     raise ValueError('regular mission files/directories required')
     return result
+
+
+def hc_mission_inputs(tree):
+    """Pin the bundle allowlist from the gated tree; never use installed data."""
+    root = Path(tree) / 'mission/hollow-country'
+    # Check every component before walking: never traverse a source symlink.
+    for path in (Path(tree), Path(tree) / 'mission', root):
+        if path.is_symlink() or (path.exists() and not path.is_dir()):
+            raise ValueError('refused hc_mission_irregular=.')
+    found, directories, pending = {}, set(), [(root, 0)]
+    while pending and root.exists():
+        directory, depth = pending.pop()
+        with os.scandir(directory) as scan:
+            for entry in scan:
+                path = Path(entry.path)
+                name = path.relative_to(root).as_posix()
+                info = path.lstat()
+                if stat.S_ISDIR(info.st_mode):
+                    if depth + 1 > staging.MAX_DEPTH:
+                        raise ValueError('mission depth budget exceeded')
+                    directories.add(name)
+                    pending.append((path, depth + 1))
+                elif stat.S_ISREG(info.st_mode):
+                    found[name] = (path, info)
+                else:
+                    raise ValueError('refused hc_mission_irregular=' + name)
+                # Bound even ignored source entries without changing snapshot budgets.
+                if len(found) + len(directories) > pbo.MAX_ENTRIES:
+                    raise ValueError('mission entry budget exceeded')
+    for name in sorted(pbo.MISSION_FILES):
+        if name in directories:
+            raise ValueError('refused hc_mission_irregular=' + name)
+        if name not in found:
+            raise ValueError('refused hc_mission_file_missing=' + name)
+    selected = {name: found[name] for name in sorted(pbo.MISSION_FILES)}
+    parents = {'hollow-country/'}
+    for name in selected:
+        parents.update('hollow-country/' + parent.as_posix() + '/'
+                       for parent in Path(name).parents if parent != Path('.'))
+    entries = len(selected) + len(parents)
+    total = sum(info.st_size for _, info in selected.values())
+    if entries > HC_MISSION_MAX_ENTRIES:
+        raise ValueError(f'mission entry budget exceeded: entries={entries} limit={HC_MISSION_MAX_ENTRIES}'
+                         f' hc_mission_files={len(selected)} hc_mission_bytes={total}')
+    if total > HC_MISSION_MAX_BYTES or any(info.st_size > staging.MAX_FILE_BYTES
+                                            for _, info in selected.values()):
+        raise ValueError('mission byte budget exceeded')
+    blobs = {}
+    for name, (path, before) in selected.items():
+        with path.open('rb') as stream:
+            data = stream.read(before.st_size + 1)
+        if len(data) != before.st_size or staging._identity(path.lstat()) != staging._identity(before):
+            raise ValueError('hc mission source changed during snapshot')
+        blobs[name] = data
+    pbo.route_inventory(blobs)
+    return blobs
+
+
+def hc_mission_receipt(files):
+    """SHA256 of canonical JSON sorted (relative path, content SHA256) pairs."""
+    pairs = [(name, hashlib.sha256(data).hexdigest()) for name, data in sorted(files.items())]
+    return {'hc_mission_files': len(files),
+            'hc_mission_bytes': sum(map(len, files.values())),
+            'hc_mission_sha256': hashlib.sha256(json.dumps(
+                pairs, separators=(',', ':')).encode()).hexdigest()}
+
+
+def stage_hc_mission(mission, experiment, server_root, files):
+    """Only a fresh experiment's disposable mission can receive HC bytes."""
+    mission, experiment, server_root = map(lambda p: Path(p).absolute(),
+                                           (mission, experiment, server_root))
+    if (mission == experiment or experiment not in mission.parents
+            or server_root == mission or server_root in mission.parents):
+        raise ValueError('hc_mission_shared_target')
+    safe(mission)
+    existing = snapshot_mission(mission)
+    target = mission / 'hollow-country'
+    if target.exists() or target.is_symlink():
+        raise ValueError('hc_mission_target_exists')
+    for name in files:
+        pbo.safe_name(name)
+    # Combined stock + HC inventory must fit the unchanged mission budgets.
+    directories = {'hollow-country/'}
+    for name in files:
+        directories.update('hollow-country/' + p.as_posix() + '/'
+                           for p in Path(name).parents if p != Path('.'))
+    if len(existing) + len(files) + len(directories) > staging.MAX_ENTRIES:
+        raise ValueError('mission entry budget exceeded')
+    total = sum(p.stat().st_size for p in mission.rglob('*') if p.is_file())
+    if total + sum(map(len, files.values())) > staging.MAX_TOTAL_BYTES or any(
+            len(data) > staging.MAX_FILE_BYTES for data in files.values()):
+        raise ValueError('mission byte budget exceeded')
+    for name, data in files.items():
+        destination = target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+    snapshot_mission(mission)
 
 
 # Dependency mods (Expansion) create their own settings/storage trees inside the
@@ -297,7 +406,7 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=(), base_extra_pbos=(), test_addon_blob=None):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=(), server_extra_pbos=(), base_extra_pbos=(), test_addon_blob=None, hc_mission_files=None):
     death_mode = infected_death_scripts is not None
     if death_mode:
         if diagnostic:
@@ -491,7 +600,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         mission = death_mission
         command.append('-mission=' + win(death_mission))
     mod_stack_mission = False
-    if extra_mods and mission == root / 'mpmissions/dayzOffline.chernarusplus':
+    if (extra_mods or hc_mission_files is not None) and mission == root / 'mpmissions/dayzOffline.chernarusplus':
         # Never let dependency mods write into the shared isolated server copy.
         snapshot_mission(mission)
         stack_mission = experiment / 'mod-stack.chernarusplus'
@@ -502,6 +611,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             (stack_mission / PATROL_SETTINGS).parent.mkdir(parents=True, exist_ok=True)
             (stack_mission / PATROL_SETTINGS).write_bytes(patrol_blob)
         command.append('-mission=' + win(mission))
+    if hc_mission_files is not None:
+        stage_hc_mission(mission, experiment, root, hc_mission_files)
     env = dict(os.environ, WINEPREFIX=str(prefix), WINEARCH='win64', WINEDEBUG='-all')
     report = {'schema': 1, 'environment': 'actual-DayZ-server-under-Wine',
               'runtime_acceptance': 'pending', 'signature_verified': False,
@@ -510,6 +621,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
               'steam_query_may_bind_wildcard': True, 'command': command,
               'pbo_sha256': hashlib.sha256(blob).hexdigest(),
               'server_sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}
+    report.update(hc_mission_receipt(hc_mission_files or {}))
     report['extra_mods'] = [str(m) for m in extra_mods]
     report['base_extra_pbos'] = {name: prefix for name, _, prefix in base_extras}
     report['server_mod_sha256'] = hashlib.sha256(server_blob).hexdigest() if server_blob is not None else None

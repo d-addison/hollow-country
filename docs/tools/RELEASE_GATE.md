@@ -3,6 +3,44 @@
 Lead-only native workflow; workers test this tooling with fakes. Python tests
 establish orchestration behaviour, never DayZ or multiplayer acceptance.
 
+The compile gate defaults to raw shipped HC mission data from the gated tree's
+`mission/hollow-country/`, selected by `tools.package.pbo.MISSION_FILES` (including
+its validated route inventory). It pins bytes once, refuses missing allowlisted
+files (`compile_gate: refused hc_mission_file_missing=<relative path>`) and
+symlinks/special files (`hc_mission_irregular=<relative path>`), and ignores
+regular files outside the allowlist. It never reads mission data from a profile
+or server install. No `init.c`, economy or cfgeconomycore merge is performed;
+friend-bundle install-time generated outputs stay absent.
+
+Before boot (also in `--prepare-only`), successful selection prints
+`compile_gate: hc_mission_files=<n> hc_mission_sha256=<digest>` and a byte count.
+The digest hashes compact JSON sorted `[relative path, content SHA256]` pairs;
+the probe JSON records `hc_mission_files`, `hc_mission_sha256` and
+`hc_mission_bytes`. `--vanilla-mission` skips selection and prints
+`compile_gate: hc_mission_files=0 mode=vanilla` for comparison runs.
+Prepare-only never launches the probe and never establishes native acceptance.
+
+The probe writes these bytes only beneath the fresh experiment's disposable
+mission. When no mission copy exists, the same `mod-stack.chernarusplus` copy
+path used for dependency mods creates one, even without dependencies. A shared
+server target refuses with `hc_mission_shared_target` before writes. The complete
+mission snapshot and final inventory verification include every HC file, retaining
+`complete staged mission inventory drift` on mutation. The stock mission
+budgets (256 entries, depth 12, 256 MiB) are unchanged. The staged HC data has
+its own explicit caps, `HC_MISSION_MAX_ENTRIES = 1024` (files plus directories)
+and `HC_MISSION_MAX_BYTES = 32 MiB`. A disposable copy holding `hollow-country/`
+is snapshotted with the stock budget plus those caps. At 1228b548 the shipped set
+is 515 files (541 entries), 11.65 MB. Exceeding a cap refuses with
+`mission entry budget exceeded` or `mission byte budget exceeded`, plus the counts;
+the gate never falls back to vanilla silently.
+
+Only compile_gate supplies HC inputs by default. Existing diagnostic, item-audit,
+group-checks, autotest and infected-death callers retain their current missions.
+If a caller explicitly supplies HC inputs to the shared probe, the same staging
+and snapshot checks apply to its disposable mission. The runtime JSON exemption,
+`mission-loaded-runtime-json` status and every pass criterion are unchanged;
+new non-exempt SCRIPT (E) errors still fail.
+
 ```sh
 python3 -B -m tools.release.release_gate --commit FULL_40_CHARACTER_SHA \
   --bundle /mnt/e/HollowCountryLocal/candidate \

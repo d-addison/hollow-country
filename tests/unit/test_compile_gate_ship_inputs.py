@@ -103,5 +103,69 @@ class ShipInputsTests(unittest.TestCase):
                 self.assertEqual(build.call_count, 2)
 
 
+class HCMissionInputsTests(unittest.TestCase):
+    def test_exact_shipped_allowlist_and_bytes(self):
+        probe = compile_gate.probe
+        tree = Path(__file__).resolve().parents[2]
+        files = probe.hc_mission_inputs(tree)
+        self.assertEqual(set(files), pbo.MISSION_FILES)
+        self.assertTrue(pbo.route_inventory(files) <= set(files))
+        for name, data in files.items():
+            self.assertEqual(data, (tree / 'mission/hollow-country' / name).read_bytes())
+        with patch.object(probe, 'HC_MISSION_MAX_ENTRIES', 16):
+            with self.assertRaisesRegex(ValueError, 'mission entry budget exceeded'):
+                probe.hc_mission_inputs(tree)
+
+    def test_missing_irregular_and_extra_source(self):
+        probe = compile_gate.probe
+        scratch = Path(__file__).resolve().parents[2] / '.banso'
+        scratch.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as temp:
+            tree = Path(temp)
+            source = tree / 'mission/hollow-country'
+            source.mkdir(parents=True)
+            with patch.object(pbo, 'MISSION_FILES', {'one.json'}), \
+                    patch.object(pbo, 'route_inventory'):
+                with self.assertRaisesRegex(ValueError, 'refused hc_mission_file_missing=one.json'):
+                    probe.hc_mission_inputs(tree)
+                (source / 'one.json').write_bytes(b'{}')
+                (source / 'extra.json').write_bytes(b'ignored')
+                self.assertEqual(probe.hc_mission_inputs(tree), {'one.json': b'{}'})
+                (source / 'extra.json').unlink()
+                (source / 'extra.json').symlink_to(source / 'one.json')
+                with self.assertRaisesRegex(ValueError, 'hc_mission_irregular=extra.json'):
+                    probe.hc_mission_inputs(tree)
+
+    def test_prepare_only_default_and_vanilla_never_launch(self):
+        scratch = Path(__file__).resolve().parents[2] / '.banso'
+        scratch.mkdir(exist_ok=True)
+        for vanilla in (False, True):
+            with tempfile.TemporaryDirectory(dir=scratch) as temp, contextlib.ExitStack() as stack:
+                root = Path(temp)
+                stack.enter_context(patch.object(compile_gate.probe, 'safe', side_effect=lambda p: Path(p)))
+                stack.enter_context(patch('tools.release.host_lock.host_lock',
+                                          return_value=contextlib.nullcontext()))
+                stack.enter_context(patch.object(compile_gate, 'source_tree',
+                    return_value=contextlib.nullcontext(root)))
+                stack.enter_context(patch.object(compile_gate, 'ship_config'))
+                stack.enter_context(patch.object(compile_gate, 'compatibility_inputs',
+                    return_value=contextlib.nullcontext({})))
+                stack.enter_context(patch.object(compile_gate, 'compat_inputs',
+                    return_value=contextlib.nullcontext([])))
+                stack.enter_context(patch.object(pbo, 'collect_addon', return_value={}))
+                stack.enter_context(patch.object(pbo, 'pack', return_value=b'fixture'))
+                stage = stack.enter_context(patch.object(compile_gate, 'stage_release_pbos',
+                    return_value={} if vanilla else {'hc_mission_files': {'one.json': b'{}'}}))
+                launch = stack.enter_context(patch.object(compile_gate.probe, 'run'))
+                stack.enter_context(patch('sys.argv', ['compile_gate', '--prepare-only',
+                    '--cache', str(root / 'cache')] + (['--vanilla-mission'] if vanilla else [])))
+                output = stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                self.assertEqual(compile_gate.main(), 0)
+                launch.assert_not_called()
+                self.assertEqual(stage.call_args.kwargs['hc_mission_tree'], None if vanilla else root)
+                self.assertIn('hc_mission_files=0 mode=vanilla' if vanilla else
+                              'hc_mission_files=1 hc_mission_sha256=', output.getvalue())
+
+
 if __name__ == '__main__':
     unittest.main()
